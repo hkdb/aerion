@@ -1,0 +1,82 @@
+linters-settings:
+  govet:
+    check-shadowing: true
+  golint:
+    min-confidence: 0
+  gocyclo:
+    min-complexity: 15
+  maligned:
+    suggest-new: true
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+  depguard:
+    list-type: blacklist
+    packages:
+      - github.com/sirupsen/logrus
+    packages-with-error-message:
+      - github.com/sirupsen/logrus: "logging is done with rs/zerolog"
+  misspell:
+    locale: US
+  unused:
+    check-exported: false
+  unparam:
+    check-exported: false
+  nakedret:
+    max-func-lines: 30
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: false
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - wrapperFunc
+      - rangeValCopy
+      - hugeParam
+      - appendAssign
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - gosimple
+    - structcheck
+    - varcheck
+    - ineffassign
+    - deadcode
+    - typecheck
+    - bodyclose
+    - stylecheck
+    - revive
+    - unconvert
+    - goconst
+    - gocyclo
+    - gocognit
+    - asciicheck
+    - goprintffuncname
+    - exportloopref
+    - whitespace
+    - dogsled
+    - gocritic
+    - misspell
+    - nolintlint
+    - prealloc
+    - unparam
+
+run:
+  timeout: 5m
+  tests: true
+  skip-dirs:
+    - frontend
+    - build
+    - archive

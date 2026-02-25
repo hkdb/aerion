@@ -152,7 +152,10 @@ Prefixes:
 
 ```
 aerion/
-├── app.go              # Main Wails app (backend API)
+├── app/                # Main Wails application logic
+│   ├── app.go          # Main app structure
+│   ├── mailto.go       # Mailto URL parsing
+│   └── ...
 ├── internal/           # Internal Go packages
 │   ├── account/        # Account management
 │   ├── imap/           # IMAP client and connection pool
@@ -176,11 +179,11 @@ aerion/
 ### Running Tests
 
 ```bash
-# Go tests
+# Go tests (including unit tests for internal/ and app/)
 go test ./...
 
-# Frontend tests (if available)
-cd frontend && npm test
+# Run a specific package test
+go test -v ./app
 ```
 
 ### Writing Tests
