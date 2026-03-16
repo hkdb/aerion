@@ -160,6 +160,7 @@
     "failedToLoadMessage": "載入郵件失敗",
     "failedToLoadMessages": "載入郵件失敗。",
     "noContent": "無可用內容",
+    "downloadingContent": "正在下載郵件內容...",
     "copyLink": "複製連結",
     "remoteImagesBlocked": "遠端圖片已基於隱私被封鎖。",
     "loadImages": "載入圖片",

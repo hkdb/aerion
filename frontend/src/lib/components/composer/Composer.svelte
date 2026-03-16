@@ -342,10 +342,33 @@
   let showCloseConfirm = $state(false)
   let closeLoading = $state<'discard' | 'save' | null>(null)
   
+  // Get only the user-composed text, excluding quoted/forwarded content
+  function getUserComposedText(): string {
+    const FWD_SEPARATOR = '---------- Forwarded message ----------'
+    if (isPlainTextMode) {
+      // Reply: citation line ending in "wrote:"
+      const wroteIndex = plainTextContent.search(/^.*wrote:\s*$/m)
+      // Forward: separator line
+      const fwdIndex = plainTextContent.indexOf(FWD_SEPARATOR)
+      // Take the earliest match
+      const cutoff = [wroteIndex, fwdIndex].filter(i => i > -1)
+      if (cutoff.length > 0) return plainTextContent.substring(0, Math.min(...cutoff))
+      return plainTextContent
+    }
+    // In rich text, find the earliest of <blockquote (reply) or the forwarded message separator
+    const html = editor?.getHTML() || ''
+    const blockquoteIndex = html.indexOf('<blockquote')
+    const fwdIndex = html.indexOf(FWD_SEPARATOR)
+    const cutoffs = [blockquoteIndex, fwdIndex].filter(i => i > -1)
+    const userHtml = cutoffs.length > 0 ? html.substring(0, Math.min(...cutoffs)) : html
+    const tmp = document.createElement('div')
+    tmp.innerHTML = userHtml
+    return tmp.textContent || ''
+  }
+
   // Check if the email body contains keywords that suggest an attachment should be present
   function bodyMentionsAttachment(): boolean {
-    const bodyText = isPlainTextMode ? plainTextContent : (editor?.getText() || '')
-    const combinedText = bodyText + ' ' + subject
+    const combinedText = getUserComposedText() + ' ' + subject
     return textMentionsAttachment(combinedText)
   }
 

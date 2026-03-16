@@ -15,6 +15,7 @@
   import { accountStore } from '$lib/stores/accounts.svelte'
   import { addToast } from '$lib/stores/toast'
   import { loadSettings, getThemeMode, getShowTitleBar, getNativeTitleBar, getComposerMode, getMailtoMode } from '$lib/stores/settings.svelte'
+  import { loadImageAllowlist } from '$lib/stores/imageAllowlist.svelte'
   import { initTheme, applyThemeFromMode, handleSystemThemeEvent, handleMediaQueryChange } from '$lib/stores/theme.svelte'
   import { loadUIState, saveUIState, paneConstraints } from '$lib/stores/uiState.svelte'
   import {
@@ -235,6 +236,9 @@
     // Load application settings (including theme mode) and apply theme
     const storedThemeMode = await loadSettings()
     await initTheme(storedThemeMode)
+
+    // Load image allowlist cache for synchronous checks in EmailBody
+    loadImageAllowlist()
 
     // Check if terms have been accepted
     try {

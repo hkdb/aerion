@@ -128,6 +128,26 @@
   </provides>
 
   <releases>
+    <release version="0.1.36" date="2026-03-17">
+      <description>
+        <ul>
+          <li>Fixed username auto-fill in add account dialog</li>
+          <li>Fixed attachment warning logic - #79</li>
+          <li>Added u-inbox reload guards for better post sync behavior</li>
+          <li>Fixes for #78 and #76:</li>
+          <li>-- Added additional display render error detection - #74</li>
+          <li>-- Eliminated duplicate event emission from IDLE body fetch</li>
+          <li>-- Eliminated redundant webkit calls</li>
+          <li>-- Cache image allowlist on frontend</li>
+          <li>-- Handle messages still downloading better</li>
+          <li>-- Fixed Timer Leak in scheduleMarkAsRead</li>
+          <li>-- Increased max concurrent db connections</li>
+          <li>-- Added stale guards</li>
+          <li>-- Reload necessary messages only during sync</li>
+          <li>-- Filter unified inbox reloads to inbox folders only</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.35" date="2026-03-13">
       <description>
         <ul>

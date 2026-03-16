@@ -7,6 +7,7 @@
   import ConfirmDialog from '$lib/components/ui/confirm-dialog/ConfirmDialog.svelte'
   import { addToast } from '$lib/stores/toast'
   import { _ } from '$lib/i18n'
+  import { refreshImageAllowlist } from '$lib/stores/imageAllowlist.svelte'
   // @ts-ignore - wailsjs path
   import { settings } from '../../../../wailsjs/go/models'
   // @ts-ignore - wailsjs path
@@ -59,6 +60,7 @@
     try {
       await RemoveImageAllowlist(id)
       await loadData()
+      refreshImageAllowlist()
       addToast({
         type: 'success',
         message: $_('images.removed'),

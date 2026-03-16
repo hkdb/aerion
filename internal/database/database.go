@@ -18,14 +18,14 @@ const (
 	// MaxOpenConns limits concurrent database connections.
 	// SQLite with WAL mode only supports one writer at a time, so having many
 	// connections just increases lock contention. Keep this modest.
-	MaxOpenConns = 8
+	MaxOpenConns = 12
 
 	// BaseIdleConns is the minimum number of idle connections to keep.
-	BaseIdleConns = 2
+	BaseIdleConns = 3
 
 	// MaxIdleConns is the maximum number of idle connections to keep.
 	// This is capped to prevent excessive memory usage from warm connections.
-	MaxIdleConns = 4
+	MaxIdleConns = 6
 
 	// IdleConnsPerAccount is how many additional idle connections to keep per account.
 	IdleConnsPerAccount = 1

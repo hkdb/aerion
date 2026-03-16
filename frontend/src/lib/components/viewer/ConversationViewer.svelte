@@ -112,6 +112,9 @@
   let markAsReadTimer: ReturnType<typeof setTimeout> | null = null
   let pendingMarkAsReadIds = $state<Set<string>>(new Set()) // Track message IDs we're marking as read
 
+  // Debounce timer for refreshConversation (coalesces rapid sync events)
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null
+
   // Event listener cleanup functions
   let cleanupFunctions: (() => void)[] = []
 
@@ -215,22 +218,21 @@
     cleanupFunctions.push(
       EventsOn('messages:updated', (data: { accountId: string; folderId: string }) => {
         if (threadId && folderId && accountId && data.accountId === accountId && data.folderId === folderId) {
-          refreshConversation(threadId, folderId)
+          scheduleRefresh(threadId, folderId)
         }
       })
     )
 
     cleanupFunctions.push(
       EventsOn('folder:synced', (data: { accountId: string; folderId: string }) => {
-        if (threadId && folderId && accountId && data.accountId === accountId) {
+        if (threadId && folderId && accountId && data.accountId === accountId && data.folderId === folderId) {
           // If conversation hasn't loaded yet or errored, do a full load
           if (!conversation || error) {
             loadConversation(threadId, folderId)
             return
           }
           // Otherwise, smart refresh: only update DOM if messages actually changed.
-          // This covers cross-folder threads (e.g., sent reply appearing in Inbox conversation).
-          refreshConversation(threadId, folderId)
+          scheduleRefresh(threadId, folderId)
         }
       })
     )
@@ -286,10 +288,14 @@
   })
 
   onDestroy(() => {
-    // Clean up mark-as-read timer
+    // Clean up timers
     if (markAsReadTimer) {
       clearTimeout(markAsReadTimer)
       markAsReadTimer = null
+    }
+    if (refreshTimer) {
+      clearTimeout(refreshTimer)
+      refreshTimer = null
     }
     // Clean up all event listeners
     cleanupFunctions.forEach(cleanup => cleanup())
@@ -297,10 +303,18 @@
 
   // Load conversation when threadId changes
   $effect(() => {
+    // Clear pending refresh timer on any threadId change (full load supersedes refresh)
+    if (refreshTimer) {
+      clearTimeout(refreshTimer)
+      refreshTimer = null
+    }
+
     if (threadId && folderId) {
       // Setting is already loaded on mount - no need to fetch on every conversation switch
       loadConversation(threadId, folderId)
-    } else {
+    }
+
+    if (!threadId || !folderId) {
       // Clear any pending mark-as-read timer when navigating away
       if (markAsReadTimer) {
         clearTimeout(markAsReadTimer)
@@ -311,12 +325,26 @@
     }
   })
 
+  // Debounced refresh: coalesces rapid sync events (e.g. folder:synced + messages:updated)
+  // into a single refreshConversation call, reducing Wails bridge pressure.
+  function scheduleRefresh(tid: string, fid: string) {
+    if (refreshTimer) clearTimeout(refreshTimer)
+    refreshTimer = setTimeout(() => {
+      refreshTimer = null
+      refreshConversation(tid, fid)
+    }, 300)
+  }
+
   // Lightweight refresh: fetches the conversation but only updates the DOM
   // if something actually changed (new messages, different count, etc.).
   // This avoids the visible flash/re-render when a sync completes with no changes.
   async function refreshConversation(tid: string, fid: string) {
     try {
       const updated = await GetConversation(tid, fid)
+
+      // Stale guard: user navigated away while we were fetching
+      if (threadId !== tid) return
+
       if (!updated?.messages || updated.messages.length === 0) {
         dismissConversation(true)
         return
@@ -368,7 +396,12 @@
     error = null
 
     try {
-      conversation = await GetConversation(tid, fid)
+      const result = await GetConversation(tid, fid)
+
+      // Stale guard: user navigated away while we were fetching
+      if (threadId !== tid) return
+
+      conversation = result
 
       // Auto-expand unread messages and the last message
       if (conversation?.messages) {
@@ -466,6 +499,12 @@
 
   // Schedule marking messages as read based on user's delay setting
   function scheduleMarkAsRead(capturedThreadId: string, messages: messageModels.Message[]) {
+    // Clear any existing timer to prevent stale fires
+    if (markAsReadTimer) {
+      clearTimeout(markAsReadTimer)
+      markAsReadTimer = null
+    }
+
     // Get unread message IDs
     const unreadIds = messages.filter(m => !m.isRead).map(m => m.id)
     
@@ -1491,7 +1530,13 @@
 
                       <!-- Body (use on-view result for S/MIME or PGP messages) -->
                       <div class="mb-4">
-                        {#if (msg.hasSMIME && !smimeResults[msg.id] && smimeLoading.has(msg.id)) || (msg.hasPGP && !pgpResults[msg.id] && pgpLoading.has(msg.id))}
+                        {#if (msg as any).bodyFetched === false && !msg.bodyHtml && !msg.bodyText}
+                          <!-- Body not yet fetched (IDLE synced headers only) -->
+                          <div class="flex items-center gap-2 text-muted-foreground text-sm italic py-4">
+                            <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
+                            {$_('viewer.downloadingContent')}
+                          </div>
+                        {:else if (msg.hasSMIME && !smimeResults[msg.id] && smimeLoading.has(msg.id)) || (msg.hasPGP && !pgpResults[msg.id] && pgpLoading.has(msg.id))}
                           <!-- Show placeholder while processing -->
                           <div class="text-muted-foreground text-sm italic py-4">{$_('viewer.decryptingMessage')}</div>
                         {:else}

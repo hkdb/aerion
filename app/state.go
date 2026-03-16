@@ -36,7 +36,7 @@ type AppInfo struct {
 func (a *App) GetAppInfo() AppInfo {
 	return AppInfo{
 		Name:        "Aerion",
-		Version:     "0.1.35",
+		Version:     "0.1.36",
 		Description: "An Open Source Lightweight E-Mail Client",
 		Website:     "https://github.com/hkdb/aerion",
 		License:     "Apache 2.0",

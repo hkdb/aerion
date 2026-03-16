@@ -1,6 +1,25 @@
 # CHANGELOG
 
 
+**v0.1.36 - 03-17-2026**
+---
+
+- Fixed username auto-fill in add account dialog
+- Fixed attachment warning logic - [#79](https://github.com/hkdb/aerion/issues/79)
+- Added u-inbox reload guards for better post sync behavior
+- Added additional display render error detection - [#74](https://github.com/hkdb/aerion/issues/74)
+- Fixes for [#78](https://github.com/hkdb/aerion/issues/78) and [#76](https://github.com/hkdb/aerion/issues/76):
+    - Eliminated duplicate event emission from IDLE body fetch 
+    - Eliminated redundant webkit calls
+    - Cache image allowlist on frontend
+    - Handle messages still downloading better
+    - Fixed Timer Leak in scheduleMarkAsRead
+    - Increased max concurrent db connections
+    - Added stale guards
+    - Reload necessary messages only during sync
+    - Filter unified inbox reloads to inbox folders only
+
+
 **v0.1.35 - 03-13-2026**
 ---
 

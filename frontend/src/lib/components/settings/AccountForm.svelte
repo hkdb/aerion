@@ -73,6 +73,7 @@
   let displayName = $state('')
   let color = $state('')
   let email = $state('')
+  let prevEmail = $state('')
   let username = $state('')
   let password = $state('')
   let imapHost = $state('')
@@ -345,15 +346,15 @@
     step = 'details'
   }
 
-  // Auto-detect provider when email changes
-  function handleEmailChange(e: Event) {
-    const target = e.target as HTMLInputElement
-    email = target.value
+  // Auto-detect provider and auto-fill fields when email changes
+  $effect(() => {
+    if (!email) return
 
-    // Auto-fill username
-    if (!username || username === email.split('@')[0] + '@' + (selectedProvider?.domains[0] ?? '')) {
+    // Auto-fill username with full email
+    if (!username || username === prevEmail) {
       username = email
     }
+    prevEmail = email
 
     // Try to detect provider
     const detected = detectProvider(email)
@@ -368,7 +369,7 @@
         name = localPart.charAt(0).toUpperCase() + localPart.slice(1)
       }
     }
-  }
+  })
 
   // Build config from form fields
   function buildConfig(): account.AccountConfig {
@@ -615,8 +616,7 @@
             id="email"
             type="email"
             placeholder="you@example.com"
-            value={email}
-            oninput={handleEmailChange}
+            bind:value={email}
             class={errors.email ? 'border-destructive' : ''}
           />
           {#if errors.email}

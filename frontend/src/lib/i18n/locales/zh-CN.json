@@ -160,6 +160,7 @@
     "failedToLoadMessage": "加载邮件失败",
     "failedToLoadMessages": "加载邮件失败。",
     "noContent": "无可用内容",
+    "downloadingContent": "正在下载邮件内容...",
     "copyLink": "复制链接",
     "remoteImagesBlocked": "远程图片已出于隐私原因被屏蔽。",
     "loadImages": "加载图片",

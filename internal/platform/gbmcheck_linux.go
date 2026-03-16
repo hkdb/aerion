@@ -13,10 +13,15 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// MonitorGBMErrors intercepts stderr to detect WebKitGTK GBM buffer
-// allocation failures (black window in Flatpak). If detected, shows
-// a zenity dialog with the permanent fix command. Only runs in Flatpak.
-// All stderr output is still forwarded to the original stderr.
+// MonitorGBMErrors intercepts stderr to detect WebKitGTK DMABUF rendering
+// failures (black window in Flatpak). Detected patterns:
+//   - "Failed to create GBM buffer" (GBM allocation failure)
+//   - "Protocol error) dispatching to Wayland display" (Wayland protocol error)
+//   - "Failed to submit review to ODRS" (ODRS review submission error)
+//
+// If any pattern is detected, shows a zenity dialog with the permanent fix
+// command. Only runs in Flatpak. All stderr output is still forwarded to
+// the original stderr.
 func MonitorGBMErrors() {
 	if !IsFlatpak() {
 		return
@@ -54,7 +59,9 @@ func MonitorGBMErrors() {
 		scanner := bufio.NewScanner(io.TeeReader(pr, origStderr))
 		for scanner.Scan() {
 			line := scanner.Text()
-			if strings.Contains(line, "Failed to create GBM buffer") {
+			if strings.Contains(line, "Failed to create GBM buffer") ||
+			strings.Contains(line, "Protocol error) dispatching to Wayland display") ||
+			strings.Contains(line, "Failed to submit review to ODRS") {
 				once.Do(func() {
 					showGBMFixDialog()
 				})
@@ -68,7 +75,7 @@ func showGBMFixDialog() {
 	cmd := exec.Command("zenity", "--warning",
 		"--title=Aerion - Display Issue Detected",
 		"--text="+
-			"A GPU buffer allocation error was detected that may cause a black screen.\n\n"+
+			"A display rendering error was detected that may cause a blank window or crash.\n\n"+
 			"To fix this permanently, close Aerion and run:\n\n"+
 			"flatpak override --user --env=WEBKIT_DISABLE_DMABUF_RENDERER=1 io.github.hkdb.Aerion\n\n"+
 			"Then restart Aerion.",

@@ -77,6 +77,9 @@
   // Debounce timer for reloading after flag changes
   let reloadTimer: ReturnType<typeof setTimeout> | null = null
 
+  // Debounce timer for coalescing sync event reloads (fixes event flooding with 3+ accounts)
+  let syncReloadTimer: ReturnType<typeof setTimeout> | null = null
+
   // Buffer for flag changes that arrive while loadConversations() is in-flight.
   // On notification click, loadConversations (folder change) and MarkAsRead race —
   // the flagsChanged event may fire before the new conversations array is ready.
@@ -125,26 +128,44 @@
   let isIndexing = $state(false)
   let searchInputRef = $state<HTMLInputElement | null>(null)
 
+  // Check if a folder is an inbox by looking it up in the account store
+  function isInboxFolder(acctId: string, fldId: string): boolean {
+    const acct = accountStore.accounts.find(a => a.account.id === acctId)
+    if (!acct) return false
+    for (const tree of acct.folders) {
+      if (tree.folder?.id === fldId) return tree.folder.type === 'inbox'
+      for (const child of tree.children || []) {
+        if (child.folder?.id === fldId) return child.folder.type === 'inbox'
+      }
+    }
+    return false
+  }
+
+  // Schedule a debounced reload — coalesces rapid sync events from multiple accounts
+  // into a single loadConversations() call after they settle (300ms).
+  function scheduleReload() {
+    if (syncReloadTimer) clearTimeout(syncReloadTimer)
+    syncReloadTimer = setTimeout(() => {
+      syncReloadTimer = null
+      offset = 0
+      loadConversations()
+    }, 300)
+  }
+
   // Listen for folder sync events from backend
   onMount(() => {
     EventsOn('folder:synced', (data: { accountId: string; folderId: string }) => {
-      // Reload if this is the current folder or unified inbox (any inbox sync should refresh unified)
-      if (isUnifiedView || (accountId && folderId && data.accountId === accountId && data.folderId === folderId)) {
-        // Preserve loaded messages count, load at least PAGE_SIZE
-        const totalLoaded = Math.max(conversations.length, PAGE_SIZE)
-        offset = 0
-        loadConversations(totalLoaded)
+      // Reload if this is the current folder, or unified inbox when an inbox folder synced
+      if ((isUnifiedView && isInboxFolder(data.accountId, data.folderId)) || (!isUnifiedView && accountId && folderId && data.accountId === accountId && data.folderId === folderId)) {
+        scheduleReload()
       }
     })
 
     // Listen for messages:updated events (e.g., from IDLE push notifications)
     EventsOn('messages:updated', (data: { accountId: string; folderId: string }) => {
-      // Reload if this is the current folder or unified inbox
-      if (isUnifiedView || (accountId && folderId && data.accountId === accountId && data.folderId === folderId)) {
-        // Preserve loaded messages count, load at least PAGE_SIZE
-        const totalLoaded = Math.max(conversations.length, PAGE_SIZE)
-        offset = 0
-        loadConversations(totalLoaded)
+      // Reload if this is the current folder, or unified inbox when an inbox folder updated
+      if ((isUnifiedView && isInboxFolder(data.accountId, data.folderId)) || (!isUnifiedView && accountId && folderId && data.accountId === accountId && data.folderId === folderId)) {
+        scheduleReload()
       }
     })
 
@@ -214,6 +235,7 @@
     EventsOff('fts:complete')
     EventsOff('fts:indexing')
     if (reloadTimer) clearTimeout(reloadTimer)
+    if (syncReloadTimer) clearTimeout(syncReloadTimer)
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
   })
 

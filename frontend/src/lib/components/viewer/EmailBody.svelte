@@ -1,8 +1,9 @@
 <script lang="ts">
   import Icon from '@iconify/svelte'
   import { BrowserOpenURL } from '../../../../wailsjs/runtime/runtime'
-  import { GetInlineAttachments, IsImageAllowed, AddImageAllowlist, OpenURL } from '../../../../wailsjs/go/app/App'
+  import { GetInlineAttachments, AddImageAllowlist, OpenURL } from '../../../../wailsjs/go/app/App'
   import { getCached, setCache } from '../../stores/inlineAttachmentCache'
+  import { isImageAllowedSync, refreshImageAllowlist } from '$lib/stores/imageAllowlist.svelte'
   import { setFocusedPane, focusPreviousPane, focusNextPane } from '$lib/stores/keyboard.svelte'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { _ } from '$lib/i18n'
@@ -23,7 +24,6 @@
 
   // State for remote image handling
   let imagesBlocked = $state(true)
-  let allowlistResolved = $state(false)
   let iframeElement = $state<HTMLIFrameElement | null>(null)
   let iframeReady = $state(false)
 
@@ -422,6 +422,7 @@ ${processedHtml}
     if (!fromEmail) return
     try {
       await AddImageAllowlist('sender', fromEmail)
+      refreshImageAllowlist()
       loadImages()
     } catch (err) {
       console.error('[EmailBody] Failed to add sender to allowlist:', err)
@@ -434,6 +435,7 @@ ${processedHtml}
     if (!domain) return
     try {
       await AddImageAllowlist('domain', domain)
+      refreshImageAllowlist()
       loadImages()
     } catch (err) {
       console.error('[EmailBody] Failed to add domain to allowlist:', err)
@@ -441,43 +443,28 @@ ${processedHtml}
   }
 
   // Check allowlist and reset state on message change (single effect to avoid race conditions)
+  // Uses synchronous frontend cache instead of async Wails call to avoid bridge saturation.
   $effect(() => {
     const id = messageId
     const email = fromEmail
     const hasImages = hasRemoteImages
-    let cancelled = false
 
     // Reset state (was in separate effect — merged to avoid race)
     iframeReady = false
     lastSentMessageId = null
     inlineAttachments = {}
     imagesBlocked = true
-    allowlistResolved = false
 
-    if (!hasImages) {
-      allowlistResolved = true
-      return
-    }
+    if (!hasImages) return
 
     if (getAlwaysLoadImages()) {
       imagesBlocked = false
-      allowlistResolved = true
       return
     }
 
-    if (email) {
-      IsImageAllowed(email).then((allowed) => {
-        if (cancelled) return
-        if (allowed) imagesBlocked = false
-        allowlistResolved = true
-      }).catch((err) => {
-        console.error('[EmailBody] Failed to check allowlist:', err)
-        if (!cancelled) allowlistResolved = true
-      })
-      return () => { cancelled = true }
+    if (email && isImageAllowedSync(email)) {
+      imagesBlocked = false
     }
-
-    allowlistResolved = true
   })
 
   // Fetch inline attachments when we have cid references
@@ -522,8 +509,7 @@ ${processedHtml}
     const html = bodyHtml
     const blocked = imagesBlocked
 
-    const resolved = allowlistResolved
-    if (iframeElement && html && resolved) {
+    if (iframeElement && html) {
       const content = buildIframeContent(html)
       iframeElement.srcdoc = content
       iframeReady = false
@@ -603,7 +589,7 @@ ${processedHtml}
 
 <div class="email-body relative">
   {#if bodyHtml}
-    {#if hasRemoteImages && imagesBlocked && allowlistResolved}
+    {#if hasRemoteImages && imagesBlocked}
       <div class="flex items-center gap-2 px-3 py-2 mb-3 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-sm">
         <Icon icon="mdi:image-off" class="w-4 h-4 text-yellow-600 flex-shrink-0" />
         <span class="text-yellow-700 dark:text-yellow-400">{$_('viewer.remoteImagesBlocked')}</span>

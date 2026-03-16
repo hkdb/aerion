@@ -194,17 +194,22 @@ func (a *App) handleIdleNewMail(event imap.MailEvent) {
 		a.syncMu.Unlock()
 
 		go func(syncCtx context.Context, syncDays int, fID string, key string) {
+			var folderSynced bool // Track whether folder:synced was emitted (to avoid duplicate messages:updated)
+
 			// Cleanup context on completion
 			defer func() {
 				a.syncMu.Lock()
 				delete(a.syncContexts, key)
 				a.syncMu.Unlock()
 
-				// Also emit messages:updated so the message list refreshes
-				wailsRuntime.EventsEmit(a.ctx, "messages:updated", map[string]interface{}{
-					"accountId": event.AccountID,
-					"folderId":  fID,
-				})
+				// Only emit messages:updated if folder:synced wasn't already emitted
+				// (both trigger identical reloads in MessageList and ConversationViewer)
+				if !folderSynced {
+					wailsRuntime.EventsEmit(a.ctx, "messages:updated", map[string]interface{}{
+						"accountId": event.AccountID,
+						"folderId":  fID,
+					})
+				}
 				// Emit folder counts changed so sidebar unread badge updates
 				if updatedFolder, err := a.folderStore.Get(fID); err == nil && updatedFolder != nil {
 					wailsRuntime.EventsEmit(a.ctx, "folders:countsChanged", map[string]int{
@@ -230,6 +235,7 @@ func (a *App) handleIdleNewMail(event imap.MailEvent) {
 				if syncCtx.Err() != nil {
 					// Cancelled - not an error, emit synced
 					log.Debug().Str("folder", fID).Msg("IDLE body fetch cancelled")
+					folderSynced = true
 					wailsRuntime.EventsEmit(a.ctx, "folder:synced", map[string]interface{}{
 						"accountId": event.AccountID,
 						"folderId":  fID,
@@ -245,6 +251,7 @@ func (a *App) handleIdleNewMail(event imap.MailEvent) {
 				}
 			} else {
 				// Success
+				folderSynced = true
 				wailsRuntime.EventsEmit(a.ctx, "folder:synced", map[string]interface{}{
 					"accountId": event.AccountID,
 					"folderId":  fID,
@@ -286,17 +293,6 @@ func (a *App) handleNewMailNotification(info sync.NewMailInfo) {
 			}
 		}
 	}
-
-	// Emit event to frontend for UI updates
-	wailsRuntime.EventsEmit(a.ctx, "mail:newMail", map[string]interface{}{
-		"accountId":   info.AccountID,
-		"accountName": info.AccountName,
-		"folderId":    info.FolderID,
-		"count":       info.Count,
-		"subject":     subject,
-		"fromName":    fromName,
-		"fromEmail":   fromEmail,
-	})
 
 	// Send system notification
 	a.sendSystemNotification(info, subject, fromName, fromEmail, threadID)

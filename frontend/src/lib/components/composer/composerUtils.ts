@@ -138,18 +138,21 @@ export function addParagraphStyles(html: string): string {
 export const ATTACHMENT_KEYWORDS = [
   'attach', 'attached', 'attaching', 'attachment', 'attachments',
   'enclosed', 'enclosing', 'enclose',
-  'file', 'files',
-  'document', 'documents',
-  'see attached', 'please find attached', 'i have attached', "i've attached",
-  'sending you', 'included'
+  'see attached', 'please find attached', 'i have attached', "i've attached"
 ]
 
 /**
- * Check if text contains keywords that suggest an attachment should be present
+ * Check if text contains keywords that suggest an attachment should be present.
+ * Uses word-boundary matching to avoid false positives from substrings.
  */
 export function textMentionsAttachment(text: string): boolean {
   const lowerText = text.toLowerCase()
-  return ATTACHMENT_KEYWORDS.some(keyword => lowerText.includes(keyword.toLowerCase()))
+  return ATTACHMENT_KEYWORDS.some(keyword => {
+    // Handle curly apostrophes so "i've" matches both i've and i've
+    const escaped = keyword.replace(/'/g, "['\u2019]")
+    const pattern = new RegExp(`\\b${escaped}\\b`)
+    return pattern.test(lowerText)
+  })
 }
 
 /**
