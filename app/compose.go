@@ -352,8 +352,13 @@ func (ops *composeOps) sendMessage(ctx context.Context, accountID string, msg sm
 	smtpConfig.Host = acc.SMTPHost
 	smtpConfig.Port = acc.SMTPPort
 	smtpConfig.Security = smtp.SecurityType(acc.SMTPSecurity)
-	smtpConfig.Username = acc.Username
 	smtpConfig.TLSConfig = certificate.BuildTLSConfig(acc.SMTPHost, ops.certStore)
+
+	smtpUsername, err := resolveSMTPAuthUsername(ops.accountStore, acc)
+	if err != nil {
+		return nil, err
+	}
+	smtpConfig.Username = smtpUsername
 
 	// Handle authentication based on auth type
 	switch acc.AuthType {

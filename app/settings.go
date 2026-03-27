@@ -305,10 +305,15 @@ func (a *App) SendReadReceipt(accountID, messageID string) error {
 	}
 
 	// Create SMTP config
+	smtpUsername, err := resolveSMTPAuthUsername(a.accountStore, acc)
+	if err != nil {
+		return err
+	}
+
 	smtpConfig := smtp.ClientConfig{
 		Host:      acc.SMTPHost,
 		Port:      acc.SMTPPort,
-		Username:  acc.Username,
+		Username:  smtpUsername,
 		Security:  smtp.SecurityType(acc.SMTPSecurity),
 		TLSConfig: certificate.BuildTLSConfig(acc.SMTPHost, a.certStore),
 	}
