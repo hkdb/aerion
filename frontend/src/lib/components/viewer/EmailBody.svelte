@@ -37,12 +37,6 @@
   let tooltipX = $state(0)
   let tooltipY = $state(0)
 
-  // Link context menu state
-  let linkContextMenuVisible = $state(false)
-  let linkContextMenuUrl = $state('')
-  let linkContextMenuX = $state(0)
-  let linkContextMenuY = $state(0)
-  
   // Derived state
   let hasRemoteImages = $derived(checkForRemoteImages(bodyHtml))
   let hasCidReferences = $derived(bodyHtml ? /src=["']cid:([^"']+)["']/i.test(bodyHtml) : false)
@@ -187,21 +181,6 @@
         var link = e.target.closest('a');
         if (link && link.href) {
           window.parent.postMessage({ type: 'link-hover-end' }, '*');
-        }
-      });
-
-      // Handle right-click context menu for links
-      document.addEventListener('contextmenu', function(e) {
-        var link = e.target.closest('a');
-        if (link && link.href) {
-          e.preventDefault();
-          var rect = link.getBoundingClientRect();
-          window.parent.postMessage({
-            type: 'link-contextmenu',
-            url: link.href,
-            x: e.clientX,
-            y: e.clientY
-          }, '*');
         }
       });
 
@@ -384,15 +363,6 @@ ${processedHtml}
     } else if (event.data?.type === 'link-hover-end') {
       // Hide tooltip
       tooltipVisible = false
-    } else if (event.data?.type === 'link-contextmenu') {
-      // Show context menu for link - adjust coordinates relative to iframe position
-      if (iframeElement) {
-        const iframeRect = iframeElement.getBoundingClientRect()
-        linkContextMenuUrl = event.data.url
-        linkContextMenuX = iframeRect.left + event.data.x
-        linkContextMenuY = iframeRect.top + event.data.y
-        linkContextMenuVisible = true
-      }
     }
   }
 
@@ -574,17 +544,6 @@ ${processedHtml}
     return escaped
   }
 
-  // Copy link to clipboard
-  async function copyLinkToClipboard() {
-    if (linkContextMenuUrl) {
-      try {
-        await navigator.clipboard.writeText(linkContextMenuUrl)
-        linkContextMenuVisible = false
-      } catch (err) {
-        console.error('[EmailBody] Failed to copy link:', err)
-      }
-    }
-  }
 </script>
 
 <div class="email-body relative">
@@ -652,39 +611,4 @@ ${processedHtml}
       {tooltipUrl}
     </div>
   {/if}
-
-  <!-- Link context menu -->
-  {#if linkContextMenuVisible}
-    <div
-      class="fixed z-50 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[160px]"
-      style="left: {linkContextMenuX}px; top: {linkContextMenuY}px;"
-      role="menu"
-    >
-      <button
-        class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-        onclick={copyLinkToClipboard}
-      >
-        <Icon icon="mdi:content-copy" class="w-4 h-4" />
-        {$_('viewer.copyLink')}
-      </button>
-      <button
-        class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-        onclick={() => linkContextMenuVisible = false}
-      >
-        <Icon icon="mdi:close" class="w-4 h-4" />
-        {$_('common.cancel')}
-      </button>
-    </div>
-  {/if}
 </div>
-
-<!-- Click outside to close context menu -->
-{#if linkContextMenuVisible}
-  <button
-    type="button"
-    class="fixed inset-0 z-40 cursor-default"
-    aria-label={$_('aria.closeContextMenu')}
-    onclick={() => linkContextMenuVisible = false}
-    onkeydown={(e) => { if (e.key === 'Escape') linkContextMenuVisible = false }}
-  ></button>
-{/if}
