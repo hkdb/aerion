@@ -2,7 +2,11 @@
   import { onMount } from 'svelte'
   import Icon from '@iconify/svelte'
   import { Button } from '$lib/components/ui/button'
+  import { Input } from '$lib/components/ui/input'
+  import { Label } from '$lib/components/ui/label'
+  import * as Dialog from '$lib/components/ui/dialog'
   import IdentityEditor from './IdentityEditor.svelte'
+  import { accountStore } from '$lib/stores/accounts.svelte'
   import { addToast } from '$lib/stores/toast'
   import { _ } from '$lib/i18n'
   // @ts-ignore - wailsjs path
@@ -11,18 +15,22 @@
   import { GetIdentities, CreateIdentity, UpdateIdentity, DeleteIdentity, SetDefaultIdentity } from '../../../../../wailsjs/go/app/App'
 
   interface Props {
-    /** The account being edited */
     accountId: string
+    accountData?: account.Account | null
   }
 
-  let { accountId }: Props = $props()
+  let { accountId, accountData = null }: Props = $props()
 
-  // State
   let identities = $state<account.Identity[]>([])
   let loading = $state(true)
   let showEditor = $state(false)
   let editingIdentity = $state<account.Identity | null>(null)
   let deletingId = $state<string | null>(null)
+  let showSharedMailboxDialog = $state(false)
+  let sharedMailboxEmail = $state('')
+  let sharedMailboxDisplayName = $state('')
+  let addingSharedMailbox = $state(false)
+  let sharedMailboxError = $state('')
 
   onMount(async () => {
     await loadIdentities()
@@ -55,14 +63,12 @@
 
   async function handleSaveIdentity(config: account.IdentityConfig) {
     if (editingIdentity) {
-      // Update existing
       await UpdateIdentity(editingIdentity.id, config)
       addToast({
         type: 'success',
         message: $_('identity.emailUpdated'),
       })
     } else {
-      // Create new
       await CreateIdentity(accountId, config)
       addToast({
         type: 'success',
@@ -119,21 +125,62 @@
     }
   }
 
-  // Get a preview of the signature (first line, truncated)
   function getSignaturePreview(identity: account.Identity): string {
     if (!identity.signatureEnabled) return $_('identity.noSignature')
     if (!identity.signatureHtml) return $_('identity.noSignature')
-    
-    // Strip HTML and get first line
+
     const temp = document.createElement('div')
     temp.innerHTML = identity.signatureHtml
     const text = temp.textContent || ''
     const firstLine = text.split('\n')[0].trim()
-    
+
     if (firstLine.length > 50) {
       return firstLine.substring(0, 50) + '...'
     }
     return firstLine || $_('identity.emptySignature')
+  }
+
+  function canAddSharedMailbox(): boolean {
+    return accountData?.provider === 'microsoft' &&
+      accountData?.kind === 'primary' &&
+      accountData?.authType === 'oauth2'
+  }
+
+  function openSharedMailboxDialog() {
+    sharedMailboxEmail = ''
+    sharedMailboxDisplayName = ''
+    sharedMailboxError = ''
+    showSharedMailboxDialog = true
+  }
+
+  async function handleAddSharedMailbox() {
+    sharedMailboxError = ''
+    const email = sharedMailboxEmail.trim()
+    const displayName = sharedMailboxDisplayName.trim() || email
+
+    if (!email) {
+      sharedMailboxError = $_('identity.sharedMailboxEmailRequired')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      sharedMailboxError = $_('identity.sharedMailboxEmailInvalid')
+      return
+    }
+
+    addingSharedMailbox = true
+    try {
+      await accountStore.addMicrosoftSharedMailbox(accountId, email, displayName)
+      addToast({
+        type: 'success',
+        message: $_('identity.sharedMailboxAdded', { values: { email } }),
+      })
+      showSharedMailboxDialog = false
+    } catch (err) {
+      console.error('Failed to add shared mailbox:', err)
+      sharedMailboxError = err instanceof Error ? err.message : String(err)
+    } finally {
+      addingSharedMailbox = false
+    }
   }
 </script>
 
@@ -148,10 +195,18 @@
         {$_('identity.emailAddressesHelp')}
       </p>
     </div>
-    <Button size="sm" onclick={handleAddIdentity}>
-      <Icon icon="mdi:plus" class="w-4 h-4 mr-1" />
-      {$_('identity.addEmailAddress')}
-    </Button>
+    <div class="flex items-center gap-2">
+      {#if canAddSharedMailbox()}
+        <Button size="sm" variant="outline" onclick={openSharedMailboxDialog}>
+          <Icon icon="mdi:mailbox-outline" class="w-4 h-4 mr-1" />
+          {$_('identity.addSharedMailbox')}
+        </Button>
+      {/if}
+      <Button size="sm" onclick={handleAddIdentity}>
+        <Icon icon="mdi:plus" class="w-4 h-4 mr-1" />
+        {$_('identity.addEmailAddress')}
+      </Button>
+    </div>
   </div>
 
   {#if loading}
@@ -167,13 +222,12 @@
     <div class="space-y-2">
       {#each identities as identity (identity.id)}
         <div class="flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors group">
-          <!-- Default radio button -->
           <button
             type="button"
             onclick={() => handleSetDefault(identity)}
             class="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors
-              {identity.isDefault 
-                ? 'border-primary bg-primary' 
+              {identity.isDefault
+                ? 'border-primary bg-primary'
                 : 'border-muted-foreground hover:border-primary'}"
             title={identity.isDefault ? $_('identity.defaultAddress') : $_('identity.setAsDefaultAddress')}
           >
@@ -182,7 +236,6 @@
             {/if}
           </button>
 
-          <!-- Identity info -->
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <span class="font-medium text-sm truncate">{identity.email}</span>
@@ -199,7 +252,6 @@
             </div>
           </div>
 
-          <!-- Actions -->
           <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               variant="ghost"
@@ -235,7 +287,58 @@
   </p>
 </div>
 
-<!-- Identity Editor Dialog -->
+<Dialog.Root bind:open={showSharedMailboxDialog}>
+  <Dialog.Content class="max-w-md">
+    <Dialog.Header>
+      <Dialog.Title>{$_('identity.addSharedMailboxTitle')}</Dialog.Title>
+      <Dialog.Description>
+        {$_('identity.addSharedMailboxDescription')}
+      </Dialog.Description>
+    </Dialog.Header>
+
+    <form onsubmit={(e) => { e.preventDefault(); handleAddSharedMailbox() }} class="space-y-4">
+      <div class="space-y-2">
+        <Label for="sharedMailboxEmail">{$_('identity.sharedMailboxEmailLabel')}</Label>
+        <Input
+          id="sharedMailboxEmail"
+          type="email"
+          placeholder={$_('identity.sharedMailboxEmailPlaceholder')}
+          bind:value={sharedMailboxEmail}
+        />
+      </div>
+
+      <div class="space-y-2">
+        <Label for="sharedMailboxDisplayName">{$_('identity.sharedMailboxDisplayNameLabel')}</Label>
+        <Input
+          id="sharedMailboxDisplayName"
+          type="text"
+          placeholder={$_('identity.sharedMailboxDisplayNamePlaceholder')}
+          bind:value={sharedMailboxDisplayName}
+        />
+        <p class="text-xs text-muted-foreground">
+          {$_('identity.sharedMailboxDisplayNameHelp')}
+        </p>
+      </div>
+
+      {#if sharedMailboxError}
+        <p class="text-sm text-destructive">{sharedMailboxError}</p>
+      {/if}
+
+      <Dialog.Footer>
+        <Button type="button" variant="ghost" onclick={() => showSharedMailboxDialog = false} disabled={addingSharedMailbox}>
+          {$_('common.cancel')}
+        </Button>
+        <Button type="submit" disabled={addingSharedMailbox}>
+          {#if addingSharedMailbox}
+            <Icon icon="mdi:loading" class="w-4 h-4 mr-2 animate-spin" />
+          {/if}
+          {$_('identity.addSharedMailboxButton')}
+        </Button>
+      </Dialog.Footer>
+    </form>
+  </Dialog.Content>
+</Dialog.Root>
+
 <IdentityEditor
   bind:open={showEditor}
   {accountId}

@@ -22,6 +22,10 @@ export function AddImageAllowlist(arg1, arg2) {
   return window['go']['app']['App']['AddImageAllowlist'](arg1, arg2);
 }
 
+export function AddMicrosoftSharedMailbox(arg1, arg2, arg3) {
+  return window['go']['app']['App']['AddMicrosoftSharedMailbox'](arg1, arg2, arg3);
+}
+
 export function AddPGPKeyServer(arg1) {
   return window['go']['app']['App']['AddPGPKeyServer'](arg1);
 }

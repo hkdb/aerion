@@ -152,6 +152,9 @@
         displayName,
         color,
         email,
+        kind: editAccount.kind,
+        provider: editAccount.provider,
+        oauthSourceAccountId: editAccount.oauthSourceAccountId,
         username: username || email,
         password: password, // Empty = keep current
         imapHost,
@@ -335,7 +338,7 @@
           </Tabs.Content>
 
           <Tabs.Content value="identity" class="mt-0">
-            <AccountIdentityTab accountId={editAccount.id} />
+            <AccountIdentityTab accountId={editAccount.id} accountData={editAccount} />
           </Tabs.Content>
 
           <Tabs.Content value="security" class="mt-0">

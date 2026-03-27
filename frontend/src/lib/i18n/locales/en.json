@@ -665,7 +665,19 @@
     "addSeparator": "Add separator line before signature",
     "saveIdentityChanges": "Save Changes",
     "saveFailed": "Failed to save identity.",
-    "addEmailAddressButton": "Add Email Address"
+    "addEmailAddressButton": "Add Email Address",
+    "addSharedMailbox": "Add Shared Mailbox",
+    "addSharedMailboxTitle": "Add Shared Mailbox",
+    "addSharedMailboxDescription": "Add a Microsoft 365 shared mailbox using this account's existing sign-in.",
+    "sharedMailboxEmailLabel": "Shared mailbox email",
+    "sharedMailboxEmailPlaceholder": "shared@company.com",
+    "sharedMailboxDisplayNameLabel": "Display name",
+    "sharedMailboxDisplayNamePlaceholder": "Support Team",
+    "sharedMailboxDisplayNameHelp": "Used for the default sender identity of the shared mailbox.",
+    "sharedMailboxEmailRequired": "Shared mailbox email is required.",
+    "sharedMailboxEmailInvalid": "Enter a valid shared mailbox email address.",
+    "sharedMailboxAdded": "Shared mailbox added: {email}",
+    "addSharedMailboxButton": "Add Mailbox"
   },
   "security": {
     "smime": "S/MIME",

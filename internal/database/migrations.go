@@ -690,4 +690,28 @@ var migrations = []Migration{
 				('https://pgp.mit.edu', 2);
 		`,
 	},
+	{
+		Version: 26,
+		SQL: `
+			-- Linked/shared mailbox support
+			ALTER TABLE accounts ADD COLUMN kind TEXT NOT NULL DEFAULT 'primary';
+			ALTER TABLE accounts ADD COLUMN provider TEXT NOT NULL DEFAULT '';
+			ALTER TABLE accounts ADD COLUMN oauth_source_account_id TEXT REFERENCES accounts(id) ON DELETE CASCADE;
+
+			UPDATE accounts
+			SET provider = 'microsoft'
+			WHERE provider = ''
+				AND auth_type = 'oauth2'
+				AND imap_host = 'outlook.office365.com';
+
+			UPDATE accounts
+			SET provider = 'google'
+			WHERE provider = ''
+				AND auth_type = 'oauth2'
+				AND imap_host = 'imap.gmail.com';
+
+			CREATE INDEX IF NOT EXISTS idx_accounts_oauth_source_account ON accounts(oauth_source_account_id);
+			CREATE INDEX IF NOT EXISTS idx_accounts_kind_provider ON accounts(kind, provider);
+		`,
+	},
 }

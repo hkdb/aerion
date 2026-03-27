@@ -129,6 +129,8 @@ func (a *App) CompleteOAuthAccountSetup(provider, email, accountName, displayNam
 			DisplayName:    displayName,
 			Color:          color,
 			Email:          email,
+			Kind:           account.AccountKindPrimary,
+			Provider:       provider,
 			Username:       email,
 			AuthType:       account.AuthOAuth2,
 			IMAPHost:       "imap.gmail.com",
@@ -146,6 +148,8 @@ func (a *App) CompleteOAuthAccountSetup(provider, email, accountName, displayNam
 			DisplayName:    displayName,
 			Color:          color,
 			Email:          email,
+			Kind:           account.AccountKindPrimary,
+			Provider:       provider,
 			Username:       email,
 			AuthType:       account.AuthOAuth2,
 			IMAPHost:       "outlook.office365.com",
@@ -258,8 +262,21 @@ func (a *App) SavePendingOAuthTokens(accountID string) error {
 		return fmt.Errorf("no pending OAuth tokens to save")
 	}
 
+	acc, err := a.accountStore.Get(accountID)
+	if err != nil {
+		return fmt.Errorf("failed to get account: %w", err)
+	}
+	if acc == nil {
+		return fmt.Errorf("account not found: %s", accountID)
+	}
+
+	providerAccountID := accountID
+	if acc.OAuthSourceAccountID != "" {
+		providerAccountID = acc.OAuthSourceAccountID
+	}
+
 	// Get the provider from the account
-	provider, err := a.credStore.GetOAuthProvider(accountID)
+	provider, err := a.credStore.GetOAuthProvider(providerAccountID)
 	if err != nil || provider == "" {
 		return fmt.Errorf("could not determine OAuth provider for account")
 	}
@@ -281,12 +298,12 @@ func (a *App) SavePendingOAuthTokens(accountID string) error {
 		Scopes:       providerConfig.Scopes,
 	}
 
-	if err := a.credStore.SetOAuthTokens(accountID, tokens); err != nil {
+	if err := a.credStore.SetOAuthTokens(providerAccountID, tokens); err != nil {
 		return fmt.Errorf("failed to store OAuth tokens: %w", err)
 	}
 
 	log.Info().
-		Str("accountID", accountID).
+		Str("accountID", providerAccountID).
 		Str("provider", provider).
 		Time("expiresAt", expiresAt).
 		Msg("Pending OAuth tokens saved to account")
@@ -331,10 +348,15 @@ func (a *App) GetOAuthStatus(accountID string) (*OAuthStatus, error) {
 	}
 
 	// Get OAuth token info
-	tokens, err := a.credStore.GetOAuthTokens(accountID)
+	tokenAccountID := accountID
+	if acc.OAuthSourceAccountID != "" {
+		tokenAccountID = acc.OAuthSourceAccountID
+	}
+	tokens, err := a.credStore.GetOAuthTokens(tokenAccountID)
 	if err != nil {
 		// Tokens not found - needs re-auth
 		status.NeedsReauth = true
+		status.Provider = acc.Provider
 		return status, nil
 	}
 
@@ -380,14 +402,19 @@ func (a *App) ReauthorizeAccount(accountID string) error {
 		return fmt.Errorf("account is not an OAuth account")
 	}
 
+	providerAccountID := accountID
+	if acc.OAuthSourceAccountID != "" {
+		providerAccountID = acc.OAuthSourceAccountID
+	}
+
 	// Get the provider from stored tokens
-	provider, err := a.credStore.GetOAuthProvider(accountID)
+	provider, err := a.credStore.GetOAuthProvider(providerAccountID)
 	if err != nil || provider == "" {
 		return fmt.Errorf("could not determine OAuth provider for account")
 	}
 
 	log.Info().
-		Str("accountID", accountID).
+		Str("accountID", providerAccountID).
 		Str("provider", provider).
 		Msg("Starting re-authorization for account")
 

@@ -58,7 +58,19 @@ type composeOps struct {
 func (ops *composeOps) getValidOAuthToken(ctx context.Context, accountID string) (*credentials.OAuthTokens, error) {
 	log := logging.WithComponent("composeOps")
 
-	tokens, err := ops.credStore.GetOAuthTokens(accountID)
+	tokenAccountID := accountID
+	acc, err := ops.accountStore.Get(accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get account: %w", err)
+	}
+	if acc == nil {
+		return nil, fmt.Errorf("account not found: %s", accountID)
+	}
+	if acc.OAuthSourceAccountID != "" {
+		tokenAccountID = acc.OAuthSourceAccountID
+	}
+
+	tokens, err := ops.credStore.GetOAuthTokens(tokenAccountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OAuth tokens: %w", err)
 	}
@@ -69,7 +81,7 @@ func (ops *composeOps) getValidOAuthToken(ctx context.Context, accountID string)
 	}
 
 	log.Debug().
-		Str("account_id", accountID).
+		Str("account_id", tokenAccountID).
 		Time("expires_at", tokens.ExpiresAt).
 		Msg("OAuth token expiring soon, refreshing")
 
@@ -77,12 +89,12 @@ func (ops *composeOps) getValidOAuthToken(ctx context.Context, accountID string)
 	newTokenResp, err := ops.oauth2Manager.RefreshToken(tokens.Provider, tokens.RefreshToken)
 	if err != nil {
 		log.Error().Err(err).
-			Str("account_id", accountID).
+			Str("account_id", tokenAccountID).
 			Msg("OAuth token refresh failed")
 
 		// Emit event for frontend to prompt re-authorization
 		wailsRuntime.EventsEmit(ctx, "oauth:reauth-required", map[string]interface{}{
-			"accountId": accountID,
+			"accountId": tokenAccountID,
 			"provider":  tokens.Provider,
 			"error":     err.Error(),
 		})
@@ -100,13 +112,13 @@ func (ops *composeOps) getValidOAuthToken(ctx context.Context, accountID string)
 		tokens.RefreshToken = newTokenResp.RefreshToken
 	}
 
-	if err := ops.credStore.SetOAuthTokens(accountID, tokens); err != nil {
+	if err := ops.credStore.SetOAuthTokens(tokenAccountID, tokens); err != nil {
 		log.Warn().Err(err).Msg("Failed to save refreshed OAuth tokens")
 		// Continue anyway - we have valid tokens in memory
 	}
 
 	log.Info().
-		Str("account_id", accountID).
+		Str("account_id", tokenAccountID).
 		Time("new_expires_at", expiresAt).
 		Msg("OAuth token refreshed successfully")
 
@@ -899,7 +911,7 @@ func quoteText(s string) string {
 func providerAutoSavesSentMail(host string) bool {
 	host = strings.ToLower(host)
 	autoSaveProviders := []string{
-		"imap.gmail.com",       // Gmail
+		"imap.gmail.com",        // Gmail
 		"outlook.office365.com", // Microsoft 365
 		"imap-mail.outlook.com", // Outlook.com
 	}
@@ -1012,4 +1024,3 @@ func detectContentType(filename string) string {
 		return "application/octet-stream"
 	}
 }
-

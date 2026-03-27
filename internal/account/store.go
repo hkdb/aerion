@@ -77,6 +77,9 @@ func (s *Store) Create(config *AccountConfig) (*Account, error) {
 		ID:                       uuid.New().String(),
 		Name:                     config.Name,
 		Email:                    config.Email,
+		Kind:                     config.Kind,
+		Provider:                 config.Provider,
+		OAuthSourceAccountID:     config.OAuthSourceAccountID,
 		IMAPHost:                 config.IMAPHost,
 		IMAPPort:                 config.IMAPPort,
 		IMAPSecurity:             config.IMAPSecurity,
@@ -104,7 +107,7 @@ func (s *Store) Create(config *AccountConfig) (*Account, error) {
 
 	_, err = s.db.Exec(`
 		INSERT INTO accounts (
-			id, name, email,
+			id, name, email, kind, provider, oauth_source_account_id,
 			imap_host, imap_port, imap_security,
 			smtp_host, smtp_port, smtp_security,
 			auth_type, username,
@@ -114,9 +117,9 @@ func (s *Store) Create(config *AccountConfig) (*Account, error) {
 			spam_folder_path, archive_folder_path, all_mail_folder_path,
 			starred_folder_path,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
-		account.ID, account.Name, account.Email,
+		account.ID, account.Name, account.Email, account.Kind, account.Provider, nullableString(account.OAuthSourceAccountID),
 		account.IMAPHost, account.IMAPPort, account.IMAPSecurity,
 		account.SMTPHost, account.SMTPPort, account.SMTPSecurity,
 		account.AuthType, account.Username,
@@ -156,9 +159,9 @@ func (s *Store) Create(config *AccountConfig) (*Account, error) {
 // Get retrieves an account by ID
 func (s *Store) Get(id string) (*Account, error) {
 	account := &Account{}
-	var sentPath, draftsPath, trashPath, spamPath, archivePath, allMailPath, starredPath sql.NullString
+	var sentPath, draftsPath, trashPath, spamPath, archivePath, allMailPath, starredPath, oauthSourceAccountID sql.NullString
 	err := s.db.QueryRow(`
-		SELECT id, name, email,
+		SELECT id, name, email, kind, provider, oauth_source_account_id,
 			imap_host, imap_port, imap_security,
 			smtp_host, smtp_port, smtp_security,
 			auth_type, username,
@@ -170,7 +173,7 @@ func (s *Store) Get(id string) (*Account, error) {
 			created_at, updated_at
 		FROM accounts WHERE id = ?
 	`, id).Scan(
-		&account.ID, &account.Name, &account.Email,
+		&account.ID, &account.Name, &account.Email, &account.Kind, &account.Provider, &oauthSourceAccountID,
 		&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity,
 		&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity,
 		&account.AuthType, &account.Username,
@@ -188,6 +191,7 @@ func (s *Store) Get(id string) (*Account, error) {
 		return nil, fmt.Errorf("failed to get account: %w", err)
 	}
 	// Map nullable strings to account fields
+	account.OAuthSourceAccountID = oauthSourceAccountID.String
 	account.SentFolderPath = sentPath.String
 	account.DraftsFolderPath = draftsPath.String
 	account.TrashFolderPath = trashPath.String
@@ -201,7 +205,7 @@ func (s *Store) Get(id string) (*Account, error) {
 // List retrieves all accounts ordered by order_index
 func (s *Store) List() ([]*Account, error) {
 	rows, err := s.db.Query(`
-		SELECT id, name, email,
+		SELECT id, name, email, kind, provider, oauth_source_account_id,
 			imap_host, imap_port, imap_security,
 			smtp_host, smtp_port, smtp_security,
 			auth_type, username,
@@ -221,9 +225,9 @@ func (s *Store) List() ([]*Account, error) {
 	var accounts []*Account
 	for rows.Next() {
 		account := &Account{}
-		var sentPath, draftsPath, trashPath, spamPath, archivePath, allMailPath, starredPath sql.NullString
+		var sentPath, draftsPath, trashPath, spamPath, archivePath, allMailPath, starredPath, oauthSourceAccountID sql.NullString
 		err := rows.Scan(
-			&account.ID, &account.Name, &account.Email,
+			&account.ID, &account.Name, &account.Email, &account.Kind, &account.Provider, &oauthSourceAccountID,
 			&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity,
 			&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity,
 			&account.AuthType, &account.Username,
@@ -238,6 +242,7 @@ func (s *Store) List() ([]*Account, error) {
 			return nil, fmt.Errorf("failed to scan account: %w", err)
 		}
 		// Map nullable strings to account fields
+		account.OAuthSourceAccountID = oauthSourceAccountID.String
 		account.SentFolderPath = sentPath.String
 		account.DraftsFolderPath = draftsPath.String
 		account.TrashFolderPath = trashPath.String
@@ -266,7 +271,7 @@ func (s *Store) Update(id string, config *AccountConfig) (*Account, error) {
 	now := time.Now()
 	_, err = s.db.Exec(`
 		UPDATE accounts SET
-			name = ?, email = ?,
+			name = ?, email = ?, provider = ?,
 			imap_host = ?, imap_port = ?, imap_security = ?,
 			smtp_host = ?, smtp_port = ?, smtp_security = ?,
 			auth_type = ?, username = ?,
@@ -278,7 +283,7 @@ func (s *Store) Update(id string, config *AccountConfig) (*Account, error) {
 			updated_at = ?
 		WHERE id = ?
 	`,
-		config.Name, config.Email,
+		config.Name, config.Email, config.Provider,
 		config.IMAPHost, config.IMAPPort, config.IMAPSecurity,
 		config.SMTPHost, config.SMTPPort, config.SMTPSecurity,
 		config.AuthType, config.Username,
@@ -293,16 +298,17 @@ func (s *Store) Update(id string, config *AccountConfig) (*Account, error) {
 		return nil, fmt.Errorf("failed to update account: %w", err)
 	}
 
-	// Update the default identity's name (display name for sending)
+	// Keep the default identity aligned with the account's primary mailbox settings.
 	_, err = s.db.Exec(`
-		UPDATE identities SET name = ? WHERE account_id = ? AND is_default = 1
-	`, config.DisplayName, id)
+		UPDATE identities SET email = ?, name = ?, updated_at = ? WHERE account_id = ? AND is_default = 1
+	`, config.Email, config.DisplayName, now, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update default identity: %w", err)
 	}
 
 	existing.Name = config.Name
 	existing.Email = config.Email
+	existing.Provider = config.Provider
 	existing.IMAPHost = config.IMAPHost
 	existing.IMAPPort = config.IMAPPort
 	existing.IMAPSecurity = config.IMAPSecurity

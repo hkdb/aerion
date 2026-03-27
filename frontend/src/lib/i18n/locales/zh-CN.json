@@ -660,7 +660,19 @@
     "addSeparator": "在签名前添加分隔线",
     "saveIdentityChanges": "保存更改",
     "saveFailed": "保存身份失败。",
-    "addEmailAddressButton": "添加电子邮件地址"
+    "addEmailAddressButton": "添加电子邮件地址",
+    "addSharedMailbox": "添加共享邮箱",
+    "addSharedMailboxTitle": "添加共享邮箱",
+    "addSharedMailboxDescription": "使用此账户现有的登录状态添加 Microsoft 365 共享邮箱。",
+    "sharedMailboxEmailLabel": "共享邮箱地址",
+    "sharedMailboxEmailPlaceholder": "shared@company.com",
+    "sharedMailboxDisplayNameLabel": "显示名称",
+    "sharedMailboxDisplayNamePlaceholder": "Support Team",
+    "sharedMailboxDisplayNameHelp": "用于共享邮箱默认发件身份的显示名称。",
+    "sharedMailboxEmailRequired": "共享邮箱地址为必填。",
+    "sharedMailboxEmailInvalid": "请输入有效的共享邮箱地址。",
+    "sharedMailboxAdded": "已添加共享邮箱：{email}",
+    "addSharedMailboxButton": "添加邮箱"
   },
   "security": {
     "smime": "S/MIME",

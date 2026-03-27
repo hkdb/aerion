@@ -22,11 +22,23 @@ const (
 	AuthOAuth2   AuthType = "oauth2"
 )
 
+// AccountKind represents how an account is provisioned.
+type AccountKind string
+
+const (
+	AccountKindPrimary AccountKind = "primary"
+	AccountKindShared  AccountKind = "shared"
+)
+
 // Account represents an email account configuration
 type Account struct {
 	ID    string `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email"`
+
+	Kind                 AccountKind `json:"kind"`
+	Provider             string      `json:"provider"`
+	OAuthSourceAccountID string      `json:"oauthSourceAccountId,omitempty"`
 
 	// IMAP settings
 	IMAPHost     string       `json:"imapHost"`
@@ -152,6 +164,10 @@ type AccountConfig struct {
 	DisplayName string `json:"displayName"` // Name shown to email recipients
 	Email       string `json:"email"`
 
+	Kind                 AccountKind `json:"kind"`
+	Provider             string      `json:"provider"`
+	OAuthSourceAccountID string      `json:"oauthSourceAccountId,omitempty"`
+
 	IMAPHost     string       `json:"imapHost"`
 	IMAPPort     int          `json:"imapPort"`
 	IMAPSecurity SecurityType `json:"imapSecurity"`
@@ -216,6 +232,9 @@ func (c *AccountConfig) Validate() error {
 	}
 	if c.AuthType == "" {
 		c.AuthType = AuthPassword
+	}
+	if c.Kind == "" {
+		c.Kind = AccountKindPrimary
 	}
 	if c.SyncPeriodDays < 0 {
 		c.SyncPeriodDays = 30

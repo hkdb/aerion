@@ -660,7 +660,19 @@
     "addSeparator": "在簽名前加入分隔線",
     "saveIdentityChanges": "儲存變更",
     "saveFailed": "儲存身分失敗。",
-    "addEmailAddressButton": "新增電子郵件地址"
+    "addEmailAddressButton": "新增電子郵件地址",
+    "addSharedMailbox": "新增共享郵箱",
+    "addSharedMailboxTitle": "新增共享郵箱",
+    "addSharedMailboxDescription": "使用此帳戶現有的登入狀態新增 Microsoft 365 共享郵箱。",
+    "sharedMailboxEmailLabel": "共享郵箱地址",
+    "sharedMailboxEmailPlaceholder": "shared@company.com",
+    "sharedMailboxDisplayNameLabel": "顯示名稱",
+    "sharedMailboxDisplayNamePlaceholder": "Support Team",
+    "sharedMailboxDisplayNameHelp": "用於共享郵箱預設寄件身分的顯示名稱。",
+    "sharedMailboxEmailRequired": "共享郵箱地址為必填。",
+    "sharedMailboxEmailInvalid": "請輸入有效的共享郵箱地址。",
+    "sharedMailboxAdded": "已新增共享郵箱：{email}",
+    "addSharedMailboxButton": "新增郵箱"
   },
   "security": {
     "smime": "S/MIME",

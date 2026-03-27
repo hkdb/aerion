@@ -57,6 +57,102 @@ func (a *App) AddAccount(config account.AccountConfig) (*account.Account, error)
 	return acc, nil
 }
 
+// AddMicrosoftSharedMailbox creates a linked Microsoft shared mailbox account
+// that reuses OAuth tokens from an existing primary Microsoft account.
+func (a *App) AddMicrosoftSharedMailbox(primaryAccountID, sharedEmail, displayName string) (*account.Account, error) {
+	log := logging.WithComponent("app")
+
+	primary, err := a.accountStore.Get(primaryAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get primary account: %w", err)
+	}
+	if primary == nil {
+		return nil, fmt.Errorf("primary account not found: %s", primaryAccountID)
+	}
+	if primary.Provider != "microsoft" {
+		return nil, fmt.Errorf("shared mailboxes are currently supported for Microsoft accounts only")
+	}
+	if primary.Kind != account.AccountKindPrimary {
+		return nil, fmt.Errorf("shared mailboxes can only be added from a primary Microsoft account")
+	}
+	if primary.AuthType != account.AuthOAuth2 {
+		return nil, fmt.Errorf("Microsoft shared mailboxes require OAuth")
+	}
+	if sharedEmail == "" {
+		return nil, fmt.Errorf("shared mailbox email is required")
+	}
+	if displayName == "" {
+		displayName = sharedEmail
+	}
+
+	tokens, err := a.getValidOAuthToken(primary.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Microsoft OAuth token: %w", err)
+	}
+
+	clientConfig := imap.DefaultConfig()
+	clientConfig.Host = primary.IMAPHost
+	clientConfig.Port = primary.IMAPPort
+	clientConfig.Security = imap.SecurityType(primary.IMAPSecurity)
+	clientConfig.Username = sharedEmail
+	clientConfig.AuthType = imap.AuthTypeOAuth2
+	clientConfig.AccessToken = tokens.AccessToken
+
+	client := imap.NewClient(clientConfig)
+	if err := client.Connect(); err != nil {
+		return nil, fmt.Errorf("failed to connect to Microsoft IMAP: %w", err)
+	}
+	defer client.Close()
+
+	if err := client.Login(); err != nil {
+		return nil, fmt.Errorf("failed to authenticate shared mailbox %s: %w", sharedEmail, err)
+	}
+
+	if _, err := client.ListMailboxes(); err != nil {
+		return nil, fmt.Errorf("failed to access shared mailbox %s: %w", sharedEmail, err)
+	}
+
+	config := account.AccountConfig{
+		Name:                     sharedEmail,
+		DisplayName:              displayName,
+		Email:                    sharedEmail,
+		Kind:                     account.AccountKindShared,
+		Provider:                 "microsoft",
+		OAuthSourceAccountID:     primary.ID,
+		IMAPHost:                 primary.IMAPHost,
+		IMAPPort:                 primary.IMAPPort,
+		IMAPSecurity:             primary.IMAPSecurity,
+		SMTPHost:                 primary.SMTPHost,
+		SMTPPort:                 primary.SMTPPort,
+		SMTPSecurity:             primary.SMTPSecurity,
+		AuthType:                 account.AuthOAuth2,
+		Username:                 sharedEmail,
+		Color:                    primary.Color,
+		SyncPeriodDays:           primary.SyncPeriodDays,
+		SyncInterval:             primary.SyncInterval,
+		ReadReceiptRequestPolicy: primary.ReadReceiptRequestPolicy,
+	}
+
+	acc, err := a.accountStore.Create(&config)
+	if err != nil {
+		return nil, err
+	}
+
+	a.updateDBConnectionPool()
+
+	if a.idleManager != nil && acc.Enabled {
+		a.idleManager.StartAccount(acc.ID, acc.Name)
+	}
+
+	log.Info().
+		Str("account_id", acc.ID).
+		Str("shared_email", sharedEmail).
+		Str("primary_account_id", primary.ID).
+		Msg("Microsoft shared mailbox created")
+
+	return acc, nil
+}
+
 // UpdateAccount updates an existing account
 func (a *App) UpdateAccount(id string, config account.AccountConfig) (*account.Account, error) {
 	log := logging.WithComponent("app")
@@ -256,9 +352,9 @@ func (a *App) SetDefaultIdentity(accountID, identityID string) error {
 
 // ConnectionTestResult holds the result of a connection test
 type ConnectionTestResult struct {
-	Success             bool                      `json:"success"`
-	Error               string                    `json:"error,omitempty"`
-	CertificateRequired bool                      `json:"certificateRequired"`
+	Success             bool                         `json:"success"`
+	Error               string                       `json:"error,omitempty"`
+	CertificateRequired bool                         `json:"certificateRequired"`
 	Certificate         *certificate.CertificateInfo `json:"certificate,omitempty"`
 }
 

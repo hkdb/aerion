@@ -6,6 +6,7 @@ import {
   SyncAllComplete,
   CancelAllSyncs,
   AddAccount,
+  AddMicrosoftSharedMailbox,
   UpdateAccount,
   RemoveAccount,
   TestConnection,
@@ -404,6 +405,19 @@ class AccountStore {
     })
 
     // Start sync in background (don't await - let dialog close immediately)
+    this.syncAccount(newAccount.id).catch(err => {
+      console.error('Initial sync failed:', err)
+    })
+
+    return newAccount
+  }
+
+  async addMicrosoftSharedMailbox(primaryAccountId: string, sharedEmail: string, displayName: string): Promise<account.Account> {
+    const newAccount = await AddMicrosoftSharedMailbox(primaryAccountId, sharedEmail, displayName)
+
+    // Reload all accounts so settings/sidebar views immediately reflect the new mailbox.
+    await this.load()
+
     this.syncAccount(newAccount.id).catch(err => {
       console.error('Initial sync failed:', err)
     })

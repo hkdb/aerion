@@ -4,6 +4,9 @@ export namespace account {
 	    id: string;
 	    name: string;
 	    email: string;
+	    kind: string;
+	    provider: string;
+	    oauthSourceAccountId?: string;
 	    imapHost: string;
 	    imapPort: number;
 	    imapSecurity: string;
@@ -39,6 +42,9 @@ export namespace account {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.email = source["email"];
+	        this.kind = source["kind"];
+	        this.provider = source["provider"];
+	        this.oauthSourceAccountId = source["oauthSourceAccountId"];
 	        this.imapHost = source["imapHost"];
 	        this.imapPort = source["imapPort"];
 	        this.imapSecurity = source["imapSecurity"];
@@ -86,6 +92,9 @@ export namespace account {
 	    name: string;
 	    displayName: string;
 	    email: string;
+	    kind: string;
+	    provider: string;
+	    oauthSourceAccountId?: string;
 	    imapHost: string;
 	    imapPort: number;
 	    imapSecurity: string;
@@ -116,6 +125,9 @@ export namespace account {
 	        this.name = source["name"];
 	        this.displayName = source["displayName"];
 	        this.email = source["email"];
+	        this.kind = source["kind"];
+	        this.provider = source["provider"];
+	        this.oauthSourceAccountId = source["oauthSourceAccountId"];
 	        this.imapHost = source["imapHost"];
 	        this.imapPort = source["imapPort"];
 	        this.imapSecurity = source["imapSecurity"];
