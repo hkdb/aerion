@@ -1008,6 +1008,9 @@
       saveTimeoutId = null
     }
 
+    // Wait for any in-flight draft save to complete before sending
+    await savingComplete
+
     sending = true
 
     try {
