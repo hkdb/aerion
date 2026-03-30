@@ -174,6 +174,14 @@ export function GetAccountFoldersForMapping(arg1) {
   return window['go']['app']['App']['GetAccountFoldersForMapping'](arg1);
 }
 
+export function GetAccountParticipantSearchCount(arg1, arg2, arg3) {
+  return window['go']['app']['App']['GetAccountParticipantSearchCount'](arg1, arg2, arg3);
+}
+
+export function GetAccountSearchCount(arg1, arg2, arg3) {
+  return window['go']['app']['App']['GetAccountSearchCount'](arg1, arg2, arg3);
+}
+
 export function GetAccounts() {
   return window['go']['app']['App']['GetAccounts']();
 }
@@ -462,8 +470,20 @@ export function HasSMIMECertificate(arg1) {
   return window['go']['app']['App']['HasSMIMECertificate'](arg1);
 }
 
+export function IMAPSearchAccount(arg1, arg2, arg3) {
+  return window['go']['app']['App']['IMAPSearchAccount'](arg1, arg2, arg3);
+}
+
+export function IMAPSearchAccountByParticipant(arg1, arg2, arg3) {
+  return window['go']['app']['App']['IMAPSearchAccountByParticipant'](arg1, arg2, arg3);
+}
+
 export function IMAPSearchFolder(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['IMAPSearchFolder'](arg1, arg2, arg3, arg4);
+}
+
+export function IMAPSearchFolderByParticipant(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['IMAPSearchFolderByParticipant'](arg1, arg2, arg3, arg4);
 }
 
 export function IgnoreReadReceipt(arg1, arg2) {
@@ -708,6 +728,18 @@ export function SavePendingOAuthTokens(arg1) {
 
 export function SaveUIState(arg1) {
   return window['go']['app']['App']['SaveUIState'](arg1);
+}
+
+export function SearchAccountConversations(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['SearchAccountConversations'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function SearchAccountConversationsByParticipant(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['SearchAccountConversationsByParticipant'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function SearchAccountParticipants(arg1, arg2, arg3) {
+  return window['go']['app']['App']['SearchAccountParticipants'](arg1, arg2, arg3);
 }
 
 export function SearchContacts(arg1, arg2) {

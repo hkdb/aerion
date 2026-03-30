@@ -6,7 +6,7 @@
   import { cn } from '$lib/utils'
   import { Button } from '$lib/components/ui/button'
   // @ts-ignore - wailsjs bindings
-  import { GetConversations, GetConversationCount, SyncFolder, ForceSyncFolder, CancelFolderSync, SetMessageListSortOrder, GetUnifiedInboxConversations, GetUnifiedInboxCount, SearchConversations, SearchUnifiedInbox, GetSearchCount, GetSearchCountUnifiedInbox, GetFTSIndexStatus, IsFTSIndexing, Trash, DeletePermanently, EmptyTrash, Undo, IMAPSearchFolder, FetchServerMessage } from '../../../../wailsjs/go/app/App'
+  import { GetConversations, GetConversationCount, SyncFolder, ForceSyncFolder, CancelFolderSync, SetMessageListSortOrder, GetUnifiedInboxConversations, GetUnifiedInboxCount, SearchAccountConversations, SearchAccountConversationsByParticipant, SearchAccountParticipants, SearchUnifiedInbox, GetAccountParticipantSearchCount, GetAccountSearchCount, GetSearchCountUnifiedInbox, GetFTSIndexStatus, IsFTSIndexing, Trash, DeletePermanently, EmptyTrash, Undo, IMAPSearchFolder, IMAPSearchFolderByParticipant, IMAPSearchAccount, IMAPSearchAccountByParticipant, FetchServerMessage } from '../../../../wailsjs/go/app/App'
   import { toasts } from '$lib/stores/toast'
   import { _ } from '$lib/i18n'
   import { ConfirmDialog } from '$lib/components/ui/confirm-dialog'
@@ -98,6 +98,8 @@
   let searchOffset = $state(0)
   let isSearching = $state(false)
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  let searchSuggestions = $state<any[]>([])
+  let selectedParticipant = $state<any | null>(null)
 
   // Filter state
   let filterMode = $state<string>('')  // '' | 'unread' | 'starred' | 'attachments'
@@ -120,6 +122,7 @@
 
   // Server search state
   let serverSearchMode = $state(false)
+  let serverSearchScope = $state<'folder' | 'account'>('account')
   let serverSearchResults = $state<any[]>([])
   let serverSearchCount = $state(0)
   let serverSearchTotalCount = $state(0)  // Total matching UIDs on server (may exceed serverSearchCount when limited)
@@ -491,14 +494,21 @@
   function handleSearchInput() {
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
 
+    if (selectedParticipant && searchQuery.trim().toLowerCase() !== formatParticipantLabel(selectedParticipant).toLowerCase()) {
+      selectedParticipant = null
+    }
+
     if (!searchQuery.trim()) {
       // Clear search immediately if query is empty
       searchResults = []
       searchTotalCount = 0
+      searchSuggestions = []
       serverSearchResults = []
       serverSearchCount = 0
       serverSearchTotalCount = 0
       serverSearchMode = false
+      serverSearchScope = 'account'
+      selectedParticipant = null
       return
     }
 
@@ -506,8 +516,41 @@
     if (serverSearchMode) return
 
     searchDebounceTimer = setTimeout(() => {
+      loadParticipantSuggestions()
       performSearch()
     }, 300)
+  }
+
+  function formatParticipantLabel(participant: any): string {
+    if (!participant) return ''
+    return participant.name ? `${participant.name} <${participant.email}>` : participant.email
+  }
+
+  async function loadParticipantSuggestions() {
+    const query = searchQuery.trim()
+    if (!query || !accountId || isUnifiedView || selectedParticipant) {
+      searchSuggestions = []
+      return
+    }
+
+    try {
+      searchSuggestions = await SearchAccountParticipants(accountId, query, 6)
+    } catch (err) {
+      console.error('Failed to load participant suggestions:', err)
+      searchSuggestions = []
+    }
+  }
+
+  function selectParticipantSuggestion(participant: any) {
+    selectedParticipant = participant
+    searchQuery = formatParticipantLabel(participant)
+    searchSuggestions = []
+    serverSearchMode = false
+    serverSearchResults = []
+    serverSearchCount = 0
+    serverSearchTotalCount = 0
+    lastServerQuery = ''
+    performSearch()
   }
 
   // Perform the actual search
@@ -536,10 +579,15 @@
           SearchUnifiedInbox(query, 0, PAGE_SIZE, filterMode),
           GetSearchCountUnifiedInbox(query, filterMode),
         ])
-      } else if (accountId && folderId) {
+      } else if (accountId && selectedParticipant?.email) {
         ;[results, count] = await Promise.all([
-          SearchConversations(accountId, folderId, query, 0, PAGE_SIZE, filterMode),
-          GetSearchCount(accountId, folderId, query, filterMode),
+          SearchAccountConversationsByParticipant(accountId, selectedParticipant.email, 0, PAGE_SIZE, filterMode),
+          GetAccountParticipantSearchCount(accountId, selectedParticipant.email, filterMode),
+        ])
+      } else if (accountId) {
+        ;[results, count] = await Promise.all([
+          SearchAccountConversations(accountId, query, 0, PAGE_SIZE, filterMode),
+          GetAccountSearchCount(accountId, query, filterMode),
         ])
       }
 
@@ -575,8 +623,10 @@
       let results: any[] = []
       if (isUnifiedView) {
         results = await SearchUnifiedInbox(query, newOffset, PAGE_SIZE, filterMode)
-      } else if (accountId && folderId) {
-        results = await SearchConversations(accountId, folderId, query, newOffset, PAGE_SIZE, filterMode)
+      } else if (accountId && selectedParticipant?.email) {
+        results = await SearchAccountConversationsByParticipant(accountId, selectedParticipant.email, newOffset, PAGE_SIZE, filterMode)
+      } else if (accountId) {
+        results = await SearchAccountConversations(accountId, query, newOffset, PAGE_SIZE, filterMode)
       }
 
       if (results && results.length > 0) {
@@ -597,8 +647,11 @@
     searchResults = []
     searchTotalCount = 0
     searchOffset = 0
+    searchSuggestions = []
+    selectedParticipant = null
     showSearch = false
     serverSearchMode = false
+    serverSearchScope = 'account'
     serverSearchResults = []
     serverSearchCount = 0
     serverSearchTotalCount = 0
@@ -632,15 +685,16 @@
     if (!serverSearchMode) {
       // Local → server
       serverSearchMode = true
+      serverSearchScope = 'account'
       lastServerQuery = query
-      performServerSearch()
+      performServerSearch('account')
       return
     }
 
     if (query !== lastServerQuery) {
       // Server mode, query changed → re-search
       lastServerQuery = query
-      performServerSearch()
+      performServerSearch(serverSearchScope)
       return
     }
 
@@ -649,14 +703,28 @@
   }
 
   // Perform IMAP server-side search. limit=0 means no limit (show all).
-  async function performServerSearch(limit: number = SERVER_SEARCH_LIMIT) {
+  async function performServerSearch(scope: 'folder' | 'account' = serverSearchScope, limit: number = SERVER_SEARCH_LIMIT) {
     const query = searchQuery.trim()
-    if (!query || !accountId || !folderId || isUnifiedView) return
+    if (!query || !accountId || isUnifiedView) return
+    if (scope === 'folder' && !folderId) return
 
     isServerSearching = true
     error = null
+    serverSearchMode = true
+    serverSearchScope = scope
+    lastServerQuery = query
     try {
-      const response = await IMAPSearchFolder(accountId, folderId, query, limit)
+      const response = selectedParticipant?.email
+        ? (
+            scope === 'folder'
+              ? await IMAPSearchFolderByParticipant(accountId, folderId!, selectedParticipant.email, limit)
+              : await IMAPSearchAccountByParticipant(accountId, selectedParticipant.email, limit)
+          )
+        : (
+            scope === 'folder'
+              ? await IMAPSearchFolder(accountId, folderId!, query, limit)
+              : await IMAPSearchAccount(accountId, query, limit)
+          )
       const items = (response?.results || []).map(adaptServerResult)
       serverSearchResults = items
       serverSearchCount = items.length
@@ -705,6 +773,7 @@
 
   // Check if we're in search mode with results
   const isSearchMode = $derived(showSearch && searchQuery.trim().length > 0)
+  const searchDisplayQuery = $derived(selectedParticipant ? formatParticipantLabel(selectedParticipant) : searchQuery)
 
   // Active list - either conversations, local search results, or server search results
   const activeList = $derived(
@@ -1250,7 +1319,7 @@
       {/if}
       {#if showSearch}
         <!-- Search input -->
-        <div class="flex items-center gap-1 bg-muted rounded-md px-2 flex-1">
+        <div class="relative flex items-center gap-1 bg-muted rounded-md px-2 flex-1">
           <Icon icon="mdi:magnify" class="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <input
             bind:this={searchInputRef}
@@ -1282,6 +1351,20 @@
                 <Icon icon="mdi:close" class="w-4 h-4 text-muted-foreground" />
               {/if}
             </button>
+          {/if}
+          {#if searchSuggestions.length > 0 && !selectedParticipant && !serverSearchMode}
+            <div class="absolute left-0 right-0 top-full mt-1 z-20 rounded-md border border-border bg-popover shadow-md overflow-hidden">
+              {#each searchSuggestions as suggestion (suggestion.email)}
+                <button
+                  class="w-full px-3 py-2 text-left hover:bg-accent transition-colors"
+                  onmousedown={(e) => e.preventDefault()}
+                  onclick={() => selectParticipantSuggestion(suggestion)}
+                >
+                  <div class="text-sm text-foreground truncate">{formatParticipantLabel(suggestion)}</div>
+                  <div class="text-[11px] text-muted-foreground truncate">{suggestion.email}</div>
+                </button>
+              {/each}
+            </div>
           {/if}
         </div>
       {:else}
@@ -1487,7 +1570,7 @@
         {#if serverSearchResults.length === 0}
           <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
             <Icon icon="mdi:magnify" class="w-12 h-12 mb-2" />
-            <p>{$_('messageList.noResults', { values: { query: searchQuery } })}</p>
+            <p>{$_('messageList.noResults', { values: { query: searchDisplayQuery } })}</p>
           </div>
         {:else}
           <!-- Server results header -->
@@ -1535,7 +1618,7 @@
               <button
                 bind:this={loadMoreButtonRef}
                 class="text-sm text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded px-2 py-1"
-                onclick={() => performServerSearch(0)}
+                onclick={() => performServerSearch(serverSearchScope, 0)}
                 disabled={isServerSearching}
               >
                 {isServerSearching ? $_('common.loading') : $_('search.showAllResults', { values: { total: serverSearchTotalCount } })}
@@ -1551,25 +1634,41 @@
             <p class="text-xs mt-1">{$_('messageList.indexBuilding')}</p>
           {/if}
           {#if !isUnifiedView && accountId && folderId}
-            <button
-              class="mt-2 text-sm text-primary hover:underline"
-              onclick={() => { serverSearchMode = true; lastServerQuery = searchQuery.trim(); performServerSearch() }}
-            >
-              {$_('search.searchOnServer')}
-            </button>
+            <div class="mt-3 flex items-center gap-2">
+              <button
+                class="text-sm text-primary hover:underline"
+                onclick={() => performServerSearch('folder')}
+              >
+                {$_('search.searchFolderOnServer')}
+              </button>
+              <button
+                class="text-sm text-primary hover:underline"
+                onclick={() => performServerSearch('account')}
+              >
+                {$_('search.searchAccountOnServer')}
+              </button>
+            </div>
           {/if}
         </div>
       {:else}
         <!-- Local search results header -->
         <div class="flex items-center justify-between px-4 py-2 bg-muted/30 border-b border-border text-sm text-muted-foreground">
-          <span>{$_('messageList.foundResults', { values: { count: searchTotalCount, query: searchQuery } })}</span>
+          <span>{$_('messageList.foundResults', { values: { count: searchTotalCount, query: searchDisplayQuery } })}</span>
           {#if !isUnifiedView && accountId && folderId}
-            <button
-              class="text-xs text-primary hover:underline"
-              onclick={() => { serverSearchMode = true; lastServerQuery = searchQuery.trim(); performServerSearch() }}
-            >
-              {$_('search.serverSearch')}
-            </button>
+            <div class="flex items-center gap-3">
+              <button
+                class="text-xs text-primary hover:underline"
+                onclick={() => performServerSearch('folder')}
+              >
+                {$_('search.serverSearchFolder')}
+              </button>
+              <button
+                class="text-xs text-primary hover:underline"
+                onclick={() => performServerSearch('account')}
+              >
+                {$_('search.serverSearchAccount')}
+              </button>
+            </div>
           {/if}
         </div>
         {#each searchResults as result, index (result.threadId + '-' + index)}
@@ -1582,8 +1681,8 @@
             density={getMessageListDensity()}
             selected={selectedThreadId === result.threadId}
             checked={checkedThreadIds.has(result.threadId)}
-            accountId={isUnifiedView ? resultAccountId : accountId!}
-            folderId={isUnifiedView ? resultFolderId : folderId!}
+            accountId={(isUnifiedView || isSearchMode) ? resultAccountId : accountId!}
+            folderId={(isUnifiedView || isSearchMode) ? resultFolderId : folderId!}
             {folderType}
             {selectedMessageIds}
             selectedIsStarred={!selectedHasUnstarred}

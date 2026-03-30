@@ -2,9 +2,11 @@ package message
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"html"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -56,6 +58,86 @@ func filterWhereClause(filter, prefix string) string {
 		return fmt.Sprintf(" AND %shas_attachments = 1", prefix)
 	default:
 		return ""
+	}
+}
+
+func parseStoredAddressList(s string) []Address {
+	if s == "" {
+		return nil
+	}
+
+	var msgAddrs []Address
+	if err := json.Unmarshal([]byte(s), &msgAddrs); err == nil {
+		var addrs []Address
+		for _, addr := range msgAddrs {
+			email := strings.TrimSpace(addr.Email)
+			if email == "" {
+				continue
+			}
+			addrs = append(addrs, Address{
+				Name:  strings.TrimSpace(addr.Name),
+				Email: email,
+			})
+		}
+		if len(addrs) > 0 {
+			return addrs
+		}
+	}
+
+	var result []Address
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if strings.Contains(part, "<") {
+			start := strings.Index(part, "<")
+			end := strings.Index(part, ">")
+			if start > 0 && end > start {
+				result = append(result, Address{
+					Name:  strings.TrimSpace(part[:start]),
+					Email: strings.TrimSpace(part[start+1 : end]),
+				})
+				continue
+			}
+		}
+		result = append(result, Address{Email: part})
+	}
+	return result
+}
+
+func matchesParticipantQuery(name, email, query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return false
+	}
+	return strings.Contains(strings.ToLower(strings.TrimSpace(name)), q) ||
+		strings.Contains(strings.ToLower(strings.TrimSpace(email)), q)
+}
+
+func addParticipantSuggestion(results map[string]*ParticipantSuggestion, addr Address, when time.Time) {
+	email := strings.ToLower(strings.TrimSpace(addr.Email))
+	if email == "" {
+		return
+	}
+
+	entry, exists := results[email]
+	if !exists {
+		results[email] = &ParticipantSuggestion{
+			Name:     strings.TrimSpace(addr.Name),
+			Email:    email,
+			Count:    1,
+			LastSeen: when,
+		}
+		return
+	}
+
+	entry.Count++
+	if when.After(entry.LastSeen) {
+		entry.LastSeen = when
+	}
+	if entry.Name == "" && strings.TrimSpace(addr.Name) != "" {
+		entry.Name = strings.TrimSpace(addr.Name)
 	}
 }
 
@@ -2170,6 +2252,323 @@ func (s *Store) SearchConversations(folderID, query string, offset, limit int, f
 		participants, _ := s.getConversationParticipants(c.ThreadID, folderID)
 		c.Participants = participants
 
+		results = append(results, c)
+	}
+
+	return results, totalCount, nil
+}
+
+// SearchConversationsByAccount searches for conversations across all folders in an account using FTS5.
+// Results remain grouped by folder so opening a result preserves the correct folder context.
+func (s *Store) SearchConversationsByAccount(accountID, query string, offset, limit int, filter string) ([]*ConversationSearchResult, int, error) {
+	if query == "" {
+		return nil, 0, nil
+	}
+
+	ftsQuery := prepareFTSQuery(query)
+
+	countQuery := `
+		SELECT COUNT(DISTINCT COALESCE(m.thread_id, m.id) || '-' || f.id)
+		FROM messages m
+		JOIN messages_fts fts ON m.rowid = fts.rowid
+		INNER JOIN folders f ON m.folder_id = f.id
+		INNER JOIN accounts a ON f.account_id = a.id AND a.enabled = 1
+		WHERE f.account_id = ? AND messages_fts MATCH ?
+	` + filterWhereClause(filter, "m.")
+	var totalCount int
+	err := s.db.QueryRow(countQuery, accountID, ftsQuery).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count account search results: %w", err)
+	}
+
+	if totalCount == 0 {
+		return nil, 0, nil
+	}
+
+	searchQuery := `
+		SELECT 
+			COALESCE(m.thread_id, m.id) as conv_thread_id,
+			MIN(m.subject) as subject,
+			MAX(m.snippet) as snippet,
+			MIN(m.from_name) as from_name,
+			COUNT(*) as message_count,
+			SUM(CASE WHEN m.is_read = 0 THEN 1 ELSE 0 END) as unread_count,
+			MAX(CASE WHEN m.has_attachments = 1 THEN 1 ELSE 0 END) as has_attachments,
+			MAX(CASE WHEN m.is_starred = 1 THEN 1 ELSE 0 END) as is_starred,
+			MAX(m.date) as latest_date,
+			GROUP_CONCAT(m.id) as message_ids,
+			MAX(CASE WHEN m.smime_encrypted = 1 OR m.pgp_encrypted = 1 THEN 1 ELSE 0 END) as is_encrypted,
+			a.id as account_id,
+			a.name as account_name,
+			a.color as account_color,
+			f.id as folder_id,
+			f.name as folder_name,
+			f.folder_type as folder_type
+		FROM messages m
+		JOIN messages_fts fts ON m.rowid = fts.rowid
+		INNER JOIN folders f ON m.folder_id = f.id
+		INNER JOIN accounts a ON f.account_id = a.id AND a.enabled = 1
+		WHERE f.account_id = ? AND messages_fts MATCH ?
+		GROUP BY COALESCE(m.thread_id, m.id), f.id` +
+		filterHavingClause(filter, "m.") + `
+		ORDER BY latest_date DESC
+		LIMIT ? OFFSET ?
+	`
+
+	rows, err := s.db.Query(searchQuery, accountID, ftsQuery, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to search account conversations: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*ConversationSearchResult
+	for rows.Next() {
+		c := &ConversationSearchResult{}
+		var latestDateStr sql.NullString
+		var snippet sql.NullString
+		var fromName sql.NullString
+		var messageIDsStr sql.NullString
+
+		err := rows.Scan(
+			&c.ThreadID,
+			&c.Subject,
+			&snippet,
+			&fromName,
+			&c.MessageCount,
+			&c.UnreadCount,
+			&c.HasAttachments,
+			&c.IsStarred,
+			&latestDateStr,
+			&messageIDsStr,
+			&c.IsEncrypted,
+			&c.AccountID,
+			&c.AccountName,
+			&c.AccountColor,
+			&c.FolderID,
+			&c.FolderName,
+			&c.FolderType,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan account search result: %w", err)
+		}
+
+		if snippet.Valid {
+			c.Snippet = snippet.String
+		}
+		if latestDateStr.Valid && latestDateStr.String != "" {
+			c.LatestDate = parseTimeString(latestDateStr.String)
+		}
+		if messageIDsStr.Valid && messageIDsStr.String != "" {
+			c.MessageIDs = strings.Split(messageIDsStr.String, ",")
+		}
+
+		c.HighlightedSubject = highlightMatches(c.Subject, query)
+		c.HighlightedSnippet = highlightMatches(c.Snippet, query)
+		if fromName.Valid {
+			c.HighlightedFromName = highlightMatches(fromName.String, query)
+		}
+
+		participants, _ := s.getConversationParticipants(c.ThreadID, c.FolderID)
+		c.Participants = participants
+
+		results = append(results, c)
+	}
+
+	return results, totalCount, nil
+}
+
+// SearchParticipantSuggestionsByAccount returns people inferred from message history for account-scoped search suggestions.
+func (s *Store) SearchParticipantSuggestionsByAccount(accountID, query string, limit int) ([]*ParticipantSuggestion, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil, nil
+	}
+
+	pattern := "%" + strings.ToLower(query) + "%"
+	rows, err := s.db.Query(`
+		SELECT
+			COALESCE(m.from_name, '') as from_name,
+			COALESCE(m.from_email, '') as from_email,
+			COALESCE(m.to_list, '') as to_list,
+			COALESCE(m.cc_list, '') as cc_list,
+			COALESCE(m.date, '') as date
+		FROM messages m
+		INNER JOIN folders f ON m.folder_id = f.id
+		INNER JOIN accounts a ON f.account_id = a.id AND a.enabled = 1
+		WHERE f.account_id = ? AND (
+			LOWER(COALESCE(m.from_name, '')) LIKE ?
+			OR LOWER(COALESCE(m.from_email, '')) LIKE ?
+			OR LOWER(COALESCE(m.to_list, '')) LIKE ?
+			OR LOWER(COALESCE(m.cc_list, '')) LIKE ?
+		)
+		ORDER BY m.date DESC
+		LIMIT 500
+	`, accountID, pattern, pattern, pattern, pattern)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search participant suggestions: %w", err)
+	}
+	defer rows.Close()
+
+	results := make(map[string]*ParticipantSuggestion)
+	for rows.Next() {
+		var fromName, fromEmail, toList, ccList, dateStr string
+		if err := rows.Scan(&fromName, &fromEmail, &toList, &ccList, &dateStr); err != nil {
+			return nil, fmt.Errorf("failed to scan participant suggestion row: %w", err)
+		}
+
+		when := parseTimeString(dateStr)
+		if matchesParticipantQuery(fromName, fromEmail, query) {
+			addParticipantSuggestion(results, Address{Name: fromName, Email: fromEmail}, when)
+		}
+		for _, addr := range parseStoredAddressList(toList) {
+			if matchesParticipantQuery(addr.Name, addr.Email, query) {
+				addParticipantSuggestion(results, addr, when)
+			}
+		}
+		for _, addr := range parseStoredAddressList(ccList) {
+			if matchesParticipantQuery(addr.Name, addr.Email, query) {
+				addParticipantSuggestion(results, addr, when)
+			}
+		}
+	}
+
+	suggestions := make([]*ParticipantSuggestion, 0, len(results))
+	for _, suggestion := range results {
+		suggestions = append(suggestions, suggestion)
+	}
+
+	sort.Slice(suggestions, func(i, j int) bool {
+		if suggestions[i].Count != suggestions[j].Count {
+			return suggestions[i].Count > suggestions[j].Count
+		}
+		return suggestions[i].LastSeen.After(suggestions[j].LastSeen)
+	})
+
+	if limit > 0 && len(suggestions) > limit {
+		suggestions = suggestions[:limit]
+	}
+
+	return suggestions, nil
+}
+
+// SearchConversationsByParticipant searches for conversations where the specified email appears in from/to/cc/bcc/reply-to.
+func (s *Store) SearchConversationsByParticipant(accountID, email string, offset, limit int, filter string) ([]*ConversationSearchResult, int, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return nil, 0, nil
+	}
+
+	listPattern := "%" + email + "%"
+
+	countQuery := `
+		SELECT COUNT(DISTINCT COALESCE(m.thread_id, m.id) || '-' || f.id)
+		FROM messages m
+		INNER JOIN folders f ON m.folder_id = f.id
+		INNER JOIN accounts a ON f.account_id = a.id AND a.enabled = 1
+		WHERE f.account_id = ? AND (
+			LOWER(COALESCE(m.from_email, '')) = ?
+			OR LOWER(COALESCE(m.to_list, '')) LIKE ?
+			OR LOWER(COALESCE(m.cc_list, '')) LIKE ?
+			OR LOWER(COALESCE(m.bcc_list, '')) LIKE ?
+			OR LOWER(COALESCE(m.reply_to, '')) LIKE ?
+		)
+	` + filterWhereClause(filter, "m.")
+	var totalCount int
+	err := s.db.QueryRow(countQuery, accountID, email, listPattern, listPattern, listPattern, listPattern).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count participant search results: %w", err)
+	}
+	if totalCount == 0 {
+		return nil, 0, nil
+	}
+
+	searchQuery := `
+		SELECT
+			COALESCE(m.thread_id, m.id) as conv_thread_id,
+			MIN(m.subject) as subject,
+			MAX(m.snippet) as snippet,
+			MIN(m.from_name) as from_name,
+			COUNT(*) as message_count,
+			SUM(CASE WHEN m.is_read = 0 THEN 1 ELSE 0 END) as unread_count,
+			MAX(CASE WHEN m.has_attachments = 1 THEN 1 ELSE 0 END) as has_attachments,
+			MAX(CASE WHEN m.is_starred = 1 THEN 1 ELSE 0 END) as is_starred,
+			MAX(m.date) as latest_date,
+			GROUP_CONCAT(m.id) as message_ids,
+			MAX(CASE WHEN m.smime_encrypted = 1 OR m.pgp_encrypted = 1 THEN 1 ELSE 0 END) as is_encrypted,
+			a.id as account_id,
+			a.name as account_name,
+			a.color as account_color,
+			f.id as folder_id,
+			f.name as folder_name,
+			f.folder_type as folder_type
+		FROM messages m
+		INNER JOIN folders f ON m.folder_id = f.id
+		INNER JOIN accounts a ON f.account_id = a.id AND a.enabled = 1
+		WHERE f.account_id = ? AND (
+			LOWER(COALESCE(m.from_email, '')) = ?
+			OR LOWER(COALESCE(m.to_list, '')) LIKE ?
+			OR LOWER(COALESCE(m.cc_list, '')) LIKE ?
+			OR LOWER(COALESCE(m.bcc_list, '')) LIKE ?
+			OR LOWER(COALESCE(m.reply_to, '')) LIKE ?
+		)
+		GROUP BY COALESCE(m.thread_id, m.id), f.id` +
+		filterHavingClause(filter, "m.") + `
+		ORDER BY latest_date DESC
+		LIMIT ? OFFSET ?
+	`
+
+	rows, err := s.db.Query(searchQuery, accountID, email, listPattern, listPattern, listPattern, listPattern, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to search participant conversations: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*ConversationSearchResult
+	for rows.Next() {
+		c := &ConversationSearchResult{}
+		var latestDateStr sql.NullString
+		var snippet sql.NullString
+		var fromName sql.NullString
+		var messageIDsStr sql.NullString
+
+		err := rows.Scan(
+			&c.ThreadID,
+			&c.Subject,
+			&snippet,
+			&fromName,
+			&c.MessageCount,
+			&c.UnreadCount,
+			&c.HasAttachments,
+			&c.IsStarred,
+			&latestDateStr,
+			&messageIDsStr,
+			&c.IsEncrypted,
+			&c.AccountID,
+			&c.AccountName,
+			&c.AccountColor,
+			&c.FolderID,
+			&c.FolderName,
+			&c.FolderType,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan participant search result: %w", err)
+		}
+
+		if snippet.Valid {
+			c.Snippet = snippet.String
+		}
+		if latestDateStr.Valid && latestDateStr.String != "" {
+			c.LatestDate = parseTimeString(latestDateStr.String)
+		}
+		if messageIDsStr.Valid && messageIDsStr.String != "" {
+			c.MessageIDs = strings.Split(messageIDsStr.String, ",")
+		}
+		if fromName.Valid {
+			c.HighlightedFromName = highlightMatches(fromName.String, email)
+		}
+
+		participants, _ := s.getConversationParticipants(c.ThreadID, c.FolderID)
+		c.Participants = participants
 		results = append(results, c)
 	}
 

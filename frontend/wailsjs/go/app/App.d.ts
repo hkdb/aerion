@@ -103,6 +103,10 @@ export function GetAccount(arg1:string):Promise<account.Account>;
 
 export function GetAccountFoldersForMapping(arg1:string):Promise<Array<folder.Folder>>;
 
+export function GetAccountParticipantSearchCount(arg1:string,arg2:string,arg3:string):Promise<number>;
+
+export function GetAccountSearchCount(arg1:string,arg2:string,arg3:string):Promise<number>;
+
 export function GetAccounts():Promise<Array<account.Account>>;
 
 export function GetAllAccountIdentities():Promise<Array<app.AccountIdentityGroup>>;
@@ -247,7 +251,13 @@ export function HasPGPKey(arg1:string):Promise<boolean>;
 
 export function HasSMIMECertificate(arg1:string):Promise<boolean>;
 
+export function IMAPSearchAccount(arg1:string,arg2:string,arg3:number):Promise<sync.IMAPSearchResponse>;
+
+export function IMAPSearchAccountByParticipant(arg1:string,arg2:string,arg3:number):Promise<sync.IMAPSearchResponse>;
+
 export function IMAPSearchFolder(arg1:string,arg2:string,arg3:string,arg4:number):Promise<sync.IMAPSearchResponse>;
+
+export function IMAPSearchFolderByParticipant(arg1:string,arg2:string,arg3:string,arg4:number):Promise<sync.IMAPSearchResponse>;
 
 export function IgnoreReadReceipt(arg1:string,arg2:string):Promise<void>;
 
@@ -370,6 +380,12 @@ export function SaveOAuthTokens(arg1:string,arg2:string,arg3:string,arg4:string,
 export function SavePendingOAuthTokens(arg1:string):Promise<void>;
 
 export function SaveUIState(arg1:appstate.UIState):Promise<void>;
+
+export function SearchAccountConversations(arg1:string,arg2:string,arg3:number,arg4:number,arg5:string):Promise<Array<message.ConversationSearchResult>>;
+
+export function SearchAccountConversationsByParticipant(arg1:string,arg2:string,arg3:number,arg4:number,arg5:string):Promise<Array<message.ConversationSearchResult>>;
+
+export function SearchAccountParticipants(arg1:string,arg2:string,arg3:number):Promise<Array<message.ParticipantSuggestion>>;
 
 export function SearchContacts(arg1:string,arg2:number):Promise<Array<contact.Contact>>;
 

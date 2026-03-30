@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
+	"github.com/hkdb/aerion/internal/folder"
 	"github.com/hkdb/aerion/internal/message"
 )
 
@@ -74,42 +76,27 @@ func buildSearchCriteria(query string) *imap.SearchCriteria {
 	}
 }
 
-// IMAPSearch performs a server-side IMAP SEARCH query and returns results.
-// For each matching UID, checks if the message exists locally and enriches with local data.
-// Non-local messages get envelope data fetched from the server.
-// When limit > 0, only the newest `limit` UIDs are processed but TotalCount reflects all matches.
-func (e *Engine) IMAPSearch(ctx context.Context, accountID, folderID, query string, limit int) (*IMAPSearchResponse, error) {
-	// Get folder path
-	f, err := e.folderStore.Get(folderID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get folder: %w", err)
+// buildParticipantSearchCriteria creates an IMAP search criteria for a specific participant email.
+// Produces: OR (FROM "email") (OR (TO "email") (CC "email"))
+func buildParticipantSearchCriteria(email string) *imap.SearchCriteria {
+	return &imap.SearchCriteria{
+		Or: [][2]imap.SearchCriteria{
+			{
+				{Header: []imap.SearchCriteriaHeaderField{{Key: "FROM", Value: email}}},
+				{Or: [][2]imap.SearchCriteria{
+					{
+						{Header: []imap.SearchCriteriaHeaderField{{Key: "TO", Value: email}}},
+						{Header: []imap.SearchCriteriaHeaderField{{Key: "CC", Value: email}}},
+					},
+				}},
+			},
+		},
 	}
-	if f == nil {
-		return nil, fmt.Errorf("folder not found: %s", folderID)
-	}
+}
 
-	// Acquire connection
-	conn, err := e.pool.GetConnection(ctx, accountID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection: %w", err)
-	}
-	defer func() { e.pool.Release(conn) }()
-
-	// Select mailbox
-	_, err = conn.Client().SelectMailbox(ctx, f.Path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to select mailbox: %w", err)
-	}
-
-	// IMAP SEARCH using OR across multiple fields for maximum compatibility.
-	// Many servers (notably Gmail) have limited TEXT/BODY search implementations,
-	// so we explicitly OR across FROM, SUBJECT, TO, CC, and BODY fields.
-	// This produces: UID SEARCH OR FROM "q" OR SUBJECT "q" OR TO "q" OR CC "q" BODY "q"
-	client := conn.Client().RawClient()
-	criteria := buildSearchCriteria(query)
+func searchUIDs(ctx context.Context, client *imapclient.Client, criteria *imap.SearchCriteria) ([]uint32, error) {
 	searchCmd := client.UIDSearch(criteria, nil)
 
-	// Run Wait() in a goroutine to allow context cancellation
 	type searchResult struct {
 		data *imap.SearchData
 		err  error
@@ -133,27 +120,33 @@ func (e *Engine) IMAPSearch(ctx context.Context, accountID, folderID, query stri
 		}
 	}
 
+	return uids, nil
+}
+
+func (e *Engine) searchSelectedFolder(ctx context.Context, client *imapclient.Client, accountID string, f *folder.Folder, criteria *imap.SearchCriteria) (*IMAPSearchResponse, error) {
+	_, err := client.Select(f.Path, nil).Wait()
+	if err != nil {
+		return nil, fmt.Errorf("failed to select mailbox: %w", err)
+	}
+
+	uids, err := searchUIDs(ctx, client, criteria)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(uids) == 0 {
 		return &IMAPSearchResponse{TotalCount: 0}, nil
 	}
 
 	totalCount := len(uids)
 
-	// When limit is set, keep only the newest UIDs (highest UID = newest).
-	// Sort descending first so we take the most recent ones.
-	if limit > 0 && len(uids) > limit {
-		sort.Slice(uids, func(i, j int) bool { return uids[i] > uids[j] })
-		uids = uids[:limit]
-	}
-
-	// Check which UIDs exist locally and collect non-local ones
 	var results []*IMAPSearchResult
 	var nonLocalUIDs []uint32
 
 	for _, uid := range uids {
-		localMsg, err := e.messageStore.GetByUID(folderID, uid)
+		localMsg, err := e.messageStore.GetByUID(f.ID, uid)
 		if err != nil {
-			e.log.Warn().Err(err).Uint32("uid", uid).Msg("Failed to check local message")
+			e.log.Warn().Err(err).Uint32("uid", uid).Str("folderID", f.ID).Msg("Failed to check local message")
 			nonLocalUIDs = append(nonLocalUIDs, uid)
 			continue
 		}
@@ -171,7 +164,7 @@ func (e *Engine) IMAPSearch(ctx context.Context, accountID, folderID, query stri
 				IsStarred:      localMsg.IsStarred,
 				HasAttachments: localMsg.HasAttachments,
 				AccountID:      accountID,
-				FolderID:       folderID,
+				FolderID:       f.ID,
 				FolderName:     f.Name,
 			})
 			continue
@@ -179,23 +172,151 @@ func (e *Engine) IMAPSearch(ctx context.Context, accountID, folderID, query stri
 		nonLocalUIDs = append(nonLocalUIDs, uid)
 	}
 
-	// Batch-fetch envelopes for non-local UIDs
 	if len(nonLocalUIDs) > 0 {
-		envelopeResults, err := e.fetchEnvelopesForSearch(ctx, client, accountID, folderID, f.Name, nonLocalUIDs)
+		envelopeResults, err := e.fetchEnvelopesForSearch(ctx, client, accountID, f.ID, f.Name, nonLocalUIDs)
 		if err != nil {
-			e.log.Warn().Err(err).Int("count", len(nonLocalUIDs)).Msg("Failed to fetch envelopes for non-local search results")
+			e.log.Warn().Err(err).Int("count", len(nonLocalUIDs)).Str("folderID", f.ID).Msg("Failed to fetch envelopes for non-local search results")
 		} else {
 			results = append(results, envelopeResults...)
 		}
 	}
 
-	// Sort by date descending (newest first)
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Date.After(results[j].Date)
 	})
 
 	return &IMAPSearchResponse{
 		Results:    results,
+		TotalCount: totalCount,
+	}, nil
+}
+
+// IMAPSearch performs a server-side IMAP SEARCH query and returns results.
+// For each matching UID, checks if the message exists locally and enriches with local data.
+// Non-local messages get envelope data fetched from the server.
+// When limit > 0, only the newest `limit` UIDs are processed but TotalCount reflects all matches.
+func (e *Engine) IMAPSearch(ctx context.Context, accountID, folderID, query string, limit int) (*IMAPSearchResponse, error) {
+	// Get folder path
+	f, err := e.folderStore.Get(folderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get folder: %w", err)
+	}
+	if f == nil {
+		return nil, fmt.Errorf("folder not found: %s", folderID)
+	}
+
+	// Acquire connection
+	conn, err := e.pool.GetConnection(ctx, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection: %w", err)
+	}
+	defer func() { e.pool.Release(conn) }()
+
+	// IMAP SEARCH using OR across multiple fields for maximum compatibility.
+	// Many servers (notably Gmail) have limited TEXT/BODY search implementations,
+	// so we explicitly OR across FROM, SUBJECT, TO, CC, and BODY fields.
+	// This produces: UID SEARCH OR FROM "q" OR SUBJECT "q" OR TO "q" OR CC "q" BODY "q"
+	client := conn.Client().RawClient()
+	criteria := buildSearchCriteria(query)
+	response, err := e.searchSelectedFolder(ctx, client, accountID, f, criteria)
+	if err != nil {
+		return nil, err
+	}
+
+	if limit > 0 && len(response.Results) > limit {
+		response.Results = response.Results[:limit]
+	}
+	return response, nil
+}
+
+// IMAPSearchByParticipant performs a server-side IMAP SEARCH query in a specific folder
+// for a specific participant email.
+func (e *Engine) IMAPSearchByParticipant(ctx context.Context, accountID, folderID, email string, limit int) (*IMAPSearchResponse, error) {
+	f, err := e.folderStore.Get(folderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get folder: %w", err)
+	}
+	if f == nil {
+		return nil, fmt.Errorf("folder not found: %s", folderID)
+	}
+
+	conn, err := e.pool.GetConnection(ctx, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection: %w", err)
+	}
+	defer func() { e.pool.Release(conn) }()
+
+	client := conn.Client().RawClient()
+	criteria := buildParticipantSearchCriteria(strings.TrimSpace(email))
+	response, err := e.searchSelectedFolder(ctx, client, accountID, f, criteria)
+	if err != nil {
+		return nil, err
+	}
+
+	if limit > 0 && len(response.Results) > limit {
+		response.Results = response.Results[:limit]
+	}
+	return response, nil
+}
+
+// IMAPSearchAccount performs a server-side IMAP SEARCH across all folders in an account.
+// Results are merged and sorted globally by date. When limit > 0, only the newest `limit` results are returned.
+func (e *Engine) IMAPSearchAccount(ctx context.Context, accountID, query string, limit int) (*IMAPSearchResponse, error) {
+	criteria := buildSearchCriteria(query)
+	return e.imapSearchAcrossAccount(ctx, accountID, criteria, limit)
+}
+
+// IMAPSearchAccountByParticipant performs a server-side IMAP SEARCH across all folders in an account
+// for a specific participant email.
+func (e *Engine) IMAPSearchAccountByParticipant(ctx context.Context, accountID, email string, limit int) (*IMAPSearchResponse, error) {
+	criteria := buildParticipantSearchCriteria(strings.TrimSpace(email))
+	return e.imapSearchAcrossAccount(ctx, accountID, criteria, limit)
+}
+
+func (e *Engine) imapSearchAcrossAccount(ctx context.Context, accountID string, criteria *imap.SearchCriteria, limit int) (*IMAPSearchResponse, error) {
+	folders, err := e.folderStore.List(accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list folders: %w", err)
+	}
+
+	conn, err := e.pool.GetConnection(ctx, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection: %w", err)
+	}
+	defer func() { e.pool.Release(conn) }()
+
+	client := conn.Client().RawClient()
+	var allResults []*IMAPSearchResult
+	totalCount := 0
+
+	for _, f := range folders {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		if f == nil || strings.TrimSpace(f.Path) == "" {
+			continue
+		}
+
+		response, err := e.searchSelectedFolder(ctx, client, accountID, f, criteria)
+		if err != nil {
+			e.log.Warn().Err(err).Str("folderID", f.ID).Str("folderPath", f.Path).Msg("Failed IMAP search for folder")
+			continue
+		}
+
+		totalCount += response.TotalCount
+		allResults = append(allResults, response.Results...)
+	}
+
+	sort.Slice(allResults, func(i, j int) bool {
+		return allResults[i].Date.After(allResults[j].Date)
+	})
+
+	if limit > 0 && len(allResults) > limit {
+		allResults = allResults[:limit]
+	}
+
+	return &IMAPSearchResponse{
+		Results:    allResults,
 		TotalCount: totalCount,
 	}, nil
 }

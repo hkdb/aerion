@@ -192,6 +192,14 @@ type ConversationSearchResult struct {
 	FolderType          string `json:"folderType"`          // Folder type for icon selection
 }
 
+// ParticipantSuggestion is a person inferred from message history for account-scoped search suggestions.
+type ParticipantSuggestion struct {
+	Name     string    `json:"name"`
+	Email    string    `json:"email"`
+	Count    int       `json:"count"`
+	LastSeen time.Time `json:"lastSeen"`
+}
+
 // FTSIndexStatus represents the indexing status for a folder
 type FTSIndexStatus struct {
 	FolderID      string `json:"folderId"`
