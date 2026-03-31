@@ -66,6 +66,7 @@
   let composerAccountId = $state<string | null>(null)
   let composerInitialMessage = $state<smtp.ComposeMessage | null>(null)
   let composerDraftId = $state<string | null>(null)
+  let composerImagesLoaded = $state(false)
 
   // Shutdown state
   let isShuttingDown = $state(false)
@@ -533,7 +534,7 @@
   }
   
   // Handle reply/reply-all/forward - calls backend API
-  async function handleReply(mode: 'reply' | 'reply-all' | 'forward', messageId: string) {
+  async function handleReply(mode: 'reply' | 'reply-all' | 'forward', messageId: string, imagesLoaded?: boolean) {
     // Use conversation's account ID (important for unified inbox), fall back to selected account or first account
     const accountId = resolveAccountId(selectedConversationAccountId) || resolveAccountId(selectedAccountId)
     if (!accountId) return
@@ -544,6 +545,7 @@
       composerAccountId = accountId
       composerDraftId = null
       composerInitialMessage = composeMessage
+      composerImagesLoaded = imagesLoaded || false
       showComposer = true
     } catch (err) {
       console.error(`Failed to prepare ${mode}:`, err)
@@ -1256,6 +1258,7 @@
         accountId={composerAccountId}
         initialMessage={composerInitialMessage}
         draftId={composerDraftId}
+        imagesLoaded={composerImagesLoaded}
         onClose={closeComposer}
         onSent={closeComposer}
       />

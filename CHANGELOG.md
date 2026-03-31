@@ -4,6 +4,7 @@
 **v0.1.39 - 04-02-2026**
 ---
 
+- Added image block logic to composer to avoid leaks
 - Fixed identity switch on replies and forwards
 - Fixed draft save and send race condition
 - Added proper smtp connect timeout

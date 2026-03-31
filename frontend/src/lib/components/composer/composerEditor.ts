@@ -64,6 +64,27 @@ export const ExtendedColor = Color.extend({
 })
 
 /**
+ * Extended Image that preserves the data-original-src attribute.
+ * Used for blocked remote images: the placeholder SVG is in src,
+ * the original URL is in data-original-src for restoration on send.
+ */
+const ComposerImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      'data-original-src': {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-original-src'),
+        renderHTML: (attributes: Record<string, string>) => {
+          if (!attributes['data-original-src']) return {}
+          return { 'data-original-src': attributes['data-original-src'] }
+        },
+      },
+    }
+  },
+})
+
+/**
  * Extended Table extensions to preserve inline style attributes
  */
 const ExtendedTable = Table.extend({
@@ -150,7 +171,7 @@ export function createComposerEditor(
       Link.configure({
         openOnClick: false,
       }),
-      Image.configure({
+      ComposerImage.configure({
         inline: true,
         allowBase64: true,
       }),

@@ -23,7 +23,7 @@
     folderId?: string | null
     folderType?: string | null
     accountId?: string | null
-    onReply?: (mode: 'reply' | 'reply-all' | 'forward', messageId: string) => void
+    onReply?: (mode: 'reply' | 'reply-all' | 'forward', messageId: string, imagesLoaded?: boolean) => void
     onComposeToAddress?: (toAddress: string) => void
     onEditDraft?: (draftId: string) => void
     onActionComplete?: (autoSelectNext?: boolean) => void
@@ -47,6 +47,9 @@
     showBackButton = false,
     onBack,
   }: Props = $props()
+
+  // Track which messages have had their remote images loaded by the user
+  const messagesWithImagesLoaded = new Set<string>()
 
   // Decrypted attachment metadata
   interface DecryptedAttachment {
@@ -337,6 +340,7 @@
       clearTimeout(refreshTimer)
       refreshTimer = null
     }
+    messagesWithImagesLoaded.clear()
 
     if (threadId && folderId) {
       // Setting is already loaded on mount - no need to fetch on every conversation switch
@@ -695,21 +699,21 @@
   function handleReply() {
     const messageId = getTargetMessageId()
     if (messageId && onReply) {
-      onReply('reply', messageId)
+      onReply('reply', messageId, messagesWithImagesLoaded.has(messageId))
     }
   }
 
   function handleReplyAll() {
     const messageId = getTargetMessageId()
     if (messageId && onReply) {
-      onReply('reply-all', messageId)
+      onReply('reply-all', messageId, messagesWithImagesLoaded.has(messageId))
     }
   }
 
   function handleForward() {
     const messageId = getTargetMessageId()
     if (messageId && onReply) {
-      onReply('forward', messageId)
+      onReply('forward', messageId, messagesWithImagesLoaded.has(messageId))
     }
   }
 
@@ -1582,6 +1586,7 @@
                             bodyText={msg.hasPGP && pgpResults[msg.id] ? pgpResults[msg.id].bodyText : msg.hasSMIME && smimeResults[msg.id] ? smimeResults[msg.id].bodyText : msg.bodyText}
                             fromEmail={msg.fromEmail}
                             onCompose={onComposeToAddress}
+                            onImagesLoaded={() => messagesWithImagesLoaded.add(msg.id)}
                             encryptedInlineAttachments={pgpResults[msg.id]?.inlineAttachments ?? smimeResults[msg.id]?.inlineAttachments}
                           />
                         {/if}

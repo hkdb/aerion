@@ -146,7 +146,7 @@ func (s *Sanitizer) SanitizeWithRemoteImageBlocking(html string) string {
 	sanitized := s.Sanitize(html)
 
 	// Then replace remote images with placeholders
-	return blockRemoteImages(sanitized)
+	return BlockRemoteImages(sanitized)
 }
 
 // removeScriptTags removes all script tags and their content
@@ -162,8 +162,9 @@ func removeStyleTags(html string) string {
 	return re.ReplaceAllString(html, "")
 }
 
-// blockRemoteImages replaces remote image sources with a placeholder
-func blockRemoteImages(html string) string {
+// BlockRemoteImages replaces remote image sources with a placeholder SVG,
+// storing the original URL in a data-original-src attribute for later restoration.
+func BlockRemoteImages(html string) string {
 	// Match img tags with http/https sources
 	re := regexp.MustCompile(`(?i)<img([^>]*)\ssrc=["'](https?://[^"']+)["']([^>]*)>`)
 

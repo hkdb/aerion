@@ -8,6 +8,8 @@
   // @ts-ignore - Wails runtime for events
   import { EventsOn, EventsOff } from '../../../../wailsjs/runtime/runtime.js'
   import { type ComposerApi, COMPOSER_API_KEY, createMainWindowApi } from '$lib/composerApi'
+  import { isImageAllowedSync } from '$lib/stores/imageAllowlist.svelte'
+  import { getAlwaysLoadImages } from '$lib/stores/settings.svelte'
   
   // Attachment type from backend
   interface ComposerAttachment {
@@ -76,9 +78,11 @@
     onCloseHandled?: () => void
     /** Callback when recipient or subject changes (for dynamic window title) */
     onTitleChange?: (to: string, subject: string) => void
+    /** Whether remote images were loaded in the viewer before reply/forward */
+    imagesLoaded?: boolean
   }
 
-  let { accountId, initialMessage = null, draftId = null, messageId = null, onClose, onSent, api: propApi, isDetached = false, closeRequested = false, onCloseHandled, onTitleChange }: Props = $props()
+  let { accountId, initialMessage = null, draftId = null, messageId = null, onClose, onSent, api: propApi, isDetached = false, closeRequested = false, onCloseHandled, onTitleChange, imagesLoaded = false }: Props = $props()
 
   // Get API from context, props, or create default main window API
   const contextApi = getContext<ComposerApi | undefined>(COMPOSER_API_KEY)
@@ -338,6 +342,9 @@
   // Max inline image size (10 MB) — larger files should be added as regular attachments
   const MAX_INLINE_IMAGE_SIZE = 10 * 1024 * 1024
 
+  // Whether remote images are blocked in the composer's quoted content
+  let composerImagesBlocked = $state(false)
+
   // Max attachment size (100 MB) — server enforces its own limits for smaller caps
   const MAX_ATTACHMENT_SIZE = 100 * 1024 * 1024
   
@@ -430,6 +437,16 @@
       htmlContent = convertDataUrlsToCid(addParagraphStyles(editor?.getHTML() || ''))
       textContent = editor?.getText() || ''
     }
+
+    // Restore blocked remote images for sending — replace placeholder with original URL
+    htmlContent = htmlContent.replace(
+      /<img([^>]*)\sdata-original-src="([^"]+)"([^>]*)>/gi,
+      (match, _before, originalSrc, _after) => {
+        return match
+          .replace(/src="[^"]*"/, `src="${originalSrc}"`)
+          .replace(/\s*data-original-src="[^"]*"/, '')
+      }
+    )
 
     // Convert ComposerAttachment to smtp.Attachment format (regular attachments)
     // Use content_base64 (string) instead of content (number[]) to avoid
@@ -551,6 +568,20 @@
       isSaving = false
       resolveSaving!()
     }
+  }
+
+  // Load blocked remote images in the composer editor
+  function loadComposerImages() {
+    if (!editor) return
+    const imgs = editor.view.dom.querySelectorAll('img[data-original-src]')
+    imgs.forEach(img => {
+      const originalSrc = img.getAttribute('data-original-src')
+      if (originalSrc) {
+        img.setAttribute('src', originalSrc)
+        img.removeAttribute('data-original-src')
+      }
+    })
+    composerImagesBlocked = false
   }
 
   // Delete the current draft
@@ -929,6 +960,17 @@
       editor.commands.setContent(htmlBody)
       // Move cursor to beginning (before the quoted content)
       editor.commands.focus('start')
+    }
+
+    // Check for blocked remote images in quoted content.
+    // If the sender is allowlisted or always-load is enabled, unblock immediately.
+    if (htmlBody.includes('data-original-src')) {
+      composerImagesBlocked = true
+      const senderEmail = ((initialMessage.from as any)?.address || (initialMessage.from as any)?.email || '').toLowerCase()
+      if (getAlwaysLoadImages() || imagesLoaded || (senderEmail && isImageAllowedSync(senderEmail))) {
+        // Use setTimeout to ensure editor has rendered the content first
+        setTimeout(() => loadComposerImages(), 0)
+      }
     }
 
     // Restore S/MIME toggles from draft
@@ -1796,6 +1838,20 @@
       onTogglePlainText={togglePlainTextMode}
       onInsertImage={insertImage}
     />
+
+    <!-- Remote images blocked bar -->
+    {#if composerImagesBlocked}
+      <div class="flex items-center gap-2 px-3 py-2 mx-2 mt-2 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-sm">
+        <Icon icon="mdi:image-off" class="w-4 h-4 text-yellow-600 flex-shrink-0" />
+        <span class="text-yellow-700 dark:text-yellow-400">{$_('viewer.remoteImagesBlocked')}</span>
+        <button
+          class="ml-auto px-2 py-1 text-xs font-medium rounded bg-yellow-600 text-white hover:bg-yellow-700 transition-colors"
+          onclick={loadComposerImages}
+        >
+          {$_('viewer.loadImages')}
+        </button>
+      </div>
+    {/if}
 
     <!-- Editor -->
     <div class="flex-1 overflow-auto bg-white dark:bg-zinc-900">

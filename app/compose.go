@@ -700,6 +700,11 @@ func (a *App) PrepareReply(messageID, mode string) (*smtp.ComposeMessage, error)
 		quotedHTML = "<p>" + strings.ReplaceAll(escapeHTML(msg.BodyText), "\n", "<br>") + "</p>"
 	}
 
+	// Block remote images in quoted content to prevent tracking pixels.
+	// Original URLs are preserved in data-original-src for restoration on send.
+	// The frontend can unblock them if the sender is in the image allowlist.
+	quotedHTML = email.BlockRemoteImages(quotedHTML)
+
 	var htmlBody, textBody string
 	if mode == "forward" {
 		// Forward format

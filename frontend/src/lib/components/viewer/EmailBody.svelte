@@ -17,10 +17,11 @@
     bodyText?: string
     fromEmail?: string
     onCompose?: (to: string) => void
+    onImagesLoaded?: () => void
     encryptedInlineAttachments?: Record<string, string>
   }
 
-  let { messageId, accountId, bodyHtml = '', bodyText = '', fromEmail = '', onCompose, encryptedInlineAttachments }: Props = $props()
+  let { messageId, accountId, bodyHtml = '', bodyText = '', fromEmail = '', onCompose, onImagesLoaded, encryptedInlineAttachments }: Props = $props()
 
   // State for remote image handling
   let imagesBlocked = $state(true)
@@ -409,6 +410,7 @@ ${processedHtml}
 
   function loadImages() {
     imagesBlocked = false
+    onImagesLoaded?.()
   }
 
   // Extract domain from email address
