@@ -19,6 +19,7 @@
 - Fixed inline images on replies and forwards
 - Fixed forward signature placement
 - Added AttachConsole to for Windows builds for debug output
+- Fixed murena.io CardDav [#86](https://github.com/hkdb/aerion/issues/86)
 
 
 **v0.1.38 - 03-22-2026**
