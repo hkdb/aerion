@@ -163,6 +163,7 @@
     "downloadingContent": "正在下载邮件内容...",
     "copy": "复制",
     "copyLink": "复制链接",
+    "selectAll": "全选",
     "remoteImagesBlocked": "远程图片已出于隐私原因被屏蔽。",
     "loadImages": "加载图片",
     "alwaysLoad": "始终加载",

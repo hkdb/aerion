@@ -7,7 +7,9 @@
 - Added image block logic to composer to avoid leaks
 - Added folder subscription for auto sync - [#83](https://github.com/hkdb/aerion/issues/83)
 - Added optional accent bar for unread messages - [#92](https://github.com/hkdb/aerion/issues/92)
-- Added copy text context menu in viewer
+- Added copy text in viewer context menu - [#77](https://github.com/hkdb/aerion/issues/77)
+- Added select all in viewer context menu - [#77](https://github.com/hkdb/aerion/issues/77)
+- Enable native context menu in composer - [#77](https://github.com/hkdb/aerion/issues/77)
 - Improved copy/move to folder selection dialog
 - Improved invalid encoding handling
 - Fixed another ghost message issue

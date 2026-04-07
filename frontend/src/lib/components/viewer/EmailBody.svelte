@@ -192,16 +192,14 @@
         }
       });
 
-      // Handle right-click context menu for text selection and links
+      // Handle right-click context menu — always prevent native menu, show custom one
       document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
         var selection = window.getSelection();
         var selectedText = (selection && selection.toString().trim().length > 0) ? selection.toString() : '';
         var link = e.target.closest('a');
         var linkUrl = (link && link.href) ? link.href : '';
 
-        if (!selectedText && !linkUrl) return;
-
-        e.preventDefault();
         window.parent.postMessage({
           type: 'contextmenu',
           text: selectedText,
@@ -603,6 +601,12 @@ ${processedHtml}
       console.error('[EmailBody] Failed to copy link:', err)
     }
   }
+
+  // Select all text in iframe
+  function selectAllInIframe() {
+    iframeElement?.contentWindow?.postMessage({ type: 'select-all' }, '*')
+    ctxMenuVisible = false
+  }
 </script>
 
 <div class="email-body relative">
@@ -696,6 +700,13 @@ ${processedHtml}
           {$_('viewer.copyLink')}
         </button>
       {/if}
+      <button
+        class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+        onclick={selectAllInIframe}
+      >
+        <Icon icon="mdi:select-all" class="w-4 h-4" />
+        {$_('viewer.selectAll')}
+      </button>
     </div>
   {/if}
 </div>

@@ -163,6 +163,7 @@
     "downloadingContent": "Downloading message content...",
     "copy": "Copy",
     "copyLink": "Copy Link",
+    "selectAll": "Select All",
     "remoteImagesBlocked": "Remote images are blocked for privacy.",
     "loadImages": "Load Images",
     "alwaysLoad": "Always Load",

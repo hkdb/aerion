@@ -163,6 +163,7 @@
     "downloadingContent": "正在下載郵件內容...",
     "copy": "複製",
     "copyLink": "複製連結",
+    "selectAll": "全選",
     "remoteImagesBlocked": "遠端圖片已基於隱私被封鎖。",
     "loadImages": "載入圖片",
     "alwaysLoad": "永遠載入",
