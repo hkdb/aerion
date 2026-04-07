@@ -3,10 +3,18 @@
 al.essio.dev/pkg/shellescape
 # git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3
 ## explicit; go 1.20
+git.sr.ht/~jackmordaunt/go-toast/v2
 git.sr.ht/~jackmordaunt/go-toast/v2/internal/winrt/data/xml/dom
 git.sr.ht/~jackmordaunt/go-toast/v2/internal/winrt/ui/notifications
 git.sr.ht/~jackmordaunt/go-toast/v2/tmpl
 git.sr.ht/~jackmordaunt/go-toast/v2/wintoast
+# github.com/Microsoft/go-winio v0.6.2
+## explicit; go 1.21
+github.com/Microsoft/go-winio
+github.com/Microsoft/go-winio/internal/fs
+github.com/Microsoft/go-winio/internal/socket
+github.com/Microsoft/go-winio/internal/stringbuffer
+github.com/Microsoft/go-winio/pkg/guid
 # github.com/ProtonMail/go-crypto v1.1.5
 ## explicit; go 1.17
 github.com/ProtonMail/go-crypto/bitcurves
@@ -31,13 +39,6 @@ github.com/ProtonMail/go-crypto/openpgp/packet
 github.com/ProtonMail/go-crypto/openpgp/s2k
 github.com/ProtonMail/go-crypto/openpgp/x25519
 github.com/ProtonMail/go-crypto/openpgp/x448
-# github.com/Microsoft/go-winio v0.6.2
-## explicit; go 1.21
-github.com/Microsoft/go-winio
-github.com/Microsoft/go-winio/internal/fs
-github.com/Microsoft/go-winio/internal/socket
-github.com/Microsoft/go-winio/internal/stringbuffer
-github.com/Microsoft/go-winio/pkg/guid
 # github.com/aymerick/douceur v0.2.0
 ## explicit
 github.com/aymerick/douceur/css
@@ -197,7 +198,7 @@ github.com/wailsapp/mimetype
 github.com/wailsapp/mimetype/internal/charset
 github.com/wailsapp/mimetype/internal/json
 github.com/wailsapp/mimetype/internal/magic
-# github.com/wailsapp/wails/v2 v2.11.0
+# github.com/wailsapp/wails/v2 v2.12.0
 ## explicit; go 1.22.0
 github.com/wailsapp/wails/v2
 github.com/wailsapp/wails/v2/internal/app
@@ -245,6 +246,9 @@ github.com/wailsapp/wails/v2/pkg/runtime
 ## explicit; go 1.18
 github.com/zalando/go-keyring
 github.com/zalando/go-keyring/secret_service
+# go.mozilla.org/pkcs7 v0.9.0
+## explicit; go 1.11
+go.mozilla.org/pkcs7
 # golang.org/x/crypto v0.46.0
 ## explicit; go 1.24.0
 golang.org/x/crypto/acme
@@ -300,9 +304,6 @@ golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
-# go.mozilla.org/pkcs7 v0.9.0
-## explicit; go 1.11
-go.mozilla.org/pkcs7
 # modernc.org/libc v1.66.10
 ## explicit; go 1.23.0
 modernc.org/libc

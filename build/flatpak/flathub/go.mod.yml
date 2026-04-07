@@ -73,10 +73,10 @@
   type: archive
   url: https://proxy.golang.org/github.com/teamwork/tnef/@v/v0.0.0-20200108124832-7deabccfdb32.zip
 - dest: vendor/github.com/wailsapp/wails/v2
-  sha256: 1f599fcbff21b1d46c8a2c20f7da6cdf0913d616ac9f0fbdae07ce2e0cb9e877
+  sha256: 180adf48c80ff08a23a30964fd69f6fe205d7915e5903237b46236f605c0dfd6
   strip-components: 4
   type: archive
-  url: https://proxy.golang.org/github.com/wailsapp/wails/v2/@v/v2.11.0.zip
+  url: https://proxy.golang.org/github.com/wailsapp/wails/v2/@v/v2.12.0.zip
 - dest: vendor/github.com/zalando/go-keyring
   sha256: 8dea1c2777e7275317e5011f54cddb252c017a7e152558c4fcac84fa5101cf4e
   strip-components: 3

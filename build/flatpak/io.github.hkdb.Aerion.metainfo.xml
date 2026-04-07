@@ -128,10 +128,30 @@
   </provides>
 
   <releases>
-    <release version="0.1.39" date="2026-04-02">
+    <release version="0.1.39" date="2026-04-11">
       <description>
         <ul>
-          <li></li>
+          <li>Added image block logic to composer to avoid leaks</li>
+          <li>Added folder subscription for auto sync - #83</li>
+          <li>Added optional accent bar for unread messages - #92</li>
+          <li>Added copy text in viewer context menu - #77</li>
+          <li>Added select all in viewer context menu - #77</li>
+          <li>Enable native context menu in composer - #77</li>
+          <li>Improved copy/move to folder selection dialog</li>
+          <li>Improved invalid encoding handling</li>
+          <li>Fixed another ghost message issue</li>
+          <li>Fixed invalid e-mail date hang</li>
+          <li>Fixed identity switch on replies and forwards</li>
+          <li>Fixed draft save and send race condition</li>
+          <li>Added proper smtp connect timeout</li>
+          <li>Added proper IMAP STARTTLS connect timeout</li>
+          <li>Fixed inefficient serilization for inline images and attachments</li>
+          <li>Added inline image and attachment size limit</li>
+          <li>Fixed inline images on replies and forwards</li>
+          <li>Fixed forward signature placement</li>
+          <li>Added AttachConsole to for Windows builds for debug output</li>
+          <li>Fixed murena.io CardDav - #86</li>
+          <li>Fixed some HK translation</li>
         </ul>
       </description>
     </release>

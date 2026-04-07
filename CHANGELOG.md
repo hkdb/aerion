@@ -1,7 +1,7 @@
 # CHANGELOG
 
 
-**v0.1.39 - 04-02-2026**
+**v0.1.39 - 04-11-2026**
 ---
 
 - Added image block logic to composer to avoid leaks
