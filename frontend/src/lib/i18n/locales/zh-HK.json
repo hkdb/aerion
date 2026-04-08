@@ -481,6 +481,7 @@
   "account": {
     "addTitle": "新增電子郵件帳戶",
     "editTitle": "編輯帳戶",
+    "editSharedMailboxTitle": "編輯共用信箱",
     "addDescription": "連接您的電子郵件帳戶以開始接收郵件。",
     "editDescription": "管理您的電子郵件帳戶設定、身分和簽名。",
     "general": "一般",
@@ -673,7 +674,17 @@
     "addSeparator": "在簽名前加入分隔線",
     "saveIdentityChanges": "儲存變更",
     "saveFailed": "儲存身分失敗。",
-    "addEmailAddressButton": "新增電子郵件地址"
+    "addEmailAddressButton": "新增電子郵件地址",
+    "sharedMailboxes": "共用信箱",
+    "sharedMailboxesHelp": "新增您有權存取的 Microsoft 365 共用信箱。",
+    "addSharedMailbox": "新增共用信箱",
+    "noSharedMailboxes": "尚未設定共用信箱。",
+    "sharedMailboxEmail": "共用信箱電子郵件",
+    "sharedMailboxDisplayName": "顯示名稱",
+    "sharedMailboxAdded": "共用信箱已新增。",
+    "sharedMailboxRemoved": "共用信箱已移除。",
+    "failedToAddSharedMailbox": "新增共用信箱失敗",
+    "failedToDeleteSharedMailbox": "移除共用信箱失敗。"
   },
   "security": {
     "smime": "S/MIME",

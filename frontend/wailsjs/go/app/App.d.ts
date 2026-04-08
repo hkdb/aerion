@@ -27,6 +27,8 @@ export function AddContactSource(arg1:carddav.SourceConfig):Promise<carddav.Sour
 
 export function AddImageAllowlist(arg1:string,arg2:string):Promise<void>;
 
+export function AddMicrosoftSharedMailbox(arg1:string,arg2:string,arg3:string):Promise<account.Account>;
+
 export function AddPGPKeyServer(arg1:string):Promise<void>;
 
 export function Archive(arg1:Array<string>):Promise<void>;
@@ -188,6 +190,8 @@ export function GetMessageListSortOrder():Promise<string>;
 export function GetMessageSource(arg1:string):Promise<string>;
 
 export function GetMessages(arg1:string,arg2:string,arg3:number,arg4:number):Promise<Array<message.MessageHeader>>;
+
+export function GetMicrosoftSharedMailboxes(arg1:string):Promise<Array<account.Account>>;
 
 export function GetNativeTitleBar():Promise<boolean>;
 

@@ -98,7 +98,8 @@ func (s *Store) Create(config *AccountConfig) (*Account, error) {
 		SyncPeriodDays:           config.SyncPeriodDays,
 		SyncInterval:             config.SyncInterval,
 		SyncAllFolders:           config.SyncAllFolders,
-		SyncFoldersEnabled:      config.SyncFoldersEnabled,
+		SyncFoldersEnabled:       config.SyncFoldersEnabled,
+		SharedMailboxParentID:    config.SharedMailboxParentID,
 		ReadReceiptRequestPolicy: config.ReadReceiptRequestPolicy,
 		SentFolderPath:           config.SentFolderPath,
 		DraftsFolderPath:         config.DraftsFolderPath,
@@ -113,7 +114,7 @@ func (s *Store) Create(config *AccountConfig) (*Account, error) {
 
 	_, err = s.db.Exec(`
 		INSERT INTO accounts (
-			id, name, email,
+			id, name, email, shared_mailbox_parent_id,
 			imap_host, imap_port, imap_security,
 			smtp_host, smtp_port, smtp_security,
 			auth_type, username,
@@ -123,9 +124,9 @@ func (s *Store) Create(config *AccountConfig) (*Account, error) {
 			spam_folder_path, archive_folder_path, all_mail_folder_path,
 			starred_folder_path,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
-		account.ID, account.Name, account.Email,
+		account.ID, account.Name, account.Email, nullableString(account.SharedMailboxParentID),
 		account.IMAPHost, account.IMAPPort, account.IMAPSecurity,
 		account.SMTPHost, account.SMTPPort, account.SMTPSecurity,
 		account.AuthType, account.Username,
@@ -165,10 +166,10 @@ func (s *Store) Create(config *AccountConfig) (*Account, error) {
 // Get retrieves an account by ID
 func (s *Store) Get(id string) (*Account, error) {
 	account := &Account{}
-	var sentPath, draftsPath, trashPath, spamPath, archivePath, allMailPath, starredPath sql.NullString
+	var sentPath, draftsPath, trashPath, spamPath, archivePath, allMailPath, starredPath, sharedMailboxParentID sql.NullString
 	var syncAllFolders, syncFoldersEnabled int
 	err := s.db.QueryRow(`
-		SELECT id, name, email,
+		SELECT id, name, email, shared_mailbox_parent_id,
 			imap_host, imap_port, imap_security,
 			smtp_host, smtp_port, smtp_security,
 			auth_type, username,
@@ -180,7 +181,7 @@ func (s *Store) Get(id string) (*Account, error) {
 			created_at, updated_at
 		FROM accounts WHERE id = ?
 	`, id).Scan(
-		&account.ID, &account.Name, &account.Email,
+		&account.ID, &account.Name, &account.Email, &sharedMailboxParentID,
 		&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity,
 		&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity,
 		&account.AuthType, &account.Username,
@@ -199,6 +200,7 @@ func (s *Store) Get(id string) (*Account, error) {
 	}
 	account.SyncAllFolders = syncAllFolders == 1
 	account.SyncFoldersEnabled = syncFoldersEnabled == 1
+	account.SharedMailboxParentID = sharedMailboxParentID.String
 	// Map nullable strings to account fields
 	account.SentFolderPath = sentPath.String
 	account.DraftsFolderPath = draftsPath.String
@@ -213,7 +215,7 @@ func (s *Store) Get(id string) (*Account, error) {
 // List retrieves all accounts ordered by order_index
 func (s *Store) List() ([]*Account, error) {
 	rows, err := s.db.Query(`
-		SELECT id, name, email,
+		SELECT id, name, email, shared_mailbox_parent_id,
 			imap_host, imap_port, imap_security,
 			smtp_host, smtp_port, smtp_security,
 			auth_type, username,
@@ -233,10 +235,10 @@ func (s *Store) List() ([]*Account, error) {
 	var accounts []*Account
 	for rows.Next() {
 		account := &Account{}
-		var sentPath, draftsPath, trashPath, spamPath, archivePath, allMailPath, starredPath sql.NullString
+		var sentPath, draftsPath, trashPath, spamPath, archivePath, allMailPath, starredPath, sharedMailboxParentID sql.NullString
 		var syncAllFolders, syncFoldersEnabled int
 		err := rows.Scan(
-			&account.ID, &account.Name, &account.Email,
+			&account.ID, &account.Name, &account.Email, &sharedMailboxParentID,
 			&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity,
 			&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity,
 			&account.AuthType, &account.Username,
@@ -253,6 +255,7 @@ func (s *Store) List() ([]*Account, error) {
 		// Map nullable strings and booleans to account fields
 		account.SyncAllFolders = syncAllFolders == 1
 		account.SyncFoldersEnabled = syncFoldersEnabled == 1
+		account.SharedMailboxParentID = sharedMailboxParentID.String
 		account.SentFolderPath = sentPath.String
 		account.DraftsFolderPath = draftsPath.String
 		account.TrashFolderPath = trashPath.String
@@ -263,6 +266,61 @@ func (s *Store) List() ([]*Account, error) {
 		accounts = append(accounts, account)
 	}
 
+	return accounts, nil
+}
+
+// ListBySharedMailboxParent returns all shared mailbox accounts linked to a parent account.
+func (s *Store) ListBySharedMailboxParent(parentID string) ([]*Account, error) {
+	rows, err := s.db.Query(`
+		SELECT id, name, email, shared_mailbox_parent_id,
+			imap_host, imap_port, imap_security,
+			smtp_host, smtp_port, smtp_security,
+			auth_type, username,
+			enabled, order_index, color, sync_period_days, sync_interval, sync_all_folders, sync_folders_enabled,
+			read_receipt_request_policy,
+			sent_folder_path, drafts_folder_path, trash_folder_path,
+			spam_folder_path, archive_folder_path, all_mail_folder_path,
+			starred_folder_path,
+			created_at, updated_at
+		FROM accounts WHERE shared_mailbox_parent_id = ? ORDER BY name
+	`, parentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list shared mailboxes: %w", err)
+	}
+	defer rows.Close()
+
+	var accounts []*Account
+	for rows.Next() {
+		account := &Account{}
+		var sentPath, draftsPath, trashPath, spamPath, archivePath, allMailPath, starredPath, sharedMailboxParentID sql.NullString
+		var syncAllFolders, syncFoldersEnabled int
+		err := rows.Scan(
+			&account.ID, &account.Name, &account.Email, &sharedMailboxParentID,
+			&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity,
+			&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity,
+			&account.AuthType, &account.Username,
+			&account.Enabled, &account.OrderIndex, &account.Color, &account.SyncPeriodDays, &account.SyncInterval, &syncAllFolders, &syncFoldersEnabled,
+			&account.ReadReceiptRequestPolicy,
+			&sentPath, &draftsPath, &trashPath,
+			&spamPath, &archivePath, &allMailPath,
+			&starredPath,
+			&account.CreatedAt, &account.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan shared mailbox: %w", err)
+		}
+		account.SyncAllFolders = syncAllFolders == 1
+		account.SyncFoldersEnabled = syncFoldersEnabled == 1
+		account.SharedMailboxParentID = sharedMailboxParentID.String
+		account.SentFolderPath = sentPath.String
+		account.DraftsFolderPath = draftsPath.String
+		account.TrashFolderPath = trashPath.String
+		account.SpamFolderPath = spamPath.String
+		account.ArchiveFolderPath = archivePath.String
+		account.AllMailFolderPath = allMailPath.String
+		account.StarredFolderPath = starredPath.String
+		accounts = append(accounts, account)
+	}
 	return accounts, nil
 }
 

@@ -28,6 +28,9 @@ type Account struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
 
+	// Shared mailbox support
+	SharedMailboxParentID string `json:"sharedMailboxParentId,omitempty"` // Parent account ID (set for Microsoft shared mailboxes)
+
 	// IMAP settings
 	IMAPHost     string       `json:"imapHost"`
 	IMAPPort     int          `json:"imapPort"`
@@ -153,6 +156,8 @@ type AccountConfig struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"displayName"` // Name shown to email recipients
 	Email       string `json:"email"`
+
+	SharedMailboxParentID string `json:"sharedMailboxParentId,omitempty"`
 
 	IMAPHost     string       `json:"imapHost"`
 	IMAPPort     int          `json:"imapPort"`

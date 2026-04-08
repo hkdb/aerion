@@ -57,6 +57,108 @@ func (a *App) AddAccount(config account.AccountConfig) (*account.Account, error)
 	return acc, nil
 }
 
+// AddMicrosoftSharedMailbox creates a shared mailbox account linked to a primary Microsoft OAuth account.
+// The shared mailbox reuses the primary account's OAuth tokens but authenticates IMAP/SMTP
+// with the shared mailbox email as the XOAUTH2 username.
+func (a *App) AddMicrosoftSharedMailbox(primaryAccountID, sharedEmail, displayName string) (*account.Account, error) {
+	log := logging.WithComponent("app")
+
+	if sharedEmail == "" {
+		return nil, fmt.Errorf("shared mailbox email is required")
+	}
+	if displayName == "" {
+		displayName = sharedEmail
+	}
+
+	primary, err := a.accountStore.Get(primaryAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get primary account: %w", err)
+	}
+	if primary == nil {
+		return nil, fmt.Errorf("primary account not found")
+	}
+	if primary.AuthType != account.AuthOAuth2 {
+		return nil, fmt.Errorf("shared mailboxes require an OAuth account")
+	}
+
+	// Get the primary account's OAuth tokens
+	tokens, err := a.credStore.GetOAuthTokens(primaryAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OAuth tokens from primary account: %w", err)
+	}
+
+	// Validate IMAP access with shared mailbox email as XOAUTH2 username
+	clientConfig := imap.DefaultConfig()
+	clientConfig.Host = primary.IMAPHost
+	clientConfig.Port = primary.IMAPPort
+	clientConfig.Security = imap.SecurityType(primary.IMAPSecurity)
+	clientConfig.Username = sharedEmail
+	clientConfig.AuthType = imap.AuthTypeOAuth2
+	clientConfig.AccessToken = tokens.AccessToken
+
+	clientConfig.TLSConfig = certificate.BuildTLSConfig(primary.IMAPHost, a.certStore)
+
+	client := imap.NewClient(clientConfig)
+	if connectErr := client.Connect(); connectErr != nil {
+		return nil, fmt.Errorf("failed to connect to IMAP: %w", connectErr)
+	}
+	if loginErr := client.Login(); loginErr != nil {
+		client.Close()
+		return nil, fmt.Errorf("shared mailbox authentication failed — verify you have access to %s: %w", sharedEmail, loginErr)
+	}
+	client.Close()
+
+	// Create the shared mailbox account
+	config := account.AccountConfig{
+		Name:                  displayName,
+		DisplayName:           displayName,
+		Email:                 sharedEmail,
+		SharedMailboxParentID: primaryAccountID,
+		IMAPHost:              primary.IMAPHost,
+		IMAPPort:              primary.IMAPPort,
+		IMAPSecurity:          primary.IMAPSecurity,
+		SMTPHost:              primary.SMTPHost,
+		SMTPPort:              primary.SMTPPort,
+		SMTPSecurity:          primary.SMTPSecurity,
+		AuthType:              account.AuthOAuth2,
+		Username:              sharedEmail,
+		Color:                 primary.Color,
+		SyncPeriodDays:        primary.SyncPeriodDays,
+		SyncInterval:          primary.SyncInterval,
+	}
+
+	acc, err := a.accountStore.Create(&config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create shared mailbox account: %w", err)
+	}
+
+	// Copy OAuth tokens to the new account
+	if tokenErr := a.credStore.SetOAuthTokens(acc.ID, tokens); tokenErr != nil {
+		// Clean up the account if token storage fails
+		a.accountStore.Delete(acc.ID)
+		return nil, fmt.Errorf("failed to store OAuth tokens for shared mailbox: %w", tokenErr)
+	}
+
+	a.updateDBConnectionPool()
+
+	if a.idleManager != nil && acc.Enabled {
+		a.idleManager.StartAccount(acc.ID, acc.Name)
+	}
+
+	log.Info().
+		Str("accountID", acc.ID).
+		Str("sharedEmail", sharedEmail).
+		Str("parentID", primaryAccountID).
+		Msg("Microsoft shared mailbox created")
+
+	return acc, nil
+}
+
+// GetMicrosoftSharedMailboxes returns all shared mailbox accounts linked to a parent account.
+func (a *App) GetMicrosoftSharedMailboxes(parentAccountID string) ([]*account.Account, error) {
+	return a.accountStore.ListBySharedMailboxParent(parentAccountID)
+}
+
 // UpdateAccount updates an existing account
 func (a *App) UpdateAccount(id string, config account.AccountConfig) (*account.Account, error) {
 	log := logging.WithComponent("app")
@@ -134,6 +236,13 @@ func (a *App) UpdateAccount(id string, config account.AccountConfig) (*account.A
 // RemoveAccount deletes an account and all its data
 func (a *App) RemoveAccount(id string) error {
 	log := logging.WithComponent("app")
+
+	// Cascade: delete any shared mailboxes linked to this account
+	sharedMailboxes, _ := a.accountStore.ListBySharedMailboxParent(id)
+	for _, sm := range sharedMailboxes {
+		log.Info().Str("sharedID", sm.ID).Str("parentID", id).Msg("Cascade deleting shared mailbox")
+		a.RemoveAccount(sm.ID)
+	}
 
 	// Stop IDLE for this account
 	if a.idleManager != nil {

@@ -285,6 +285,14 @@ func (a *App) SavePendingOAuthTokens(accountID string) error {
 		return fmt.Errorf("failed to store OAuth tokens: %w", err)
 	}
 
+	// Propagate new tokens to any shared mailboxes linked to this account
+	sharedMailboxes, _ := a.accountStore.ListBySharedMailboxParent(accountID)
+	for _, sm := range sharedMailboxes {
+		if smErr := a.credStore.SetOAuthTokens(sm.ID, tokens); smErr != nil {
+			log.Warn().Err(smErr).Str("sharedID", sm.ID).Msg("Failed to propagate tokens to shared mailbox")
+		}
+	}
+
 	log.Info().
 		Str("accountID", accountID).
 		Str("provider", provider).

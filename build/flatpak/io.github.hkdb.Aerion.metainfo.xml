@@ -137,6 +137,7 @@
           <li>Added copy text in viewer context menu - #77</li>
           <li>Added select all in viewer context menu - #77</li>
           <li>Enable native context menu in composer - #77</li>
+          <li>Added Shared Mailbox support for Microsoft 365 - #93</li>
           <li>Improved copy/move to folder selection dialog</li>
           <li>Improved invalid encoding handling</li>
           <li>Fixed another ghost message issue</li>

@@ -284,7 +284,7 @@
   <Dialog.Content class="max-w-xl max-h-[90vh] overflow-hidden flex flex-col" preventCloseAutoFocus>
     <Dialog.Header>
       <Dialog.Title>
-        {editAccount ? $_('account.editTitle') : $_('account.addTitle')}
+        {editAccount?.sharedMailboxParentId ? $_('account.editSharedMailboxTitle') : editAccount ? $_('account.editTitle') : $_('account.addTitle')}
       </Dialog.Title>
       <Dialog.Description>
         {editAccount
@@ -341,7 +341,7 @@
           </Tabs.Content>
 
           <Tabs.Content value="identity" class="mt-0">
-            <AccountIdentityTab accountId={editAccount.id} />
+            <AccountIdentityTab accountId={editAccount.id} {editAccount} />
           </Tabs.Content>
 
           <Tabs.Content value="security" class="mt-0">

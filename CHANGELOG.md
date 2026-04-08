@@ -10,6 +10,7 @@
 - Added copy text in viewer context menu - [#77](https://github.com/hkdb/aerion/issues/77)
 - Added select all in viewer context menu - [#77](https://github.com/hkdb/aerion/issues/77)
 - Enable native context menu in composer - [#77](https://github.com/hkdb/aerion/issues/77)
+- Added Shared Mailbox support for Microsoft 365 - [#93](https://github.com/hkdb/aerion/issues/93)
 - Improved copy/move to folder selection dialog
 - Improved invalid encoding handling
 - Fixed another ghost message issue

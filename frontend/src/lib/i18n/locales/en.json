@@ -482,6 +482,7 @@
   "account": {
     "addTitle": "Add Email Account",
     "editTitle": "Edit Account",
+    "editSharedMailboxTitle": "Edit Shared Mailbox",
     "addDescription": "Connect your email account to start receiving messages.",
     "editDescription": "Manage your email account settings, identities, and signatures.",
     "general": "General",
@@ -678,7 +679,17 @@
     "addSeparator": "Add separator line before signature",
     "saveIdentityChanges": "Save Changes",
     "saveFailed": "Failed to save identity.",
-    "addEmailAddressButton": "Add Email Address"
+    "addEmailAddressButton": "Add Email Address",
+    "sharedMailboxes": "Shared Mailboxes",
+    "sharedMailboxesHelp": "Add Microsoft 365 shared mailboxes you have access to.",
+    "addSharedMailbox": "Add Shared Mailbox",
+    "noSharedMailboxes": "No shared mailboxes configured.",
+    "sharedMailboxEmail": "Shared mailbox email",
+    "sharedMailboxDisplayName": "Display name",
+    "sharedMailboxAdded": "Shared mailbox added successfully.",
+    "sharedMailboxRemoved": "Shared mailbox removed.",
+    "failedToAddSharedMailbox": "Failed to add shared mailbox",
+    "failedToDeleteSharedMailbox": "Failed to remove shared mailbox."
   },
   "security": {
     "smime": "S/MIME",

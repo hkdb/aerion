@@ -701,4 +701,8 @@ var migrations = []Migration{
 		Version: 27,
 		SQL:     `ALTER TABLE accounts ADD COLUMN sync_folders_enabled INTEGER NOT NULL DEFAULT 0;`,
 	},
+	{
+		Version: 28,
+		SQL:     `ALTER TABLE accounts ADD COLUMN shared_mailbox_parent_id TEXT DEFAULT NULL;`,
+	},
 }

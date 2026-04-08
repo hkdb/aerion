@@ -481,6 +481,7 @@
   "account": {
     "addTitle": "添加电子邮件账户",
     "editTitle": "编辑账户",
+    "editSharedMailboxTitle": "编辑共享邮箱",
     "addDescription": "连接您的电子邮件账户以开始接收邮件。",
     "editDescription": "管理您的电子邮件账户设置、身份和签名。",
     "general": "常规",
@@ -673,7 +674,17 @@
     "addSeparator": "在签名前添加分隔线",
     "saveIdentityChanges": "保存更改",
     "saveFailed": "保存身份失败。",
-    "addEmailAddressButton": "添加电子邮件地址"
+    "addEmailAddressButton": "添加电子邮件地址",
+    "sharedMailboxes": "共享邮箱",
+    "sharedMailboxesHelp": "添加您有权访问的 Microsoft 365 共享邮箱。",
+    "addSharedMailbox": "添加共享邮箱",
+    "noSharedMailboxes": "尚未配置共享邮箱。",
+    "sharedMailboxEmail": "共享邮箱电子邮件",
+    "sharedMailboxDisplayName": "显示名称",
+    "sharedMailboxAdded": "共享邮箱已添加。",
+    "sharedMailboxRemoved": "共享邮箱已移除。",
+    "failedToAddSharedMailbox": "添加共享邮箱失败",
+    "failedToDeleteSharedMailbox": "移除共享邮箱失败。"
   },
   "security": {
     "smime": "S/MIME",

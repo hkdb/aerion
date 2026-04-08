@@ -4,6 +4,7 @@ export namespace account {
 	    id: string;
 	    name: string;
 	    email: string;
+	    sharedMailboxParentId?: string;
 	    imapHost: string;
 	    imapPort: number;
 	    imapSecurity: string;
@@ -41,6 +42,7 @@ export namespace account {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.email = source["email"];
+	        this.sharedMailboxParentId = source["sharedMailboxParentId"];
 	        this.imapHost = source["imapHost"];
 	        this.imapPort = source["imapPort"];
 	        this.imapSecurity = source["imapSecurity"];
@@ -90,6 +92,7 @@ export namespace account {
 	    name: string;
 	    displayName: string;
 	    email: string;
+	    sharedMailboxParentId?: string;
 	    imapHost: string;
 	    imapPort: number;
 	    imapSecurity: string;
@@ -122,6 +125,7 @@ export namespace account {
 	        this.name = source["name"];
 	        this.displayName = source["displayName"];
 	        this.email = source["email"];
+	        this.sharedMailboxParentId = source["sharedMailboxParentId"];
 	        this.imapHost = source["imapHost"];
 	        this.imapPort = source["imapPort"];
 	        this.imapSecurity = source["imapSecurity"];

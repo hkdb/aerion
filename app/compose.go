@@ -343,6 +343,13 @@ func (ops *composeOps) sendMessage(ctx context.Context, accountID string, msg sm
 	smtpConfig.Port = acc.SMTPPort
 	smtpConfig.Security = smtp.SecurityType(acc.SMTPSecurity)
 	smtpConfig.Username = acc.Username
+	// Shared mailboxes authenticate SMTP with the parent account's username
+	if acc.SharedMailboxParentID != "" {
+		parent, parentErr := ops.accountStore.Get(acc.SharedMailboxParentID)
+		if parentErr == nil && parent != nil {
+			smtpConfig.Username = parent.Username
+		}
+	}
 	smtpConfig.TLSConfig = certificate.BuildTLSConfig(acc.SMTPHost, ops.certStore)
 
 	// Handle authentication based on auth type

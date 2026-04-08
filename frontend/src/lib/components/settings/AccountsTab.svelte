@@ -7,6 +7,9 @@
   import type { account } from '../../../../wailsjs/go/models'
   import { _ } from '$lib/i18n'
 
+  // Filter out shared mailboxes — they're managed from the parent account's Identity tab
+  const regularAccounts = $derived(accountStore.accounts.filter(acc => !acc.account.sharedMailboxParentId))
+
   // Dialog state
   let showAccountDialog = $state(false)
   let editingAccount = $state<account.Account | null>(null)
@@ -53,7 +56,7 @@
     <div class="flex items-center justify-center py-4">
       <Icon icon="mdi:loading" class="w-5 h-5 animate-spin text-muted-foreground" />
     </div>
-  {:else if accountStore.accounts.length === 0}
+  {:else if regularAccounts.length === 0}
     <div class="text-sm text-muted-foreground py-4 text-center">
       <p class="mb-3">{$_('settingsAccounts.noAccountsConfigured')}</p>
       <Button size="sm" onclick={openAdd}>
@@ -63,7 +66,7 @@
     </div>
   {:else}
     <div class="space-y-2">
-      {#each accountStore.accounts as accWithFolders, index (accWithFolders.account.id)}
+      {#each regularAccounts as accWithFolders, index (accWithFolders.account.id)}
         {@const acc = accWithFolders.account}
         <div class="p-3 border border-border rounded-lg flex items-center gap-3">
           <!-- Order number -->

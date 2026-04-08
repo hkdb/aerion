@@ -22,6 +22,10 @@ export function AddImageAllowlist(arg1, arg2) {
   return window['go']['app']['App']['AddImageAllowlist'](arg1, arg2);
 }
 
+export function AddMicrosoftSharedMailbox(arg1, arg2, arg3) {
+  return window['go']['app']['App']['AddMicrosoftSharedMailbox'](arg1, arg2, arg3);
+}
+
 export function AddPGPKeyServer(arg1) {
   return window['go']['app']['App']['AddPGPKeyServer'](arg1);
 }
@@ -344,6 +348,10 @@ export function GetMessageSource(arg1) {
 
 export function GetMessages(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['GetMessages'](arg1, arg2, arg3, arg4);
+}
+
+export function GetMicrosoftSharedMailboxes(arg1) {
+  return window['go']['app']['App']['GetMicrosoftSharedMailboxes'](arg1);
 }
 
 export function GetNativeTitleBar() {
