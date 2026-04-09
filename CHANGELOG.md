@@ -26,6 +26,7 @@
 - Added AttachConsole to for Windows builds for debug output
 - Fixed murena.io CardDav - [#86](https://github.com/hkdb/aerion/issues/86)
 - Fixed some HK translations
+- Fixed non-UTF filename attachment open and download
 
 
 **v0.1.38 - 03-22-2026**

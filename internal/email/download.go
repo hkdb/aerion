@@ -12,7 +12,9 @@ import (
 	"strings"
 
 	gomessage "github.com/emersion/go-message"
+	msgcharset "github.com/emersion/go-message/charset"
 	"github.com/hkdb/aerion/internal/message"
+	"golang.org/x/text/encoding/htmlindex"
 )
 
 // AttachmentDownloader handles downloading and saving attachments
@@ -157,17 +159,39 @@ func (d *AttachmentDownloader) findAttachmentInMultipart(mr gomessage.MultipartR
 	return nil, fmt.Errorf("attachment not found: %s", targetFilename)
 }
 
+// decodeMIMEFilename decodes a MIME-encoded filename with full charset support.
+// Mirrors the sync code's decodeMIMEWord() to ensure filenames match between
+// sync (when stored to DB) and download (when extracting from raw message).
+func decodeMIMEFilename(s string) string {
+	if s == "" {
+		return s
+	}
+	dec := &mime.WordDecoder{
+		CharsetReader: func(charsetName string, r io.Reader) (io.Reader, error) {
+			if reader, err := msgcharset.Reader(charsetName, r); err == nil {
+				return reader, nil
+			}
+			enc, err := htmlindex.Get(charsetName)
+			if err != nil {
+				return nil, fmt.Errorf("unknown charset: %s", charsetName)
+			}
+			return enc.NewDecoder().Reader(r), nil
+		},
+	}
+	decoded, err := dec.DecodeHeader(s)
+	if err != nil {
+		return s
+	}
+	return decoded
+}
+
 // getFilename extracts the filename from a message part
 func getFilename(part *gomessage.Entity) string {
 	// Try Content-Disposition first
 	if disp := part.Header.Get("Content-Disposition"); disp != "" {
 		_, params, _ := mime.ParseMediaType(disp)
 		if filename := params["filename"]; filename != "" {
-			decoded, err := decodeRFC2047(filename)
-			if err == nil {
-				return decoded
-			}
-			return filename
+			return decodeMIMEFilename(filename)
 		}
 	}
 
@@ -175,11 +199,7 @@ func getFilename(part *gomessage.Entity) string {
 	if ct := part.Header.Get("Content-Type"); ct != "" {
 		_, params, _ := mime.ParseMediaType(ct)
 		if name := params["name"]; name != "" {
-			decoded, err := decodeRFC2047(name)
-			if err == nil {
-				return decoded
-			}
-			return name
+			return decodeMIMEFilename(name)
 		}
 	}
 

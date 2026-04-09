@@ -153,6 +153,7 @@
           <li>Added AttachConsole to for Windows builds for debug output</li>
           <li>Fixed murena.io CardDav - #86</li>
           <li>Fixed some HK translation</li>
+          <li>Fixed non-UTF filename attachment open and download</li>
         </ul>
       </description>
     </release>
