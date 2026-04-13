@@ -213,7 +213,67 @@ func (e *Engine) SyncFolders(ctx context.Context, accountID string) error {
 
 	e.log.Info().Str("account", accountID).Int("folders", len(mailboxes)).Msg("Folder sync complete")
 
+	// Persist auto-detected folder mappings if not already set.
+	// This ensures getSpecialFolder always finds the correct folder via the
+	// account mapping, even when multiple folders match the same type by name
+	// (e.g., iCloud's "Sent" and "Sent Messages" both match TypeSent).
+	e.persistAutoDetectedMappings(accountID)
+
 	return nil
+}
+
+// persistAutoDetectedMappings checks if the account's folder path mappings are
+// empty and fills them from auto-detected folder types. Only writes to DB when
+// at least one mapping was empty and a detected folder was found.
+func (e *Engine) persistAutoDetectedMappings(accountID string) {
+	acc, err := e.accountStore.Get(accountID)
+	if err != nil || acc == nil {
+		return
+	}
+
+	type mapping struct {
+		current  string
+		fType    folder.Type
+	}
+
+	mappings := []mapping{
+		{acc.SentFolderPath, folder.TypeSent},
+		{acc.DraftsFolderPath, folder.TypeDrafts},
+		{acc.TrashFolderPath, folder.TypeTrash},
+		{acc.SpamFolderPath, folder.TypeSpam},
+		{acc.ArchiveFolderPath, folder.TypeArchive},
+		{acc.AllMailFolderPath, folder.TypeAll},
+		{acc.StarredFolderPath, folder.TypeStarred},
+	}
+
+	results := make([]string, len(mappings))
+	updated := false
+
+	for i, m := range mappings {
+		results[i] = m.current
+		if m.current != "" {
+			continue
+		}
+		detected, _ := e.folderStore.GetByType(accountID, m.fType)
+		if detected != nil {
+			results[i] = detected.Path
+			updated = true
+		}
+	}
+
+	if !updated {
+		return
+	}
+
+	if err := e.accountStore.UpdateFolderMappings(
+		accountID,
+		results[0], results[1], results[2], results[3], results[4], results[5], results[6],
+	); err != nil {
+		e.log.Warn().Err(err).Str("account", accountID).Msg("Failed to persist auto-detected folder mappings")
+		return
+	}
+
+	e.log.Debug().Str("account", accountID).Msg("Auto-detected folder mappings persisted")
 }
 
 // fetchFolderStatusParallel fetches STATUS for multiple folders concurrently

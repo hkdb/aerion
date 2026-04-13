@@ -402,6 +402,26 @@ func (s *Store) Update(id string, config *AccountConfig) (*Account, error) {
 	return existing, nil
 }
 
+// UpdateFolderMappings updates only the folder path mappings for an account.
+// Used to persist auto-detected folder mappings without requiring a full account update.
+func (s *Store) UpdateFolderMappings(id, sent, drafts, trash, spam, archive, allMail, starred string) error {
+	_, err := s.db.Exec(`
+		UPDATE accounts SET
+			sent_folder_path = ?, drafts_folder_path = ?, trash_folder_path = ?,
+			spam_folder_path = ?, archive_folder_path = ?, all_mail_folder_path = ?,
+			starred_folder_path = ?, updated_at = ?
+		WHERE id = ?
+	`,
+		nullableString(sent), nullableString(drafts), nullableString(trash),
+		nullableString(spam), nullableString(archive), nullableString(allMail),
+		nullableString(starred), time.Now(), id,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update folder mappings: %w", err)
+	}
+	return nil
+}
+
 // Delete deletes an account and all associated data
 func (s *Store) Delete(id string) error {
 	result, err := s.db.Exec("DELETE FROM accounts WHERE id = ?", id)

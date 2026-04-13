@@ -479,7 +479,7 @@
                 <Select.Root value={mapping.get()} onValueChange={mapping.set}>
                   <Select.Trigger class="h-9">
                     <Select.Value placeholder={$_('account.none')}>
-                      {mapping.get() || $_('account.none')}
+                      {(mapping.get() || $_('account.none')) + (autoDetectedFolders[mapping.key] === mapping.get() ? ' ' + $_('account.detected') : '')}
                     </Select.Value>
                   </Select.Trigger>
                   <Select.Content>
