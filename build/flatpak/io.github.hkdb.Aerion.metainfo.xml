@@ -154,6 +154,7 @@
           <li>Fixed murena.io CardDav - #86</li>
           <li>Fixed some HK translation</li>
           <li>Fixed non-UTF filename attachment open and download</li>
+          <li>Fixed save to sent folder behavior - #98</li>
         </ul>
       </description>
     </release>

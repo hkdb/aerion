@@ -27,6 +27,7 @@
 - Fixed murena.io CardDav - [#86](https://github.com/hkdb/aerion/issues/86)
 - Fixed some HK translations
 - Fixed non-UTF filename attachment open and download
+- Fixed save to sent folder behavior - [#98](https://github.com/hkdb/aerion/issues/98)
 
 
 **v0.1.38 - 03-22-2026**

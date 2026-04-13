@@ -120,27 +120,39 @@ func (c *Client) Connect() error {
 
 	switch c.config.Security {
 	case SecurityTLS:
-		// Connect with TLS directly (port 465)
+		// Connect with TLS directly (port 465).
+		// Wrap with deadlineConn BEFORE TLS so tls.Conn is the outer layer.
+		// net/smtp checks for *tls.Conn to set serverInfo.TLS — if deadlineConn
+		// wraps the outside, PlainAuth sees "unencrypted connection" and refuses.
 		dialer := &net.Dialer{Timeout: c.config.ConnectTimeout}
-		conn, err = tls.DialWithDialer(dialer, "tcp", addr, tlsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to connect with TLS: %w", err)
+		rawConn, dialErr := dialer.Dial("tcp", addr)
+		if dialErr != nil {
+			return fmt.Errorf("failed to connect: %w", dialErr)
 		}
+		wrappedConn := &deadlineConn{
+			Conn:         rawConn,
+			readTimeout:  c.config.ReadTimeout,
+			writeTimeout: c.config.WriteTimeout,
+		}
+		tlsConn := tls.Client(wrappedConn, tlsConfig)
+		if hsErr := tlsConn.Handshake(); hsErr != nil {
+			tlsConn.Close()
+			return fmt.Errorf("TLS handshake failed: %w", hsErr)
+		}
+		conn = tlsConn
 
 	case SecurityStartTLS, SecurityNone:
-		// Connect plain first
+		// Connect plain first, wrap with deadline
 		dialer := &net.Dialer{Timeout: c.config.ConnectTimeout}
-		conn, err = dialer.Dial("tcp", addr)
-		if err != nil {
-			return fmt.Errorf("failed to connect: %w", err)
+		rawConn, dialErr := dialer.Dial("tcp", addr)
+		if dialErr != nil {
+			return fmt.Errorf("failed to connect: %w", dialErr)
 		}
-	}
-
-	// Wrap connection with deadline enforcement to prevent indefinite blocking
-	conn = &deadlineConn{
-		Conn:         conn,
-		readTimeout:  c.config.ReadTimeout,
-		writeTimeout: c.config.WriteTimeout,
+		conn = &deadlineConn{
+			Conn:         rawConn,
+			readTimeout:  c.config.ReadTimeout,
+			writeTimeout: c.config.WriteTimeout,
+		}
 	}
 
 	// Create SMTP client

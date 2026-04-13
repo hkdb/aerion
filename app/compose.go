@@ -153,22 +153,34 @@ func (ops *composeOps) getIMAPCredentials(ctx context.Context, accountID string)
 	return &config, nil
 }
 
+// getSpecialFolder resolves a special folder for an account, checking the
+// user's explicit mapping first, then falling back to auto-detected type.
+// Mirrors App.GetSpecialFolder (app/folder.go) for use within composeOps.
+func (ops *composeOps) getSpecialFolder(accountID string, folderType folder.Type) (*folder.Folder, error) {
+	acc, err := ops.accountStore.Get(accountID)
+	if err != nil || acc == nil {
+		return ops.folderStore.GetByType(accountID, folderType)
+	}
+	mappedPath := acc.GetFolderMapping(string(folderType))
+	if mappedPath != "" {
+		f, err := ops.folderStore.GetByPath(accountID, mappedPath)
+		if err == nil && f != nil {
+			return f, nil
+		}
+	}
+	return ops.folderStore.GetByType(accountID, folderType)
+}
+
 // saveToSentFolder appends the sent message to the Sent folder via IMAP.
 func (ops *composeOps) saveToSentFolder(ctx context.Context, accountID string, acc *account.Account, rawMsg []byte) error {
 	log := logging.WithComponent("composeOps")
 
-	// Get the Sent folder path (mapping-aware: check account mapping first, then auto-detect)
-	var sentPath string
-	if acc.SentFolderPath != "" {
-		sentPath = acc.SentFolderPath
+	// Resolve the Sent folder using the same logic as App.GetSpecialFolder
+	sentFolder, err := ops.getSpecialFolder(accountID, folder.TypeSent)
+	if err != nil || sentFolder == nil {
+		return fmt.Errorf("no Sent folder configured or detected")
 	}
-	if sentPath == "" {
-		sentFolder, err := ops.folderStore.GetByType(accountID, folder.TypeSent)
-		if err != nil || sentFolder == nil {
-			return fmt.Errorf("no Sent folder configured or detected")
-		}
-		sentPath = sentFolder.Path
-	}
+	sentPath := sentFolder.Path
 
 	log.Debug().
 		Str("account_id", accountID).
