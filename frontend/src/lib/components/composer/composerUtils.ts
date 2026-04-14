@@ -123,13 +123,33 @@ export function readFileAsDataUrl(file: File): Promise<string> {
  * renders single-spaced in all email clients.
  */
 export function addParagraphStyles(html: string): string {
-  return html
-    // Normalize empty paragraphs so they all have <br> for consistent height
-    .replace(/<p><\/p>/g, '<p><br></p>')
-    // Insert style="margin:0" after every <p that is followed by space or >
-    // This avoids matching <pre>, <param>, etc.
+  const result = html
+    // Convert empty paragraphs to <br> — TipTap uses <p></p> internally for
+    // Enter key performance, but <br> produces tighter spacing in email clients
+    .replace(/<p><\/p>/g, '<br>')
+    // Add inline margin:0 to remaining (content) paragraphs for consistent
+    // rendering across email clients
     .replace(/<p([ >])/g, (_, after) => `<p style="margin:0"${after}`)
     .replace(/style="margin:0" style="/g, 'style="margin:0;')
+  // Wrap in div with line-height:1.2 so <br> elements and paragraphs
+  // render with tighter spacing matching Google/Outlook style
+  return `<div style="line-height:1.25">${result}</div>`
+}
+
+/**
+ * Reverse addParagraphStyles for loading HTML back into TipTap editor.
+ * Converts <br> back to <p></p> (TipTap's internal paragraph model)
+ * and strips inline margin:0 styles.
+ */
+export function stripParagraphStyles(html: string): string {
+  return html
+    // Remove line-height wrapper div added by addParagraphStyles
+    .replace(/^<div style="line-height:[^"]*">([\s\S]*)<\/div>$/, '$1')
+    // Convert standalone <br> back to empty paragraphs for TipTap
+    .replace(/<br\s*\/?>\s*(?=<p|<br|$)/g, '<p></p>')
+    // Strip inline margin:0 from paragraphs
+    .replace(/<p([^>]*) style="margin:\s*0;?"([^>]*)>/g, '<p$1$2>')
+    .replace(/<p style="margin:\s*0;?">/g, '<p>')
 }
 
 /**

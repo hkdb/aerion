@@ -32,6 +32,7 @@
   import ComposerAttachmentList from './ComposerAttachmentList.svelte'
   import {
     addParagraphStyles,
+    stripParagraphStyles,
     base64ToBytes,
     htmlToPlainText,
     parseFileUris,
@@ -964,8 +965,9 @@
     }
 
     // Set editor content (with restored data URLs for inline images)
+    // Strip email-client paragraph styles so TipTap doesn't double-space empty lines
     if (editor && htmlBody) {
-      editor.commands.setContent(htmlBody)
+      editor.commands.setContent(stripParagraphStyles(htmlBody))
       // Move cursor to beginning (before the quoted content)
       editor.commands.focus('start')
     }
@@ -2009,6 +2011,7 @@
   /* Zero-margin paragraphs so Enter looks like a single line break */
   :global(.composer-editor p) {
     margin: 0;
+    line-height: 1.25;
   }
 
   :global(.ProseMirror p.is-editor-empty:first-child::before) {
