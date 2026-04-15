@@ -240,6 +240,7 @@ func (a *App) SyncAccountComplete(accountID string) error {
 		wg.Add(1)
 		sem <- struct{}{} // Acquire semaphore
 		go func(f *folder.Folder) {
+			defer recoverPanic("app.sync", "sync folder")
 			defer wg.Done()
 			defer func() { <-sem }() // Release semaphore
 

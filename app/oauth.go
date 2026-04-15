@@ -59,6 +59,7 @@ func (a *App) StartOAuthFlow(provider string) error {
 
 	// Wait for callback in background
 	go func() {
+		defer recoverPanic("app.oauth", "OAuth callback")
 		tokens, email, err := a.oauth2Manager.WaitForCallback(a.ctx)
 		if err != nil {
 			log.Error().Err(err).Str("provider", provider).Msg("OAuth callback failed")

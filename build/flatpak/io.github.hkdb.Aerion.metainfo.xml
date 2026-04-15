@@ -158,6 +158,7 @@
           <li>Improve composer formatting</li>
           <li>Fixed unchecked rand.Read() in Cryptographic Code</li>
           <li>Backfilled missing DB error handling</li>
+          <li>Added proper panic recovery</li>
         </ul>
       </description>
     </release>

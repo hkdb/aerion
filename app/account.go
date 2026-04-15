@@ -224,6 +224,7 @@ func (a *App) UpdateAccount(id string, config account.AccountConfig) (*account.A
 		a.syncScheduler.CancelSync(id)
 		// Small delay to allow cancellation to complete
 		go func() {
+			defer recoverPanic("app", "sync after account update")
 			// time.Sleep(500 * time.Millisecond)
 			a.syncScheduler.TriggerSync(id)
 		}()

@@ -35,6 +35,7 @@ func (a *App) initThemeMonitor(ctx context.Context) {
 
 // processThemeEvents listens for system theme changes and emits events to the frontend
 func (a *App) processThemeEvents(ctx context.Context) {
+	defer recoverPanic("app.theme", "process theme events")
 	if a.themeMonitor == nil {
 		return
 	}

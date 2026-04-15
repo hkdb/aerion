@@ -583,6 +583,7 @@ func (a *App) SaveDraft(accountID string, msg smtp.ComposeMessage, existingDraft
 	a.syncMu.Unlock()
 
 	go func() {
+		defer recoverPanic("app.draft", "sync draft to IMAP")
 		defer close(done)
 		defer func() {
 			a.syncMu.Lock()
@@ -655,6 +656,7 @@ func (a *App) SyncPendingDrafts(accountID string) error {
 
 // syncAllPendingDrafts syncs pending drafts for all accounts
 func (a *App) syncAllPendingDrafts() {
+	defer recoverPanic("app.draft", "sync pending drafts")
 	log := logging.WithComponent("app")
 
 	accounts, err := a.accountStore.List()
@@ -725,6 +727,7 @@ func (a *App) DeleteDraft(draftID string) error {
 		accountID := d.AccountID
 		folderID := draftsFolder.ID
 		go func() {
+			defer recoverPanic("app.draft", "sync drafts folder after delete")
 			if err := a.SyncFolder(accountID, folderID); err != nil {
 				log.Warn().Err(err).Str("folderID", folderID).Msg("Failed to sync Drafts folder after draft delete")
 			}

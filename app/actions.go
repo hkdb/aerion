@@ -123,6 +123,7 @@ func (a *App) setReadStatus(messageIDs []string, isRead bool) error {
 
 	// Update folder unread counts in background to avoid blocking other DB operations
 	go func() {
+		defer recoverPanic("app.actions", "update folder counts")
 		folderCounts := make(map[string]int)
 		for folderID := range byFolder {
 			unreadCount, err := a.messageStore.CountUnreadByFolder(folderID)
@@ -148,6 +149,7 @@ func (a *App) setReadStatus(messageIDs []string, isRead bool) error {
 
 	// Sync to IMAP in background with retry
 	go func() {
+		defer recoverPanic("app.actions", "sync flags to IMAP")
 		for folderID, msgs := range byFolder {
 			var err error
 			for attempt := 1; attempt <= 3; attempt++ {
@@ -235,6 +237,7 @@ func (a *App) setStarredStatus(messageIDs []string, isStarred bool) error {
 
 	// Sync to IMAP in background with retry
 	go func() {
+		defer recoverPanic("app.actions", "sync star flags to IMAP")
 		for folderID, msgs := range byFolder {
 			var err error
 			for attempt := 1; attempt <= 3; attempt++ {
@@ -357,6 +360,7 @@ func (a *App) MoveToFolder(messageIDs []string, destFolderID string) error {
 
 	// Update folder unread counts for source and destination folders
 	go func() {
+		defer recoverPanic("app.actions", "update folder counts after move")
 		folderCounts := make(map[string]int)
 
 		// Update source folders
@@ -409,6 +413,7 @@ func (a *App) MoveToFolder(messageIDs []string, destFolderID string) error {
 	// cancels the first and starts fresh, preventing the first sync from deleting
 	// locally-moved messages whose IMAP COPY hasn't completed yet.
 	go func() {
+		defer recoverPanic("app.actions", "move messages on IMAP")
 		for sourceFolderID, msgs := range byFolder {
 			if err := a.moveMessagesToIMAP(msgs, sourceFolderID, destFolder); err != nil {
 				log.Error().Err(err).
@@ -619,6 +624,7 @@ func (a *App) CopyToFolder(messageIDs []string, destFolderID string) error {
 
 	// Copy on IMAP (no local DB change - messages stay in source folder)
 	go func() {
+		defer recoverPanic("app.actions", "copy messages on IMAP")
 		for sourceFolderID, msgs := range byFolder {
 			if err := a.copyMessagesToIMAP(msgs, sourceFolderID, destFolder); err != nil {
 				log.Error().Err(err).
@@ -827,6 +833,7 @@ func (a *App) gmailRemoveLabel(messages []*message.Message) error {
 
 	// Update folder counts
 	go func() {
+		defer recoverPanic("app.actions", "update folder counts after label removal")
 		folderCounts := make(map[string]int)
 		for folderID, msgs := range byFolder {
 			unreadCount, countErr := a.messageStore.CountUnreadByFolder(folderID)
@@ -855,6 +862,7 @@ func (a *App) gmailRemoveLabel(messages []*message.Message) error {
 
 	// IMAP: DELETE from source folders (no COPY — just remove the label)
 	go func() {
+		defer recoverPanic("app.actions", "remove Gmail label on IMAP")
 		for folderID, msgs := range byFolder {
 			if err := a.removeFromIMAPFolder(msgs, folderID); err != nil {
 				log.Error().Err(err).Str("folderID", folderID).Msg("Failed to remove messages from IMAP folder")
@@ -994,6 +1002,7 @@ func (a *App) DeletePermanently(messageIDs []string) error {
 
 	// Update folder unread counts
 	go func() {
+		defer recoverPanic("app.actions", "update folder counts after delete")
 		folderCounts := make(map[string]int)
 		for folderID, msgs := range byFolder {
 			unreadCount, err := a.messageStore.CountUnreadByFolder(folderID)
@@ -1023,6 +1032,7 @@ func (a *App) DeletePermanently(messageIDs []string) error {
 
 	// Delete from IMAP in background
 	go func() {
+		defer recoverPanic("app.actions", "delete from IMAP")
 		for folderID, msgs := range byFolder {
 			if err := a.deleteMessagesFromIMAP(msgs, folderID); err != nil {
 				log.Error().Err(err).Str("folderID", folderID).Msg("Failed to delete messages from IMAP")

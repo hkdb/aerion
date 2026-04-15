@@ -772,6 +772,7 @@ func (c *ComposerApp) SaveDraft(accountID string, msg smtp.ComposeMessage, exist
 	c.draftSyncMu.Unlock()
 
 	go func() {
+		defer recoverPanic("composer", "sync draft to IMAP")
 		defer close(done)
 		defer func() {
 			c.draftSyncMu.Lock()

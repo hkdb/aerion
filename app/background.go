@@ -90,6 +90,7 @@ func (a *App) initBackgroundSync(ctx context.Context) {
 
 // processIdleEvents processes mail events from IDLE connections
 func (a *App) processIdleEvents(ctx context.Context) {
+	defer recoverPanic("app.idle", "process IDLE events")
 	log := logging.WithComponent("app.idle")
 
 	for {
@@ -132,6 +133,7 @@ func (a *App) processIdleEvents(ctx context.Context) {
 
 // handleIdleNewMail handles a new mail event from IDLE
 func (a *App) handleIdleNewMail(event imap.MailEvent) {
+	defer recoverPanic("app.idle", "handle IDLE new mail")
 	log := logging.WithComponent("app.idle")
 
 	log.Info().
@@ -399,6 +401,7 @@ func (a *App) initNetworkMonitor(ctx context.Context) {
 // offline → stop IDLE, clear pool, notify frontend
 // online  → clear stale connections, full sync, restart IDLE, notify frontend
 func (a *App) processNetworkEvents(ctx context.Context) {
+	defer recoverPanic("app.network", "process network events")
 	log := logging.WithComponent("app.network")
 
 	if a.networkMonitor == nil {
@@ -458,6 +461,7 @@ func (a *App) initSleepWakeMonitor(ctx context.Context) {
 
 // processSleepWakeEvents handles sleep/wake events from the monitor
 func (a *App) processSleepWakeEvents(ctx context.Context) {
+	defer recoverPanic("app.wake", "process sleep/wake events")
 	if a.sleepWakeMonitor == nil {
 		return
 	}
@@ -617,6 +621,7 @@ func (a *App) syncAfterWake() {
 	// FetchBodiesInBackground, consuming pool connections that SyncAllComplete
 	// also needs (max 3 per account), causing 2+ minute waiter timeouts.
 	go func() {
+		defer recoverPanic("app.wake", "post-wake sync")
 		defer func() {
 			a.syncMu.Lock()
 			a.wakeSyncing = false

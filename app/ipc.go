@@ -39,6 +39,7 @@ func (a *App) initIPC(ctx context.Context) {
 
 	// Start server in background
 	go func() {
+		defer recoverPanic("app.ipc", "IPC server")
 		if err := a.ipcServer.Start(ctx); err != nil {
 			// Context cancellation is expected during shutdown
 			if ctx.Err() == nil {
@@ -115,6 +116,7 @@ func (a *App) handleComposerMessageSent(payload ipc.MessageSentPayload) {
 
 	// Sync Sent folder to pick up the new message
 	go func() {
+		defer recoverPanic("app.ipc", "sync sent folder")
 		if err := a.syncSentFolder(payload.AccountID); err != nil {
 			log.Warn().Err(err).Msg("Failed to sync Sent folder after composer send")
 		}
@@ -142,6 +144,7 @@ func (a *App) handleComposerDraftSaved(payload ipc.DraftSavedPayload) {
 	// The notification is sent after the composer's IMAP upload completes,
 	// so we can sync immediately
 	go func() {
+		defer recoverPanic("app.ipc", "sync drafts folder")
 		draftsFolder, err := a.GetSpecialFolder(payload.AccountID, folder.TypeDrafts)
 		if err != nil || draftsFolder == nil {
 			log.Warn().Err(err).Str("accountID", payload.AccountID).Msg("Could not find Drafts folder for sync")
@@ -181,6 +184,7 @@ func (a *App) handleComposerDraftDeleted(payload ipc.DraftDeletedPayload) {
 
 	// Sync the Drafts folder in background to reconcile with IMAP
 	go func() {
+		defer recoverPanic("app.ipc", "sync drafts folder")
 		if err := a.SyncFolder(payload.AccountID, draftsFolder.ID); err != nil {
 			log.Warn().Err(err).Str("folderID", draftsFolder.ID).Msg("Failed to sync Drafts folder after deletion")
 			return
@@ -246,6 +250,7 @@ func (a *App) OpenComposerWindow(accountID, mode, messageID, draftID, mailtoURL 
 
 	// Write token to stdin and close immediately
 	go func() {
+		defer recoverPanic("app.ipc", "write IPC token")
 		token := a.ipcTokenMgr.GetToken()
 		stdin.Write([]byte(token))
 		stdin.Close()

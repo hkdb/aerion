@@ -94,6 +94,7 @@ func (a *App) MoveLocalMessages(messageIDs []string, folderID string) error {
 
 	// Update folder counts for all affected folders (source + destination)
 	go func() {
+		defer recoverPanic("app.undo", "update folder counts")
 		folderCounts := make(map[string]int)
 
 		// Update source folders

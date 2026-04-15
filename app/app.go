@@ -573,6 +573,7 @@ func (a *App) Startup(ctx context.Context) {
 
 	// Start background FTS indexing after a short delay to let initial sync complete
 	go func() {
+		defer recoverPanic("app", "FTS indexing")
 		time.Sleep(5 * time.Second)
 		log.Info().Msg("Starting background FTS indexing")
 		wailsRuntime.EventsEmit(ctx, "fts:indexing", map[string]interface{}{
@@ -621,6 +622,7 @@ func (a *App) BeforeClose(ctx context.Context) bool {
 
 	// Schedule actual quit after UI has time to render
 	go func() {
+		defer recoverPanic("app", "shutdown")
 		time.Sleep(150 * time.Millisecond)
 		wailsRuntime.Quit(a.ctx)
 	}()
@@ -666,6 +668,7 @@ func (a *App) CloseWindow() {
 	log.Info().Msg("Window close requested, shutting down")
 	wailsRuntime.EventsEmit(a.ctx, "app:shutting-down")
 	go func() {
+		defer recoverPanic("app", "shutdown")
 		time.Sleep(150 * time.Millisecond)
 		wailsRuntime.Quit(a.ctx)
 	}()
@@ -683,6 +686,7 @@ func (a *App) QuitApp() {
 	log.Info().Msg("Quit requested")
 	wailsRuntime.EventsEmit(a.ctx, "app:shutting-down")
 	go func() {
+		defer recoverPanic("app", "shutdown")
 		time.Sleep(150 * time.Millisecond)
 		wailsRuntime.Quit(a.ctx)
 	}()

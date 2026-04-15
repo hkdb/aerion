@@ -534,6 +534,7 @@ func (a *App) handleExternalMailto(rawURL string) {
 
 // syncSentFolder syncs the Sent folder for an account after sending a message
 func (a *App) syncSentFolder(accountID string) error {
+	defer recoverPanic("app.compose", "sync sent folder")
 	log := logging.WithComponent("app")
 
 	sentFolder, err := a.GetSpecialFolder(accountID, folder.TypeSent)
