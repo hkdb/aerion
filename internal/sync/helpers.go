@@ -37,7 +37,7 @@ func applyEnvelopeToMessage(m *message.Message, envelope *imap.Envelope) {
 	if envelope == nil {
 		return
 	}
-	m.Subject = envelope.Subject
+	m.Subject = decodeMIMEWord(envelope.Subject)
 	m.MessageID = envelope.MessageID
 	if len(envelope.InReplyTo) > 0 {
 		m.InReplyTo = envelope.InReplyTo[0]
@@ -46,7 +46,7 @@ func applyEnvelopeToMessage(m *message.Message, envelope *imap.Envelope) {
 
 	// From
 	if len(envelope.From) > 0 {
-		m.FromName = envelope.From[0].Name
+		m.FromName = decodeMIMEWord(envelope.From[0].Name)
 		m.FromEmail = envelope.From[0].Addr()
 	}
 
@@ -76,7 +76,7 @@ func addressListToJSON(addrs []imap.Address) string {
 	list := make([]addr, len(addrs))
 	for i, a := range addrs {
 		list[i] = addr{
-			Name:  a.Name,
+			Name:  decodeMIMEWord(a.Name),
 			Email: a.Addr(),
 		}
 	}

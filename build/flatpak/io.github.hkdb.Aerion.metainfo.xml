@@ -161,6 +161,7 @@
           <li>Added proper panic recovery</li>
           <li>Fixed pasted inline image sending</li>
           <li>Fixed undo delete regression</li>
+          <li>Fixed name and subject preview decoding - #104</li>
         </ul>
       </description>
     </release>

@@ -34,7 +34,7 @@
 - Added proper panic recovery
 - Fixed pasted inline image sending
 - Fixed undo delete regression
-
+- Fixed name and subject preview decoding - [#104](https://github.com/hkdb/aerion/issues/104)
 
 **v0.1.38 - 03-22-2026**
 ---
