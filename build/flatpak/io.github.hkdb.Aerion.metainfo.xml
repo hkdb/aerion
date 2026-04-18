@@ -160,6 +160,7 @@
           <li>Backfilled missing DB error handling</li>
           <li>Added proper panic recovery</li>
           <li>Fixed pasted inline image sending</li>
+          <li>Fixed undo delete regression</li>
         </ul>
       </description>
     </release>

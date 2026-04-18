@@ -18,6 +18,10 @@ type UndoContext interface {
 	MoveLocalMessages(messageIDs []string, folderID string) error
 	// DeleteLocalMessages deletes messages from local database
 	DeleteLocalMessages(messageIDs []string) error
+	// FindLocalMessageIDs finds current local DB message IDs by RFC822 Message-ID and folder
+	FindLocalMessageIDs(accountID, folderID string, rfc822MessageIDs []string) ([]string, error)
+	// MoveMessagesToFolder moves messages using the full move pipeline (IMAP + local DB)
+	MoveMessagesToFolder(messageIDs []string, destFolderID string) error
 }
 
 // FlagChangeCommand handles read/star flag changes
@@ -120,94 +124,47 @@ func (c *FlagChangeCommand) Undo() error {
 // MoveCommand handles moving messages between folders
 type MoveCommand struct {
 	BaseCommand
-	ctx              context.Context
 	undoCtx          UndoContext
 	accountID        string
-	messageIDs       []string
-	uids             []uint32
+	rfc822MessageIDs []string // RFC822 Message-ID headers for reliable lookup
 	sourceFolderID   string
-	sourceFolderPath string
 	destFolderID     string
-	destFolderPath   string
-	newUIDs          []uint32 // UIDs in destination folder after move
 }
 
 // NewMoveCommand creates a new MoveCommand
 func NewMoveCommand(
-	ctx context.Context,
 	undoCtx UndoContext,
 	accountID string,
-	messageIDs []string,
-	uids []uint32,
-	sourceFolderID, sourceFolderPath string,
-	destFolderID, destFolderPath string,
+	rfc822MessageIDs []string,
+	sourceFolderID string,
+	destFolderID string,
 	description string,
 ) *MoveCommand {
 	return &MoveCommand{
 		BaseCommand:      NewBaseCommand(description),
-		ctx:              ctx,
 		undoCtx:          undoCtx,
 		accountID:        accountID,
-		messageIDs:       messageIDs,
-		uids:             uids,
+		rfc822MessageIDs: rfc822MessageIDs,
 		sourceFolderID:   sourceFolderID,
-		sourceFolderPath: sourceFolderPath,
 		destFolderID:     destFolderID,
-		destFolderPath:   destFolderPath,
 	}
-}
-
-// SetNewUIDs sets the UIDs of messages in the destination folder
-// This should be called after the move is complete if UIDPLUS info is available
-func (c *MoveCommand) SetNewUIDs(uids []uint32) {
-	c.newUIDs = uids
 }
 
 // Execute performs the action (already done at creation time)
 func (c *MoveCommand) Execute() error { return nil }
 
-// Undo reverses the move operation
+// Undo reverses the move by finding current messages in the destination folder
+// and moving them back using the standard move pipeline.
 func (c *MoveCommand) Undo() error {
-	// Get IMAP connection
-	client, release, err := c.undoCtx.GetIMAPConnectionForUndo(c.ctx, c.accountID)
+	// Find current local message IDs by RFC822 Message-ID in the destination folder
+	localMsgIDs, err := c.undoCtx.FindLocalMessageIDs(c.accountID, c.destFolderID, c.rfc822MessageIDs)
 	if err != nil {
-		return fmt.Errorf("failed to get IMAP connection: %w", err)
+		return fmt.Errorf("failed to find messages: %w", err)
 	}
-	defer release()
-
-	// Select destination mailbox (where messages currently are)
-	if _, err := client.SelectMailbox(c.ctx, c.destFolderPath); err != nil {
-		return fmt.Errorf("failed to select mailbox: %w", err)
+	if len(localMsgIDs) == 0 {
+		return fmt.Errorf("messages not found in destination folder")
 	}
 
-	// Use newUIDs if available, otherwise use original UIDs
-	// Note: Original UIDs may not work after move - this is a limitation
-	// For proper undo, we'd need the new UIDs from UIDPLUS or a resync
-	uidsToUse := c.newUIDs
-	if len(uidsToUse) == 0 {
-		// Fallback: try original UIDs (may not work reliably)
-		uidsToUse = c.uids
-	}
-
-	imapUIDs := make([]imap.UID, len(uidsToUse))
-	for i, uid := range uidsToUse {
-		imapUIDs[i] = imap.UID(uid)
-	}
-
-	// Copy back to source folder
-	if _, err := client.CopyMessages(imapUIDs, c.sourceFolderPath); err != nil {
-		return fmt.Errorf("failed to copy messages: %w", err)
-	}
-
-	// Delete from destination
-	if err := client.DeleteMessagesByUID(imapUIDs); err != nil {
-		return fmt.Errorf("failed to delete messages from destination: %w", err)
-	}
-
-	// Update local database
-	if err := c.undoCtx.MoveLocalMessages(c.messageIDs, c.sourceFolderID); err != nil {
-		return fmt.Errorf("failed to update local database: %w", err)
-	}
-
-	return nil
+	// Reuse the full move pipeline (IMAP + local DB + events)
+	return c.undoCtx.MoveMessagesToFolder(localMsgIDs, c.sourceFolderID)
 }

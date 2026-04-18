@@ -99,6 +99,8 @@ export function FetchMessageBody(arg1:string):Promise<message.Message>;
 
 export function FetchServerMessage(arg1:string,arg2:string,arg3:number):Promise<message.Message>;
 
+export function FindLocalMessageIDs(arg1:string,arg2:string,arg3:Array<string>):Promise<Array<string>>;
+
 export function ForceSyncFolder(arg1:string,arg2:string):Promise<void>;
 
 export function GetAccentBarUnread():Promise<boolean>;
@@ -310,6 +312,8 @@ export function MarkAsSpam(arg1:Array<string>):Promise<boolean>;
 export function MarkAsUnread(arg1:Array<string>):Promise<void>;
 
 export function MoveLocalMessages(arg1:Array<string>,arg2:string):Promise<void>;
+
+export function MoveMessagesToFolder(arg1:Array<string>,arg2:string):Promise<void>;
 
 export function MoveToFolder(arg1:Array<string>,arg2:string):Promise<void>;
 

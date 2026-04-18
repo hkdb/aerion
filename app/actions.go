@@ -447,28 +447,22 @@ func (a *App) MoveToFolder(messageIDs []string, destFolderID string) error {
 
 	// Create undo command for each source folder
 	for sourceFolderID, msgs := range byFolder {
-		sourceFolder, _ := a.folderStore.Get(sourceFolderID)
-		if sourceFolder == nil {
+		rfc822IDs := make([]string, 0, len(msgs))
+		for _, m := range msgs {
+			if m.MessageID != "" {
+				rfc822IDs = append(rfc822IDs, m.MessageID)
+			}
+		}
+		if len(rfc822IDs) == 0 {
 			continue
 		}
 
-		msgIDs := make([]string, len(msgs))
-		uids := make([]uint32, len(msgs))
-		for i, m := range msgs {
-			msgIDs[i] = m.ID
-			uids[i] = m.UID
-		}
-
 		cmd := undo.NewMoveCommand(
-			a.ctx,
 			a,
 			msgs[0].AccountID,
-			msgIDs,
-			uids,
+			rfc822IDs,
 			sourceFolderID,
-			sourceFolder.Path,
 			destFolderID,
-			destFolder.Path,
 			fmt.Sprintf("Move to %s", destFolder.Name),
 		)
 		a.undoStack.Push(cmd)

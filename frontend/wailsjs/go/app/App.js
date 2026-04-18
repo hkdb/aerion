@@ -166,6 +166,10 @@ export function FetchServerMessage(arg1, arg2, arg3) {
   return window['go']['app']['App']['FetchServerMessage'](arg1, arg2, arg3);
 }
 
+export function FindLocalMessageIDs(arg1, arg2, arg3) {
+  return window['go']['app']['App']['FindLocalMessageIDs'](arg1, arg2, arg3);
+}
+
 export function ForceSyncFolder(arg1, arg2) {
   return window['go']['app']['App']['ForceSyncFolder'](arg1, arg2);
 }
@@ -588,6 +592,10 @@ export function MarkAsUnread(arg1) {
 
 export function MoveLocalMessages(arg1, arg2) {
   return window['go']['app']['App']['MoveLocalMessages'](arg1, arg2);
+}
+
+export function MoveMessagesToFolder(arg1, arg2) {
+  return window['go']['app']['App']['MoveMessagesToFolder'](arg1, arg2);
 }
 
 export function MoveToFolder(arg1, arg2) {

@@ -33,6 +33,7 @@
 - Backfilled missing DB error handling
 - Added proper panic recovery
 - Fixed pasted inline image sending
+- Fixed undo delete regression
 
 
 **v0.1.38 - 03-22-2026**

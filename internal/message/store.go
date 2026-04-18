@@ -1911,6 +1911,42 @@ func (s *Store) DeleteTempUIDs(folderID string) error {
 	return nil
 }
 
+// GetIDsByMessageIDs finds local DB message IDs by RFC822 Message-ID header and folder.
+// Only returns messages with positive UIDs (excludes temp rows from in-flight moves).
+func (s *Store) GetIDsByMessageIDs(accountID, folderID string, rfc822MessageIDs []string) ([]string, error) {
+	if len(rfc822MessageIDs) == 0 {
+		return nil, nil
+	}
+
+	placeholders := make([]string, len(rfc822MessageIDs))
+	args := []interface{}{accountID, folderID}
+	for i, mid := range rfc822MessageIDs {
+		placeholders[i] = "?"
+		args = append(args, mid)
+	}
+
+	query := fmt.Sprintf(
+		"SELECT id FROM messages WHERE account_id = ? AND folder_id = ? AND uid > 0 AND message_id IN (%s)",
+		strings.Join(placeholders, ", "),
+	)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query messages: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("failed to scan message ID: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // DeleteBatch deletes multiple messages by their IDs
 func (s *Store) DeleteBatch(ids []string) error {
 	if len(ids) == 0 {
