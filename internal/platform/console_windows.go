@@ -18,8 +18,8 @@ var (
 // On Windows, GUI applications have no console by default (built with -H windowsgui).
 // Call this before logging initialization so os.Stderr output is visible.
 func AttachConsole() {
-	const attachParentProcess = ^uintptr(0) // ATTACH_PARENT_PROCESS = (DWORD)-1
-	const stdErrorHandle = uintptr(0) - 12  // STD_ERROR_HANDLE = -12
+	var attachParentProcess = ^uintptr(0)     // ATTACH_PARENT_PROCESS = (DWORD)-1
+	var stdErrorHandle = ^uintptr(0) - 11     // STD_ERROR_HANDLE = -12
 
 	// Try to attach to parent console (e.g., cmd.exe or PowerShell)
 	r, _, _ := procAttachConsole.Call(attachParentProcess)
