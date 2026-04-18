@@ -32,6 +32,7 @@
 - Fixed unchecked rand.Read() in Cryptographic Code
 - Backfilled missing DB error handling
 - Added proper panic recovery
+- Fixed pasted inline image sending
 
 
 **v0.1.38 - 03-22-2026**

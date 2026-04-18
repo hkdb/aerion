@@ -198,19 +198,35 @@ export function createComposerEditor(
       },
       // Handle paste events for images
       handlePaste: (view, event) => {
+        // Try clipboardData.items first
         const items = event.clipboardData?.items
-        if (!items) return false
-
-        for (const item of items) {
-          if (item.type.startsWith('image/')) {
-            event.preventDefault()
-            const file = item.getAsFile()
-            if (file && handlers.onPasteImage) {
-              handlers.onPasteImage(file)
+        if (items) {
+          for (const item of items) {
+            if (item.type.startsWith('image/')) {
+              event.preventDefault()
+              const file = item.getAsFile()
+              if (file && handlers.onPasteImage) {
+                handlers.onPasteImage(file)
+              }
+              return true
             }
-            return true
           }
         }
+
+        // Fallback: try clipboardData.files (WebKitGTK may populate this instead of items)
+        const files = event.clipboardData?.files
+        if (files && files.length > 0) {
+          for (const file of Array.from(files)) {
+            if (file.type.startsWith('image/')) {
+              event.preventDefault()
+              if (handlers.onPasteImage) {
+                handlers.onPasteImage(file)
+              }
+              return true
+            }
+          }
+        }
+
         return false
       },
       // Handle drop events for files (images inline, others as attachments)

@@ -407,6 +407,71 @@
            subject.trim() !== '' || bodyText !== '' || attachments.length > 0
   }
 
+  // Collect any images in the editor DOM that aren't tracked in inlineImages.
+  // WebKitGTK doesn't expose pasted screenshots via clipboardData, so TipTap's
+  // default handler inserts them with a webkit-fake-url:// src. This function
+  // extracts the pixel data via canvas and registers them for CID conversion.
+  function collectUnregisteredInlineImages(html: string): string {
+    const editorEl = editor?.view?.dom
+    if (!editorEl) return html
+
+    const imgs = editorEl.querySelectorAll('img')
+    let result = html
+
+    for (const img of imgs) {
+      const src = img.getAttribute('src') || ''
+
+      // Skip tracked, cid:, http(s):, and blocked remote images
+      if (src.startsWith('cid:') || src.startsWith('http://') || src.startsWith('https://')) continue
+      if (img.hasAttribute('data-original-src')) continue
+      if (inlineImages.some(i => i.dataUrl === src)) continue
+
+      // data: URLs — parse and register directly
+      if (src.startsWith('data:')) {
+        const match = src.match(/^data:([^;]+);base64,(.+)$/)
+        if (!match) continue
+        const cid = generateCID()
+        inlineImages = [...inlineImages, {
+          cid,
+          dataUrl: src,
+          contentType: match[1],
+          data: match[2],
+          filename: `pasted-image${inlineImageCounter}.${match[1].split('/')[1] || 'png'}`,
+        }]
+        continue
+      }
+
+      // webkit-fake-url://, blob:, etc. — extract via canvas
+      if (!img.complete || img.naturalWidth === 0) continue
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        const ctx = canvas.getContext('2d')
+        if (!ctx) continue
+        ctx.drawImage(img, 0, 0)
+        const dataUrl = canvas.toDataURL('image/png')
+        const base64Data = dataUrl.split(',')[1]
+
+        // Replace non-standard src with data URL in the HTML string
+        result = result.replaceAll(src, dataUrl)
+
+        const cid = generateCID()
+        inlineImages = [...inlineImages, {
+          cid,
+          dataUrl,
+          contentType: 'image/png',
+          data: base64Data,
+          filename: `pasted-image${inlineImageCounter}.png`,
+        }]
+      } catch {
+        continue
+      }
+    }
+
+    return result
+  }
+
   // Convert HTML with data URLs to use CID references for inline images
   function convertDataUrlsToCid(html: string): string {
     let result = html
@@ -433,9 +498,10 @@
       htmlContent = ''  // No HTML version when composing in plain text
     } else {
       // In rich text mode, we have both
-      // Add inline margin:0 to paragraphs for single-spacing in recipients' email clients,
-      // then convert data URLs to CID references for inline images
-      htmlContent = convertDataUrlsToCid(addParagraphStyles(editor?.getHTML() || ''))
+      // Collect any untracked pasted images (WebKitGTK webkit-fake-url, etc.),
+      // add paragraph styles for email clients, then convert data URLs to CID references
+      const rawHtml = collectUnregisteredInlineImages(editor?.getHTML() || '')
+      htmlContent = convertDataUrlsToCid(addParagraphStyles(rawHtml))
       textContent = editor?.getText() || ''
     }
 
