@@ -162,6 +162,7 @@
           <li>Fixed pasted inline image sending</li>
           <li>Fixed undo delete regression</li>
           <li>Fixed name and subject preview decoding - #104</li>
+          <li>Fixed provider icons consistency - #102</li>
         </ul>
       </description>
     </release>

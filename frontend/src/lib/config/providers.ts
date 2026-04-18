@@ -1,3 +1,10 @@
+import icloudIcon from '$lib/icons/providers/icloud.svg?url'
+import protonmailIcon from '$lib/icons/providers/protonmail.svg?url'
+import fastmailIcon from '$lib/icons/providers/fastmail.svg?url'
+import zohoIcon from '$lib/icons/providers/zoho.svg?url'
+import gmxIcon from '$lib/icons/providers/gmx.svg?url'
+import mailcomIcon from '$lib/icons/providers/mailcom.svg?url'
+
 export type SecurityType = 'none' | 'tls' | 'starttls'
 export type AuthMethod = 'password' | 'oauth2'
 export type OAuthProvider = 'google' | 'microsoft'
@@ -17,7 +24,8 @@ export interface OAuthConfig {
 export interface EmailProvider {
   id: string
   name: string
-  icon: string // iconify icon name
+  icon: string // iconify icon name (fallback)
+  iconSrc?: string // local SVG URL (takes precedence over icon)
   domains: string[] // for auto-detection from email
   imap: ServerConfig
   smtp: ServerConfig
@@ -66,6 +74,7 @@ export const providers: EmailProvider[] = [
     id: 'icloud',
     name: 'iCloud Mail',
     icon: 'simple-icons:icloud',
+    iconSrc: icloudIcon,
     domains: ['icloud.com', 'me.com', 'mac.com'],
     imap: { host: 'imap.mail.me.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.mail.me.com', port: 587, security: 'starttls' },
@@ -76,6 +85,7 @@ export const providers: EmailProvider[] = [
     id: 'protonmail',
     name: 'ProtonMail Bridge',
     icon: 'simple-icons:protonmail',
+    iconSrc: protonmailIcon,
     domains: ['protonmail.com', 'proton.me', 'pm.me'],
     imap: { host: '127.0.0.1', port: 1143, security: 'starttls' },
     smtp: { host: '127.0.0.1', port: 1025, security: 'starttls' },
@@ -86,6 +96,7 @@ export const providers: EmailProvider[] = [
     id: 'fastmail',
     name: 'Fastmail',
     icon: 'simple-icons:fastmail',
+    iconSrc: fastmailIcon,
     domains: ['fastmail.com', 'fastmail.fm', 'messagingengine.com'],
     imap: { host: 'imap.fastmail.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.fastmail.com', port: 587, security: 'starttls' },
@@ -96,6 +107,7 @@ export const providers: EmailProvider[] = [
     id: 'zoho',
     name: 'Zoho Mail',
     icon: 'simple-icons:zoho',
+    iconSrc: zohoIcon,
     domains: ['zoho.com', 'zohomail.com'],
     imap: { host: 'imap.zoho.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.zoho.com', port: 587, security: 'starttls' },
@@ -115,6 +127,7 @@ export const providers: EmailProvider[] = [
     id: 'gmx',
     name: 'GMX Mail',
     icon: 'mdi:email-outline',
+    iconSrc: gmxIcon,
     domains: ['gmx.com', 'gmx.net', 'gmx.de'],
     imap: { host: 'imap.gmx.com', port: 993, security: 'tls' },
     smtp: { host: 'mail.gmx.com', port: 587, security: 'starttls' },
@@ -124,6 +137,7 @@ export const providers: EmailProvider[] = [
     id: 'mailcom',
     name: 'Mail.com',
     icon: 'mdi:email-outline',
+    iconSrc: mailcomIcon,
     domains: ['mail.com'],
     imap: { host: 'imap.mail.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.mail.com', port: 587, security: 'starttls' },

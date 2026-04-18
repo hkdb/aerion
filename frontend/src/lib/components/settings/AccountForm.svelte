@@ -542,7 +542,11 @@
             class="flex flex-col items-center gap-2 p-4 rounded-lg border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
             onclick={() => selectProvider(provider)}
           >
-            <Icon icon={provider.icon} class="w-8 h-8" />
+            {#if provider.iconSrc}
+              <img src={provider.iconSrc} alt={provider.name} class="w-8 h-8" />
+            {:else}
+              <Icon icon={provider.icon} class="w-8 h-8" />
+            {/if}
             <span class="text-sm font-medium text-center">{provider.name}</span>
           </button>
         {/each}
