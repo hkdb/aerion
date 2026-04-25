@@ -66,7 +66,7 @@ Although Linux is a first-class citizen here, it also works on:
 - WYSIWYG Detachable Composer ([TipTap Editor](https://github.com/ueberdosis/tiptap))
 - WYSIWYG Signatures ([TipTap Editor](https://github.com/ueberdosis/tiptap))
 - CardDav/Google/Microsoft Contact Sync for auto-complete
-- Basic Search
+- Basic Local and IMAP Search
 - Notification that brings focus to the e-mail when clicked
 - Auto-Sync when system wakes from suspend
 - Multiple color themes (More to come...)
