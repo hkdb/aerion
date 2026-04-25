@@ -111,18 +111,18 @@ Potential features in the future:
 - AI Assisted Composition (Ollama)
 
 
+### 🏷️ Changelog
+---
+
+[CHANGELOG.md](CHANGELOG.md)
+
+
 ### 💰 Sponsorship
 ---
 
 [3DF](https://3df.io) is sponsoring by way of dedicating its cloud infrastructure resources and the team's time to work on this. There's otherwise currently no sponsorship. If you like this project, please feel free to give us a star or buy us a coffee:
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png)](https://www.buymeacoffee.com/3dfosi)
-
-
-### 🏷️ Changelog
----
-
-[CHANGELOG.md](CHANGELOG.md)
 
 
 ### 🙏 Issue Contributors
