@@ -819,7 +819,10 @@
     "certImportFailed": "证书导入失败。请检查文件格式与密码。",
     "keyImportFailed": "密钥导入失败。请检查文件格式与密码短语。",
     "recipientCertImportFailed": "收件人证书导入失败。请检查文件格式。",
-    "recipientKeyImportFailed": "收件人密钥导入失败。请检查文件格式。"
+    "recipientKeyImportFailed": "收件人密钥导入失败。请检查文件格式。",
+    "berConversionTitle": "旧版证书格式",
+    "berConversionMessage": "此证书使用旧版 BER 编码，导入前需要转换为标准 DER 格式。转换过程不会改变证书数据。是否继续？",
+    "berConversionConfirm": "转换并导入"
   },
   "contactSource": {
     "title": "联系人来源",

@@ -824,7 +824,10 @@
     "certImportFailed": "Failed to import certificate. Check the file format and password.",
     "keyImportFailed": "Failed to import key. Check the file format and passphrase.",
     "recipientCertImportFailed": "Failed to import recipient certificate. Check the file format.",
-    "recipientKeyImportFailed": "Failed to import recipient key. Check the file format."
+    "recipientKeyImportFailed": "Failed to import recipient key. Check the file format.",
+    "berConversionTitle": "Legacy Certificate Format",
+    "berConversionMessage": "This certificate uses legacy BER encoding which requires conversion to the standard DER format before import. The conversion is lossless and does not alter the certificate data. Would you like to proceed?",
+    "berConversionConfirm": "Convert & Import"
   },
   "contactSource": {
     "title": "Contact Sources",

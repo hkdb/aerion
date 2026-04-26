@@ -267,6 +267,8 @@ export function ImportRecipientPGPKey(arg1:string,arg2:string):Promise<void>;
 
 export function ImportSMIMECertificateFromPath(arg1:string,arg2:string,arg3:string):Promise<smime.ImportResult>;
 
+export function ImportSMIMECertificateFromPathBER(arg1:string,arg2:string,arg3:string):Promise<smime.ImportResult>;
+
 export function InitiateShutdown():Promise<void>;
 
 export function IsFTSIndexComplete(arg1:string):Promise<boolean>;

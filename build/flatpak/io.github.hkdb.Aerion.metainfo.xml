@@ -128,8 +128,13 @@
   </provides>
 
   <releases>
-    <release version="0.1.39" date="2026-04-11">
+    <release version="0.1.39" date="2026-04-26">
       <description>
+        
+        <p>As of 2026-04-26, Aerion is CASA Tier 2 certified and verified by Google so oAuth2 signin will no longer be blocked.</p>
+
+        <p>v0.1.39 is a major milestone that includes some remaining originally planned basic features and a substantial amount of bug fixes/refinements focused on making existing features much more reliable/stable. It will serve as a solid foundation for us to continue the further development of this mail client.</p>
+
         <ul>
           <li>Added image block logic to composer to avoid leaks</li>
           <li>Added folder subscription for auto sync - #83</li>
@@ -164,6 +169,7 @@
           <li>Fixed name and subject preview decoding - #104</li>
           <li>Fixed provider icons consistency - #102</li>
           <li>Added better pgp and s/mime error feedback</li>
+          <li>Added a wider range of PGP keys and S/MIME certs support - #107</li> 
         </ul>
       </description>
     </release>

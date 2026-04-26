@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -65,4 +66,19 @@ func ImportPKCS12(data []byte, password string) (privateKeyPEM []byte, certChain
 	}
 
 	return privateKeyPEM, certChainPEM, cert, nil
+}
+
+// IsBEREncodingError returns true if the error indicates BER encoding
+// (indefinite-length) that needs conversion to DER.
+func IsBEREncodingError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "indefinite length")
+}
+
+// ImportPKCS12BER converts BER-encoded PKCS#12 data to DER, then imports it.
+func ImportPKCS12BER(data []byte, password string) (privateKeyPEM []byte, certChainPEM string, cert *Certificate, err error) {
+	derData, convertErr := berToDER(data)
+	if convertErr != nil {
+		return nil, "", nil, fmt.Errorf("failed to convert BER to DER: %w", convertErr)
+	}
+	return ImportPKCS12(derData, password)
 }

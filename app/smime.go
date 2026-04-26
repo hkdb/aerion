@@ -28,13 +28,9 @@ func (a *App) PickSMIMECertificateFile() (string, error) {
 
 // ImportSMIMECertificateFromPath imports a PKCS#12 certificate from a file path with password
 func (a *App) ImportSMIMECertificateFromPath(accountID, filePath, password string) (*smime.ImportResult, error) {
-	if filePath == "" {
-		return nil, fmt.Errorf("no file selected")
-	}
-
-	data, err := os.ReadFile(filePath)
+	data, err := readCertFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read certificate file: %w", err)
+		return nil, err
 	}
 
 	privateKeyPEM, certChainPEM, cert, err := smime.ImportPKCS12(data, password)
@@ -42,6 +38,37 @@ func (a *App) ImportSMIMECertificateFromPath(accountID, filePath, password strin
 		return nil, fmt.Errorf("failed to import certificate: %w", err)
 	}
 
+	return a.storeSMIMECert(accountID, privateKeyPEM, certChainPEM, cert)
+}
+
+// ImportSMIMECertificateFromPathBER imports a BER-encoded PKCS#12 certificate
+// by converting it to DER first. Called after user confirms the conversion.
+func (a *App) ImportSMIMECertificateFromPathBER(accountID, filePath, password string) (*smime.ImportResult, error) {
+	data, err := readCertFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	privateKeyPEM, certChainPEM, cert, err := smime.ImportPKCS12BER(data, password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to import certificate: %w", err)
+	}
+
+	return a.storeSMIMECert(accountID, privateKeyPEM, certChainPEM, cert)
+}
+
+func readCertFile(filePath string) ([]byte, error) {
+	if filePath == "" {
+		return nil, fmt.Errorf("no file selected")
+	}
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read certificate file: %w", err)
+	}
+	return data, nil
+}
+
+func (a *App) storeSMIMECert(accountID string, privateKeyPEM []byte, certChainPEM string, cert *smime.Certificate) (*smime.ImportResult, error) {
 	cert.AccountID = accountID
 
 	// Validate that the cert email matches the account or one of its aliases

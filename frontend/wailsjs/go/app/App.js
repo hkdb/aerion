@@ -502,6 +502,10 @@ export function ImportSMIMECertificateFromPath(arg1, arg2, arg3) {
   return window['go']['app']['App']['ImportSMIMECertificateFromPath'](arg1, arg2, arg3);
 }
 
+export function ImportSMIMECertificateFromPathBER(arg1, arg2, arg3) {
+  return window['go']['app']['App']['ImportSMIMECertificateFromPathBER'](arg1, arg2, arg3);
+}
+
 export function InitiateShutdown() {
   return window['go']['app']['App']['InitiateShutdown']();
 }

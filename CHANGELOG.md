@@ -1,8 +1,12 @@
 # CHANGELOG
 
 
-**v0.1.39 - 04-11-2026**
+**v0.1.39 - 04-26-2026**
 ---
+
+As of 2026-04-26, Aerion is CASA Tier 2 certified and verified by Google so oAuth2 sign-ins will no longer be blocked.
+
+v0.1.39 is a major milestone that includes some remaining originally planned basic features and a substantial amount of bug fixes/refinements focused on making existing features and functions much more reliable/stable. It will serve as a solid foundation for us to continue the further development of this mail client.
 
 - Added image block logic to composer to avoid leaks
 - Added folder subscription for auto sync - [#83](https://github.com/hkdb/aerion/issues/83)
@@ -37,7 +41,7 @@
 - Fixed name and subject preview decoding - [#104](https://github.com/hkdb/aerion/issues/104)
 - Fixed provider icons consistency - [#102](https://github.com/hkdb/aerion/issues/102)
 - Added better pgp and s/mime error feedback
-
+- Added a wider range of PGP keys and S/MIME certs support - [#107](https://github.com/hkdb/aerion/issues/107)
 
 **v0.1.38 - 03-22-2026**
 ---

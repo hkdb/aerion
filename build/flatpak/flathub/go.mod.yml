@@ -16,12 +16,12 @@
   sha256: a7b989d1685dfb29d396d479f9922f30a2dcea9ba28f98535232493d631b3744
   strip-components: 3
   type: archive
-  url: https://proxy.golang.org/github.com/!proton!mail/go-crypto/@v/v1.1.5.zip
+  url: https://proxy.golang.org/github.com/!proton!mail/go-crypto/@v/v1.4.1.zip
 - dest: vendor/github.com/cloudflare/circl
-  sha256: 4497093cb7544d30e9d5d741a5e62c14fb8989c4271ca0a9a0a03a73570b3b83
+  sha256: 07400ed2808f2324faf1aeca9b5f5539de884d6820ad36453bcefbd96bfd7fc4
   strip-components: 3
   type: archive
-  url: https://proxy.golang.org/github.com/cloudflare/circl/@v/v1.3.7.zip
+  url: https://proxy.golang.org/github.com/cloudflare/circl/@v/v1.6.2.zip
 - dest: vendor/github.com/emersion/go-imap/v2
   sha256: bc383389d2072cc9ffa14ab3cd85a9e9d52857f84f06a4b0d6cd855d1ebf635b
   strip-components: 4

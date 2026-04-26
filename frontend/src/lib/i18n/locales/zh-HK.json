@@ -819,7 +819,10 @@
     "certImportFailed": "憑證匯入失敗。請檢查檔案格式與密碼。",
     "keyImportFailed": "金鑰匯入失敗。請檢查檔案格式與密碼短語。",
     "recipientCertImportFailed": "收件人憑證匯入失敗。請檢查檔案格式。",
-    "recipientKeyImportFailed": "收件人金鑰匯入失敗。請檢查檔案格式。"
+    "recipientKeyImportFailed": "收件人金鑰匯入失敗。請檢查檔案格式。",
+    "berConversionTitle": "舊版憑證格式",
+    "berConversionMessage": "此憑證使用舊版 BER 編碼，匯入前需要轉換為標準 DER 格式。轉換過程不會改變憑證資料。是否繼續？",
+    "berConversionConfirm": "轉換並匯入"
   },
   "contactSource": {
     "title": "聯絡人來源",

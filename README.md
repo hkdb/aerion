@@ -94,6 +94,14 @@ This application was built with [Wails](https://wails.io) + [Svelte](https://sve
 Transparency Disclaimer: This project leaveraged Claude models heavily to implement.
 
 
+### 🗞 News & Announcments
+---
+
+- 2026-03-11 ~ Microsoft Verified
+- 2026-04-16 ~ CASA Tier 2 Certified
+- 2025-04-25 ~ Google Verified
+
+
 ### 🧑🏻‍💻 Roadmap
 ---
 
@@ -103,6 +111,7 @@ Confirmed future features:
     - Calendar
     - Contacts
 - Post quantum ready encryption
+- Add Mailfence and Startmail templates in add account flow for easier setup
 
 Potential features in the future:
 

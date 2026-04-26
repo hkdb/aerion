@@ -19,6 +19,7 @@
     DeleteSenderCert,
     PickSMIMECertificateFile,
     ImportSMIMECertificateFromPath,
+    ImportSMIMECertificateFromPathBER,
     PickRecipientCertFile,
     ImportRecipientCert,
     ListPGPKeys,
@@ -61,6 +62,7 @@
   let importFilePath = $state('')
   let importPassword = $state('')
   let importError = $state('')
+  let showBERConfirmDialog = $state(false)
 
   // Recipient cert import dialog state
   let showRecipientImportDialog = $state(false)
@@ -157,6 +159,33 @@
     importError = ''
     try {
       const result = await ImportSMIMECertificateFromPath(accountId, importFilePath, importPassword)
+      addToast({
+        type: 'success',
+        message: $_('security.certImported', { values: { count: result.chainLength } }),
+      })
+      showImportDialog = false
+      importFilePath = ''
+      importPassword = ''
+      await loadData()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('indefinite length')) {
+        showBERConfirmDialog = true
+        importing = false
+        return
+      }
+      importError = mapImportError(err, 'cert')
+    } finally {
+      importing = false
+    }
+  }
+
+  async function handleImportBER() {
+    showBERConfirmDialog = false
+    importing = true
+    importError = ''
+    try {
+      const result = await ImportSMIMECertificateFromPathBER(accountId, importFilePath, importPassword)
       addToast({
         type: 'success',
         message: $_('security.certImported', { values: { count: result.chainLength } }),
@@ -943,6 +972,29 @@
             <Icon icon="mdi:loading" class="w-4 h-4 mr-2 animate-spin" />
           {/if}
           {$_('security.importButton')}
+        </Button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- BER Encoding Confirmation Dialog -->
+{#if showBERConfirmDialog}
+  <div class="fixed inset-0 z-50 flex items-center justify-center">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div role="button" tabindex="-1" class="absolute inset-0 bg-black/50" onclick={() => { showBERConfirmDialog = false }} onkeydown={(e) => { if (e.key === 'Escape') showBERConfirmDialog = false }}></div>
+    <div class="relative bg-background border border-border rounded-lg shadow-lg p-6 w-full max-w-md">
+      <h3 class="text-lg font-semibold mb-4">{$_('security.berConversionTitle')}</h3>
+      <p class="text-sm text-muted-foreground mb-6">{$_('security.berConversionMessage')}</p>
+      <div class="flex items-center justify-end gap-2">
+        <Button variant="ghost" onclick={() => { showBERConfirmDialog = false }}>
+          {$_('common.cancel')}
+        </Button>
+        <Button onclick={handleImportBER}>
+          {#if importing}
+            <Icon icon="mdi:loading" class="w-4 h-4 mr-2 animate-spin" />
+          {/if}
+          {$_('security.berConversionConfirm')}
         </Button>
       </div>
     </div>
