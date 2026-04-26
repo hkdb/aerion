@@ -1,7 +1,7 @@
 # CHANGELOG
 
 
-**v0.1.39 - 04-26-2026**
+**v0.1.39 - 04-27-2026**
 ---
 
 As of 2026-04-26, Aerion is CASA Tier 2 certified and verified by Google so oAuth2 sign-ins will no longer be blocked.

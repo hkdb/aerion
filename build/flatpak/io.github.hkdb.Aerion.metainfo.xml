@@ -128,7 +128,7 @@
   </provides>
 
   <releases>
-    <release version="0.1.39" date="2026-04-26">
+    <release version="0.1.39" date="2026-04-27">
       <description>
         
         <p>As of 2026-04-26, Aerion is CASA Tier 2 certified and verified by Google so oAuth2 signin will no longer be blocked.</p>
