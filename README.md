@@ -33,7 +33,7 @@ A standalone lightweight e-mail client inspired by [Geary](https://wiki.gnome.or
 - Independence - No dependency on Gnome Online Accounts or other system services
 - Search That Works - Basic search that actually finds your emails
 
-Aerion is CASA Tiered 2 Certified by Google's preferred [authorized assessor](https://appdefensealliance.dev/casa/casa-assessors): [TAC Security](https://tacsecurity.com/)
+Aerion is CASA Tier 2 Certified by Google's preferred [authorized assessor](https://appdefensealliance.dev/casa/casa-assessors): [TAC Security](https://tacsecurity.com/)
 
 ### 🖥 OS Support
 ---
