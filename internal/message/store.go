@@ -2,6 +2,7 @@ package message
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"html"
 	"regexp"
@@ -130,7 +131,8 @@ func (s *Store) ListConversationsUnifiedInbox(offset, limit int, sortOrder, filt
 			a.id as account_id,
 			a.name as account_name,
 			a.color as account_color,
-			f.id as folder_id
+			f.id as folder_id,
+			json_group_array(DISTINCT json_object('name', m.from_name, 'email', m.from_email)) as participants_json
 		FROM messages m
 		INNER JOIN folders f ON m.folder_id = f.id AND f.folder_type = 'inbox'
 		INNER JOIN accounts a ON f.account_id = a.id AND a.enabled = 1
@@ -152,6 +154,7 @@ func (s *Store) ListConversationsUnifiedInbox(offset, limit int, sortOrder, filt
 		var latestDateStr sql.NullString
 		var snippet sql.NullString
 		var messageIDsStr sql.NullString
+		var participantsJSON sql.NullString
 
 		err := rows.Scan(
 			&c.ThreadID,
@@ -168,6 +171,7 @@ func (s *Store) ListConversationsUnifiedInbox(offset, limit int, sortOrder, filt
 			&c.AccountName,
 			&c.AccountColor,
 			&c.FolderID,
+			&participantsJSON,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan unified inbox conversation: %w", err)
@@ -185,12 +189,9 @@ func (s *Store) ListConversationsUnifiedInbox(offset, limit int, sortOrder, filt
 			c.MessageIDs = strings.Split(messageIDsStr.String, ",")
 		}
 
-		// Get participants for this conversation
-		participants, err := s.getConversationParticipantsUnified(c.ThreadID, c.AccountID)
-		if err != nil {
-			s.log.Warn().Err(err).Str("threadId", c.ThreadID).Msg("Failed to get participants for unified inbox")
+		if participantsJSON.Valid {
+			c.Participants = parseParticipantsJSON(participantsJSON.String)
 		}
-		c.Participants = participants
 
 		conversations = append(conversations, c)
 	}
@@ -198,38 +199,7 @@ func (s *Store) ListConversationsUnifiedInbox(offset, limit int, sortOrder, filt
 	return conversations, nil
 }
 
-// getConversationParticipantsUnified returns unique participants in a conversation across all inbox folders for an account
-func (s *Store) getConversationParticipantsUnified(threadID, accountID string) ([]Address, error) {
-	query := `
-		SELECT DISTINCT m.from_name, m.from_email
-		FROM messages m
-		INNER JOIN folders f ON m.folder_id = f.id AND f.folder_type = 'inbox'
-		WHERE f.account_id = ? AND COALESCE(m.thread_id, m.id) = ?
-		ORDER BY m.date ASC
-	`
 
-	rows, err := s.db.Query(query, accountID, threadID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var participants []Address
-	seen := make(map[string]bool)
-
-	for rows.Next() {
-		var name, email string
-		if err := rows.Scan(&name, &email); err != nil {
-			continue
-		}
-		if !seen[email] {
-			seen[email] = true
-			participants = append(participants, Address{Name: name, Email: email})
-		}
-	}
-
-	return participants, nil
-}
 
 // CountConversationsUnifiedInbox returns the total count of conversations across all inbox folders
 func (s *Store) CountConversationsUnifiedInbox(filter string) (int, error) {
@@ -1312,7 +1282,8 @@ func (s *Store) ListConversationsByFolder(folderID string, offset, limit int, so
 			MAX(CASE WHEN is_starred = 1 THEN 1 ELSE 0 END) as is_starred,
 			MAX(date) as latest_date,
 			GROUP_CONCAT(id) as message_ids,
-			MAX(CASE WHEN smime_encrypted = 1 OR pgp_encrypted = 1 THEN 1 ELSE 0 END) as is_encrypted
+			MAX(CASE WHEN smime_encrypted = 1 OR pgp_encrypted = 1 THEN 1 ELSE 0 END) as is_encrypted,
+			json_group_array(DISTINCT json_object('name', from_name, 'email', from_email)) as participants_json
 		FROM messages
 		WHERE folder_id = ?
 		GROUP BY COALESCE(thread_id, id)` +
@@ -1333,6 +1304,7 @@ func (s *Store) ListConversationsByFolder(folderID string, offset, limit int, so
 		var latestDateStr sql.NullString
 		var snippet sql.NullString
 		var messageIDsStr sql.NullString
+		var participantsJSON sql.NullString
 
 		err := rows.Scan(
 			&c.ThreadID,
@@ -1345,6 +1317,7 @@ func (s *Store) ListConversationsByFolder(folderID string, offset, limit int, so
 			&latestDateStr,
 			&messageIDsStr,
 			&c.IsEncrypted,
+			&participantsJSON,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan conversation: %w", err)
@@ -1362,12 +1335,9 @@ func (s *Store) ListConversationsByFolder(folderID string, offset, limit int, so
 			c.MessageIDs = strings.Split(messageIDsStr.String, ",")
 		}
 
-		// Get participants for this conversation
-		participants, err := s.getConversationParticipants(c.ThreadID, folderID)
-		if err != nil {
-			s.log.Warn().Err(err).Str("threadId", c.ThreadID).Msg("Failed to get participants")
+		if participantsJSON.Valid {
+			c.Participants = parseParticipantsJSON(participantsJSON.String)
 		}
-		c.Participants = participants
 
 		conversations = append(conversations, c)
 	}
@@ -1375,36 +1345,29 @@ func (s *Store) ListConversationsByFolder(folderID string, offset, limit int, so
 	return conversations, nil
 }
 
-// getConversationParticipants returns unique participants in a conversation
-func (s *Store) getConversationParticipants(threadID, folderID string) ([]Address, error) {
-	query := `
-		SELECT DISTINCT from_name, from_email
-		FROM messages
-		WHERE folder_id = ? AND COALESCE(thread_id, id) = ?
-		ORDER BY date ASC
-	`
-
-	rows, err := s.db.Query(query, folderID, threadID)
-	if err != nil {
-		return nil, err
+// parseParticipantsJSON parses a JSON array of {name, email} objects from
+// SQLite's json_group_array into a deduplicated Address slice.
+func parseParticipantsJSON(s string) []Address {
+	if s == "" || s == "[]" {
+		return nil
 	}
-	defer rows.Close()
-
-	var participants []Address
-	seen := make(map[string]bool)
-
-	for rows.Next() {
-		var name, email string
-		if err := rows.Scan(&name, &email); err != nil {
+	var raw []struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+	if err := json.Unmarshal([]byte(s), &raw); err != nil {
+		return nil
+	}
+	participants := make([]Address, 0, len(raw))
+	seen := make(map[string]bool, len(raw))
+	for _, r := range raw {
+		if seen[r.Email] {
 			continue
 		}
-		if !seen[email] {
-			seen[email] = true
-			participants = append(participants, Address{Name: name, Email: email})
-		}
+		seen[r.Email] = true
+		participants = append(participants, Address{Name: r.Name, Email: r.Email})
 	}
-
-	return participants, nil
+	return participants
 }
 
 // CountConversationsByFolder returns the count of conversations in a folder
@@ -1641,8 +1604,15 @@ func (s *Store) GetConversation(threadID, folderID string) (*Conversation, error
 		Str("threadID", threadID).
 		Msg("GetConversation returning")
 
-	// Get participants
-	c.Participants, _ = s.getConversationParticipants(threadID, folderID)
+	// Build participants from already-loaded messages (no extra query needed)
+	seen := make(map[string]bool)
+	for _, msg := range c.Messages {
+		if seen[msg.FromEmail] {
+			continue
+		}
+		seen[msg.FromEmail] = true
+		c.Participants = append(c.Participants, Address{Name: msg.FromName, Email: msg.FromEmail})
+	}
 
 	return c, nil
 }
@@ -2140,7 +2110,8 @@ func (s *Store) SearchConversations(folderID, query string, offset, limit int, f
 			MAX(CASE WHEN m.is_starred = 1 THEN 1 ELSE 0 END) as is_starred,
 			MAX(m.date) as latest_date,
 			GROUP_CONCAT(m.id) as message_ids,
-			MAX(CASE WHEN m.smime_encrypted = 1 OR m.pgp_encrypted = 1 THEN 1 ELSE 0 END) as is_encrypted
+			MAX(CASE WHEN m.smime_encrypted = 1 OR m.pgp_encrypted = 1 THEN 1 ELSE 0 END) as is_encrypted,
+			json_group_array(DISTINCT json_object('name', m.from_name, 'email', m.from_email)) as participants_json
 		FROM messages m
 		JOIN messages_fts fts ON m.rowid = fts.rowid
 		WHERE m.folder_id = ? AND messages_fts MATCH ?
@@ -2163,6 +2134,7 @@ func (s *Store) SearchConversations(folderID, query string, offset, limit int, f
 		var snippet sql.NullString
 		var fromName sql.NullString
 		var messageIDsStr sql.NullString
+		var participantsJSON sql.NullString
 
 		err := rows.Scan(
 			&c.ThreadID,
@@ -2176,6 +2148,7 @@ func (s *Store) SearchConversations(folderID, query string, offset, limit int, f
 			&latestDateStr,
 			&messageIDsStr,
 			&c.IsEncrypted,
+			&participantsJSON,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan search result: %w", err)
@@ -2202,9 +2175,9 @@ func (s *Store) SearchConversations(folderID, query string, offset, limit int, f
 			c.HighlightedFromName = highlightMatches(fromName.String, query)
 		}
 
-		// Get participants
-		participants, _ := s.getConversationParticipants(c.ThreadID, folderID)
-		c.Participants = participants
+		if participantsJSON.Valid {
+			c.Participants = parseParticipantsJSON(participantsJSON.String)
+		}
 
 		results = append(results, c)
 	}
@@ -2258,7 +2231,8 @@ func (s *Store) SearchConversationsUnifiedInbox(query string, offset, limit int,
 			a.color as account_color,
 			f.id as folder_id,
 			f.name as folder_name,
-			f.folder_type as folder_type
+			f.folder_type as folder_type,
+			json_group_array(DISTINCT json_object('name', m.from_name, 'email', m.from_email)) as participants_json
 		FROM messages m
 		JOIN messages_fts fts ON m.rowid = fts.rowid
 		INNER JOIN folders f ON m.folder_id = f.id AND f.folder_type = 'inbox'
@@ -2283,6 +2257,7 @@ func (s *Store) SearchConversationsUnifiedInbox(query string, offset, limit int,
 		var snippet sql.NullString
 		var fromName sql.NullString
 		var messageIDsStr sql.NullString
+		var participantsJSON sql.NullString
 
 		err := rows.Scan(
 			&c.ThreadID,
@@ -2302,6 +2277,7 @@ func (s *Store) SearchConversationsUnifiedInbox(query string, offset, limit int,
 			&c.FolderID,
 			&c.FolderName,
 			&c.FolderType,
+			&participantsJSON,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan unified search result: %w", err)
@@ -2324,9 +2300,9 @@ func (s *Store) SearchConversationsUnifiedInbox(query string, offset, limit int,
 			c.HighlightedFromName = highlightMatches(fromName.String, query)
 		}
 
-		// Get participants
-		participants, _ := s.getConversationParticipantsUnified(c.ThreadID, c.AccountID)
-		c.Participants = participants
+		if participantsJSON.Valid {
+			c.Participants = parseParticipantsJSON(participantsJSON.String)
+		}
 
 		results = append(results, c)
 	}

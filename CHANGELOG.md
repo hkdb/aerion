@@ -1,6 +1,12 @@
 # CHANGELOG
 
 
+**v0.2.0 - 04-29-2026**
+---
+
+- Refactored N+1 query on folder switch - [#117](https://github.com/hkdb/aerion/issues/117) 
+
+
 **v0.1.39 - 04-27-2026**
 ---
 
