@@ -6,6 +6,7 @@
 
 - Refactored N+1 query on folder switch - [#117](https://github.com/hkdb/aerion/issues/117)
 - Fixed IMAP server side search regression
+- Fixed settings tab icons - [#125](https://github.com/hkdb/aerion/issues/125)
 
 
 **v0.1.39 - 04-27-2026**

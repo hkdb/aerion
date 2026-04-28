@@ -200,27 +200,27 @@
       <Tabs.Root bind:value={activeTab} class="w-full">
         <Tabs.List class="grid w-full grid-cols-6">
           <Tabs.Trigger value="general" class="flex items-center gap-2">
-            <Icon icon="mdi:cog" class="w-4 h-4" />
+            <span class="inline-flex w-4 h-4 items-center justify-center shrink-0"><Icon icon="lucide:settings-2" width="16" height="16" /></span>
             {$_('settings.general')}
           </Tabs.Trigger>
           <Tabs.Trigger value="composer" class="flex items-center gap-2">
-            <Icon icon="mdi:email-edit-outline" class="w-4 h-4" />
+            <span class="inline-flex w-4 h-4 items-center justify-center shrink-0"><Icon icon="lucide:square-pen" width="46" height="46" /></span>
             {$_('settings.composer')}
           </Tabs.Trigger>
           <Tabs.Trigger value="images" class="flex items-center gap-2">
-            <Icon icon="mdi:image-outline" class="w-4 h-4" />
+            <span class="inline-flex w-4 h-4 items-center justify-center shrink-0"><Icon icon="lucide:image" width="16" height="16" /></span>
             {$_('settings.images')}
           </Tabs.Trigger>
           <Tabs.Trigger value="accounts" class="flex items-center gap-2">
-            <Icon icon="mdi:email-multiple" class="w-4 h-4" />
+            <span class="inline-flex w-4 h-4 items-center justify-center shrink-0"><Icon icon="lucide:mails" width="16" height="16" /></span>
             {$_('settings.accounts')}
           </Tabs.Trigger>
           <Tabs.Trigger value="contacts" class="flex items-center gap-2">
-            <Icon icon="mdi:contacts" class="w-4 h-4" />
+            <span class="inline-flex w-4 h-4 items-center justify-center shrink-0"><Icon icon="lucide:contact" width="16" height="16" /></span>
             {$_('settings.contacts')}
           </Tabs.Trigger>
           <Tabs.Trigger value="about" class="flex items-center gap-2">
-            <Icon icon="mdi:information-outline" class="w-4 h-4" />
+            <span class="inline-flex w-4 h-4 items-center justify-center shrink-0"><Icon icon="lucide:info" width="16" height="16" /></span>
             {$_('settings.about')}
           </Tabs.Trigger>
         </Tabs.List>
