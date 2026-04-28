@@ -294,6 +294,19 @@ ${processedHtml}
 </html>`
   }
 
+  // Handle a clicked link URL — routes mailto: to composer, others to system browser.
+  // Used by both the iframe message handler and the plain text div click handler.
+  function handleLinkClick(url: string) {
+    if (url.startsWith('mailto:')) {
+      const emailAddress = url.replace('mailto:', '').split('?')[0]
+      if (onCompose) {
+        onCompose(emailAddress)
+        return
+      }
+    }
+    safeOpenURL(url)
+  }
+
   // Helper function to safely open URLs
   // Uses our custom OpenURL backend function which properly handles shell escaping
   async function safeOpenURL(url: string) {
@@ -331,21 +344,7 @@ ${processedHtml}
     } else if (event.data?.type === 'iframe-ready') {
       iframeReady = true
     } else if (event.data?.type === 'open-link') {
-      const url = event.data.url as string
-
-      if (url.startsWith('mailto:')) {
-        // Handle mailto: links by opening composer
-        const emailAddress = url.replace('mailto:', '').split('?')[0]
-        if (onCompose) {
-          onCompose(emailAddress)
-        } else {
-          // Fallback to system handler if no compose callback
-          safeOpenURL(url)
-        }
-      } else {
-        // Open external links in system browser
-        safeOpenURL(url)
-      }
+      handleLinkClick(event.data.url as string)
     } else if (event.data?.type === 'iframe-keydown') {
       // Handle Alt+arrow/hjkl directly for pane navigation
       if (event.data.altKey) {
@@ -658,7 +657,16 @@ ${processedHtml}
       style="height: 200px;"
     ></iframe>
   {:else if bodyText}
-    <div class="whitespace-pre-wrap font-sans text-sm text-foreground bg-muted/30 rounded-md p-4">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="whitespace-pre-wrap font-sans text-sm text-foreground bg-muted/30 rounded-md p-4"
+      onkeydown={(e) => { if (e.key === 'Enter') { const link = (e.target as HTMLElement).closest('a'); if (link?.href) { e.preventDefault(); handleLinkClick(link.href) } } }}
+      onclick={(e) => {
+        const link = (e.target as HTMLElement).closest('a')
+        if (!link?.href) return
+        e.preventDefault()
+        handleLinkClick(link.href)
+      }}
+    >
       {@html linkifyText(bodyText)}
     </div>
   {:else}
