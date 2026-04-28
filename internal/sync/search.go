@@ -438,5 +438,12 @@ func (e *Engine) FetchServerMessage(ctx context.Context, accountID, folderID str
 		e.log.Warn().Err(err).Str("messageId", m.ID).Msg("Failed to reconcile threads")
 	}
 
+	// Reload from DB to pick up any thread_id changes from reconciliation.
+	// ReconcileThreadsForNewMessage may update thread_id in the DB without
+	// updating the in-memory m, causing the frontend to use a stale threadId.
+	saved, reloadErr := e.messageStore.Get(m.ID)
+	if reloadErr == nil && saved != nil {
+		return saved, nil
+	}
 	return m, nil
 }

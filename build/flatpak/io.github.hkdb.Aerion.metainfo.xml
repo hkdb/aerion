@@ -132,6 +132,7 @@
       <description>
         <ul>
           <li>Refactored N+1 query on folder switch - #117</li>
+          <li>Fixed IMAP server side search regression</li>
         </ul>
       </description>
     </release>

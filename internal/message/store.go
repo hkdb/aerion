@@ -1393,14 +1393,15 @@ func (s *Store) GetConversation(threadID, folderID string) (*Conversation, error
 		Str("folderID", folderID).
 		Msg("GetConversation called in store")
 
-	// Check if the threadID is a message ID (UUID) first
-	// If the threadID looks like a UUID (no angle brackets), check if it's a message ID directly
+	// If the threadID is a UUID (not a Message-ID), resolve it to the actual
+	// thread_id from the DB. This handles the case where a message's thread_id
+	// was updated by thread reconciliation after initial save.
 	if !strings.Contains(threadID, "@") && !strings.HasPrefix(threadID, "<") {
-		// This might be a message UUID, check if we can find a message with this ID
-		var count int
-		err := s.db.QueryRow("SELECT COUNT(*) FROM messages WHERE id = ?", threadID).Scan(&count)
-		if err == nil && count > 0 {
-			s.log.Debug().Str("threadID", threadID).Msg("ThreadID is a message UUID")
+		var actualThreadID sql.NullString
+		err := s.db.QueryRow("SELECT thread_id FROM messages WHERE id = ?", threadID).Scan(&actualThreadID)
+		if err == nil && actualThreadID.Valid && actualThreadID.String != "" {
+			s.log.Debug().Str("uuid", threadID).Str("resolvedThreadID", actualThreadID.String).Msg("Resolved UUID to thread_id")
+			threadID = actualThreadID.String
 		}
 	}
 
