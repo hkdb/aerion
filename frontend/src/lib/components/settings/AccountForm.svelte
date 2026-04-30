@@ -98,14 +98,14 @@
     return securityOptions.find(opt => opt.value === value)?.label || value
   }
 
-  function getSyncPeriodLabel(value: string): string {
-    const numValue = Number(value)
-    return syncPeriodOptions.find(opt => opt.value === numValue)?.label || `${value} days`
-  }
+  function getSyncPeriodLabel(value: string) {
+    const numValue = Number(value);
+    return syncPeriodOptions.find(opt => opt.value === numValue)?.labelKey || ''
+}
 
   function getSyncIntervalLabel(value: string): string {
     const numValue = Number(value)
-    return syncIntervalOptions.find(opt => opt.value === numValue)?.label || `${value} min`
+    return syncIntervalOptions.find(opt => opt.value === numValue)?.labelKey ? $_(syncIntervalOptions.find(opt => opt.value === numValue)!.labelKey) : `${value} min`
   }
 
   function getReadReceiptLabel(value: string): string {
@@ -935,12 +935,12 @@
             <Select.Root bind:value={syncPeriodDays}>
               <Select.Trigger>
                 <Select.Value placeholder="Select">
-                  {getSyncPeriodLabel(syncPeriodDays)}
+                  {$_(getSyncPeriodLabel(syncPeriodDays))}
                 </Select.Value>
               </Select.Trigger>
               <Select.Content>
                 {#each syncPeriodOptions as opt (opt.value)}
-                  <Select.Item value={String(opt.value)} label={opt.label} />
+                  <Select.Item value={String(opt.value)} label={$_(opt.labelKey)} />
                 {/each}
               </Select.Content>
             </Select.Root>
@@ -960,7 +960,7 @@
               </Select.Trigger>
               <Select.Content>
                 {#each syncIntervalOptions as opt (opt.value)}
-                  <Select.Item value={String(opt.value)} label={opt.label} />
+                  <Select.Item value={String(opt.value)} label={$_(opt.labelKey)} />
                 {/each}
               </Select.Content>
             </Select.Root>
