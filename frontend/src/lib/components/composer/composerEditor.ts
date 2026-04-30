@@ -16,6 +16,8 @@ import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 import FontSize from 'tiptap-extension-font-size'
 import { parseFileUris } from './composerUtils'
+import { get } from 'svelte/store'
+import { _ } from 'svelte-i18n'
 
 /**
  * Extended TextStyle to handle legacy <font> tags from signatures/pasted content
@@ -176,7 +178,7 @@ export function createComposerEditor(
         allowBase64: true,
       }),
       Placeholder.configure({
-        placeholder: 'Write your message...',
+        placeholder: get(_)('composer.writePlaceholder'),
       }),
       Extension.create({
         name: 'shiftTabHandler',

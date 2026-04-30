@@ -167,9 +167,11 @@
   }
 
   function getSyncIntervalLabel(value: string): string {
-    const numValue = Number(value)
-    return syncIntervalOptions.find(opt => opt.value === numValue)?.label || `${value} min`
-  }
+  const numValue = Number(value);
+  const option = syncIntervalOptions.find(opt => opt.value === numValue);
+  
+  return option ? $_(option.labelKey) : `${value} min`;
+}
 
   function getReadReceiptLabel(value: string): string {
     switch (value) {
@@ -408,7 +410,7 @@
         </Select.Trigger>
         <Select.Content>
           {#each syncIntervalOptions as opt (opt.value)}
-            <Select.Item value={String(opt.value)} label={opt.label} />
+            <Select.Item value={String(opt.value)} label={$_(opt.labelKey)} />
           {/each}
         </Select.Content>
       </Select.Root>

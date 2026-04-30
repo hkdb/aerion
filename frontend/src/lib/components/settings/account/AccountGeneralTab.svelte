@@ -64,9 +64,15 @@
   }: Props = $props()
 
   function getSyncPeriodLabel(value: string): string {
-    const numValue = Number(value)
-    return syncPeriodOptions.find(opt => opt.value === numValue)?.label || `${value} days`
+    const numValue = Number(value);
+    const option = syncPeriodOptions.find(opt => opt.value === numValue);
+  
+  if (option && option.labelKey) {
+    return option.labelKey;
   }
+  
+  return `${value} days`;
+}
 </script>
 
 <div class="space-y-6">
@@ -242,12 +248,12 @@
       >
         <Select.Trigger>
           <Select.Value placeholder="Select">
-            {getSyncPeriodLabel(syncPeriodDays)}
+            {$_(getSyncPeriodLabel(syncPeriodDays))}
           </Select.Value>
         </Select.Trigger>
         <Select.Content>
           {#each syncPeriodOptions as opt (opt.value)}
-            <Select.Item value={String(opt.value)} label={opt.label} />
+            <Select.Item value={String(opt.value)} label={$_(opt.labelKey)} />
           {/each}
         </Select.Content>
       </Select.Root>
