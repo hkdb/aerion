@@ -291,6 +291,11 @@ func (a *App) SendReadReceipt(accountID, messageID string) error {
 		return fmt.Errorf("failed to get identities: %w", err)
 	}
 
+	// SMTP host is not set
+	if acc.SMTPHost == "" {
+		return fmt.Errorf("no smtp host configured for account: %s", accountID)
+	}
+
 	var fromName, fromEmail string
 	for _, id := range identities {
 		if id.IsDefault {

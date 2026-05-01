@@ -346,11 +346,7 @@
           placeholder="smtp.example.com"
           bind:value={smtpHost}
           oninput={(e) => onSmtpHostChange((e.target as HTMLInputElement).value)}
-          class={errors.smtpHost ? 'border-destructive' : ''}
         />
-        {#if errors.smtpHost}
-          <p class="text-sm text-destructive">{errors.smtpHost}</p>
-        {/if}
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div class="space-y-2">

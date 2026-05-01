@@ -8,7 +8,6 @@ var (
 	ErrDisplayNameRequired = errors.New("display name is required")
 	ErrEmailRequired       = errors.New("email address is required")
 	ErrIMAPHostRequired    = errors.New("IMAP host is required")
-	ErrSMTPHostRequired    = errors.New("SMTP host is required")
 	ErrUsernameRequired    = errors.New("username is required")
 
 	// Storage errors

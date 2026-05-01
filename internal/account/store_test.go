@@ -69,11 +69,6 @@ func TestAccountConfigValidate(t *testing.T) {
 			wantErr: ErrIMAPHostRequired,
 		},
 		{
-			name:    "missing SMTP host",
-			modify:  func(c *AccountConfig) { c.SMTPHost = "" },
-			wantErr: ErrSMTPHostRequired,
-		},
-		{
 			name:    "missing username",
 			modify:  func(c *AccountConfig) { c.Username = "" },
 			wantErr: ErrUsernameRequired,

@@ -607,7 +607,6 @@
     "invalidEmail": "Invalid email format",
     "passwordRequired": "Password is required",
     "imapHostRequired": "IMAP host is required",
-    "smtpHostRequired": "SMTP host is required",
     "invalidPort": "Invalid port",
     "trustedCertificates": "Trusted Certificates",
     "trustedCertsHelp": "Manually trusted TLS certificates for this account's servers.",
