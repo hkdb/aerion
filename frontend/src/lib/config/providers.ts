@@ -31,6 +31,7 @@ export interface EmailProvider {
   imap: ServerConfig
   smtp: ServerConfig
   notes?: string // e.g., "Requires App Password"
+  notesKey?: string
   usernameIsEmail?: boolean // defaults to true
   // OAuth configuration
   authMethod?: AuthMethod // defaults to 'password'
@@ -46,6 +47,7 @@ export const providers: EmailProvider[] = [
     imap: { host: 'imap.gmail.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.gmail.com', port: 587, security: 'starttls' },
     notes: 'Sign in with Google or use App Password',
+    notesKey: 'account.notesGoogle',
     usernameIsEmail: true,
     authMethod: 'oauth2',
     oauth: { provider: 'google', allowPasswordFallback: true },
@@ -70,6 +72,7 @@ export const providers: EmailProvider[] = [
     imap: { host: 'imap.mail.yahoo.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.mail.yahoo.com', port: 587, security: 'starttls' },
     notes: 'Requires App Password (enable 2-Step Verification first)',
+    notesKey: 'account.notesYahoo',
     usernameIsEmail: true,
   },
   {
@@ -81,6 +84,7 @@ export const providers: EmailProvider[] = [
     imap: { host: 'imap.mail.me.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.mail.me.com', port: 587, security: 'starttls' },
     notes: 'Requires App-Specific Password from appleid.apple.com',
+    notesKey: 'account.notesIcloud',
     usernameIsEmail: true,
   },
   {
@@ -92,6 +96,7 @@ export const providers: EmailProvider[] = [
     imap: { host: '127.0.0.1', port: 1143, security: 'starttls' },
     smtp: { host: '127.0.0.1', port: 1025, security: 'starttls' },
     notes: 'Requires ProtonMail Bridge running locally',
+    notesKey: 'account.notesProton',
     usernameIsEmail: true,
   },
   {
@@ -103,6 +108,7 @@ export const providers: EmailProvider[] = [
     imap: { host: 'imap.fastmail.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.fastmail.com', port: 587, security: 'starttls' },
     notes: 'Use App Password from Settings > Privacy & Security',
+    notesKey: 'account.notesFastmail',
     usernameIsEmail: true,
   },
   {
@@ -123,6 +129,7 @@ export const providers: EmailProvider[] = [
     imap: { host: 'imap.aol.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.aol.com', port: 587, security: 'starttls' },
     notes: 'Requires App Password',
+    notesKey: 'account.notesAppPassword',
     usernameIsEmail: true,
   },
   {

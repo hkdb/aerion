@@ -570,7 +570,7 @@
         <div class="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
           <Icon icon="mdi:information-outline" class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <p class="text-sm text-amber-600 dark:text-amber-400">
-            {selectedProvider.notes}
+            {selectedProvider.notesKey ? $_(selectedProvider.notesKey) : selectedProvider.notes}
           </p>
         </div>
       {/if}
