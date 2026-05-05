@@ -31,6 +31,7 @@ export interface EmailProvider {
   imap: ServerConfig
   smtp: ServerConfig
   notes?: string // e.g., "Requires App Password"
+  notesKey?: string
   usernameIsEmail?: boolean // defaults to true
   // OAuth configuration
   authMethod?: AuthMethod // defaults to 'password'
@@ -46,6 +47,7 @@ export const providers: EmailProvider[] = [
     imap: { host: 'imap.gmail.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.gmail.com', port: 587, security: 'starttls' },
     notes: 'Sign in with Google or use App Password',
+    notesKey: 'account.notesGoogle',
     usernameIsEmail: true,
     authMethod: 'oauth2',
     oauth: { provider: 'google', allowPasswordFallback: true },
@@ -70,6 +72,7 @@ export const providers: EmailProvider[] = [
     imap: { host: 'imap.mail.yahoo.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.mail.yahoo.com', port: 587, security: 'starttls' },
     notes: 'Requires App Password (enable 2-Step Verification first)',
+    notesKey: 'account.notesYahoo',
     usernameIsEmail: true,
   },
   {
@@ -81,6 +84,7 @@ export const providers: EmailProvider[] = [
     imap: { host: 'imap.mail.me.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.mail.me.com', port: 587, security: 'starttls' },
     notes: 'Requires App-Specific Password from appleid.apple.com',
+    notesKey: 'account.notesIcloud',
     usernameIsEmail: true,
   },
   {
@@ -92,6 +96,7 @@ export const providers: EmailProvider[] = [
     imap: { host: '127.0.0.1', port: 1143, security: 'starttls' },
     smtp: { host: '127.0.0.1', port: 1025, security: 'starttls' },
     notes: 'Requires ProtonMail Bridge running locally',
+    notesKey: 'account.notesProton',
     usernameIsEmail: true,
   },
   {
@@ -103,6 +108,7 @@ export const providers: EmailProvider[] = [
     imap: { host: 'imap.fastmail.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.fastmail.com', port: 587, security: 'starttls' },
     notes: 'Use App Password from Settings > Privacy & Security',
+    notesKey: 'account.notesFastmail',
     usernameIsEmail: true,
   },
   {
@@ -123,6 +129,7 @@ export const providers: EmailProvider[] = [
     imap: { host: 'imap.aol.com', port: 993, security: 'tls' },
     smtp: { host: 'smtp.aol.com', port: 587, security: 'starttls' },
     notes: 'Requires App Password',
+    notesKey: 'account.notesAppPassword',
     usernameIsEmail: true,
   },
   {
@@ -218,32 +225,32 @@ export function getOAuthProviders(): EmailProvider[] {
  * Security type options for select dropdowns
  */
 export const securityOptions = [
-  { value: 'tls', label: 'SSL/TLS' },
-  { value: 'starttls', label: 'STARTTLS' },
-  { value: 'none', label: 'None (insecure)' },
+  { value: 'tls', label: 'SSL/TLS', labelKey: 'account.securitySsl' },
+  { value: 'starttls', label: 'STARTTLS', labelKey: 'account.securityStarttls' },
+  { value: 'none', label: 'None (insecure)', labelKey: 'account.securityNone' },
 ] as const
 
 /**
  * Common sync period options (in days)
  */
 export const syncPeriodOptions = [
-  { value: 7, label: '1 week' },
-  { value: 14, label: '2 weeks' },
-  { value: 30, label: '1 month' },
-  { value: 60, label: '2 months' },
-  { value: 90, label: '3 months' },
-  { value: 180, label: '6 months' },
-  { value: 365, label: '1 year' },
-  { value: 0, label: 'All messages' },
+  { value: 7,   label: '1 week',       labelKey: 'account.sync1week' },
+  { value: 14,  label: '2 weeks',      labelKey: 'account.sync2weeks' },
+  { value: 30,  label: '1 month',      labelKey: 'account.sync1month' },
+  { value: 60,  label: '2 months',     labelKey: 'account.sync2months' },
+  { value: 90,  label: '3 months',     labelKey: 'account.sync3months' },
+  { value: 180, label: '6 months',     labelKey: 'account.sync6months' },
+  { value: 365, label: '1 year',       labelKey: 'account.sync1year' },
+  { value: 0,   label: 'All messages', labelKey: 'account.syncAllMessages' },
 ] as const
 
 /**
  * Sync interval options (in minutes) for automatic email checking
  */
 export const syncIntervalOptions = [
-  { value: 0, label: 'Manual only' },
-  { value: 5, label: 'Every 5 minutes' },
-  { value: 15, label: 'Every 15 minutes' },
-  { value: 30, label: 'Every 30 minutes' },
-  { value: 60, label: 'Every hour' },
+  { value: 0,  label: 'Manual only',       labelKey: 'account.manualOnly' },
+  { value: 5,  label: 'Every 5 minutes',   labelKey: 'account.every5Min' },
+  { value: 15, label: 'Every 15 minutes',  labelKey: 'account.every15Min' },
+  { value: 30, label: 'Every 30 minutes',  labelKey: 'account.every30Min' },
+  { value: 60, label: 'Every hour',        labelKey: 'account.everyHour' },
 ] as const

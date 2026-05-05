@@ -37,6 +37,11 @@ export async function loadDateFnsLocale(code: string): Promise<Locale | undefine
       dateFnsLocale = mod.zhCN
       break
     }
+    case 'fr': {
+      const mod = await import('date-fns/locale/fr')
+      dateFnsLocale = mod.fr
+      break
+    }
   }
 
   if (dateFnsLocale) {

@@ -98,14 +98,14 @@
     return securityOptions.find(opt => opt.value === value)?.label || value
   }
 
-  function getSyncPeriodLabel(value: string): string {
-    const numValue = Number(value)
-    return syncPeriodOptions.find(opt => opt.value === numValue)?.label || `${value} days`
-  }
+  function getSyncPeriodLabel(value: string) {
+    const numValue = Number(value);
+    return syncPeriodOptions.find(opt => opt.value === numValue)?.labelKey || ''
+}
 
   function getSyncIntervalLabel(value: string): string {
     const numValue = Number(value)
-    return syncIntervalOptions.find(opt => opt.value === numValue)?.label || `${value} min`
+    return syncIntervalOptions.find(opt => opt.value === numValue)?.labelKey ? $_(syncIntervalOptions.find(opt => opt.value === numValue)!.labelKey) : `${value} min`
   }
 
   function getReadReceiptLabel(value: string): string {
@@ -570,7 +570,7 @@
         <div class="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
           <Icon icon="mdi:information-outline" class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <p class="text-sm text-amber-600 dark:text-amber-400">
-            {selectedProvider.notes}
+            {selectedProvider.notesKey ? $_(selectedProvider.notesKey) : selectedProvider.notes}
           </p>
         </div>
       {/if}
@@ -935,12 +935,12 @@
             <Select.Root bind:value={syncPeriodDays}>
               <Select.Trigger>
                 <Select.Value placeholder="Select">
-                  {getSyncPeriodLabel(syncPeriodDays)}
+                  {$_(getSyncPeriodLabel(syncPeriodDays))}
                 </Select.Value>
               </Select.Trigger>
               <Select.Content>
                 {#each syncPeriodOptions as opt (opt.value)}
-                  <Select.Item value={String(opt.value)} label={opt.label} />
+                  <Select.Item value={String(opt.value)} label={$_(opt.labelKey)} />
                 {/each}
               </Select.Content>
             </Select.Root>
@@ -960,7 +960,7 @@
               </Select.Trigger>
               <Select.Content>
                 {#each syncIntervalOptions as opt (opt.value)}
-                  <Select.Item value={String(opt.value)} label={opt.label} />
+                  <Select.Item value={String(opt.value)} label={$_(opt.labelKey)} />
                 {/each}
               </Select.Content>
             </Select.Root>
