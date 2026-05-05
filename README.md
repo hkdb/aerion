@@ -385,7 +385,7 @@ Aerion is largely driven by community feedback. Big thanks to the following non-
 
 ### 🌐 Translation Contributors
 
-Special thanks to translation contributors to make Aerion more accessible:
+Special thanks to translation contributors for making Aerion more accessible:
 
 
 <table>
