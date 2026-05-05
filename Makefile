@@ -94,11 +94,13 @@ test:
 lint:
 	@echo "Running linter..."
 	golangci-lint run
+	make frontend-lint
 
 # Format Go code
 fmt:
 	@echo "Formatting Go code..."
 	go fmt ./...
+	make frontend-fmt
 
 ## Maintenance
 
