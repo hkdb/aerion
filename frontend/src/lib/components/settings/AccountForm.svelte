@@ -98,14 +98,16 @@
     return securityOptions.find(opt => opt.value === value)?.label || value
   }
 
-  function getSyncPeriodLabel(value: string) {
-    const numValue = Number(value);
-    return syncPeriodOptions.find(opt => opt.value === numValue)?.labelKey || ''
-}
+  function getSyncPeriodLabel(value: string): string {
+    const numValue = Number(value)
+    const option = syncPeriodOptions.find(opt => opt.value === numValue)
+    return option ? $_(option.labelKey) : `${value} days`
+  }
 
   function getSyncIntervalLabel(value: string): string {
     const numValue = Number(value)
-    return syncIntervalOptions.find(opt => opt.value === numValue)?.labelKey ? $_(syncIntervalOptions.find(opt => opt.value === numValue)!.labelKey) : `${value} min`
+    const option = syncIntervalOptions.find(opt => opt.value === numValue)
+    return option ? $_(option.labelKey) : `${value} min`
   }
 
   function getReadReceiptLabel(value: string): string {
@@ -935,7 +937,7 @@
             <Select.Root bind:value={syncPeriodDays}>
               <Select.Trigger>
                 <Select.Value placeholder="Select">
-                  {$_(getSyncPeriodLabel(syncPeriodDays))}
+                  {getSyncPeriodLabel(syncPeriodDays)}
                 </Select.Value>
               </Select.Trigger>
               <Select.Content>

@@ -167,11 +167,10 @@
   }
 
   function getSyncIntervalLabel(value: string): string {
-  const numValue = Number(value);
-  const option = syncIntervalOptions.find(opt => opt.value === numValue);
-  
-  return option ? $_(option.labelKey) : `${value} min`;
-}
+    const numValue = Number(value)
+    const option = syncIntervalOptions.find(opt => opt.value === numValue)
+    return option ? $_(option.labelKey) : `${value} min`
+  }
 
   function getReadReceiptLabel(value: string): string {
     switch (value) {

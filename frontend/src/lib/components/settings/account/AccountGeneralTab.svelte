@@ -64,15 +64,10 @@
   }: Props = $props()
 
   function getSyncPeriodLabel(value: string): string {
-    const numValue = Number(value);
-    const option = syncPeriodOptions.find(opt => opt.value === numValue);
-  
-  if (option && option.labelKey) {
-    return option.labelKey;
+    const numValue = Number(value)
+    const option = syncPeriodOptions.find(opt => opt.value === numValue)
+    return option ? $_(option.labelKey) : `${value} days`
   }
-  
-  return `${value} days`;
-}
 </script>
 
 <div class="space-y-6">
@@ -248,7 +243,7 @@
       >
         <Select.Trigger>
           <Select.Value placeholder="Select">
-            {$_(getSyncPeriodLabel(syncPeriodDays))}
+            {getSyncPeriodLabel(syncPeriodDays)}
           </Select.Value>
         </Select.Trigger>
         <Select.Content>

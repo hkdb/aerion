@@ -1737,7 +1737,7 @@
       <span class="text-sm text-muted-foreground w-16">{$_('composer.from')}:</span>
       <div class="flex-1">
         <Select.Root value={selectedIdentityId} onValueChange={handleIdentityChange}>
-          <Select.Trigger class="h-8 border-0 bg-transparent shadow-none focus:ring-0">
+          <Select.Trigger class="h-8 px-0 border-0 bg-transparent shadow-none focus:ring-0">
             <Select.Value placeholder={$_('composer.selectIdentity')}>
               {#if selectedIdentityId}
                 {@const identity = identities.find(i => i.id === selectedIdentityId)}

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+**v0.2.1 - 05-07-2026**
+---
+
+- Added French translation
+- Fixed untranslated drop down menu items
+- Adjusted composer CSS after translation PR
+
 
 **v0.2.0 - 04-29-2026**
 ---
