@@ -1,27 +1,33 @@
 <script lang="ts">
-  import { ContextMenu as ContextMenuPrimitive } from 'bits-ui'
-  import { cn } from '$lib/utils'
-  import type { Snippet } from 'svelte'
+  import { cn } from "$lib/utils";
+  import { ContextMenu as ContextMenuPrimitive } from "bits-ui";
+  import type { Snippet } from "svelte";
 
   interface Props {
-    class?: string
-    inset?: boolean
-    disabled?: boolean
-    children?: Snippet
-    onSelect?: () => void
+    class?: string;
+    inset?: boolean;
+    disabled?: boolean;
+    children?: Snippet;
+    onSelect?: () => void;
   }
 
-  let { class: className, inset = false, disabled = false, children, onSelect }: Props = $props()
+  let {
+    class: className,
+    inset = false,
+    disabled = false,
+    children,
+    onSelect
+  }: Props = $props();
 </script>
 
 <ContextMenuPrimitive.Item
   {disabled}
-  onSelect={onSelect}
+  {onSelect}
   class={cn(
-    'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none',
-    'focus:bg-accent focus:text-accent-foreground',
-    'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-    inset && 'pl-8',
+    "rounded-sm px-2 py-1.5 text-sm relative flex cursor-default items-center outline-none select-none",
+    "focus:bg-accent focus:text-accent-foreground",
+    "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+    inset && "pl-8",
     className
   )}
 >

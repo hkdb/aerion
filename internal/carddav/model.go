@@ -17,8 +17,8 @@ type Source struct {
 	ID           string     `json:"id"`
 	Name         string     `json:"name"`
 	Type         SourceType `json:"type"`
-	URL          string     `json:"url"`          // CardDAV server URL (empty for OAuth sources)
-	Username     string     `json:"username"`     // CardDAV username (empty for OAuth sources)
+	URL          string     `json:"url"`                  // CardDAV server URL (empty for OAuth sources)
+	Username     string     `json:"username"`             // CardDAV username (empty for OAuth sources)
 	AccountID    *string    `json:"account_id,omitempty"` // Linked email account ID (for OAuth sources using account's token)
 	Enabled      bool       `json:"enabled"`
 	SyncInterval int        `json:"sync_interval"` // Minutes (0 = manual only)
@@ -35,9 +35,9 @@ type Source struct {
 type SourceConfig struct {
 	Name         string     `json:"name"`
 	Type         SourceType `json:"type"`
-	URL          string     `json:"url"`      // CardDAV server URL (empty for OAuth sources)
-	Username     string     `json:"username"` // CardDAV username (empty for OAuth sources)
-	Password     string     `json:"password"` // CardDAV password, only used for create/update, not stored in DB
+	URL          string     `json:"url"`                  // CardDAV server URL (empty for OAuth sources)
+	Username     string     `json:"username"`             // CardDAV username (empty for OAuth sources)
+	Password     string     `json:"password"`             // CardDAV password, only used for create/update, not stored in DB
 	AccountID    string     `json:"account_id,omitempty"` // Linked email account ID (for OAuth sources)
 	Enabled      bool       `json:"enabled"`
 	SyncInterval int        `json:"sync_interval"`

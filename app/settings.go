@@ -70,13 +70,13 @@ func (a *App) SetMessageListSortOrder(sortOrder string) error {
 }
 
 // GetThemeMode returns the current theme mode setting
-// Values: "system", "light", "light-blue", "light-orange", "dark", "dark-gray", "dark-balanced"
+// Values: "system", "light", "light-blue", "light-orange", "dark", "dark-gray", "dark-balanced", "dark-catppuccin-mocha"
 func (a *App) GetThemeMode() (string, error) {
 	return a.settingsStore.GetThemeMode()
 }
 
 // SetThemeMode sets the theme mode
-// Valid values: "system", "light", "light-blue", "light-orange", "dark", "dark-gray", "dark-balanced"
+// Valid values: "system", "light", "light-blue", "light-orange", "dark", "dark-gray", "dark-balanced", "dark-catppuccin-mocha"
 func (a *App) SetThemeMode(mode string) error {
 	if err := a.settingsStore.SetThemeMode(mode); err != nil {
 		return err

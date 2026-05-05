@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { ContextMenu as ContextMenuPrimitive } from 'bits-ui'
-  import { cn } from '$lib/utils'
+  import { cn } from "$lib/utils";
+  import { ContextMenu as ContextMenuPrimitive } from "bits-ui";
 
   interface Props {
-    class?: string
+    class?: string;
   }
 
-  let { class: className }: Props = $props()
+  let { class: className }: Props = $props();
 </script>
 
 <ContextMenuPrimitive.Separator
-  class={cn('-mx-1 my-1 h-px bg-border', className)}
+  class={cn("-mx-1 my-1 bg-border h-px", className)}
 />

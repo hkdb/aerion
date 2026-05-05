@@ -366,9 +366,9 @@ func (a *App) SetDefaultIdentity(accountID, identityID string) error {
 
 // ConnectionTestResult holds the result of a connection test
 type ConnectionTestResult struct {
-	Success             bool                      `json:"success"`
-	Error               string                    `json:"error,omitempty"`
-	CertificateRequired bool                      `json:"certificateRequired"`
+	Success             bool                         `json:"success"`
+	Error               string                       `json:"error,omitempty"`
+	CertificateRequired bool                         `json:"certificateRequired"`
 	Certificate         *certificate.CertificateInfo `json:"certificate,omitempty"`
 }
 

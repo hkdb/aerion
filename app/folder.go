@@ -149,7 +149,6 @@ func (a *App) SubscribeFolder(accountID, folderID string) error {
 		log.Warn().Err(dbErr).Msg("Failed to update local subscription cache")
 	}
 
-
 	log.Info().Str("folder", f.Path).Msg("Subscribed to folder")
 	return nil
 }

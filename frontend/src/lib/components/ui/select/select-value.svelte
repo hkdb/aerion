@@ -7,7 +7,11 @@
     children?: Snippet;
   }
 
-  let { placeholder = "Select...", class: className, children }: Props = $props();
+  let {
+    placeholder = "Select...",
+    class: className,
+    children
+  }: Props = $props();
 </script>
 
 <span class="block truncate {className}">

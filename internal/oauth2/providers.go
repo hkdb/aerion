@@ -80,9 +80,9 @@ func MicrosoftContactsOnlyProvider() ProviderConfig {
 		TokenURL:    "https://login.microsoftonline.com/common/oauth2/v2.0/token",
 		Scopes: []string{
 			"https://graph.microsoft.com/Contacts.Read", // Contacts read access
-			"offline_access",                            // Refresh tokens
-			"openid",                                    // OpenID Connect
-			"email",                                     // Get user's email address
+			"offline_access", // Refresh tokens
+			"openid",         // OpenID Connect
+			"email",          // Get user's email address
 		},
 		ClientID:     MicrosoftClientID,
 		ClientSecret: "", // Public client, no secret needed

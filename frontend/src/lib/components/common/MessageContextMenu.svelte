@@ -1,46 +1,50 @@
 <script lang="ts">
-  import Icon from '@iconify/svelte'
-  import { ContextMenu as ContextMenuPrimitive } from 'bits-ui'
+  import { ConfirmDialog } from "$lib/components/ui/confirm-dialog";
   import {
     ContextMenuContent,
     ContextMenuItem,
-    ContextMenuSeparator,
-  } from '$lib/components/ui/context-menu'
+    ContextMenuSeparator
+  } from "$lib/components/ui/context-menu";
+  import { _ } from "$lib/i18n";
+  import { dialogGuardClose, dialogGuardOpen } from "$lib/stores/dialogGuard";
+  import { toasts } from "$lib/stores/toast";
+  import Icon from "@iconify/svelte";
+  import { ContextMenu as ContextMenuPrimitive } from "bits-ui";
+  import type { Snippet } from "svelte";
+
   import {
-    GetFolders,
-    MarkAsRead,
-    MarkAsUnread,
-    Star,
-    Unstar,
     Archive,
-    Trash,
-    MarkAsSpam,
-    MarkAsNotSpam,
-    DeletePermanently,
-    MoveToFolder,
     CopyToFolder,
+    DeletePermanently,
+    GetFolders,
+    MarkAsNotSpam,
+    MarkAsRead,
+    MarkAsSpam,
+    MarkAsUnread,
+    MoveToFolder,
+    Star,
+    Trash,
     Undo,
-  } from '../../../../wailsjs/go/app/App'
+    Unstar
+  } from "../../../../wailsjs/go/app/App";
   // @ts-ignore - wailsjs path
-  import { folder } from '../../../../wailsjs/go/models'
-  import { toasts } from '$lib/stores/toast'
-  import { ConfirmDialog } from '$lib/components/ui/confirm-dialog'
-  import FolderPickerDialog from './FolderPickerDialog.svelte'
-  import type { Snippet } from 'svelte'
-  import { _ } from '$lib/i18n'
-  import { dialogGuardOpen, dialogGuardClose } from '$lib/stores/dialogGuard'
+  import { folder } from "../../../../wailsjs/go/models";
+  import FolderPickerDialog from "./FolderPickerDialog.svelte";
 
   interface Props {
-    messageIds: string[]
-    accountId: string
-    currentFolderId: string
-    folderType: string
-    isStarred: boolean
-    isRead: boolean
-    onActionComplete?: (autoSelectNext?: boolean) => void
-    onReply?: (mode: 'reply' | 'reply-all' | 'forward', messageId: string) => void
-    onOpenChange?: (open: boolean) => void
-    children?: Snippet
+    messageIds: string[];
+    accountId: string;
+    currentFolderId: string;
+    folderType: string;
+    isStarred: boolean;
+    isRead: boolean;
+    onActionComplete?: (autoSelectNext?: boolean) => void;
+    onReply?: (
+      mode: "reply" | "reply-all" | "forward",
+      messageId: string
+    ) => void;
+    onOpenChange?: (open: boolean) => void;
+    children?: Snippet;
   }
 
   let {
@@ -53,163 +57,177 @@
     onActionComplete,
     onReply,
     onOpenChange,
-    children,
-  }: Props = $props()
+    children
+  }: Props = $props();
 
   // Folders state for move/copy submenus
-  let folders = $state<folder.Folder[]>([])
-  let foldersLoading = $state(false)
-  let foldersLoaded = $state(false)
+  let folders = $state<folder.Folder[]>([]);
+  let foldersLoading = $state(false);
+  let foldersLoaded = $state(false);
 
   // Permanent delete confirmation
-  let showDeleteConfirm = $state(false)
+  let showDeleteConfirm = $state(false);
 
   // Folder picker dialog state
-  let showFolderPicker = $state(false)
-  let folderPickerMode = $state<'move' | 'copy'>('move')
+  let showFolderPicker = $state(false);
+  let folderPickerMode = $state<"move" | "copy">("move");
 
   // Track dialog open/close to prevent background reloads from dismissing dialogs
   $effect(() => {
     if (showFolderPicker) {
-      dialogGuardOpen()
-      return () => dialogGuardClose()
+      dialogGuardOpen();
+      return () => dialogGuardClose();
     }
-  })
+  });
 
   $effect(() => {
     if (showDeleteConfirm) {
-      dialogGuardOpen()
-      return () => dialogGuardClose()
+      dialogGuardOpen();
+      return () => dialogGuardClose();
     }
-  })
+  });
 
   // Folder type to icon mapping
   const folderIcons: Record<string, string> = {
-    inbox: 'mdi:inbox',
-    sent: 'mdi:send',
-    drafts: 'mdi:file-document-edit-outline',
-    trash: 'mdi:delete-outline',
-    archive: 'mdi:archive-outline',
-    spam: 'mdi:alert-octagon-outline',
-    all: 'mdi:email-multiple-outline',
-    folder: 'mdi:folder-outline',
-  }
+    inbox: "mdi:inbox",
+    sent: "mdi:send",
+    drafts: "mdi:file-document-edit-outline",
+    trash: "mdi:delete-outline",
+    archive: "mdi:archive-outline",
+    spam: "mdi:alert-octagon-outline",
+    all: "mdi:email-multiple-outline",
+    folder: "mdi:folder-outline"
+  };
 
   function getFolderIcon(type: string): string {
-    return folderIcons[type] || folderIcons.folder
+    return folderIcons[type] || folderIcons.folder;
   }
 
   // Computed values
-  const isTrashFolder = $derived(folderType === 'trash')
-  const isSpamFolder = $derived(folderType === 'spam')
-  const isSingleMessage = $derived(messageIds.length === 1)
+  const isTrashFolder = $derived(folderType === "trash");
+  const isSpamFolder = $derived(folderType === "spam");
+  const isSingleMessage = $derived(messageIds.length === 1);
 
   // Load folders when context menu opens
   async function loadFolders() {
-    if (foldersLoaded || foldersLoading) return
+    if (foldersLoaded || foldersLoading) return;
 
-    foldersLoading = true
+    foldersLoading = true;
     try {
-      const result = await GetFolders(accountId)
-      folders = result || []
-      foldersLoaded = true
+      const result = await GetFolders(accountId);
+      folders = result || [];
+      foldersLoaded = true;
     } catch (err) {
-      console.error('Failed to load folders:', err)
+      console.error("Failed to load folders:", err);
     } finally {
-      foldersLoading = false
+      foldersLoading = false;
     }
   }
 
   // Handle menu open
   function handleOpenChange(open: boolean) {
     if (open) {
-      loadFolders()
+      loadFolders();
     }
-    onOpenChange?.(open)
+    onOpenChange?.(open);
   }
 
   // Get folders excluding current folder (for move/copy)
   const availableFolders = $derived(
     folders.filter((f) => f.id !== currentFolderId)
-  )
+  );
 
   // Group folders: special folders first, then custom folders
-  const specialFolderTypes = ['inbox', 'sent', 'drafts', 'archive', 'trash', 'spam', 'all']
+  const specialFolderTypes = [
+    "inbox",
+    "sent",
+    "drafts",
+    "archive",
+    "trash",
+    "spam",
+    "all"
+  ];
   const specialFolders = $derived(
     availableFolders.filter((f) => specialFolderTypes.includes(f.type))
-  )
+  );
   const customFolders = $derived(
     availableFolders.filter((f) => !specialFolderTypes.includes(f.type))
-  )
+  );
 
   // Undo handler
   async function handleUndo() {
     try {
-      const description = await Undo()
-      toasts.success($_('toast.undone', { values: { description } }))
+      const description = await Undo();
+      toasts.success($_("toast.undone", { values: { description } }));
     } catch (err) {
-      console.error('Undo failed:', err)
-      toasts.error($_('toast.undoFailed'))
+      console.error("Undo failed:", err);
+      toasts.error($_("toast.undoFailed"));
     }
   }
 
   // Action handlers
   async function handleReply() {
     if (isSingleMessage && onReply) {
-      onReply('reply', messageIds[0])
+      onReply("reply", messageIds[0]);
     }
   }
 
   async function handleReplyAll() {
     if (isSingleMessage && onReply) {
-      onReply('reply-all', messageIds[0])
+      onReply("reply-all", messageIds[0]);
     }
   }
 
   async function handleForward() {
     if (isSingleMessage && onReply) {
-      onReply('forward', messageIds[0])
+      onReply("forward", messageIds[0]);
     }
   }
 
   async function handleArchive() {
     try {
-      await Archive(messageIds)
-      toasts.success($_('toast.archived'), [{ label: $_('common.undo'), onClick: handleUndo }])
-      onActionComplete?.(true)
+      await Archive(messageIds);
+      toasts.success($_("toast.archived"), [
+        { label: $_("common.undo"), onClick: handleUndo }
+      ]);
+      onActionComplete?.(true);
     } catch (err) {
-      console.error('Archive failed:', err)
-      toasts.error($_('toast.failedToArchive'))
+      console.error("Archive failed:", err);
+      toasts.error($_("toast.failedToArchive"));
     }
   }
 
   async function handleDelete() {
     if (isTrashFolder) {
-      showDeleteConfirm = true
+      showDeleteConfirm = true;
     } else {
       try {
-        const movedToTrash = await Trash(messageIds)
-        const toastMsg = movedToTrash ? $_('toast.movedToTrash') : $_('toast.deletedFromFolder')
-        const actions = movedToTrash ? [{ label: $_('common.undo'), onClick: handleUndo }] : []
-        toasts.success(toastMsg, actions)
-        onActionComplete?.(true)
+        const movedToTrash = await Trash(messageIds);
+        const toastMsg = movedToTrash
+          ? $_("toast.movedToTrash")
+          : $_("toast.deletedFromFolder");
+        const actions = movedToTrash
+          ? [{ label: $_("common.undo"), onClick: handleUndo }]
+          : [];
+        toasts.success(toastMsg, actions);
+        onActionComplete?.(true);
       } catch (err) {
-        console.error('Delete failed:', err)
-        toasts.error($_('toast.failedToDelete'))
+        console.error("Delete failed:", err);
+        toasts.error($_("toast.failedToDelete"));
       }
     }
   }
 
   async function handleConfirmPermanentDelete() {
     try {
-      await DeletePermanently(messageIds)
-      toasts.success($_('toast.permanentlyDeleted'))
-      showDeleteConfirm = false
-      onActionComplete?.(true)
+      await DeletePermanently(messageIds);
+      toasts.success($_("toast.permanentlyDeleted"));
+      showDeleteConfirm = false;
+      onActionComplete?.(true);
     } catch (err) {
-      console.error('Permanent delete failed:', err)
-      toasts.error($_('toast.failedToDelete'))
-      showDeleteConfirm = false
+      console.error("Permanent delete failed:", err);
+      toasts.error($_("toast.failedToDelete"));
+      showDeleteConfirm = false;
     }
   }
 
@@ -217,96 +235,110 @@
     try {
       if (isSpamFolder) {
         // If we're in spam folder, mark as NOT spam
-        await MarkAsNotSpam(messageIds)
-        toasts.success($_('toast.markedAsNotSpam'), [{ label: $_('common.undo'), onClick: handleUndo }])
-        onActionComplete?.(true)
-        return
+        await MarkAsNotSpam(messageIds);
+        toasts.success($_("toast.markedAsNotSpam"), [
+          { label: $_("common.undo"), onClick: handleUndo }
+        ]);
+        onActionComplete?.(true);
+        return;
       }
       // Otherwise, mark as spam
-      const movedToSpam = await MarkAsSpam(messageIds)
-      const toastMsg = movedToSpam ? $_('toast.markedAsSpam') : $_('toast.deletedFromFolder')
-      const actions = movedToSpam ? [{ label: $_('common.undo'), onClick: handleUndo }] : []
-      toasts.success(toastMsg, actions)
-      onActionComplete?.(true)
+      const movedToSpam = await MarkAsSpam(messageIds);
+      const toastMsg = movedToSpam
+        ? $_("toast.markedAsSpam")
+        : $_("toast.deletedFromFolder");
+      const actions = movedToSpam
+        ? [{ label: $_("common.undo"), onClick: handleUndo }]
+        : [];
+      toasts.success(toastMsg, actions);
+      onActionComplete?.(true);
     } catch (err) {
-      console.error('Spam toggle failed:', err)
-      toasts.error($_(isSpamFolder ? 'toast.failedToMarkAsNotSpam' : 'toast.failedToMarkAsSpam'))
+      console.error("Spam toggle failed:", err);
+      toasts.error(
+        $_(
+          isSpamFolder
+            ? "toast.failedToMarkAsNotSpam"
+            : "toast.failedToMarkAsSpam"
+        )
+      );
     }
   }
 
   async function handleToggleStar() {
     try {
       if (isStarred) {
-        await Unstar(messageIds)
-        toasts.success($_('toast.starRemoved'))
+        await Unstar(messageIds);
+        toasts.success($_("toast.starRemoved"));
       } else {
-        await Star(messageIds)
-        toasts.success($_('toast.starred'))
+        await Star(messageIds);
+        toasts.success($_("toast.starred"));
       }
-      onActionComplete?.()
+      onActionComplete?.();
     } catch (err) {
-      console.error('Star toggle failed:', err)
-      toasts.error($_('toast.failedToUpdateStar'))
+      console.error("Star toggle failed:", err);
+      toasts.error($_("toast.failedToUpdateStar"));
     }
   }
 
   async function handleToggleRead() {
     try {
       if (isRead) {
-        await MarkAsUnread(messageIds)
-        toasts.success($_('toast.markedAsUnread'))
+        await MarkAsUnread(messageIds);
+        toasts.success($_("toast.markedAsUnread"));
       } else {
-        await MarkAsRead(messageIds)
-        toasts.success($_('toast.markedAsRead'))
+        await MarkAsRead(messageIds);
+        toasts.success($_("toast.markedAsRead"));
       }
-      onActionComplete?.()
+      onActionComplete?.();
     } catch (err) {
-      console.error('Read status toggle failed:', err)
-      toasts.error($_('toast.failedToUpdateReadStatus'))
+      console.error("Read status toggle failed:", err);
+      toasts.error($_("toast.failedToUpdateReadStatus"));
     }
   }
 
   function openMoveTo() {
-    folderPickerMode = 'move'
-    showFolderPicker = true
+    folderPickerMode = "move";
+    showFolderPicker = true;
   }
 
   function openCopyTo() {
-    folderPickerMode = 'copy'
-    showFolderPicker = true
+    folderPickerMode = "copy";
+    showFolderPicker = true;
   }
 
   function handleFolderSelected(folderId: string, folderName: string) {
-    showFolderPicker = false
+    showFolderPicker = false;
     switch (folderPickerMode) {
-      case 'move':
-        handleMoveTo(folderId, folderName)
-        break
-      case 'copy':
-        handleCopyTo(folderId, folderName)
-        break
+      case "move":
+        handleMoveTo(folderId, folderName);
+        break;
+      case "copy":
+        handleCopyTo(folderId, folderName);
+        break;
     }
   }
 
   async function handleMoveTo(destFolderId: string, folderName: string) {
     try {
-      await MoveToFolder(messageIds, destFolderId)
-      toasts.success($_('toast.movedTo', { values: { folder: folderName } }), [{ label: $_('common.undo'), onClick: handleUndo }])
-      onActionComplete?.(true)
+      await MoveToFolder(messageIds, destFolderId);
+      toasts.success($_("toast.movedTo", { values: { folder: folderName } }), [
+        { label: $_("common.undo"), onClick: handleUndo }
+      ]);
+      onActionComplete?.(true);
     } catch (err) {
-      console.error('Move failed:', err)
-      toasts.error($_('toast.failedToMove'))
+      console.error("Move failed:", err);
+      toasts.error($_("toast.failedToMove"));
     }
   }
 
   async function handleCopyTo(destFolderId: string, folderName: string) {
     try {
-      await CopyToFolder(messageIds, destFolderId)
-      toasts.success($_('toast.copyingTo', { values: { folder: folderName } }))
+      await CopyToFolder(messageIds, destFolderId);
+      toasts.success($_("toast.copyingTo", { values: { folder: folderName } }));
       // Note: CopyToFolder syncs in background and emits messages:copied event
     } catch (err) {
-      console.error('Copy failed:', err)
-      toasts.error($_('toast.failedToCopy'))
+      console.error("Copy failed:", err);
+      toasts.error($_("toast.failedToCopy"));
     }
   }
 </script>
@@ -323,15 +355,15 @@
     {#if isSingleMessage}
       <ContextMenuItem onSelect={handleReply}>
         <Icon icon="mdi:reply" class="mr-2 h-4 w-4" />
-        {$_('contextMenu.reply')}
+        {$_("contextMenu.reply")}
       </ContextMenuItem>
       <ContextMenuItem onSelect={handleReplyAll}>
         <Icon icon="mdi:reply-all" class="mr-2 h-4 w-4" />
-        {$_('contextMenu.replyAll')}
+        {$_("contextMenu.replyAll")}
       </ContextMenuItem>
       <ContextMenuItem onSelect={handleForward}>
         <Icon icon="mdi:share" class="mr-2 h-4 w-4" />
-        {$_('contextMenu.forward')}
+        {$_("contextMenu.forward")}
       </ContextMenuItem>
       <ContextMenuSeparator />
     {/if}
@@ -339,15 +371,27 @@
     <!-- Move/Delete actions -->
     <ContextMenuItem onSelect={handleArchive}>
       <Icon icon="mdi:archive-outline" class="mr-2 h-4 w-4" />
-      {$_('contextMenu.archive')}
+      {$_("contextMenu.archive")}
     </ContextMenuItem>
     <ContextMenuItem onSelect={handleDelete}>
-      <Icon icon={isTrashFolder ? 'mdi:delete-forever' : 'mdi:delete-outline'} class="mr-2 h-4 w-4" />
-      {$_(isTrashFolder ? 'contextMenu.deletePermanently' : 'contextMenu.delete')}
+      <Icon
+        icon={isTrashFolder ? "mdi:delete-forever" : "mdi:delete-outline"}
+        class="mr-2 h-4 w-4"
+      />
+      {$_(
+        isTrashFolder ? "contextMenu.deletePermanently" : "contextMenu.delete"
+      )}
     </ContextMenuItem>
     <ContextMenuItem onSelect={handleSpam}>
-      <Icon icon={isSpamFolder ? "mdi:email-check-outline" : "mdi:alert-octagon-outline"} class="mr-2 h-4 w-4" />
-      {$_(isSpamFolder ? 'contextMenu.markAsNotSpam' : 'contextMenu.markAsSpam')}
+      <Icon
+        icon={isSpamFolder
+          ? "mdi:email-check-outline"
+          : "mdi:alert-octagon-outline"}
+        class="mr-2 h-4 w-4"
+      />
+      {$_(
+        isSpamFolder ? "contextMenu.markAsNotSpam" : "contextMenu.markAsSpam"
+      )}
     </ContextMenuItem>
 
     <ContextMenuSeparator />
@@ -355,13 +399,13 @@
     <!-- Move to folder picker -->
     <ContextMenuItem onSelect={openMoveTo}>
       <Icon icon="mdi:folder-move-outline" class="mr-2 h-4 w-4" />
-      {$_('contextMenu.moveTo')}
+      {$_("contextMenu.moveTo")}
     </ContextMenuItem>
 
     <!-- Copy to folder picker -->
     <ContextMenuItem onSelect={openCopyTo}>
       <Icon icon="mdi:content-copy" class="mr-2 h-4 w-4" />
-      {$_('contextMenu.copyTo')}
+      {$_("contextMenu.copyTo")}
     </ContextMenuItem>
 
     <ContextMenuSeparator />
@@ -369,17 +413,17 @@
     <!-- Flag actions -->
     <ContextMenuItem onSelect={handleToggleStar}>
       <Icon
-        icon={isStarred ? 'mdi:star' : 'mdi:star-outline'}
+        icon={isStarred ? "mdi:star" : "mdi:star-outline"}
         class="mr-2 h-4 w-4 {isStarred ? 'text-yellow-500' : ''}"
       />
-      {$_(isStarred ? 'contextMenu.removeStar' : 'contextMenu.star')}
+      {$_(isStarred ? "contextMenu.removeStar" : "contextMenu.star")}
     </ContextMenuItem>
     <ContextMenuItem onSelect={handleToggleRead}>
       <Icon
-        icon={isRead ? 'mdi:email-outline' : 'mdi:email-open-outline'}
+        icon={isRead ? "mdi:email-outline" : "mdi:email-open-outline"}
         class="mr-2 h-4 w-4"
       />
-      {$_(isRead ? 'contextMenu.markAsUnread' : 'contextMenu.markAsRead')}
+      {$_(isRead ? "contextMenu.markAsUnread" : "contextMenu.markAsRead")}
     </ContextMenuItem>
   </ContextMenuContent>
 </ContextMenuPrimitive.Root>
@@ -387,9 +431,9 @@
 <!-- Permanent Delete Confirmation Dialog -->
 <ConfirmDialog
   bind:open={showDeleteConfirm}
-  title={$_('dialog.deletePermanently')}
-  description={$_('dialog.deleteDescription')}
-  confirmLabel={$_('dialog.confirmDeletePermanently')}
+  title={$_("dialog.deletePermanently")}
+  description={$_("dialog.deleteDescription")}
+  confirmLabel={$_("dialog.confirmDeletePermanently")}
   variant="destructive"
   onConfirm={handleConfirmPermanentDelete}
   onCancel={() => (showDeleteConfirm = false)}
@@ -398,7 +442,9 @@
 <!-- Folder Picker Dialog -->
 <FolderPickerDialog
   bind:open={showFolderPicker}
-  title={$_(folderPickerMode === 'move' ? 'contextMenu.moveTo' : 'contextMenu.copyTo')}
+  title={$_(
+    folderPickerMode === "move" ? "contextMenu.moveTo" : "contextMenu.copyTo"
+  )}
   {foldersLoading}
   {specialFolders}
   {customFolders}

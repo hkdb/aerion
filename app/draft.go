@@ -22,7 +22,7 @@ import (
 // draftBodyPayload is used to serialize body fields for encrypted draft storage
 type draftBodyPayload struct {
 	BodyHTML    string            `json:"bodyHtml"`
-	BodyText   string            `json:"bodyText"`
+	BodyText    string            `json:"bodyText"`
 	Attachments []smtp.Attachment `json:"attachments,omitempty"`
 }
 

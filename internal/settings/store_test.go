@@ -154,6 +154,7 @@ func TestSetGetThemeMode(t *testing.T) {
 		{name: "dark", mode: "dark"},
 		{name: "dark-gray", mode: "dark-gray"},
 		{name: "dark-balanced", mode: "dark-balanced"},
+		{name: "dark-catppuccin-mocha", mode: "dark-catppuccin-mocha"},
 		{name: "invalid", mode: "invalid", wantErr: true},
 	}
 

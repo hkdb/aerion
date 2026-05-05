@@ -199,8 +199,6 @@ func (s *Store) ListConversationsUnifiedInbox(offset, limit int, sortOrder, filt
 	return conversations, nil
 }
 
-
-
 // CountConversationsUnifiedInbox returns the total count of conversations across all inbox folders
 func (s *Store) CountConversationsUnifiedInbox(filter string) (int, error) {
 	filterCond := filterWhereClause(filter, "m.")

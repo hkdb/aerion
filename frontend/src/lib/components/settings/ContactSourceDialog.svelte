@@ -1,291 +1,312 @@
 <script lang="ts">
-  import Icon from '@iconify/svelte'
-  import * as Dialog from '$lib/components/ui/dialog'
-  import * as Select from '$lib/components/ui/select'
-  import * as Tabs from '$lib/components/ui/tabs'
-  import { Label } from '$lib/components/ui/label'
-  import { Input } from '$lib/components/ui/input'
-  import { Button } from '$lib/components/ui/button'
-  import { addToast } from '$lib/stores/toast'
-  import { _ } from '$lib/i18n'
-  import { contactSourcesStore, type LinkedAccountInfo } from '$lib/stores/contactSources.svelte'
-  // @ts-ignore - wailsjs runtime
-  import { EventsOn, EventsOff } from '../../../../wailsjs/runtime/runtime'
+  import { Button } from "$lib/components/ui/button";
+  import * as Dialog from "$lib/components/ui/dialog";
+  import { Input } from "$lib/components/ui/input";
+  import { Label } from "$lib/components/ui/label";
+  import * as Select from "$lib/components/ui/select";
+  import * as Tabs from "$lib/components/ui/tabs";
+  import { _ } from "$lib/i18n";
+  import {
+    type LinkedAccountInfo,
+    contactSourcesStore
+  } from "$lib/stores/contactSources.svelte";
+  import { addToast } from "$lib/stores/toast";
+  import Icon from "@iconify/svelte";
+
   // @ts-ignore - wailsjs path
   import {
-    DiscoverCardDAVAddressbooks,
     AddContactSource,
-    UpdateContactSource,
+    DiscoverCardDAVAddressbooks,
     GetSourceAddressbooks,
-  } from '../../../../wailsjs/go/app/App.js'
+    UpdateContactSource
+  } from "../../../../wailsjs/go/app/App.js";
   // @ts-ignore - wailsjs path
-  import type { carddav } from '../../../../wailsjs/go/models'
+  import type { carddav } from "../../../../wailsjs/go/models";
+  // @ts-ignore - wailsjs runtime
+  import { EventsOff, EventsOn } from "../../../../wailsjs/runtime/runtime";
 
   interface Props {
-    open?: boolean
-    editSource?: carddav.Source | null
-    onClose?: () => void
+    open?: boolean;
+    editSource?: carddav.Source | null;
+    onClose?: () => void;
   }
 
-  let {
-    open = $bindable(false),
-    editSource = null,
-    onClose,
-  }: Props = $props()
+  let { open = $bindable(false), editSource = null, onClose }: Props = $props();
 
   // Source type selection
-  type SourceType = 'carddav' | 'google' | 'microsoft'
-  let sourceType = $state<SourceType>('carddav')
+  type SourceType = "carddav" | "google" | "microsoft";
+  let sourceType = $state<SourceType>("carddav");
 
   // CardDAV form state
-  let name = $state('')
-  let url = $state('')
-  let username = $state('')
-  let password = $state('')
-  let syncInterval = $state(60)
+  let name = $state("");
+  let url = $state("");
+  let username = $state("");
+  let password = $state("");
+  let syncInterval = $state(60);
 
   // Discovery state
-  let discovering = $state(false)
-  let discoveredAddressbooks = $state<carddav.AddressbookInfo[]>([])
-  let selectedAddressbooks = $state<Set<string>>(new Set())
-  let discoveryError = $state<string | null>(null)
-  let hasDiscovered = $state(false)
+  let discovering = $state(false);
+  let discoveredAddressbooks = $state<carddav.AddressbookInfo[]>([]);
+  let selectedAddressbooks = $state<Set<string>>(new Set());
+  let discoveryError = $state<string | null>(null);
+  let hasDiscovered = $state(false);
 
   // OAuth state
-  let linkedAccounts = $state<LinkedAccountInfo[]>([])
-  let selectedAccountId = $state<string>('')
-  let loadingAccounts = $state(false)
-  let oauthInProgress = $state(false)
-  let oauthEmail = $state<string>('')
+  let linkedAccounts = $state<LinkedAccountInfo[]>([]);
+  let selectedAccountId = $state<string>("");
+  let loadingAccounts = $state(false);
+  let oauthInProgress = $state(false);
+  let oauthEmail = $state<string>("");
 
   // Save state
-  let saving = $state(false)
+  let saving = $state(false);
 
   // Sync interval options (value is string for Select component)
   const syncIntervalOptions = $derived([
-    { value: '0', label: $_('contactSource.manualOnly') },
-    { value: '15', label: $_('contactSource.every15Min') },
-    { value: '30', label: $_('contactSource.every30Min') },
-    { value: '60', label: $_('contactSource.everyHour') },
-    { value: '120', label: $_('contactSource.every2Hours') },
-    { value: '360', label: $_('contactSource.every6Hours') },
-    { value: '1440', label: $_('contactSource.daily') },
-  ])
+    { value: "0", label: $_("contactSource.manualOnly") },
+    { value: "15", label: $_("contactSource.every15Min") },
+    { value: "30", label: $_("contactSource.every30Min") },
+    { value: "60", label: $_("contactSource.everyHour") },
+    { value: "120", label: $_("contactSource.every2Hours") },
+    { value: "360", label: $_("contactSource.every6Hours") },
+    { value: "1440", label: $_("contactSource.daily") }
+  ]);
 
   // Convert between number state and string Select value
-  let syncIntervalStr = $derived(String(syncInterval))
+  let syncIntervalStr = $derived(String(syncInterval));
 
   function getSyncIntervalLabel(value: number): string {
-    return syncIntervalOptions.find(opt => opt.value === String(value))?.label || $_('contactSource.minutesFallback', { values: { value } })
+    return (
+      syncIntervalOptions.find((opt) => opt.value === String(value))?.label ||
+      $_("contactSource.minutesFallback", { values: { value } })
+    );
   }
 
   function handleSyncIntervalChange(value: string) {
-    syncInterval = parseInt(value, 10)
+    syncInterval = parseInt(value, 10);
   }
 
   // Computed: is editing an OAuth source
   let isEditingOAuthSource = $derived(
-    editSource && (editSource.type === 'google' || editSource.type === 'microsoft')
-  )
+    editSource &&
+      (editSource.type === "google" || editSource.type === "microsoft")
+  );
 
   // Load linked accounts when switching to OAuth tabs
   async function loadLinkedAccounts() {
-    loadingAccounts = true
+    loadingAccounts = true;
     try {
-      linkedAccounts = await contactSourcesStore.getLinkedAccounts()
+      linkedAccounts = await contactSourcesStore.getLinkedAccounts();
     } finally {
-      loadingAccounts = false
+      loadingAccounts = false;
     }
   }
 
   // Get available accounts for the selected provider (not already linked)
   let availableAccounts = $derived(
-    linkedAccounts.filter(acc => acc.provider === sourceType && !acc.isLinked)
-  )
+    linkedAccounts.filter((acc) => acc.provider === sourceType && !acc.isLinked)
+  );
 
   // Load existing source data when editing
   $effect(() => {
     if (open && editSource) {
-      name = editSource.name || ''
-      url = editSource.url || ''
-      username = editSource.username || ''
-      password = '' // Don't load password
-      syncInterval = editSource.sync_interval || 60
-      hasDiscovered = false
-      discoveredAddressbooks = []
-      selectedAddressbooks = new Set()
-      discoveryError = null
-      sourceType = editSource.type as SourceType || 'carddav'
+      name = editSource.name || "";
+      url = editSource.url || "";
+      username = editSource.username || "";
+      password = ""; // Don't load password
+      syncInterval = editSource.sync_interval || 60;
+      hasDiscovered = false;
+      discoveredAddressbooks = [];
+      selectedAddressbooks = new Set();
+      discoveryError = null;
+      sourceType = (editSource.type as SourceType) || "carddav";
 
       // Load existing addressbooks for CardDAV
-      if (editSource.type === 'carddav') {
-        loadExistingAddressbooks()
+      if (editSource.type === "carddav") {
+        loadExistingAddressbooks();
       }
     } else if (open && !editSource) {
       // Reset for new source
-      name = ''
-      url = ''
-      username = ''
-      password = ''
-      syncInterval = 60
-      hasDiscovered = false
-      discoveredAddressbooks = []
-      selectedAddressbooks = new Set()
-      discoveryError = null
-      sourceType = 'carddav'
-      selectedAccountId = ''
-      oauthInProgress = false
-      oauthEmail = ''
+      name = "";
+      url = "";
+      username = "";
+      password = "";
+      syncInterval = 60;
+      hasDiscovered = false;
+      discoveredAddressbooks = [];
+      selectedAddressbooks = new Set();
+      discoveryError = null;
+      sourceType = "carddav";
+      selectedAccountId = "";
+      oauthInProgress = false;
+      oauthEmail = "";
 
       // Load linked accounts for OAuth sources
-      loadLinkedAccounts()
+      loadLinkedAccounts();
     }
-  })
+  });
 
   // Set up OAuth event listeners
   $effect(() => {
     if (open) {
       // Listen for OAuth success
-      EventsOn('contact-source-oauth:success', (data: { provider: string; email: string }) => {
-        oauthInProgress = false
-        oauthEmail = data.email
-        if (!name) {
-          name = `${data.provider === 'google' ? 'Google' : 'Microsoft'} Contacts (${data.email})`
+      EventsOn(
+        "contact-source-oauth:success",
+        (data: { provider: string; email: string }) => {
+          oauthInProgress = false;
+          oauthEmail = data.email;
+          if (!name) {
+            name = `${data.provider === "google" ? "Google" : "Microsoft"} Contacts (${data.email})`;
+          }
         }
-      })
+      );
 
       // Listen for OAuth error
-      EventsOn('contact-source-oauth:error', (data: { error: string }) => {
-        oauthInProgress = false
-        console.error('OAuth failed:', data.error)
-        addToast({ type: 'error', message: $_('toast.oauthFailed') })
-      })
+      EventsOn("contact-source-oauth:error", (data: { error: string }) => {
+        oauthInProgress = false;
+        console.error("OAuth failed:", data.error);
+        addToast({ type: "error", message: $_("toast.oauthFailed") });
+      });
 
       // Listen for OAuth cancelled
-      EventsOn('contact-source-oauth:cancelled', () => {
-        oauthInProgress = false
-      })
+      EventsOn("contact-source-oauth:cancelled", () => {
+        oauthInProgress = false;
+      });
 
       return () => {
-        EventsOff('contact-source-oauth:success')
-        EventsOff('contact-source-oauth:error')
-        EventsOff('contact-source-oauth:cancelled')
-      }
+        EventsOff("contact-source-oauth:success");
+        EventsOff("contact-source-oauth:error");
+        EventsOff("contact-source-oauth:cancelled");
+      };
     }
-  })
+  });
 
   async function loadExistingAddressbooks() {
-    if (!editSource) return
+    if (!editSource) return;
     try {
-      const addressbooks = await GetSourceAddressbooks(editSource.id)
+      const addressbooks = await GetSourceAddressbooks(editSource.id);
       if (addressbooks) {
         // Convert to AddressbookInfo format
-        discoveredAddressbooks = addressbooks.map((ab: carddav.Addressbook) => ({
-          path: ab.path,
-          name: ab.name,
-          description: '',
-        }))
+        discoveredAddressbooks = addressbooks.map(
+          (ab: carddav.Addressbook) => ({
+            path: ab.path,
+            name: ab.name,
+            description: ""
+          })
+        );
         // Select all enabled ones
         selectedAddressbooks = new Set(
           addressbooks
             .filter((ab: carddav.Addressbook) => ab.enabled)
             .map((ab: carddav.Addressbook) => ab.path)
-        )
-        hasDiscovered = true
+        );
+        hasDiscovered = true;
       }
     } catch (err) {
-      console.error('Failed to load addressbooks:', err)
+      console.error("Failed to load addressbooks:", err);
     }
   }
 
   async function handleDiscover() {
     if (!url || !username || !password) {
-      discoveryError = $_('contactSource.fillUrlUserPass')
-      return
+      discoveryError = $_("contactSource.fillUrlUserPass");
+      return;
     }
 
-    discovering = true
-    discoveryError = null
-    discoveredAddressbooks = []
-    selectedAddressbooks = new Set()
+    discovering = true;
+    discoveryError = null;
+    discoveredAddressbooks = [];
+    selectedAddressbooks = new Set();
 
     try {
-      const addressbooks = await DiscoverCardDAVAddressbooks(url, username, password)
+      const addressbooks = await DiscoverCardDAVAddressbooks(
+        url,
+        username,
+        password
+      );
       if (addressbooks && addressbooks.length > 0) {
-        discoveredAddressbooks = addressbooks
+        discoveredAddressbooks = addressbooks;
         // Select all by default
-        selectedAddressbooks = new Set(addressbooks.map((ab: carddav.AddressbookInfo) => ab.path))
-        hasDiscovered = true
+        selectedAddressbooks = new Set(
+          addressbooks.map((ab: carddav.AddressbookInfo) => ab.path)
+        );
+        hasDiscovered = true;
       } else {
-        discoveryError = $_('contactSource.noAddressbooksFound')
+        discoveryError = $_("contactSource.noAddressbooksFound");
       }
     } catch (err) {
-      console.error('Discovery failed:', err)
-      discoveryError = $_('contactSource.discoveryFailed')
+      console.error("Discovery failed:", err);
+      discoveryError = $_("contactSource.discoveryFailed");
     } finally {
-      discovering = false
+      discovering = false;
     }
   }
 
   function toggleAddressbook(path: string) {
-    const newSet = new Set(selectedAddressbooks)
+    const newSet = new Set(selectedAddressbooks);
     if (newSet.has(path)) {
-      newSet.delete(path)
+      newSet.delete(path);
     } else {
-      newSet.add(path)
+      newSet.add(path);
     }
-    selectedAddressbooks = newSet
+    selectedAddressbooks = newSet;
   }
 
   async function handleStartOAuth() {
-    oauthInProgress = true
+    oauthInProgress = true;
     try {
-      await contactSourcesStore.startOAuthFlow(sourceType)
+      await contactSourcesStore.startOAuthFlow(sourceType);
     } catch (err) {
-      oauthInProgress = false
-      console.error('Failed to start OAuth:', err)
-      addToast({ type: 'error', message: $_('toast.failedToStartOAuth') })
+      oauthInProgress = false;
+      console.error("Failed to start OAuth:", err);
+      addToast({ type: "error", message: $_("toast.failedToStartOAuth") });
     }
   }
 
   async function handleSave() {
-    saving = true
+    saving = true;
 
     try {
-      if (sourceType === 'carddav') {
+      if (sourceType === "carddav") {
         // CardDAV source
         if (!name || !url || !username) {
-          addToast({ type: 'error', message: $_('toast.fillRequiredFields') })
-          return
+          addToast({ type: "error", message: $_("toast.fillRequiredFields") });
+          return;
         }
 
         if (!editSource && !password) {
-          addToast({ type: 'error', message: $_('toast.passwordRequired') })
-          return
+          addToast({ type: "error", message: $_("toast.passwordRequired") });
+          return;
         }
 
         if (selectedAddressbooks.size === 0) {
-          addToast({ type: 'error', message: $_('toast.selectAddressbook') })
-          return
+          addToast({ type: "error", message: $_("toast.selectAddressbook") });
+          return;
         }
 
         const config = {
           name,
-          type: 'carddav' as const,
+          type: "carddav" as const,
           url,
           username,
           password,
           enabled: true,
           sync_interval: syncInterval,
-          enabled_addressbooks: Array.from(selectedAddressbooks),
-        }
+          enabled_addressbooks: Array.from(selectedAddressbooks)
+        };
 
         if (editSource) {
-          await UpdateContactSource(editSource.id, config)
-          addToast({ type: 'success', message: $_('toast.contactSourceUpdated') })
+          await UpdateContactSource(editSource.id, config);
+          addToast({
+            type: "success",
+            message: $_("toast.contactSourceUpdated")
+          });
         } else {
-          await AddContactSource(config)
-          addToast({ type: 'success', message: $_('toast.contactSourceAdded') })
+          await AddContactSource(config);
+          addToast({
+            type: "success",
+            message: $_("toast.contactSourceAdded")
+          });
         }
       } else {
         // Google or Microsoft source
@@ -293,100 +314,121 @@
           // Editing existing OAuth source - just update name and sync interval
           const config = {
             name,
-            type: editSource.type as 'google' | 'microsoft',
-            url: '',
-            username: '',
-            password: '',
+            type: editSource.type as "google" | "microsoft",
+            url: "",
+            username: "",
+            password: "",
             enabled: true,
             sync_interval: syncInterval,
-            enabled_addressbooks: [],
-          }
-          await UpdateContactSource(editSource.id, config)
-          addToast({ type: 'success', message: $_('toast.contactSourceUpdated') })
+            enabled_addressbooks: []
+          };
+          await UpdateContactSource(editSource.id, config);
+          addToast({
+            type: "success",
+            message: $_("toast.contactSourceUpdated")
+          });
         } else if (selectedAccountId) {
           // Link to existing email account
-          await contactSourcesStore.linkAccount(selectedAccountId, name, syncInterval)
-          addToast({ type: 'success', message: $_('toast.contactSourceLinked') })
+          await contactSourcesStore.linkAccount(
+            selectedAccountId,
+            name,
+            syncInterval
+          );
+          addToast({
+            type: "success",
+            message: $_("toast.contactSourceLinked")
+          });
         } else if (oauthEmail) {
           // Complete standalone OAuth flow
-          await contactSourcesStore.completeOAuthSetup(name, syncInterval)
-          addToast({ type: 'success', message: $_('toast.contactSourceCreated') })
+          await contactSourcesStore.completeOAuthSetup(name, syncInterval);
+          addToast({
+            type: "success",
+            message: $_("toast.contactSourceCreated")
+          });
         } else {
-          addToast({ type: 'error', message: $_('toast.linkAccountOrSignIn') })
-          return
+          addToast({ type: "error", message: $_("toast.linkAccountOrSignIn") });
+          return;
         }
       }
 
-      open = false
-      onClose?.()
+      open = false;
+      onClose?.();
     } catch (err) {
-      console.error('Failed to save:', err)
-      addToast({ type: 'error', message: $_('toast.failedToSave') })
+      console.error("Failed to save:", err);
+      addToast({ type: "error", message: $_("toast.failedToSave") });
     } finally {
-      saving = false
+      saving = false;
     }
   }
 
   function handleCancel() {
     if (oauthInProgress) {
-      contactSourcesStore.cancelOAuthFlow()
+      contactSourcesStore.cancelOAuthFlow();
     }
-    open = false
-    onClose?.()
+    open = false;
+    onClose?.();
   }
 
   function handleOpenChange(isOpen: boolean) {
-    open = isOpen
+    open = isOpen;
     if (!isOpen) {
       if (oauthInProgress) {
-        contactSourcesStore.cancelOAuthFlow()
+        contactSourcesStore.cancelOAuthFlow();
       }
-      onClose?.()
+      onClose?.();
     }
   }
 
   function handleTabChange(value: string) {
-    sourceType = value as SourceType
+    sourceType = value as SourceType;
     // Reset OAuth state when switching tabs
-    selectedAccountId = ''
-    oauthEmail = ''
-    oauthInProgress = false
+    selectedAccountId = "";
+    oauthEmail = "";
+    oauthInProgress = false;
   }
 
   // Check if save is enabled
   let canSave = $derived(() => {
-    if (sourceType === 'carddav') {
-      return hasDiscovered && selectedAddressbooks.size > 0 && name
+    if (sourceType === "carddav") {
+      return hasDiscovered && selectedAddressbooks.size > 0 && name;
     }
     if (editSource && isEditingOAuthSource) {
-      return !!name
+      return !!name;
     }
-    return (selectedAccountId || oauthEmail) && name
-  })
+    return (selectedAccountId || oauthEmail) && name;
+  });
 </script>
 
 <Dialog.Root bind:open onOpenChange={handleOpenChange}>
   <Dialog.Content class="max-w-lg">
     <Dialog.Header>
-      <Dialog.Title>{editSource ? $_('contactSource.editSource') : $_('contactSource.addSource')}</Dialog.Title>
+      <Dialog.Title
+        >{editSource
+          ? $_("contactSource.editSource")
+          : $_("contactSource.addSource")}</Dialog.Title
+      >
       <Dialog.Description>
-        {$_('contactSource.description')}
+        {$_("contactSource.description")}
       </Dialog.Description>
     </Dialog.Header>
 
     {#if !editSource}
       <!-- Source type tabs (only for new sources) -->
-      <Tabs.Root value={sourceType} onValueChange={handleTabChange} class="mt-4">
+      <Tabs.Root
+        value={sourceType}
+        onValueChange={handleTabChange}
+        class="mt-4"
+      >
         <Tabs.List class="grid w-full grid-cols-3">
-          <Tabs.Trigger value="carddav" class="flex items-center gap-1.5">
+          <Tabs.Trigger value="carddav" class="gap-1.5 flex items-center">
             <Icon icon="mdi:card-account-details" class="w-4 h-4" />
             CardDAV
           </Tabs.Trigger>
-          <Tabs.Trigger value="google" class="flex items-center gap-1.5">
+          <Tabs.Trigger value="google" class="gap-1.5 flex items-center">
             <Icon icon="mdi:google" class="w-4 h-4" />
             Google
           </Tabs.Trigger>
-          <Tabs.Trigger value="microsoft" class="flex items-center gap-1.5">
+          <Tabs.Trigger value="microsoft" class="gap-1.5 flex items-center">
             <Icon icon="mdi:microsoft" class="w-4 h-4" />
             Microsoft
           </Tabs.Trigger>
@@ -395,19 +437,19 @@
     {/if}
 
     <div class="space-y-4 py-4">
-      {#if sourceType === 'carddav'}
+      {#if sourceType === "carddav"}
         <!-- CardDAV Form -->
         <div class="space-y-2">
-          <Label for="name">{$_('contactSource.name')}</Label>
+          <Label for="name">{$_("contactSource.name")}</Label>
           <Input
             id="name"
             bind:value={name}
-            placeholder={$_('contactSource.namePlaceholder')}
+            placeholder={$_("contactSource.namePlaceholder")}
           />
         </div>
 
         <div class="space-y-2">
-          <Label for="url">{$_('contactSource.serverUrl')}</Label>
+          <Label for="url">{$_("contactSource.serverUrl")}</Label>
           <Input
             id="url"
             bind:value={url}
@@ -415,12 +457,12 @@
             disabled={!!editSource}
           />
           <p class="text-xs text-muted-foreground">
-            {$_('contactSource.serverUrlHelp')}
+            {$_("contactSource.serverUrlHelp")}
           </p>
         </div>
 
         <div class="space-y-2">
-          <Label for="username">{$_('contactSource.username')}</Label>
+          <Label for="username">{$_("contactSource.username")}</Label>
           <Input
             id="username"
             bind:value={username}
@@ -430,12 +472,16 @@
         </div>
 
         <div class="space-y-2">
-          <Label for="password">{editSource ? $_('contactSource.passwordKeepCurrent') : $_('contactSource.password')}</Label>
+          <Label for="password"
+            >{editSource
+              ? $_("contactSource.passwordKeepCurrent")
+              : $_("contactSource.password")}</Label
+          >
           <Input
             id="password"
             type="password"
             bind:value={password}
-            placeholder={editSource ? '********' : $_('contactSource.password')}
+            placeholder={editSource ? "********" : $_("contactSource.password")}
           />
         </div>
 
@@ -447,38 +493,57 @@
         >
           {#if discovering}
             <Icon icon="mdi:loading" class="w-4 h-4 mr-2 animate-spin" />
-            {$_('contactSource.discovering')}
+            {$_("contactSource.discovering")}
           {:else}
             <Icon icon="mdi:connection" class="w-4 h-4 mr-2" />
-            {hasDiscovered ? $_('contactSource.reDiscover') : $_('contactSource.connectDiscover')}
+            {hasDiscovered
+              ? $_("contactSource.reDiscover")
+              : $_("contactSource.connectDiscover")}
           {/if}
         </Button>
 
         {#if discoveryError}
-          <div class="p-3 bg-destructive/10 border border-destructive/30 rounded-md text-sm text-destructive">
+          <div
+            class="p-3 bg-destructive/10 border-destructive/30 rounded-md text-sm text-destructive border"
+          >
             {discoveryError}
           </div>
         {/if}
 
         {#if hasDiscovered && discoveredAddressbooks.length > 0}
           <div class="space-y-2">
-            <Label>{$_('contactSource.addressbooksToSync')}</Label>
-            <div class="border border-border rounded-md divide-y divide-border max-h-40 overflow-y-auto">
+            <Label>{$_("contactSource.addressbooksToSync")}</Label>
+            <div
+              class="border-border rounded-md divide-border max-h-40 divide-y overflow-y-auto border"
+            >
               {#each discoveredAddressbooks as ab (ab.path)}
                 <button
                   type="button"
-                  class="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/50 transition-colors"
+                  class="gap-3 p-3 hover:bg-muted/50 flex w-full items-center text-left transition-colors"
                   onclick={() => toggleAddressbook(ab.path)}
                 >
-                  <div class="w-4 h-4 border border-border rounded flex items-center justify-center {selectedAddressbooks.has(ab.path) ? 'bg-primary border-primary' : ''}">
+                  <div
+                    class="w-4 h-4 border-border rounded flex items-center justify-center border {selectedAddressbooks.has(
+                      ab.path
+                    )
+                      ? 'bg-primary border-primary'
+                      : ''}"
+                  >
                     {#if selectedAddressbooks.has(ab.path)}
-                      <Icon icon="mdi:check" class="w-3 h-3 text-primary-foreground" />
+                      <Icon
+                        icon="mdi:check"
+                        class="w-3 h-3 text-primary-foreground"
+                      />
                     {/if}
                   </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="font-medium text-sm truncate">{ab.name || ab.path}</div>
+                  <div class="min-w-0 flex-1">
+                    <div class="font-medium text-sm truncate">
+                      {ab.name || ab.path}
+                    </div>
                     {#if ab.description}
-                      <div class="text-xs text-muted-foreground truncate">{ab.description}</div>
+                      <div class="text-xs text-muted-foreground truncate">
+                        {ab.description}
+                      </div>
                     {/if}
                   </div>
                 </button>
@@ -487,10 +552,13 @@
           </div>
 
           <div class="space-y-2">
-            <Label>{$_('contactSource.syncInterval')}</Label>
-            <Select.Root value={syncIntervalStr} onValueChange={handleSyncIntervalChange}>
+            <Label>{$_("contactSource.syncInterval")}</Label>
+            <Select.Root
+              value={syncIntervalStr}
+              onValueChange={handleSyncIntervalChange}
+            >
               <Select.Trigger>
-                <Select.Value placeholder={$_('contactSource.selectInterval')}>
+                <Select.Value placeholder={$_("contactSource.selectInterval")}>
                   {getSyncIntervalLabel(syncInterval)}
                 </Select.Value>
               </Select.Trigger>
@@ -502,25 +570,27 @@
             </Select.Root>
           </div>
         {/if}
-
       {:else}
         <!-- Google or Microsoft OAuth Form -->
         {#if editSource && isEditingOAuthSource}
           <!-- Editing existing OAuth source -->
           <div class="space-y-2">
-            <Label for="name">{$_('contactSource.name')}</Label>
+            <Label for="name">{$_("contactSource.name")}</Label>
             <Input
               id="name"
               bind:value={name}
-              placeholder={$_('contactSource.sourceName')}
+              placeholder={$_("contactSource.sourceName")}
             />
           </div>
 
           <div class="space-y-2">
-            <Label>{$_('contactSource.syncInterval')}</Label>
-            <Select.Root value={syncIntervalStr} onValueChange={handleSyncIntervalChange}>
+            <Label>{$_("contactSource.syncInterval")}</Label>
+            <Select.Root
+              value={syncIntervalStr}
+              onValueChange={handleSyncIntervalChange}
+            >
               <Select.Trigger>
-                <Select.Value placeholder={$_('contactSource.selectInterval')}>
+                <Select.Value placeholder={$_("contactSource.selectInterval")}>
                   {getSyncIntervalLabel(syncInterval)}
                 </Select.Value>
               </Select.Trigger>
@@ -531,42 +601,69 @@
               </Select.Content>
             </Select.Root>
           </div>
-
         {:else}
           <!-- New OAuth source -->
           {#if loadingAccounts}
-            <div class="flex items-center justify-center py-8">
-              <Icon icon="mdi:loading" class="w-6 h-6 animate-spin text-muted-foreground" />
+            <div class="py-8 flex items-center justify-center">
+              <Icon
+                icon="mdi:loading"
+                class="w-6 h-6 animate-spin text-muted-foreground"
+              />
             </div>
           {:else}
             <!-- Link existing account section -->
             {#if availableAccounts.length > 0}
               <div class="space-y-3">
-                <Label>{$_('contactSource.linkToExisting', { values: { provider: sourceType === 'google' ? 'Google' : 'Microsoft' } })}</Label>
-                <div class="border border-border rounded-md divide-y divide-border">
+                <Label
+                  >{$_("contactSource.linkToExisting", {
+                    values: {
+                      provider: sourceType === "google" ? "Google" : "Microsoft"
+                    }
+                  })}</Label
+                >
+                <div
+                  class="border-border rounded-md divide-border divide-y border"
+                >
                   {#each availableAccounts as account (account.accountId)}
                     <button
                       type="button"
-                      class="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/50 transition-colors"
+                      class="gap-3 p-3 hover:bg-muted/50 flex w-full items-center text-left transition-colors"
                       onclick={() => {
-                        selectedAccountId = account.accountId
-                        oauthEmail = ''
-                        if (!name) name = $_('contactSource.autoName', { values: { name: account.name || account.email } })
+                        selectedAccountId = account.accountId;
+                        oauthEmail = "";
+                        if (!name)
+                          name = $_("contactSource.autoName", {
+                            values: { name: account.name || account.email }
+                          });
                       }}
                     >
-                      <div class="w-4 h-4 border border-border rounded flex items-center justify-center {selectedAccountId === account.accountId ? 'bg-primary border-primary' : ''}">
+                      <div
+                        class="w-4 h-4 border-border rounded flex items-center justify-center border {selectedAccountId ===
+                        account.accountId
+                          ? 'bg-primary border-primary'
+                          : ''}"
+                      >
                         {#if selectedAccountId === account.accountId}
-                          <Icon icon="mdi:check" class="w-3 h-3 text-primary-foreground" />
+                          <Icon
+                            icon="mdi:check"
+                            class="w-3 h-3 text-primary-foreground"
+                          />
                         {/if}
                       </div>
-                      <div class="flex-1 min-w-0">
-                        <div class="font-medium text-sm truncate">{account.name || account.email}</div>
-                        <div class="text-xs text-muted-foreground truncate">{account.email}</div>
+                      <div class="min-w-0 flex-1">
+                        <div class="font-medium text-sm truncate">
+                          {account.name || account.email}
+                        </div>
+                        <div class="text-xs text-muted-foreground truncate">
+                          {account.email}
+                        </div>
                       </div>
                       {#if !account.hasContactScope}
-                        <span class="text-xs text-amber-500 flex items-center gap-1">
+                        <span
+                          class="text-xs text-amber-500 gap-1 flex items-center"
+                        >
                           <Icon icon="mdi:alert" class="w-3 h-3" />
-                          {$_('contactSource.reauthNeeded')}
+                          {$_("contactSource.reauthNeeded")}
                         </span>
                       {/if}
                     </button>
@@ -575,11 +672,13 @@
               </div>
 
               <div class="relative">
-                <div class="absolute inset-0 flex items-center">
-                  <span class="w-full border-t border-border"></span>
+                <div class="inset-0 absolute flex items-center">
+                  <span class="border-border w-full border-t"></span>
                 </div>
-                <div class="relative flex justify-center text-xs uppercase">
-                  <span class="bg-background px-2 text-muted-foreground">{$_('contactSource.or')}</span>
+                <div class="text-xs relative flex justify-center uppercase">
+                  <span class="bg-background px-2 text-muted-foreground"
+                    >{$_("contactSource.or")}</span
+                  >
                 </div>
               </div>
             {/if}
@@ -587,34 +686,63 @@
             <!-- Sign in with OAuth -->
             <div class="space-y-3">
               <Label>
-                {availableAccounts.length > 0 ? $_('contactSource.signInDifferent') : $_('contactSource.signInProvider', { values: { provider: sourceType === 'google' ? 'Google' : 'Microsoft' } })}
+                {availableAccounts.length > 0
+                  ? $_("contactSource.signInDifferent")
+                  : $_("contactSource.signInProvider", {
+                      values: {
+                        provider:
+                          sourceType === "google" ? "Google" : "Microsoft"
+                      }
+                    })}
               </Label>
 
               {#if oauthInProgress}
-                <div class="p-4 border border-border rounded-lg text-center space-y-2">
-                  <Icon icon="mdi:loading" class="w-8 h-8 animate-spin text-primary mx-auto" />
+                <div
+                  class="p-4 border-border rounded-lg space-y-2 border text-center"
+                >
+                  <Icon
+                    icon="mdi:loading"
+                    class="w-8 h-8 animate-spin text-primary mx-auto"
+                  />
                   <p class="text-sm text-muted-foreground">
-                    {$_('contactSource.waitingForSignIn')}
+                    {$_("contactSource.waitingForSignIn")}
                   </p>
-                  <Button variant="ghost" size="sm" onclick={() => {
-                    contactSourcesStore.cancelOAuthFlow()
-                    oauthInProgress = false
-                  }}>
-                    {$_('common.cancel')}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onclick={() => {
+                      contactSourcesStore.cancelOAuthFlow();
+                      oauthInProgress = false;
+                    }}
+                  >
+                    {$_("common.cancel")}
                   </Button>
                 </div>
               {:else if oauthEmail}
-                <div class="p-3 border border-green-500/30 bg-green-500/10 rounded-lg flex items-center gap-3">
-                  <Icon icon="mdi:check-circle" class="w-5 h-5 text-green-500" />
+                <div
+                  class="p-3 border-green-500/30 bg-green-500/10 rounded-lg gap-3 flex items-center border"
+                >
+                  <Icon
+                    icon="mdi:check-circle"
+                    class="w-5 h-5 text-green-500"
+                  />
                   <div class="flex-1">
-                    <div class="text-sm font-medium">{$_('contactSource.signedInAs')}</div>
-                    <div class="text-sm text-muted-foreground">{oauthEmail}</div>
+                    <div class="text-sm font-medium">
+                      {$_("contactSource.signedInAs")}
+                    </div>
+                    <div class="text-sm text-muted-foreground">
+                      {oauthEmail}
+                    </div>
                   </div>
-                  <Button variant="ghost" size="sm" onclick={() => {
-                    oauthEmail = ''
-                    name = ''
-                  }}>
-                    {$_('contactSource.change')}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onclick={() => {
+                      oauthEmail = "";
+                      name = "";
+                    }}
+                  >
+                    {$_("contactSource.change")}
                   </Button>
                 </div>
               {:else}
@@ -623,8 +751,17 @@
                   class="w-full"
                   onclick={handleStartOAuth}
                 >
-                  <Icon icon={sourceType === 'google' ? 'mdi:google' : 'mdi:microsoft'} class="w-4 h-4 mr-2" />
-                  {$_('contactSource.signInProvider', { values: { provider: sourceType === 'google' ? 'Google' : 'Microsoft' } })}
+                  <Icon
+                    icon={sourceType === "google"
+                      ? "mdi:google"
+                      : "mdi:microsoft"}
+                    class="w-4 h-4 mr-2"
+                  />
+                  {$_("contactSource.signInProvider", {
+                    values: {
+                      provider: sourceType === "google" ? "Google" : "Microsoft"
+                    }
+                  })}
                 </Button>
               {/if}
             </div>
@@ -633,19 +770,24 @@
             {#if selectedAccountId || oauthEmail}
               <div class="space-y-4 pt-2">
                 <div class="space-y-2">
-                  <Label for="oauth-name">{$_('contactSource.name')}</Label>
+                  <Label for="oauth-name">{$_("contactSource.name")}</Label>
                   <Input
                     id="oauth-name"
                     bind:value={name}
-                    placeholder={$_('contactSource.sourceName')}
+                    placeholder={$_("contactSource.sourceName")}
                   />
                 </div>
 
                 <div class="space-y-2">
-                  <Label>{$_('contactSource.syncInterval')}</Label>
-                  <Select.Root value={syncIntervalStr} onValueChange={handleSyncIntervalChange}>
+                  <Label>{$_("contactSource.syncInterval")}</Label>
+                  <Select.Root
+                    value={syncIntervalStr}
+                    onValueChange={handleSyncIntervalChange}
+                  >
                     <Select.Trigger>
-                      <Select.Value placeholder={$_('contactSource.selectInterval')}>
+                      <Select.Value
+                        placeholder={$_("contactSource.selectInterval")}
+                      >
                         {getSyncIntervalLabel(syncInterval)}
                       </Select.Value>
                     </Select.Trigger>
@@ -664,18 +806,17 @@
     </div>
 
     <!-- Actions -->
-    <div class="flex items-center justify-end gap-2 pt-4 border-t border-border">
+    <div
+      class="gap-2 pt-4 border-border flex items-center justify-end border-t"
+    >
       <Button variant="ghost" onclick={handleCancel} disabled={saving}>
-        {$_('common.cancel')}
+        {$_("common.cancel")}
       </Button>
-      <Button
-        onclick={handleSave}
-        disabled={saving || !canSave()}
-      >
+      <Button onclick={handleSave} disabled={saving || !canSave()}>
         {#if saving}
           <Icon icon="mdi:loading" class="w-4 h-4 mr-2 animate-spin" />
         {/if}
-        {editSource ? $_('contactSource.update') : $_('common.add')}
+        {editSource ? $_("contactSource.update") : $_("common.add")}
       </Button>
     </div>
   </Dialog.Content>

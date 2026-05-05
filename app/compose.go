@@ -16,16 +16,16 @@ import (
 	"github.com/hkdb/aerion/internal/contact"
 	"github.com/hkdb/aerion/internal/credentials"
 	"github.com/hkdb/aerion/internal/draft"
-	"github.com/hkdb/aerion/internal/folder"
 	"github.com/hkdb/aerion/internal/email"
+	"github.com/hkdb/aerion/internal/folder"
 	"github.com/hkdb/aerion/internal/imap"
 	"github.com/hkdb/aerion/internal/logging"
 	"github.com/hkdb/aerion/internal/message"
-	"github.com/rs/zerolog"
 	"github.com/hkdb/aerion/internal/oauth2"
 	"github.com/hkdb/aerion/internal/pgp"
 	"github.com/hkdb/aerion/internal/smime"
 	"github.com/hkdb/aerion/internal/smtp"
+	"github.com/rs/zerolog"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -1008,7 +1008,7 @@ func quoteText(s string) string {
 func providerAutoSavesSentMail(host string) bool {
 	host = strings.ToLower(host)
 	autoSaveProviders := []string{
-		"imap.gmail.com",       // Gmail
+		"imap.gmail.com",        // Gmail
 		"outlook.office365.com", // Microsoft 365
 		"imap-mail.outlook.com", // Outlook.com
 	}
@@ -1121,4 +1121,3 @@ func detectContentType(filename string) string {
 		return "application/octet-stream"
 	}
 }
-

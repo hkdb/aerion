@@ -1,45 +1,45 @@
 /**
  * Keyboard and pane focus management store
- * 
+ *
  * Tracks which pane is focused and manages focus state for keyboard navigation.
  */
 
-export type FocusablePane = 'sidebar' | 'messageList' | 'viewer'
+export type FocusablePane = "sidebar" | "messageList" | "viewer";
 
 // Pane cycle order for navigation
-const PANE_ORDER: FocusablePane[] = ['sidebar', 'messageList', 'viewer']
+const PANE_ORDER: FocusablePane[] = ["sidebar", "messageList", "viewer"];
 
 // Reactive state using Svelte 5 runes
-let focusedPane = $state<FocusablePane>('messageList')
-let flashingPane = $state<FocusablePane | null>(null)
-let flashTimeoutId: ReturnType<typeof setTimeout> | null = null
+let focusedPane = $state<FocusablePane>("messageList");
+let flashingPane = $state<FocusablePane | null>(null);
+let flashTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Get the currently focused pane
  */
 export function getFocusedPane(): FocusablePane {
-  return focusedPane
+  return focusedPane;
 }
 
 /**
  * Check if a specific pane is focused
  */
 export function isPaneFocused(pane: FocusablePane): boolean {
-  return focusedPane === pane
+  return focusedPane === pane;
 }
 
 /**
  * Check if a specific pane is currently flashing
  */
 export function isPaneFlashing(pane: FocusablePane): boolean {
-  return flashingPane === pane
+  return flashingPane === pane;
 }
 
 /**
  * Get the currently flashing pane (for reactive binding)
  */
 export function getFlashingPane(): FocusablePane | null {
-  return flashingPane
+  return flashingPane;
 }
 
 /**
@@ -48,16 +48,16 @@ export function getFlashingPane(): FocusablePane | null {
 function triggerFlash(pane: FocusablePane) {
   // Clear any existing flash timeout
   if (flashTimeoutId) {
-    clearTimeout(flashTimeoutId)
+    clearTimeout(flashTimeoutId);
   }
-  
-  flashingPane = pane
-  
+
+  flashingPane = pane;
+
   // Clear flash after animation duration
   flashTimeoutId = setTimeout(() => {
-    flashingPane = null
-    flashTimeoutId = null
-  }, 300) // Match CSS animation duration
+    flashingPane = null;
+    flashTimeoutId = null;
+  }, 300); // Match CSS animation duration
 }
 
 /**
@@ -65,8 +65,8 @@ function triggerFlash(pane: FocusablePane) {
  */
 export function setFocusedPane(pane: FocusablePane) {
   if (focusedPane !== pane) {
-    focusedPane = pane
-    triggerFlash(pane)
+    focusedPane = pane;
+    triggerFlash(pane);
   }
 }
 
@@ -74,18 +74,19 @@ export function setFocusedPane(pane: FocusablePane) {
  * Focus the previous pane in the cycle: viewer -> messageList -> sidebar -> viewer
  */
 export function focusPreviousPane() {
-  const currentIndex = PANE_ORDER.indexOf(focusedPane)
-  const previousIndex = currentIndex === 0 ? PANE_ORDER.length - 1 : currentIndex - 1
-  setFocusedPane(PANE_ORDER[previousIndex])
+  const currentIndex = PANE_ORDER.indexOf(focusedPane);
+  const previousIndex =
+    currentIndex === 0 ? PANE_ORDER.length - 1 : currentIndex - 1;
+  setFocusedPane(PANE_ORDER[previousIndex]);
 }
 
 /**
  * Focus the next pane in the cycle: sidebar -> messageList -> viewer -> sidebar
  */
 export function focusNextPane() {
-  const currentIndex = PANE_ORDER.indexOf(focusedPane)
-  const nextIndex = (currentIndex + 1) % PANE_ORDER.length
-  setFocusedPane(PANE_ORDER[nextIndex])
+  const currentIndex = PANE_ORDER.indexOf(focusedPane);
+  const nextIndex = (currentIndex + 1) % PANE_ORDER.length;
+  setFocusedPane(PANE_ORDER[nextIndex]);
 }
 
 /**
@@ -94,27 +95,27 @@ export function focusNextPane() {
  */
 export function isInputElement(target: EventTarget | null): boolean {
   if (!target || !(target instanceof HTMLElement)) {
-    return false
+    return false;
   }
-  
-  const tagName = target.tagName.toUpperCase()
-  
+
+  const tagName = target.tagName.toUpperCase();
+
   // Check for standard input elements
-  if (tagName === 'INPUT' || tagName === 'TEXTAREA') {
-    return true
+  if (tagName === "INPUT" || tagName === "TEXTAREA") {
+    return true;
   }
-  
+
   // Check for contenteditable elements (like TipTap editor)
   if (target.isContentEditable) {
-    return true
+    return true;
   }
-  
+
   // Check for elements with role="textbox"
-  if (target.getAttribute('role') === 'textbox') {
-    return true
+  if (target.getAttribute("role") === "textbox") {
+    return true;
   }
-  
-  return false
+
+  return false;
 }
 
 /**
@@ -123,13 +124,17 @@ export function isInputElement(target: EventTarget | null): boolean {
  */
 export function createKeyboardState() {
   return {
-    get focusedPane() { return focusedPane },
-    get flashingPane() { return flashingPane },
+    get focusedPane() {
+      return focusedPane;
+    },
+    get flashingPane() {
+      return flashingPane;
+    },
     isPaneFocused,
     isPaneFlashing,
     setFocusedPane,
     focusPreviousPane,
     focusNextPane,
-    isInputElement,
-  }
+    isInputElement
+  };
 }

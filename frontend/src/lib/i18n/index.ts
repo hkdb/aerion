@@ -1,39 +1,41 @@
-import { register, init, waitLocale, locale, _ } from 'svelte-i18n'
+import { _, init, locale, register, waitLocale } from "svelte-i18n";
 
 // Register locale files with lazy loading
-register('en', () => import('./locales/en.json'))
-register('zh-TW', () => import('./locales/zh-TW.json'))
-register('zh-HK', () => import('./locales/zh-HK.json'))
-register('zh-CN', () => import('./locales/zh-CN.json'))
+register("en", () => import("./locales/en.json"));
+register("zh-TW", () => import("./locales/zh-TW.json"));
+register("zh-HK", () => import("./locales/zh-HK.json"));
+register("zh-CN", () => import("./locales/zh-CN.json"));
 
 // Supported locales for the language picker
 export const supportedLocales = [
-  { code: 'en', name: 'English' },
-  { code: 'zh-TW', name: '繁體中文 (台灣)' },
-  { code: 'zh-HK', name: '繁體中文 (香港)' },
-  { code: 'zh-CN', name: '简体中文' },
-] as const
+  { code: "en", name: "English" },
+  { code: "zh-TW", name: "繁體中文 (台灣)" },
+  { code: "zh-HK", name: "繁體中文 (香港)" },
+  { code: "zh-CN", name: "简体中文" }
+] as const;
 
 /**
  * Detect system locale from navigator.language and map to supported locales.
  * zh-HK → zh-HK, zh-TW → zh-TW, bare zh → zh-TW (fallback), en-US → en, etc.
  */
 export function detectSystemLocale(): string {
-  const nav = navigator.language || 'en'
-  const lower = nav.toLowerCase()
+  const nav = navigator.language || "en";
+  const lower = nav.toLowerCase();
 
   // Exact match first
-  const exact = supportedLocales.find(l => l.code.toLowerCase() === lower)
-  if (exact) return exact.code
+  const exact = supportedLocales.find((l) => l.code.toLowerCase() === lower);
+  if (exact) return exact.code;
 
   // Language-only match (e.g., "zh" → "zh-TW", "en-US" → "en")
-  const lang = lower.split('-')[0]
-  if (lang === 'zh') return 'zh-TW' // bare "zh" defaults to Traditional Chinese (Taiwan)
+  const lang = lower.split("-")[0];
+  if (lang === "zh") return "zh-TW"; // bare "zh" defaults to Traditional Chinese (Taiwan)
 
-  const langMatch = supportedLocales.find(l => l.code.toLowerCase().split('-')[0] === lang)
-  if (langMatch) return langMatch.code
+  const langMatch = supportedLocales.find(
+    (l) => l.code.toLowerCase().split("-")[0] === lang
+  );
+  if (langMatch) return langMatch.code;
 
-  return 'en'
+  return "en";
 }
 
 /**
@@ -42,21 +44,21 @@ export function detectSystemLocale(): string {
  * @param savedLocale - Previously saved locale code from backend settings, or undefined for auto-detect
  */
 export async function initI18n(savedLocale?: string): Promise<void> {
-  const initialLocale = savedLocale || detectSystemLocale()
+  const initialLocale = savedLocale || detectSystemLocale();
 
   init({
-    fallbackLocale: 'en',
-    initialLocale,
-  })
+    fallbackLocale: "en",
+    initialLocale
+  });
 
-  await waitLocale()
+  await waitLocale();
 }
 
 /**
  * Change the active locale at runtime.
  */
 export function setLocale(code: string) {
-  locale.set(code)
+  locale.set(code);
 }
 
-export { _, locale }
+export { _, locale };

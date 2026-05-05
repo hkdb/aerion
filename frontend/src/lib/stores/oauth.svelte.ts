@@ -1,115 +1,128 @@
 /**
  * OAuth state store for managing OAuth2 authentication flows
  */
+import { _ } from "$lib/i18n";
+import { get } from "svelte/store";
 
 import {
-  StartOAuthFlow,
   CancelOAuthFlow,
+  CompleteOAuthAccountSetup,
+  GetAccount,
+  GetConfiguredOAuthProviders,
   GetOAuthStatus,
   IsOAuthConfigured,
-  GetConfiguredOAuthProviders,
-  CompleteOAuthAccountSetup,
+  ReauthorizeAccount,
   SaveOAuthTokens,
   SavePendingOAuthTokens,
-  ReauthorizeAccount,
-  TestOAuthConnection,
-  GetAccount,
-} from '../../../wailsjs/go/app/App'
+  StartOAuthFlow,
+  TestOAuthConnection
+} from "../../../wailsjs/go/app/App";
 // @ts-ignore - wailsjs runtime
-import { EventsOn, EventsOff } from '../../../wailsjs/runtime/runtime'
-import { get } from 'svelte/store'
-import { _ } from '$lib/i18n'
-import { addToast } from './toast'
+import { EventsOff, EventsOn } from "../../../wailsjs/runtime/runtime";
+import { addToast } from "./toast";
 
-export type OAuthFlowState = 'idle' | 'pending' | 'success' | 'error' | 'cancelled'
-export type OAuthProvider = 'google' | 'microsoft'
+export type OAuthFlowState =
+  | "idle"
+  | "pending"
+  | "success"
+  | "error"
+  | "cancelled";
+export type OAuthProvider = "google" | "microsoft";
 
 export interface OAuthFlowResult {
-  provider: OAuthProvider
-  email: string
-  expiresIn: number
+  provider: OAuthProvider;
+  email: string;
+  expiresIn: number;
 }
 
 export interface OAuthStatus {
-  isOAuth: boolean
-  provider: string
-  email: string
-  expiresAt: string
-  isExpired: boolean
-  needsReauth: boolean
+  isOAuth: boolean;
+  provider: string;
+  email: string;
+  expiresAt: string;
+  isExpired: boolean;
+  needsReauth: boolean;
 }
 
 class OAuthStore {
   // Flow state
-  flowState = $state<OAuthFlowState>('idle')
-  flowProvider = $state<OAuthProvider | null>(null)
-  flowError = $state<string | null>(null)
-  flowResult = $state<OAuthFlowResult | null>(null)
+  flowState = $state<OAuthFlowState>("idle");
+  flowProvider = $state<OAuthProvider | null>(null);
+  flowError = $state<string | null>(null);
+  flowResult = $state<OAuthFlowResult | null>(null);
 
   // Configured providers (cached)
-  private configuredProviders = $state<OAuthProvider[]>([])
-  private configuredLoaded = false
+  private configuredProviders = $state<OAuthProvider[]>([]);
+  private configuredLoaded = false;
 
   // Event listener cleanup tracking
-  private eventsInitialized = false
+  private eventsInitialized = false;
 
   /**
    * Initialize event listeners for OAuth events from backend.
    * Should be called once when the app starts.
    */
   initEvents(): void {
-    if (this.eventsInitialized) return
-    this.eventsInitialized = true
+    if (this.eventsInitialized) return;
+    this.eventsInitialized = true;
 
-    EventsOn('oauth:started', (data: { provider: string }) => {
-      this.flowState = 'pending'
-      this.flowProvider = data.provider as OAuthProvider
-      this.flowError = null
-      this.flowResult = null
-    })
+    EventsOn("oauth:started", (data: { provider: string }) => {
+      this.flowState = "pending";
+      this.flowProvider = data.provider as OAuthProvider;
+      this.flowError = null;
+      this.flowResult = null;
+    });
 
-    EventsOn('oauth:success', (data: { provider: string; email: string; expiresIn: number }) => {
-      this.flowState = 'success'
-      this.flowResult = {
-        provider: data.provider as OAuthProvider,
-        email: data.email,
-        expiresIn: data.expiresIn,
+    EventsOn(
+      "oauth:success",
+      (data: { provider: string; email: string; expiresIn: number }) => {
+        this.flowState = "success";
+        this.flowResult = {
+          provider: data.provider as OAuthProvider,
+          email: data.email,
+          expiresIn: data.expiresIn
+        };
+        this.flowError = null;
       }
-      this.flowError = null
-    })
+    );
 
-    EventsOn('oauth:error', (data: { provider: string; error: string }) => {
-      this.flowState = 'error'
-      this.flowError = data.error
-      this.flowResult = null
-    })
+    EventsOn("oauth:error", (data: { provider: string; error: string }) => {
+      this.flowState = "error";
+      this.flowError = data.error;
+      this.flowResult = null;
+    });
 
-    EventsOn('oauth:cancelled', () => {
-      this.flowState = 'cancelled'
-      this.flowError = null
-      this.flowResult = null
-    })
+    EventsOn("oauth:cancelled", () => {
+      this.flowState = "cancelled";
+      this.flowError = null;
+      this.flowResult = null;
+    });
 
     // Listen for reauth required events (token refresh failed)
-    EventsOn('oauth:reauth-required', async (data: { accountId: string; provider: string; error: string }) => {
-      // Get account name for better UX
-      let accountName = data.provider
-      try {
-        const account = await GetAccount(data.accountId)
-        if (account?.name) {
-          accountName = account.name
+    EventsOn(
+      "oauth:reauth-required",
+      async (data: { accountId: string; provider: string; error: string }) => {
+        // Get account name for better UX
+        let accountName = data.provider;
+        try {
+          const account = await GetAccount(data.accountId);
+          if (account?.name) {
+            accountName = account.name;
+          }
+        } catch {
+          // Ignore error, use provider name as fallback
         }
-      } catch {
-        // Ignore error, use provider name as fallback
-      }
 
-      // Show toast notification to user
-      addToast({
-        type: 'error',
-        message: get(_)('toast.oauthExpired', { values: { name: accountName } }),
-        duration: 10000, // Show for 10 seconds
-      })
-    })
+        // Show toast notification to user
+        addToast({
+          type: "error",
+          message: get(_)("toast.oauthExpired", {
+            values: { name: accountName }
+          }),
+          duration: 10000 // Show for 10 seconds
+        });
+      }
+    );
   }
 
   /**
@@ -117,14 +130,14 @@ class OAuthStore {
    * Call this when the app is shutting down.
    */
   cleanupEvents(): void {
-    if (!this.eventsInitialized) return
-    this.eventsInitialized = false
+    if (!this.eventsInitialized) return;
+    this.eventsInitialized = false;
 
-    EventsOff('oauth:started')
-    EventsOff('oauth:success')
-    EventsOff('oauth:error')
-    EventsOff('oauth:cancelled')
-    EventsOff('oauth:reauth-required')
+    EventsOff("oauth:started");
+    EventsOff("oauth:success");
+    EventsOff("oauth:error");
+    EventsOff("oauth:cancelled");
+    EventsOff("oauth:reauth-required");
   }
 
   /**
@@ -133,17 +146,17 @@ class OAuthStore {
    */
   async startFlow(provider: OAuthProvider): Promise<void> {
     try {
-      this.flowState = 'pending'
-      this.flowProvider = provider
-      this.flowError = null
-      this.flowResult = null
+      this.flowState = "pending";
+      this.flowProvider = provider;
+      this.flowError = null;
+      this.flowResult = null;
 
-      await StartOAuthFlow(provider)
+      await StartOAuthFlow(provider);
       // State will be updated via events
     } catch (err) {
-      this.flowState = 'error'
-      this.flowError = err instanceof Error ? err.message : String(err)
-      throw err
+      this.flowState = "error";
+      this.flowError = err instanceof Error ? err.message : String(err);
+      throw err;
     }
   }
 
@@ -151,18 +164,18 @@ class OAuthStore {
    * Cancel any in-progress OAuth flow.
    */
   cancelFlow(): void {
-    CancelOAuthFlow()
-    this.reset()
+    CancelOAuthFlow();
+    this.reset();
   }
 
   /**
    * Reset the OAuth flow state.
    */
   reset(): void {
-    this.flowState = 'idle'
-    this.flowProvider = null
-    this.flowError = null
-    this.flowResult = null
+    this.flowState = "idle";
+    this.flowProvider = null;
+    this.flowError = null;
+    this.flowResult = null;
   }
 
   /**
@@ -176,26 +189,38 @@ class OAuthStore {
     accessToken: string,
     refreshToken: string
   ): Promise<{ accountId: string; email: string }> {
-    if (this.flowState !== 'success' || !this.flowResult) {
-      throw new Error('No successful OAuth flow to complete')
+    if (this.flowState !== "success" || !this.flowResult) {
+      throw new Error("No successful OAuth flow to complete");
     }
 
-    const { provider, email, expiresIn } = this.flowResult
+    const { provider, email, expiresIn } = this.flowResult;
 
     // Create the account
-    const account = await CompleteOAuthAccountSetup(provider, email, accountName, displayName, color)
+    const account = await CompleteOAuthAccountSetup(
+      provider,
+      email,
+      accountName,
+      displayName,
+      color
+    );
 
     // Save the OAuth tokens
-    await SaveOAuthTokens(account.id, provider, accessToken, refreshToken, expiresIn)
+    await SaveOAuthTokens(
+      account.id,
+      provider,
+      accessToken,
+      refreshToken,
+      expiresIn
+    );
 
-    return { accountId: account.id, email }
+    return { accountId: account.id, email };
   }
 
   /**
    * Check if a provider is configured (has client ID).
    */
   async isProviderConfigured(provider: OAuthProvider): Promise<boolean> {
-    return await IsOAuthConfigured(provider)
+    return await IsOAuthConfigured(provider);
   }
 
   /**
@@ -204,26 +229,26 @@ class OAuthStore {
    */
   async getConfiguredProviders(): Promise<OAuthProvider[]> {
     if (!this.configuredLoaded) {
-      const providers = await GetConfiguredOAuthProviders()
-      this.configuredProviders = providers as OAuthProvider[]
-      this.configuredLoaded = true
+      const providers = await GetConfiguredOAuthProviders();
+      this.configuredProviders = providers as OAuthProvider[];
+      this.configuredLoaded = true;
     }
-    return this.configuredProviders
+    return this.configuredProviders;
   }
 
   /**
    * Check if OAuth is available (at least one provider configured).
    */
   async isOAuthAvailable(): Promise<boolean> {
-    const providers = await this.getConfiguredProviders()
-    return providers.length > 0
+    const providers = await this.getConfiguredProviders();
+    return providers.length > 0;
   }
 
   /**
    * Get OAuth status for an account.
    */
   async getAccountStatus(accountId: string): Promise<OAuthStatus> {
-    return await GetOAuthStatus(accountId)
+    return await GetOAuthStatus(accountId);
   }
 
   /**
@@ -232,87 +257,90 @@ class OAuthStore {
    */
   async reauthorize(accountId: string): Promise<void> {
     // Ensure event listeners are initialized
-    this.initEvents()
+    this.initEvents();
 
     // Reset state before starting
-    this.reset()
+    this.reset();
 
     // Start the OAuth flow
-    await ReauthorizeAccount(accountId)
+    await ReauthorizeAccount(accountId);
 
     // Wait for the OAuth flow to complete
     return new Promise((resolve, reject) => {
       const checkInterval = setInterval(() => {
-        if (this.flowState === 'success' && this.flowResult) {
-          clearInterval(checkInterval)
+        if (this.flowState === "success" && this.flowResult) {
+          clearInterval(checkInterval);
           // Save the pending tokens to the existing account
           SavePendingOAuthTokens(accountId)
             .then(() => {
-              this.reset()
-              resolve()
+              this.reset();
+              resolve();
             })
             .catch((err) => {
-              this.reset()
-              reject(err)
-            })
-        } else if (this.flowState === 'error') {
-          clearInterval(checkInterval)
-          const error = this.flowError || 'OAuth flow failed'
-          this.reset()
-          reject(new Error(error))
-        } else if (this.flowState === 'cancelled') {
-          clearInterval(checkInterval)
-          this.reset()
-          reject(new Error('OAuth flow was cancelled'))
+              this.reset();
+              reject(err);
+            });
+        } else if (this.flowState === "error") {
+          clearInterval(checkInterval);
+          const error = this.flowError || "OAuth flow failed";
+          this.reset();
+          reject(new Error(error));
+        } else if (this.flowState === "cancelled") {
+          clearInterval(checkInterval);
+          this.reset();
+          reject(new Error("OAuth flow was cancelled"));
         }
-      }, 100)
+      }, 100);
 
       // Timeout after 5 minutes
-      setTimeout(() => {
-        clearInterval(checkInterval)
-        if (this.flowState === 'pending') {
-          this.reset()
-          reject(new Error('OAuth flow timed out'))
-        }
-      }, 5 * 60 * 1000)
-    })
+      setTimeout(
+        () => {
+          clearInterval(checkInterval);
+          if (this.flowState === "pending") {
+            this.reset();
+            reject(new Error("OAuth flow timed out"));
+          }
+        },
+        5 * 60 * 1000
+      );
+    });
   }
 
   /**
    * Test OAuth connection for an account.
    */
   async testConnection(accountId: string): Promise<void> {
-    await TestOAuthConnection(accountId)
+    await TestOAuthConnection(accountId);
   }
 
   /**
    * Check if the current flow is for a specific provider.
    */
   isFlowForProvider(provider: OAuthProvider): boolean {
-    return this.flowProvider === provider
+    return this.flowProvider === provider;
   }
 
   /**
    * Check if OAuth flow is in progress.
    */
   get isFlowPending(): boolean {
-    return this.flowState === 'pending'
+    return this.flowState === "pending";
   }
 
   /**
    * Check if OAuth flow completed successfully.
    */
   get isFlowSuccess(): boolean {
-    return this.flowState === 'success'
+    return this.flowState === "success";
   }
 
   /**
    * Check if OAuth flow failed.
    */
   get isFlowError(): boolean {
-    return this.flowState === 'error'
+    return this.flowState === "error";
   }
 }
 
 // Export singleton instance
-export const oauthStore = new OAuthStore()
+export const oauthStore = new OAuthStore();

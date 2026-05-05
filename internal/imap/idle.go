@@ -45,9 +45,9 @@ func DefaultIdleConfig() IdleConfig {
 		ReconnectBackoff:     1 * time.Second,
 		MaxReconnectBackoff:  5 * time.Minute,
 		MaxReconnectAttempts: 10,
-		EventSendTimeout:     2 * time.Second,  // Don't block forever on event send
-		HealthCheckEnabled:   true,             // Verify connection before IDLE
-		ShutdownTimeout:      5 * time.Second,  // Graceful shutdown timeout
+		EventSendTimeout:     2 * time.Second, // Don't block forever on event send
+		HealthCheckEnabled:   true,            // Verify connection before IDLE
+		ShutdownTimeout:      5 * time.Second, // Graceful shutdown timeout
 	}
 }
 

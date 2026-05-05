@@ -19,10 +19,10 @@ func generateTestPEM(t *testing.T) string {
 		t.Fatalf("failed to generate key: %v", err)
 	}
 	template := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "test@example.com"},
-		NotBefore:    time.Now().Add(-1 * time.Hour),
-		NotAfter:     time.Now().Add(24 * time.Hour),
+		SerialNumber:   big.NewInt(1),
+		Subject:        pkix.Name{CommonName: "test@example.com"},
+		NotBefore:      time.Now().Add(-1 * time.Hour),
+		NotAfter:       time.Now().Add(24 * time.Hour),
 		EmailAddresses: []string{"test@example.com"},
 	}
 	derBytes, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)

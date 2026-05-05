@@ -23,7 +23,7 @@ type ProcessedBody struct {
 	HasAttachments bool
 	Attachments    []*message.Attachment  // Extracted during parsing (no re-parse needed)
 	RawBytes       []byte                 // For on-demand attachment content fetch
-	SMIMEResult    *smime.SignatureResult  // S/MIME verification result
+	SMIMEResult    *smime.SignatureResult // S/MIME verification result
 	SMIMERawBody   []byte                 // Raw S/MIME body for on-view processing
 	SMIMEEncrypted bool                   // Whether the message is encrypted
 	PGPRawBody     []byte                 // Raw PGP body for on-view processing
@@ -928,4 +928,3 @@ func (e *Engine) buildMessageFromStreamedData(accountID, folderID string, uid im
 
 	return m
 }
-

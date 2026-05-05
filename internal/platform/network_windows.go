@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	iphlpapi                      = windows.NewLazySystemDLL("iphlpapi.dll")
-	procNotifyIpInterfaceChange   = iphlpapi.NewProc("NotifyIpInterfaceChange")
-	procCancelMibChangeNotify2    = iphlpapi.NewProc("CancelMibChangeNotify2")
+	iphlpapi                    = windows.NewLazySystemDLL("iphlpapi.dll")
+	procNotifyIpInterfaceChange = iphlpapi.NewProc("NotifyIpInterfaceChange")
+	procCancelMibChangeNotify2  = iphlpapi.NewProc("CancelMibChangeNotify2")
 )
 
 // AF_UNSPEC = 0 (all address families)

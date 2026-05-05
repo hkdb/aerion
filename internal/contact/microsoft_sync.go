@@ -193,10 +193,10 @@ type msGraphContact struct {
 
 // msGraphDeltaContact extends msGraphContact with removal info
 type msGraphDeltaContact struct {
-	ID             string               `json:"id"`
-	DisplayName    string               `json:"displayName"`
-	EmailAddresses []msGraphEmail       `json:"emailAddresses"`
-	Removed        *msGraphRemovedInfo  `json:"@removed,omitempty"` // Present when contact was deleted
+	ID             string              `json:"id"`
+	DisplayName    string              `json:"displayName"`
+	EmailAddresses []msGraphEmail      `json:"emailAddresses"`
+	Removed        *msGraphRemovedInfo `json:"@removed,omitempty"` // Present when contact was deleted
 }
 
 type msGraphRemovedInfo struct {

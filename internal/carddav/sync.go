@@ -42,13 +42,13 @@ func retryDBOperation(operation func() error, maxRetries int, baseDelay time.Dur
 
 // Syncer handles syncing contacts from CardDAV/Google/Microsoft sources
 type Syncer struct {
-	store            *Store
-	credStore        *credentials.Store
-	getAccountToken  AccessTokenGetter // Gets OAuth token from linked email account
-	getSourceToken   AccessTokenGetter // Gets OAuth token from standalone contact source
-	googleSyncer     *contact.GoogleContactsSyncer
-	microsoftSyncer  *contact.MicrosoftContactsSyncer
-	log              zerolog.Logger
+	store           *Store
+	credStore       *credentials.Store
+	getAccountToken AccessTokenGetter // Gets OAuth token from linked email account
+	getSourceToken  AccessTokenGetter // Gets OAuth token from standalone contact source
+	googleSyncer    *contact.GoogleContactsSyncer
+	microsoftSyncer *contact.MicrosoftContactsSyncer
+	log             zerolog.Logger
 }
 
 // NewSyncer creates a new contact syncer

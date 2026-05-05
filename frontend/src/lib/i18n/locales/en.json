@@ -454,6 +454,7 @@
     "themeDark": "Dark",
     "themeDarkGray": "Dark (Gray)",
     "themeDarkBalanced": "Dark (Balanced)",
+    "themeCatppuccinMocha": "Catppuccin Mocha",
     "restartRequired": "Restart required",
     "restartRequiredDescription": "The title bar change will take effect after restarting Aerion.",
     "quitNow": "Quit now",

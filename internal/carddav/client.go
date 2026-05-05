@@ -19,10 +19,10 @@ import (
 )
 
 // xmlFixTransport wraps an http.RoundTripper to normalize WebDAV XML responses:
-// 1. DAV:getlastmodified — converts numeric timezone offsets (e.g., +0000) to GMT format.
-//    Some servers (e.g., Purelymail) return RFC 1123Z dates which http.ParseTime() cannot parse.
-// 2. DAV:getetag — adds quotes around unquoted ETag values.
-//    Some servers (e.g., mailbox.org) return unquoted ETags which go-webdav's strconv.Unquote() rejects.
+//  1. DAV:getlastmodified — converts numeric timezone offsets (e.g., +0000) to GMT format.
+//     Some servers (e.g., Purelymail) return RFC 1123Z dates which http.ParseTime() cannot parse.
+//  2. DAV:getetag — adds quotes around unquoted ETag values.
+//     Some servers (e.g., mailbox.org) return unquoted ETags which go-webdav's strconv.Unquote() rejects.
 type xmlFixTransport struct {
 	base http.RoundTripper
 }

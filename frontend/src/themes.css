@@ -165,6 +165,29 @@
     --input: 210 10% 20%;
     --ring: 215 10% 50%;
   }
+
+  /* Catppuccin Mocha Theme – Soothing pastel theme for the high-spirited */
+  [data-theme="dark-catppuccin-mocha"] {
+    --background: 240 21% 15%;
+    --foreground: 226 64% 88%;
+    --card: 237 16% 23%;
+    --card-foreground: 226 64% 88%;
+    --popover: 240 21% 12%;
+    --popover-foreground: 226 64% 88%;
+    --primary: 267 84% 81%;
+    --primary-foreground: 240 21% 15%;
+    --secondary: 232 97% 85%;
+    --secondary-foreground: 226 64% 88%;
+    --muted: 237 16% 23%;
+    --muted-foreground: 226 64% 88%;
+    --accent: 237 16% 23%;
+    --accent-foreground: 240 21% 15%;
+    --destructive: 343 81% 75%;
+    --destructive-foreground: 240 21% 15%;
+    --border: 240 23% 9%;
+    --input: 232 97% 85%;
+    --ring: unset;
+  }
 }
 
 /* Dark theme mark highlight override */

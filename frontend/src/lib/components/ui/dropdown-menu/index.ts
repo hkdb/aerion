@@ -1,11 +1,12 @@
-import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui'
-import Content from './dropdown-menu-content.svelte'
-import Item from './dropdown-menu-item.svelte'
-import Separator from './dropdown-menu-separator.svelte'
+import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
 
-const Root = DropdownMenuPrimitive.Root
-const Trigger = DropdownMenuPrimitive.Trigger
-const Group = DropdownMenuPrimitive.Group
+import Content from "./dropdown-menu-content.svelte";
+import Item from "./dropdown-menu-item.svelte";
+import Separator from "./dropdown-menu-separator.svelte";
+
+const Root = DropdownMenuPrimitive.Root;
+const Trigger = DropdownMenuPrimitive.Trigger;
+const Group = DropdownMenuPrimitive.Group;
 
 export {
   Root,
@@ -19,5 +20,5 @@ export {
   Separator,
   Separator as DropdownMenuSeparator,
   Group,
-  Group as DropdownMenuGroup,
-}
+  Group as DropdownMenuGroup
+};

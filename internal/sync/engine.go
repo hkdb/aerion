@@ -53,11 +53,11 @@ type ParsedBody struct {
 	HasAttachments bool
 	Attachments    []*message.Attachment  // Extracted attachment metadata (content only for inline)
 	SMIMEResult    *smime.SignatureResult // S/MIME verification result (nil if not S/MIME)
-	SMIMERawBody   []byte                // Raw S/MIME body for on-view processing
-	SMIMEEncrypted bool                  // Whether the message is encrypted
-	PGPRawBody     []byte                // Raw PGP body for on-view processing
-	PGPEncrypted   bool                  // Whether the message is PGP encrypted
-	UnsafeContent  bool                  // True if message has non-compliant encoding
+	SMIMERawBody   []byte                 // Raw S/MIME body for on-view processing
+	SMIMEEncrypted bool                   // Whether the message is encrypted
+	PGPRawBody     []byte                 // Raw PGP body for on-view processing
+	PGPEncrypted   bool                   // Whether the message is PGP encrypted
+	UnsafeContent  bool                   // True if message has non-compliant encoding
 }
 
 // Retry limits for error recovery

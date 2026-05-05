@@ -1,72 +1,72 @@
 // Responsive layout store for tiled/narrow windows
 // Three modes: full (>1024px), medium (768-1024px), narrow (<768px)
 
-export type LayoutMode = 'full' | 'medium' | 'narrow'
-export type ResponsiveView = 'default' | 'viewer' | 'sidebar'
+export type LayoutMode = "full" | "medium" | "narrow";
+export type ResponsiveView = "default" | "viewer" | "sidebar";
 
-let layoutMode = $state<LayoutMode>('full')
-let responsiveView = $state<ResponsiveView>('default')
+let layoutMode = $state<LayoutMode>("full");
+let responsiveView = $state<ResponsiveView>("default");
 
-let narrowMql: MediaQueryList | null = null
-let mediumMql: MediaQueryList | null = null
+let narrowMql: MediaQueryList | null = null;
+let mediumMql: MediaQueryList | null = null;
 
 function updateMode() {
-  if (!narrowMql || !mediumMql) return
+  if (!narrowMql || !mediumMql) return;
 
   if (narrowMql.matches) {
-    layoutMode = 'narrow'
+    layoutMode = "narrow";
   } else if (mediumMql.matches) {
-    layoutMode = 'medium'
+    layoutMode = "medium";
   } else {
-    layoutMode = 'full'
+    layoutMode = "full";
   }
 
   // Reset overlays when entering full mode
-  if (layoutMode === 'full') {
-    responsiveView = 'default'
+  if (layoutMode === "full") {
+    responsiveView = "default";
   }
 }
 
 export function initLayout() {
-  narrowMql = window.matchMedia('(max-width: 767px)')
-  mediumMql = window.matchMedia('(max-width: 1024px)')
+  narrowMql = window.matchMedia("(max-width: 767px)");
+  mediumMql = window.matchMedia("(max-width: 1024px)");
 
-  updateMode()
+  updateMode();
 
-  narrowMql.addEventListener('change', updateMode)
-  mediumMql.addEventListener('change', updateMode)
+  narrowMql.addEventListener("change", updateMode);
+  mediumMql.addEventListener("change", updateMode);
 }
 
 export function getLayoutMode(): LayoutMode {
-  return layoutMode
+  return layoutMode;
 }
 
 export function getResponsiveView(): ResponsiveView {
-  return responsiveView
+  return responsiveView;
 }
 
 export function isResponsive(): boolean {
-  return layoutMode !== 'full'
+  return layoutMode !== "full";
 }
 
 export function showViewer() {
-  if (layoutMode === 'full') return
-  responsiveView = 'viewer'
+  if (layoutMode === "full") return;
+  responsiveView = "viewer";
 }
 
 export function hideViewer() {
-  if (layoutMode === 'full') return
-  responsiveView = 'default'
+  if (layoutMode === "full") return;
+  responsiveView = "default";
 }
 
 export function showSidebar() {
-  if (layoutMode !== 'narrow') return
-  responsiveView = 'sidebar'
+  if (layoutMode !== "narrow") return;
+  responsiveView = "sidebar";
 }
 
 export function hideSidebar() {
-  if (layoutMode !== 'narrow') return
-  if (responsiveView === 'sidebar') {
-    responsiveView = 'default'
+  if (layoutMode !== "narrow") return;
+  if (responsiveView === "sidebar") {
+    responsiveView = "default";
   }
 }

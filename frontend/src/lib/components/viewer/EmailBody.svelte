@@ -1,110 +1,138 @@
 <script lang="ts">
-  import Icon from '@iconify/svelte'
-  import { BrowserOpenURL } from '../../../../wailsjs/runtime/runtime'
-  import { GetInlineAttachments, AddImageAllowlist, OpenURL } from '../../../../wailsjs/go/app/App'
-  import { getCached, setCache } from '../../stores/inlineAttachmentCache'
-  import { isImageAllowedSync, refreshImageAllowlist } from '$lib/stores/imageAllowlist.svelte'
-  import { setFocusedPane, focusPreviousPane, focusNextPane } from '$lib/stores/keyboard.svelte'
-  import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
-  import { _ } from '$lib/i18n'
-  import { toasts } from '$lib/stores/toast'
-  import { getAlwaysLoadImages } from '$lib/stores/settings.svelte'
+  import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
+  import { _ } from "$lib/i18n";
+  import {
+    isImageAllowedSync,
+    refreshImageAllowlist
+  } from "$lib/stores/imageAllowlist.svelte";
+  import {
+    focusNextPane,
+    focusPreviousPane,
+    setFocusedPane
+  } from "$lib/stores/keyboard.svelte";
+  import { getAlwaysLoadImages } from "$lib/stores/settings.svelte";
+  import { toasts } from "$lib/stores/toast";
+  import Icon from "@iconify/svelte";
+
+  import {
+    AddImageAllowlist,
+    GetInlineAttachments,
+    OpenURL
+  } from "../../../../wailsjs/go/app/App";
+  import { BrowserOpenURL } from "../../../../wailsjs/runtime/runtime";
+  import { getCached, setCache } from "../../stores/inlineAttachmentCache";
 
   interface Props {
-    messageId: string
-    accountId?: string
-    bodyHtml?: string
-    bodyText?: string
-    fromEmail?: string
-    onCompose?: (to: string) => void
-    onImagesLoaded?: () => void
-    encryptedInlineAttachments?: Record<string, string>
+    messageId: string;
+    accountId?: string;
+    bodyHtml?: string;
+    bodyText?: string;
+    fromEmail?: string;
+    onCompose?: (to: string) => void;
+    onImagesLoaded?: () => void;
+    encryptedInlineAttachments?: Record<string, string>;
   }
 
-  let { messageId, accountId, bodyHtml = '', bodyText = '', fromEmail = '', onCompose, onImagesLoaded, encryptedInlineAttachments }: Props = $props()
+  let {
+    messageId,
+    accountId,
+    bodyHtml = "",
+    bodyText = "",
+    fromEmail = "",
+    onCompose,
+    onImagesLoaded,
+    encryptedInlineAttachments
+  }: Props = $props();
 
   // State for remote image handling
-  let imagesBlocked = $state(true)
-  let iframeElement = $state<HTMLIFrameElement | null>(null)
-  let iframeReady = $state(false)
+  let imagesBlocked = $state(true);
+  let iframeElement = $state<HTMLIFrameElement | null>(null);
+  let iframeReady = $state(false);
 
   // Inline attachment state
-  let inlineAttachments = $state<Record<string, string>>({})
-  let lastSentMessageId = $state<string | null>(null)
+  let inlineAttachments = $state<Record<string, string>>({});
+  let lastSentMessageId = $state<string | null>(null);
 
   // Link tooltip state
-  let tooltipVisible = $state(false)
-  let tooltipUrl = $state('')
-  let tooltipX = $state(0)
-  let tooltipY = $state(0)
+  let tooltipVisible = $state(false);
+  let tooltipUrl = $state("");
+  let tooltipX = $state(0);
+  let tooltipY = $state(0);
 
   // Context menu state (unified for text selection and links)
-  let ctxMenuVisible = $state(false)
-  let ctxMenuText = $state('')
-  let ctxMenuUrl = $state('')
-  let ctxMenuX = $state(0)
-  let ctxMenuY = $state(0)
-  
+  let ctxMenuVisible = $state(false);
+  let ctxMenuText = $state("");
+  let ctxMenuUrl = $state("");
+  let ctxMenuX = $state(0);
+  let ctxMenuY = $state(0);
+
   // Derived state
-  let hasRemoteImages = $derived(checkForRemoteImages(bodyHtml))
-  let hasCidReferences = $derived(bodyHtml ? /src=["']cid:([^"']+)["']/i.test(bodyHtml) : false)
+  let hasRemoteImages = $derived(checkForRemoteImages(bodyHtml));
+  let hasCidReferences = $derived(
+    bodyHtml ? /src=["']cid:([^"']+)["']/i.test(bodyHtml) : false
+  );
 
   // Loading placeholder SVG
-  const loadingPlaceholder = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='80' viewBox='0 0 120 80'%3E%3Crect fill='%23f3f4f6' width='120' height='80' rx='4'/%3E%3Cg transform='translate(60,40)'%3E%3Ccircle cx='0' cy='0' r='12' fill='none' stroke='%239ca3af' stroke-width='2' stroke-dasharray='20 10'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0' to='360' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/g%3E%3Ctext x='60' y='65' text-anchor='middle' fill='%239ca3af' font-size='9' font-family='sans-serif'%3ELoading...%3C/text%3E%3C/svg%3E`
+  const loadingPlaceholder = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='80' viewBox='0 0 120 80'%3E%3Crect fill='%23f3f4f6' width='120' height='80' rx='4'/%3E%3Cg transform='translate(60,40)'%3E%3Ccircle cx='0' cy='0' r='12' fill='none' stroke='%239ca3af' stroke-width='2' stroke-dasharray='20 10'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0' to='360' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/g%3E%3Ctext x='60' y='65' text-anchor='middle' fill='%239ca3af' font-size='9' font-family='sans-serif'%3ELoading...%3C/text%3E%3C/svg%3E`;
 
   // Regex pattern for CSS url() with remote http(s) URLs.
   // Handles all quote styles: raw ' or ", decimal &#39;/&#34;, hex &#x27;/&#x22;, named &apos;/&quot;
   // Used as a string so we can create fresh RegExp instances (avoids lastIndex issues with /g)
-  const CSS_QUOTE = `(?:['"]|&#(?:39|x27|34|x22);|&(?:apos|quot);)?`
-  const CSS_REMOTE_URL_PATTERN = `url\\(\\s*${CSS_QUOTE}\\s*https?://[^)]*?${CSS_QUOTE}\\s*\\)`
+  const CSS_QUOTE = `(?:['"]|&#(?:39|x27|34|x22);|&(?:apos|quot);)?`;
+  const CSS_REMOTE_URL_PATTERN = `url\\(\\s*${CSS_QUOTE}\\s*https?://[^)]*?${CSS_QUOTE}\\s*\\)`;
 
   function checkForRemoteImages(html: string): boolean {
-    if (!html) return false
+    if (!html) return false;
     // Check <img> tags with remote src
-    if (/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i.test(html)) return true
+    if (/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i.test(html)) return true;
     // Check CSS url() references with remote URLs (background-image, background, etc.)
-    if (new RegExp(CSS_REMOTE_URL_PATTERN, 'i').test(html)) return true
+    if (new RegExp(CSS_REMOTE_URL_PATTERN, "i").test(html)) return true;
     // Check HTML background attribute with remote URLs
-    if (/\bbackground\s*=\s*["'](https?:\/\/[^"']+)["']/i.test(html)) return true
-    return false
+    if (/\bbackground\s*=\s*["'](https?:\/\/[^"']+)["']/i.test(html))
+      return true;
+    return false;
   }
 
   function processCidReferences(html: string): string {
-    if (!html) return html
+    if (!html) return html;
     return html.replace(
       /src=["']cid:([^"']+)["']/gi,
-      (match, contentId) => `src="${loadingPlaceholder}" data-cid="${contentId}"`
-    )
+      (match, contentId) =>
+        `src="${loadingPlaceholder}" data-cid="${contentId}"`
+    );
   }
 
   function processHtml(html: string, blockImages: boolean): string {
-    if (!html) return ''
-    let processed = processCidReferences(html)
+    if (!html) return "";
+    let processed = processCidReferences(html);
     if (blockImages) {
       // Block <img> tags with remote sources
       processed = processed.replace(
         /(<img[^>]+)src=["'](https?:\/\/[^"']+)["']([^>]*>)/gi,
         (match, before, src, after) => {
-          const placeholder = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='60' viewBox='0 0 100 60'%3E%3Crect fill='%23e5e7eb' width='100' height='60'/%3E%3Ctext x='50' y='35' text-anchor='middle' fill='%239ca3af' font-size='10' font-family='sans-serif'%3EImage blocked%3C/text%3E%3C/svg%3E`
-          return `${before}src="${placeholder}" data-blocked-src="${encodeURIComponent(src)}"${after}`
+          const placeholder = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='60' viewBox='0 0 100 60'%3E%3Crect fill='%23e5e7eb' width='100' height='60'/%3E%3Ctext x='50' y='35' text-anchor='middle' fill='%239ca3af' font-size='10' font-family='sans-serif'%3EImage blocked%3C/text%3E%3C/svg%3E`;
+          return `${before}src="${placeholder}" data-blocked-src="${encodeURIComponent(src)}"${after}`;
         }
-      )
+      );
       // Block remote URLs in CSS url() references (covers background-image, background, etc.)
       // Handles all quote encodings: raw, decimal entities, hex entities, named entities
-      processed = processed.replace(new RegExp(CSS_REMOTE_URL_PATTERN, 'gi'), 'url()')
+      processed = processed.replace(
+        new RegExp(CSS_REMOTE_URL_PATTERN, "gi"),
+        "url()"
+      );
       // Block HTML background attribute with remote URLs
       processed = processed.replace(
         /\bbackground\s*=\s*["'](https?:\/\/[^"']+)["']/gi,
         'background=""'
-      )
+      );
     }
-    return processed
+    return processed;
   }
 
   function buildIframeContent(html: string): string {
-    const processedHtml = processHtml(html, imagesBlocked)
-    const imgSrc = imagesBlocked ? "'self' data:" : "* data:"
-    
+    const processedHtml = processHtml(html, imagesBlocked);
+    const imgSrc = imagesBlocked ? "'self' data:" : "* data:";
+
     const iframeScript = `
       function sendHeight() {
         var height = document.body.scrollHeight;
@@ -253,9 +281,10 @@
           window.parent.postMessage({ type: 'iframe-focus' }, '*');
         }
       }, true);
-    `
-    
-    return `<!DOCTYPE html>
+    `;
+
+    return (
+      `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -289,79 +318,82 @@
 </head>
 <body>
 ${processedHtml}
-<scr` + `ipt>${iframeScript}</scr` + `ipt>
+<scr` +
+      `ipt>${iframeScript}</scr` +
+      `ipt>
 </body>
 </html>`
+    );
   }
 
   // Handle a clicked link URL — routes mailto: to composer, others to system browser.
   // Used by both the iframe message handler and the plain text div click handler.
   function handleLinkClick(url: string) {
-    if (url.startsWith('mailto:')) {
-      const emailAddress = url.replace('mailto:', '').split('?')[0]
+    if (url.startsWith("mailto:")) {
+      const emailAddress = url.replace("mailto:", "").split("?")[0];
       if (onCompose) {
-        onCompose(emailAddress)
-        return
+        onCompose(emailAddress);
+        return;
       }
     }
-    safeOpenURL(url)
+    safeOpenURL(url);
   }
 
   // Helper function to safely open URLs
   // Uses our custom OpenURL backend function which properly handles shell escaping
   async function safeOpenURL(url: string) {
-    console.log('[EmailBody] Opening URL:', url)
+    console.log("[EmailBody] Opening URL:", url);
 
     // Validate URL format first
     try {
-      new URL(url) // Validate it's a proper URL
+      new URL(url); // Validate it's a proper URL
 
       // Use our backend OpenURL function which properly handles shell escaping
       try {
-        await OpenURL(url)
-        toasts.info($_('toast.linkOpened'))
+        await OpenURL(url);
+        toasts.info($_("toast.linkOpened"));
       } catch (err) {
-        console.error('[EmailBody] OpenURL failed:', err)
+        console.error("[EmailBody] OpenURL failed:", err);
         // Fallback to direct BrowserOpenURL
         try {
-          BrowserOpenURL(url)
-          toasts.info($_('toast.linkOpened'))
+          BrowserOpenURL(url);
+          toasts.info($_("toast.linkOpened"));
         } catch (err2) {
-          console.error('[EmailBody] BrowserOpenURL also failed:', err2)
+          console.error("[EmailBody] BrowserOpenURL also failed:", err2);
         }
       }
     } catch (e) {
-      console.error('[EmailBody] Invalid URL:', url, e)
+      console.error("[EmailBody] Invalid URL:", url, e);
     }
   }
 
   function handleIframeMessage(event: MessageEvent) {
     // Only handle messages from this component's iframe
-    if (event.source !== iframeElement?.contentWindow) return
+    if (event.source !== iframeElement?.contentWindow) return;
 
-    if (event.data?.type === 'iframe-height' && iframeElement) {
-      iframeElement.style.height = `${event.data.height + 20}px`
-    } else if (event.data?.type === 'iframe-ready') {
-      iframeReady = true
-    } else if (event.data?.type === 'open-link') {
-      handleLinkClick(event.data.url as string)
-    } else if (event.data?.type === 'iframe-keydown') {
+    if (event.data?.type === "iframe-height" && iframeElement) {
+      iframeElement.style.height = `${event.data.height + 20}px`;
+    } else if (event.data?.type === "iframe-ready") {
+      iframeReady = true;
+    } else if (event.data?.type === "open-link") {
+      handleLinkClick(event.data.url as string);
+    } else if (event.data?.type === "iframe-keydown") {
       // Handle Alt+arrow/hjkl directly for pane navigation
       if (event.data.altKey) {
-        const key = event.data.key
-        if (key === 'ArrowLeft' || key === 'h') {
-          focusPreviousPane()
+        const key = event.data.key;
+        if (key === "ArrowLeft" || key === "h") {
+          focusPreviousPane();
           // Dispatch event to let App.svelte handle focus
-          window.dispatchEvent(new CustomEvent('escape-iframe-focus'))
-          return
-        } else if (key === 'ArrowRight' || key === 'l') {
-          focusNextPane()
-          window.dispatchEvent(new CustomEvent('escape-iframe-focus'))
-          return
+          window.dispatchEvent(new CustomEvent("escape-iframe-focus"));
+          return;
+        } else if (key === "ArrowRight" || key === "l") {
+          focusNextPane();
+          window.dispatchEvent(new CustomEvent("escape-iframe-focus"));
+          return;
         }
       }
       // For other shortcuts (Ctrl+, Escape), dispatch to window
-      const syntheticEvent = new KeyboardEvent('keydown', {
+      const syntheticEvent = new KeyboardEvent("keydown", {
         key: event.data.key,
         code: event.data.code,
         altKey: event.data.altKey,
@@ -370,32 +402,32 @@ ${processedHtml}
         shiftKey: event.data.shiftKey,
         bubbles: true,
         cancelable: true
-      })
-      window.dispatchEvent(syntheticEvent)
-    } else if (event.data?.type === 'iframe-focus') {
+      });
+      window.dispatchEvent(syntheticEvent);
+    } else if (event.data?.type === "iframe-focus") {
       // Set focus to viewer pane when iframe is clicked/focused
-      setFocusedPane('viewer')
-    } else if (event.data?.type === 'link-hover') {
+      setFocusedPane("viewer");
+    } else if (event.data?.type === "link-hover") {
       // Show tooltip with link URL - adjust coordinates relative to iframe position
       if (iframeElement) {
-        const iframeRect = iframeElement.getBoundingClientRect()
-        tooltipUrl = event.data.url
-        tooltipX = iframeRect.left + event.data.x
-        tooltipY = iframeRect.top + event.data.y
-        tooltipVisible = true
+        const iframeRect = iframeElement.getBoundingClientRect();
+        tooltipUrl = event.data.url;
+        tooltipX = iframeRect.left + event.data.x;
+        tooltipY = iframeRect.top + event.data.y;
+        tooltipVisible = true;
       }
-    } else if (event.data?.type === 'link-hover-end') {
+    } else if (event.data?.type === "link-hover-end") {
       // Hide tooltip
-      tooltipVisible = false
-    } else if (event.data?.type === 'contextmenu') {
+      tooltipVisible = false;
+    } else if (event.data?.type === "contextmenu") {
       // Show unified context menu for text selection and/or links
       if (iframeElement) {
-        const iframeRect = iframeElement.getBoundingClientRect()
-        ctxMenuText = event.data.text || ''
-        ctxMenuUrl = event.data.url || ''
-        ctxMenuX = iframeRect.left + event.data.x
-        ctxMenuY = iframeRect.top + event.data.y
-        ctxMenuVisible = true
+        const iframeRect = iframeElement.getBoundingClientRect();
+        ctxMenuText = event.data.text || "";
+        ctxMenuUrl = event.data.url || "";
+        ctxMenuX = iframeRect.left + event.data.x;
+        ctxMenuY = iframeRect.top + event.data.y;
+        ctxMenuVisible = true;
       }
     }
   }
@@ -404,243 +436,271 @@ ${processedHtml}
     if (iframeElement?.contentWindow && Object.keys(images).length > 0) {
       // Use spread operator to create plain object from Svelte 5 $state proxy
       // This is needed because postMessage uses structured clone which can't handle proxies
-      iframeElement.contentWindow.postMessage({
-        type: 'inline-images',
-        images: { ...images }
-      }, '*')
+      iframeElement.contentWindow.postMessage(
+        {
+          type: "inline-images",
+          images: { ...images }
+        },
+        "*"
+      );
     }
   }
 
   function loadImages() {
-    imagesBlocked = false
-    onImagesLoaded?.()
+    imagesBlocked = false;
+    onImagesLoaded?.();
   }
 
   // Extract domain from email address
   function extractDomain(email: string): string {
-    const parts = email.split('@')
-    return parts.length === 2 ? parts[1] : ''
+    const parts = email.split("@");
+    return parts.length === 2 ? parts[1] : "";
   }
 
   // Handle "Always load for this sender" action
   async function handleAlwaysLoadSender() {
-    if (!fromEmail) return
+    if (!fromEmail) return;
     try {
-      await AddImageAllowlist('sender', fromEmail)
-      refreshImageAllowlist()
-      loadImages()
+      await AddImageAllowlist("sender", fromEmail);
+      refreshImageAllowlist();
+      loadImages();
     } catch (err) {
-      console.error('[EmailBody] Failed to add sender to allowlist:', err)
+      console.error("[EmailBody] Failed to add sender to allowlist:", err);
     }
   }
 
   // Handle "Always load for this domain" action
   async function handleAlwaysLoadDomain() {
-    const domain = extractDomain(fromEmail)
-    if (!domain) return
+    const domain = extractDomain(fromEmail);
+    if (!domain) return;
     try {
-      await AddImageAllowlist('domain', domain)
-      refreshImageAllowlist()
-      loadImages()
+      await AddImageAllowlist("domain", domain);
+      refreshImageAllowlist();
+      loadImages();
     } catch (err) {
-      console.error('[EmailBody] Failed to add domain to allowlist:', err)
+      console.error("[EmailBody] Failed to add domain to allowlist:", err);
     }
   }
 
   // Check allowlist and reset state on message change (single effect to avoid race conditions)
   // Uses synchronous frontend cache instead of async Wails call to avoid bridge saturation.
   $effect(() => {
-    const id = messageId
-    const email = fromEmail
-    const hasImages = hasRemoteImages
+    const id = messageId;
+    const email = fromEmail;
+    const hasImages = hasRemoteImages;
 
     // Reset state (was in separate effect — merged to avoid race)
-    iframeReady = false
-    lastSentMessageId = null
-    inlineAttachments = {}
-    imagesBlocked = true
+    iframeReady = false;
+    lastSentMessageId = null;
+    inlineAttachments = {};
+    imagesBlocked = true;
 
-    if (!hasImages) return
+    if (!hasImages) return;
 
     if (getAlwaysLoadImages()) {
-      imagesBlocked = false
-      return
+      imagesBlocked = false;
+      return;
     }
 
     if (email && isImageAllowedSync(email)) {
-      imagesBlocked = false
+      imagesBlocked = false;
     }
-  })
+  });
 
   // Fetch inline attachments when we have cid references
   $effect(() => {
-    const id = messageId
-    const html = bodyHtml
-    const hasCid = html ? /src=["']cid:([^"']+)["']/i.test(html) : false
-    const encInline = encryptedInlineAttachments
+    const id = messageId;
+    const html = bodyHtml;
+    const hasCid = html ? /src=["']cid:([^"']+)["']/i.test(html) : false;
+    const encInline = encryptedInlineAttachments;
 
     if (!id || !hasCid) {
-      return
+      return;
     }
 
     // For encrypted messages, use the in-memory inline attachments from decryption
     if (encInline && Object.keys(encInline).length > 0) {
-      inlineAttachments = encInline
-      return
+      inlineAttachments = encInline;
+      return;
     }
 
     // Check memory cache first
-    const cached = getCached(id)
+    const cached = getCached(id);
     if (cached && Object.keys(cached).length > 0) {
-      inlineAttachments = cached
-      return
+      inlineAttachments = cached;
+      return;
     }
 
     GetInlineAttachments(id)
       .then((result: Record<string, string>) => {
-        const data = result || {}
-        inlineAttachments = data
+        const data = result || {};
+        inlineAttachments = data;
         if (Object.keys(data).length > 0) {
-          setCache(id, data)
+          setCache(id, data);
         }
       })
       .catch((err: Error) => {
-        console.error('[EmailBody] Fetch error:', err)
-      })
-  })
+        console.error("[EmailBody] Fetch error:", err);
+      });
+  });
 
   // Build iframe content
   $effect(() => {
-    const html = bodyHtml
-    const blocked = imagesBlocked
+    const html = bodyHtml;
+    const blocked = imagesBlocked;
 
     if (iframeElement && html) {
-      const content = buildIframeContent(html)
-      iframeElement.srcdoc = content
-      iframeReady = false
-      lastSentMessageId = null
+      const content = buildIframeContent(html);
+      iframeElement.srcdoc = content;
+      iframeReady = false;
+      lastSentMessageId = null;
     }
-  })
+  });
 
   // Send inline images when ready
   $effect(() => {
-    const ready = iframeReady
-    const images = inlineAttachments
-    const id = messageId
-    const alreadySent = lastSentMessageId === id
+    const ready = iframeReady;
+    const images = inlineAttachments;
+    const id = messageId;
+    const alreadySent = lastSentMessageId === id;
 
     if (ready && Object.keys(images).length > 0 && !alreadySent) {
-      sendInlineImagesToIframe(images)
-      lastSentMessageId = id
+      sendInlineImagesToIframe(images);
+      lastSentMessageId = id;
     }
-  })
+  });
 
   // Message listener
   $effect(() => {
-    window.addEventListener('message', handleIframeMessage)
-    return () => window.removeEventListener('message', handleIframeMessage)
-  })
+    window.addEventListener("message", handleIframeMessage);
+    return () => window.removeEventListener("message", handleIframeMessage);
+  });
 
   // State for controlling the Always Load dropdown
-  let alwaysLoadDropdownOpen = $state(false)
+  let alwaysLoadDropdownOpen = $state(false);
 
   // Listen for Ctrl-L load images event
   $effect(() => {
     function handleLoadImagesEvent() {
       if (hasRemoteImages && imagesBlocked) {
-        loadImages()
+        loadImages();
       }
     }
-    window.addEventListener('load-remote-images', handleLoadImagesEvent)
-    return () => window.removeEventListener('load-remote-images', handleLoadImagesEvent)
-  })
+    window.addEventListener("load-remote-images", handleLoadImagesEvent);
+    return () =>
+      window.removeEventListener("load-remote-images", handleLoadImagesEvent);
+  });
 
   // Listen for Ctrl-Shift-L always load dropdown event
   $effect(() => {
     function handleAlwaysLoadDropdownEvent() {
       if (hasRemoteImages && imagesBlocked && fromEmail) {
-        alwaysLoadDropdownOpen = true
+        alwaysLoadDropdownOpen = true;
       }
     }
-    window.addEventListener('open-always-load-dropdown', handleAlwaysLoadDropdownEvent)
-    return () => window.removeEventListener('open-always-load-dropdown', handleAlwaysLoadDropdownEvent)
-  })
+    window.addEventListener(
+      "open-always-load-dropdown",
+      handleAlwaysLoadDropdownEvent
+    );
+    return () =>
+      window.removeEventListener(
+        "open-always-load-dropdown",
+        handleAlwaysLoadDropdownEvent
+      );
+  });
 
   function linkifyText(text: string): string {
-    if (!text) return ''
-    const urlPattern = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g
-    const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g
+    if (!text) return "";
+    const urlPattern = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
+    const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
     let escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-    escaped = escaped.replace(urlPattern, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>')
-    escaped = escaped.replace(emailPattern, '<a href="mailto:$1" class="text-primary hover:underline">$1</a>')
-    return escaped
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    escaped = escaped.replace(
+      urlPattern,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>'
+    );
+    escaped = escaped.replace(
+      emailPattern,
+      '<a href="mailto:$1" class="text-primary hover:underline">$1</a>'
+    );
+    return escaped;
   }
 
   // Copy selected text to clipboard
   async function copyTextToClipboard() {
-    if (!ctxMenuText) return
+    if (!ctxMenuText) return;
     try {
-      await navigator.clipboard.writeText(ctxMenuText)
-      ctxMenuVisible = false
+      await navigator.clipboard.writeText(ctxMenuText);
+      ctxMenuVisible = false;
     } catch (err) {
-      console.error('[EmailBody] Failed to copy text:', err)
+      console.error("[EmailBody] Failed to copy text:", err);
     }
   }
 
   // Copy link to clipboard
   async function copyLinkToClipboard() {
-    if (!ctxMenuUrl) return
+    if (!ctxMenuUrl) return;
     try {
-      await navigator.clipboard.writeText(ctxMenuUrl)
-      ctxMenuVisible = false
+      await navigator.clipboard.writeText(ctxMenuUrl);
+      ctxMenuVisible = false;
     } catch (err) {
-      console.error('[EmailBody] Failed to copy link:', err)
+      console.error("[EmailBody] Failed to copy link:", err);
     }
   }
 
   // Select all text in iframe
   function selectAllInIframe() {
-    iframeElement?.contentWindow?.postMessage({ type: 'select-all' }, '*')
-    ctxMenuVisible = false
+    iframeElement?.contentWindow?.postMessage({ type: "select-all" }, "*");
+    ctxMenuVisible = false;
   }
 </script>
 
 <div class="email-body relative">
   {#if bodyHtml}
     {#if hasRemoteImages && imagesBlocked}
-      <div class="flex items-center gap-2 px-3 py-2 mb-3 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-sm">
-        <Icon icon="mdi:image-off" class="w-4 h-4 text-yellow-600 flex-shrink-0" />
-        <span class="text-yellow-700 dark:text-yellow-400">{$_('viewer.remoteImagesBlocked')}</span>
+      <div
+        class="gap-2 px-3 py-2 mb-3 rounded-md bg-yellow-500/10 border-yellow-500/30 text-sm flex items-center border"
+      >
+        <Icon
+          icon="mdi:image-off"
+          class="w-4 h-4 text-yellow-600 flex-shrink-0"
+        />
+        <span class="text-yellow-700 dark:text-yellow-400"
+          >{$_("viewer.remoteImagesBlocked")}</span
+        >
 
-        <div class="ml-auto flex items-center gap-1">
+        <div class="gap-1 ml-auto flex items-center">
           <!-- Load Images button -->
           <button
             class="px-2 py-1 text-xs font-medium rounded bg-yellow-600 text-white hover:bg-yellow-700 transition-colors"
             onclick={loadImages}
           >
-            {$_('viewer.loadImages')}
+            {$_("viewer.loadImages")}
           </button>
 
           <!-- Always Load dropdown -->
           {#if fromEmail}
             <DropdownMenu.Root bind:open={alwaysLoadDropdownOpen}>
               <DropdownMenu.Trigger
-                class="px-2 py-1 text-xs font-medium rounded bg-yellow-600 text-white hover:bg-yellow-700 transition-colors flex items-center gap-1"
+                class="px-2 py-1 text-xs font-medium rounded bg-yellow-600 text-white hover:bg-yellow-700 gap-1 flex items-center transition-colors"
               >
-                {$_('viewer.alwaysLoad')}
+                {$_("viewer.alwaysLoad")}
                 <Icon icon="mdi:chevron-down" class="w-3 h-3" />
               </DropdownMenu.Trigger>
               <DropdownMenu.Content align="end">
                 <DropdownMenu.Item onSelect={handleAlwaysLoadDomain}>
                   <Icon icon="mdi:domain" class="w-4 h-4 mr-2" />
-                  {$_('viewer.forDomain', { values: { domain: extractDomain(fromEmail) || 'this domain' } })}
+                  {$_("viewer.forDomain", {
+                    values: {
+                      domain: extractDomain(fromEmail) || "this domain"
+                    }
+                  })}
                 </DropdownMenu.Item>
                 <DropdownMenu.Item onSelect={handleAlwaysLoadSender}>
                   <Icon icon="mdi:account" class="w-4 h-4 mr-2" />
-                  {$_('viewer.forSender', { values: { email: fromEmail } })}
+                  {$_("viewer.forSender", { values: { email: fromEmail } })}
                 </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Root>
@@ -651,32 +711,41 @@ ${processedHtml}
 
     <iframe
       bind:this={iframeElement}
-      title={$_('aria.emailContent')}
+      title={$_("aria.emailContent")}
       sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-      class="w-full border-0 rounded-md bg-white min-h-[100px]"
+      class="rounded-md bg-white min-h-[100px] w-full border-0"
       style="height: 200px;"
     ></iframe>
   {:else if bodyText}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="whitespace-pre-wrap font-sans text-sm text-foreground bg-muted/30 rounded-md p-4"
-      onkeydown={(e) => { if (e.key === 'Enter') { const link = (e.target as HTMLElement).closest('a'); if (link?.href) { e.preventDefault(); handleLinkClick(link.href) } } }}
+    <div
+      class="font-sans text-sm text-foreground bg-muted/30 rounded-md p-4 whitespace-pre-wrap"
+      onkeydown={(e) => {
+        if (e.key === "Enter") {
+          const link = (e.target as HTMLElement).closest("a");
+          if (link?.href) {
+            e.preventDefault();
+            handleLinkClick(link.href);
+          }
+        }
+      }}
       onclick={(e) => {
-        const link = (e.target as HTMLElement).closest('a')
-        if (!link?.href) return
-        e.preventDefault()
-        handleLinkClick(link.href)
+        const link = (e.target as HTMLElement).closest("a");
+        if (!link?.href) return;
+        e.preventDefault();
+        handleLinkClick(link.href);
       }}
     >
       {@html linkifyText(bodyText)}
     </div>
   {:else}
-    <p class="text-muted-foreground italic">{$_('viewer.noContent')}</p>
+    <p class="text-muted-foreground italic">{$_("viewer.noContent")}</p>
   {/if}
 
   <!-- Link hover tooltip -->
   {#if tooltipVisible && tooltipUrl}
     <div
-      class="fixed z-50 px-3 py-1.5 text-xs bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 rounded shadow-lg max-w-md truncate pointer-events-none border border-gray-700 dark:border-gray-300"
+      class="px-3 py-1.5 text-xs bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 rounded shadow-lg max-w-md border-gray-700 dark:border-gray-300 pointer-events-none fixed z-50 truncate border"
       style="left: {tooltipX}px; top: {tooltipY + 5}px;"
     >
       {tooltipUrl}
@@ -686,34 +755,34 @@ ${processedHtml}
   <!-- Context menu (text copy and/or link copy) -->
   {#if ctxMenuVisible}
     <div
-      class="fixed z-50 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[160px]"
+      class="bg-white dark:bg-gray-800 rounded-md shadow-lg border-gray-200 dark:border-gray-700 py-1 fixed z-50 min-w-[160px] border"
       style="left: {ctxMenuX}px; top: {ctxMenuY}px;"
       role="menu"
     >
       {#if ctxMenuText}
         <button
-          class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+          class="px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 gap-2 flex w-full items-center text-left"
           onclick={copyTextToClipboard}
         >
           <Icon icon="mdi:content-copy" class="w-4 h-4" />
-          {$_('viewer.copy')}
+          {$_("viewer.copy")}
         </button>
       {/if}
       {#if ctxMenuUrl}
         <button
-          class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+          class="px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 gap-2 flex w-full items-center text-left"
           onclick={copyLinkToClipboard}
         >
           <Icon icon="mdi:link-variant" class="w-4 h-4" />
-          {$_('viewer.copyLink')}
+          {$_("viewer.copyLink")}
         </button>
       {/if}
       <button
-        class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+        class="px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 gap-2 flex w-full items-center text-left"
         onclick={selectAllInIframe}
       >
         <Icon icon="mdi:select-all" class="w-4 h-4" />
-        {$_('viewer.selectAll')}
+        {$_("viewer.selectAll")}
       </button>
     </div>
   {/if}
@@ -723,9 +792,11 @@ ${processedHtml}
 {#if ctxMenuVisible}
   <button
     type="button"
-    class="fixed inset-0 z-40 cursor-default"
-    aria-label={$_('aria.closeContextMenu')}
-    onclick={() => ctxMenuVisible = false}
-    onkeydown={(e) => { if (e.key === 'Escape') ctxMenuVisible = false }}
+    class="inset-0 fixed z-40 cursor-default"
+    aria-label={$_("aria.closeContextMenu")}
+    onclick={() => (ctxMenuVisible = false)}
+    onkeydown={(e) => {
+      if (e.key === "Escape") ctxMenuVisible = false;
+    }}
   ></button>
 {/if}

@@ -1,15 +1,15 @@
 // Tracks open dialogs that should prevent background reloads from destroying
 // the component tree (e.g., folder picker dialog dismissed by sync reload).
-let count = 0
+let count = 0;
 
 export function dialogGuardOpen() {
-  count++
+  count++;
 }
 
 export function dialogGuardClose() {
-  count--
+  count--;
 }
 
 export function isDialogGuardActive(): boolean {
-  return count > 0
+  return count > 0;
 }

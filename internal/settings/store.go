@@ -55,14 +55,15 @@ const DefaultMessageListSortOrder = SortOrderNewest
 
 // Theme mode values
 const (
-	ThemeModeSystem      = "system"
-	ThemeModeLight       = "light"        // Default light purple
-	ThemeModeLightBlue   = "light-blue"   // New
-	ThemeModeLightOrange   = "light-orange"   // New
-	ThemeModeLightBalanced = "light-balanced" // New
-	ThemeModeDark          = "dark"           // Default dark purple
-	ThemeModeDarkGray     = "dark-gray"     // New
-	ThemeModeDarkBalanced = "dark-balanced" // New
+	ThemeModeSystem          = "system"
+	ThemeModeLight           = "light"                 // Default light purple
+	ThemeModeLightBlue       = "light-blue"            // New
+	ThemeModeLightOrange     = "light-orange"          // New
+	ThemeModeLightBalanced   = "light-balanced"        // New
+	ThemeModeDark            = "dark"                  // Default dark purple
+	ThemeModeDarkGray        = "dark-gray"             // New
+	ThemeModeDarkBalanced    = "dark-balanced"         // New
+	ThemeModeCatppuccinMocha = "dark-catppuccin-mocha" // catppuccin-mocha
 )
 
 // DefaultThemeMode is the default theme mode
@@ -265,7 +266,7 @@ func (s *Store) GetThemeMode() (string, error) {
 func (s *Store) SetThemeMode(mode string) error {
 	switch mode {
 	case ThemeModeSystem, ThemeModeLight, ThemeModeLightBlue, ThemeModeLightOrange, ThemeModeLightBalanced,
-		ThemeModeDark, ThemeModeDarkGray, ThemeModeDarkBalanced:
+		ThemeModeDark, ThemeModeDarkGray, ThemeModeDarkBalanced, ThemeModeCatppuccinMocha:
 		return s.Set(KeyThemeMode, mode)
 	default:
 		return fmt.Errorf("invalid theme mode: %s (must be 'system', 'light', 'light-blue', 'light-orange', 'light-balanced', 'dark', 'dark-gray', or 'dark-balanced')", mode)

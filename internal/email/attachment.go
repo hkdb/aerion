@@ -220,4 +220,3 @@ func decodeRFC2047(s string) (string, error) {
 	dec := new(mime.WordDecoder)
 	return dec.DecodeHeader(s)
 }
-

@@ -19,14 +19,14 @@
     onOpenChange,
     disabled,
     name,
-    children,
+    children
   }: Props = $props();
 </script>
 
-<SelectPrimitive.Root 
+<SelectPrimitive.Root
   type="single"
-  bind:value 
-  bind:open 
+  bind:value
+  bind:open
   {onValueChange}
   {onOpenChange}
   {disabled}

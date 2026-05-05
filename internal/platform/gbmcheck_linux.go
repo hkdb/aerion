@@ -60,8 +60,8 @@ func MonitorGBMErrors() {
 		for scanner.Scan() {
 			line := scanner.Text()
 			if strings.Contains(line, "Failed to create GBM buffer") ||
-			strings.Contains(line, "Protocol error) dispatching to Wayland display") ||
-			strings.Contains(line, "Failed to submit review to ODRS") {
+				strings.Contains(line, "Protocol error) dispatching to Wayland display") ||
+				strings.Contains(line, "Failed to submit review to ODRS") {
 				once.Do(func() {
 					showGBMFixDialog()
 				})

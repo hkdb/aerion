@@ -1,5 +1,5 @@
 # Aerion Email Client - Build System
-# 
+#
 # Usage:
 #   make build    - Build production binary
 #   make dev      - Run in development mode
@@ -124,6 +124,14 @@ frontend-deps:
 frontend-update:
 	@echo "Updating frontend dependencies..."
 	cd frontend && npm update
+
+frontend-lint:
+	@echo "Linting frontend..."
+	cd frontend && npm run lint
+
+frontend-fmt:
+	@echo "Formatting frontend..."
+	cd frontend && npm run format
 
 ## Installation (Cross-Platform)
 

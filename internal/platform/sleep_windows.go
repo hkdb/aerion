@@ -14,20 +14,20 @@ import (
 )
 
 const (
-	wmPowerBroadcast     = 0x0218
-	pbtAPMSuspend        = 0x0004
+	wmPowerBroadcast      = 0x0218
+	pbtAPMSuspend         = 0x0004
 	pbtAPMResumeAutomatic = 0x0012
 )
 
 var (
-	user32                = windows.NewLazySystemDLL("user32.dll")
-	procRegisterClassExW  = user32.NewProc("RegisterClassExW")
-	procCreateWindowExW   = user32.NewProc("CreateWindowExW")
-	procDestroyWindow     = user32.NewProc("DestroyWindow")
-	procGetMessageW       = user32.NewProc("GetMessageW")
-	procTranslateMessage  = user32.NewProc("TranslateMessage")
-	procDispatchMessageW  = user32.NewProc("DispatchMessageW")
-	procDefWindowProcW    = user32.NewProc("DefWindowProcW")
+	user32                 = windows.NewLazySystemDLL("user32.dll")
+	procRegisterClassExW   = user32.NewProc("RegisterClassExW")
+	procCreateWindowExW    = user32.NewProc("CreateWindowExW")
+	procDestroyWindow      = user32.NewProc("DestroyWindow")
+	procGetMessageW        = user32.NewProc("GetMessageW")
+	procTranslateMessage   = user32.NewProc("TranslateMessage")
+	procDispatchMessageW   = user32.NewProc("DispatchMessageW")
+	procDefWindowProcW     = user32.NewProc("DefWindowProcW")
 	procPostThreadMessageW = user32.NewProc("PostThreadMessageW")
 )
 
@@ -154,15 +154,15 @@ func (m *WindowsSleepWakeMonitor) Start(ctx context.Context) error {
 		}
 
 		hwnd, _, err := procCreateWindowExW.Call(
-			0,                                // dwExStyle
+			0,                                  // dwExStyle
 			uintptr(unsafe.Pointer(className)), // lpClassName
-			0,                                // lpWindowName
-			0,                                // dwStyle
-			0, 0, 0, 0,                       // x, y, w, h
-			hwndMessage,                      // hWndParent = HWND_MESSAGE
-			0,                                // hMenu
-			0,                                // hInstance
-			0,                                // lpParam
+			0,                                  // lpWindowName
+			0,                                  // dwStyle
+			0, 0, 0, 0,                         // x, y, w, h
+			hwndMessage, // hWndParent = HWND_MESSAGE
+			0,           // hMenu
+			0,           // hInstance
+			0,           // lpParam
 		)
 		if hwnd == 0 {
 			ready <- err

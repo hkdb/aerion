@@ -1,83 +1,85 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import Icon from '@iconify/svelte'
-  import { Button } from '$lib/components/ui/button'
-  import { Label } from '$lib/components/ui/label'
-  import Switch from '$lib/components/ui/switch/Switch.svelte'
-  import ConfirmDialog from '$lib/components/ui/confirm-dialog/ConfirmDialog.svelte'
-  import { addToast } from '$lib/stores/toast'
-  import { _ } from '$lib/i18n'
-  import { refreshImageAllowlist } from '$lib/stores/imageAllowlist.svelte'
-  // @ts-ignore - wailsjs path
-  import { settings } from '../../../../wailsjs/go/models'
+  import { Button } from "$lib/components/ui/button";
+  import ConfirmDialog from "$lib/components/ui/confirm-dialog/ConfirmDialog.svelte";
+  import { Label } from "$lib/components/ui/label";
+  import Switch from "$lib/components/ui/switch/Switch.svelte";
+  import { _ } from "$lib/i18n";
+  import { refreshImageAllowlist } from "$lib/stores/imageAllowlist.svelte";
+  import { addToast } from "$lib/stores/toast";
+  import Icon from "@iconify/svelte";
+  import { onMount } from "svelte";
+
   // @ts-ignore - wailsjs path
   import {
     GetImageAllowlist,
-    RemoveImageAllowlist,
-  } from '../../../../wailsjs/go/app/App'
+    RemoveImageAllowlist
+  } from "../../../../wailsjs/go/app/App";
+  // @ts-ignore - wailsjs path
+  import { settings } from "../../../../wailsjs/go/models";
 
   interface Props {
-    alwaysLoadImages: boolean
-    onAlwaysLoadImagesChange: (value: boolean) => void
+    alwaysLoadImages: boolean;
+    onAlwaysLoadImagesChange: (value: boolean) => void;
   }
 
-  let {
-    alwaysLoadImages = $bindable(),
-    onAlwaysLoadImagesChange,
-  }: Props = $props()
+  let { alwaysLoadImages = $bindable(), onAlwaysLoadImagesChange }: Props =
+    $props();
 
   // State
-  let entries = $state<settings.AllowlistEntry[]>([])
-  let loading = $state(true)
-  let addressesCollapsed = $state(false)
-  let domainsCollapsed = $state(false)
-  let showAlwaysLoadImagesConfirm = $state(false)
+  let entries = $state<settings.AllowlistEntry[]>([]);
+  let loading = $state(true);
+  let addressesCollapsed = $state(false);
+  let domainsCollapsed = $state(false);
+  let showAlwaysLoadImagesConfirm = $state(false);
 
   // Derived
-  let addresses = $derived(entries.filter(e => e.type === 'sender'))
-  let domains = $derived(entries.filter(e => e.type === 'domain'))
+  let addresses = $derived(entries.filter((e) => e.type === "sender"));
+  let domains = $derived(entries.filter((e) => e.type === "domain"));
 
   function handleAlwaysLoadImagesChange(value: boolean) {
     if (value) {
-      showAlwaysLoadImagesConfirm = true
-      return
+      showAlwaysLoadImagesConfirm = true;
+      return;
     }
-    alwaysLoadImages = false
-    onAlwaysLoadImagesChange?.(false)
+    alwaysLoadImages = false;
+    onAlwaysLoadImagesChange?.(false);
   }
 
   async function loadData() {
     try {
-      entries = await GetImageAllowlist() ?? []
+      entries = (await GetImageAllowlist()) ?? [];
     } catch (err) {
-      console.error('Failed to load image allowlist:', err)
+      console.error("Failed to load image allowlist:", err);
     } finally {
-      loading = false
+      loading = false;
     }
   }
 
   async function handleRemove(id: number) {
     try {
-      await RemoveImageAllowlist(id)
-      await loadData()
-      refreshImageAllowlist()
+      await RemoveImageAllowlist(id);
+      await loadData();
+      refreshImageAllowlist();
       addToast({
-        type: 'success',
-        message: $_('images.removed'),
-      })
+        type: "success",
+        message: $_("images.removed")
+      });
     } catch (err) {
-      console.error('Failed to remove allowlist entry:', err)
+      console.error("Failed to remove allowlist entry:", err);
     }
   }
 
   onMount(() => {
-    loadData()
-  })
+    loadData();
+  });
 </script>
 
 {#if loading}
-  <div class="flex items-center justify-center py-8">
-    <Icon icon="mdi:loading" class="w-6 h-6 animate-spin text-muted-foreground" />
+  <div class="py-8 flex items-center justify-center">
+    <Icon
+      icon="mdi:loading"
+      class="w-6 h-6 animate-spin text-muted-foreground"
+    />
   </div>
 {:else}
   <div class="space-y-6">
@@ -85,9 +87,11 @@
     <div class="space-y-2">
       <div class="flex items-center justify-between">
         <div class="space-y-0.5">
-          <Label for="always-load-images">{$_('settingsGeneral.alwaysLoadImages')}</Label>
+          <Label for="always-load-images"
+            >{$_("settingsGeneral.alwaysLoadImages")}</Label
+          >
           <p class="text-xs text-muted-foreground">
-            {$_('settingsGeneral.alwaysLoadImagesHelp')}
+            {$_("settingsGeneral.alwaysLoadImagesHelp")}
           </p>
         </div>
         <Switch
@@ -99,30 +103,48 @@
     </div>
 
     <!-- Divider -->
-    <div class="border-t border-border"></div>
+    <div class="border-border border-t"></div>
 
     <!-- Addresses Section -->
     <div class="space-y-3">
       <button
-        class="w-full flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary transition-colors text-left"
-        onclick={() => addressesCollapsed = !addressesCollapsed}
+        class="gap-2 text-sm font-semibold text-foreground hover:text-primary flex w-full items-center text-left transition-colors"
+        onclick={() => (addressesCollapsed = !addressesCollapsed)}
       >
-        <Icon icon={addressesCollapsed ? 'mdi:chevron-right' : 'mdi:chevron-down'} class="w-4 h-4 flex-shrink-0" />
+        <Icon
+          icon={addressesCollapsed ? "mdi:chevron-right" : "mdi:chevron-down"}
+          class="w-4 h-4 flex-shrink-0"
+        />
         <Icon icon="mdi:email-outline" class="w-4 h-4" />
-        {$_('images.addresses')}
-        <span class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">{addresses.length}</span>
+        {$_("images.addresses")}
+        <span
+          class="px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium text-[10px]"
+          >{addresses.length}</span
+        >
       </button>
 
       {#if !addressesCollapsed}
         {#if addresses.length === 0}
-          <p class="text-sm text-muted-foreground ml-6">{$_('images.noAddresses')}</p>
+          <p class="text-sm text-muted-foreground ml-6">
+            {$_("images.noAddresses")}
+          </p>
         {:else}
-          <div class="space-y-1.5 max-h-48 overflow-y-auto ml-6">
+          <div class="space-y-1.5 max-h-48 ml-6 overflow-y-auto">
             {#each addresses as entry (entry.id)}
-              <div class="flex items-center gap-3 p-2 rounded-md border border-border">
-                <Icon icon="mdi:email-outline" class="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <div
+                class="gap-3 p-2 rounded-md border-border flex items-center border"
+              >
+                <Icon
+                  icon="mdi:email-outline"
+                  class="w-4 h-4 text-muted-foreground flex-shrink-0"
+                />
                 <span class="text-sm flex-1 truncate">{entry.value}</span>
-                <Button variant="ghost" size="sm" onclick={() => handleRemove(entry.id)} title={$_('images.removeButton')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onclick={() => handleRemove(entry.id)}
+                  title={$_("images.removeButton")}
+                >
                   <Icon icon="mdi:close" class="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -135,25 +157,43 @@
     <!-- Domains Section -->
     <div class="space-y-3">
       <button
-        class="w-full flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary transition-colors text-left"
-        onclick={() => domainsCollapsed = !domainsCollapsed}
+        class="gap-2 text-sm font-semibold text-foreground hover:text-primary flex w-full items-center text-left transition-colors"
+        onclick={() => (domainsCollapsed = !domainsCollapsed)}
       >
-        <Icon icon={domainsCollapsed ? 'mdi:chevron-right' : 'mdi:chevron-down'} class="w-4 h-4 flex-shrink-0" />
+        <Icon
+          icon={domainsCollapsed ? "mdi:chevron-right" : "mdi:chevron-down"}
+          class="w-4 h-4 flex-shrink-0"
+        />
         <Icon icon="mdi:web" class="w-4 h-4" />
-        {$_('images.domains')}
-        <span class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">{domains.length}</span>
+        {$_("images.domains")}
+        <span
+          class="px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium text-[10px]"
+          >{domains.length}</span
+        >
       </button>
 
       {#if !domainsCollapsed}
         {#if domains.length === 0}
-          <p class="text-sm text-muted-foreground ml-6">{$_('images.noDomains')}</p>
+          <p class="text-sm text-muted-foreground ml-6">
+            {$_("images.noDomains")}
+          </p>
         {:else}
-          <div class="space-y-1.5 max-h-48 overflow-y-auto ml-6">
+          <div class="space-y-1.5 max-h-48 ml-6 overflow-y-auto">
             {#each domains as entry (entry.id)}
-              <div class="flex items-center gap-3 p-2 rounded-md border border-border">
-                <Icon icon="mdi:web" class="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <div
+                class="gap-3 p-2 rounded-md border-border flex items-center border"
+              >
+                <Icon
+                  icon="mdi:web"
+                  class="w-4 h-4 text-muted-foreground flex-shrink-0"
+                />
                 <span class="text-sm flex-1 truncate">{entry.value}</span>
-                <Button variant="ghost" size="sm" onclick={() => handleRemove(entry.id)} title={$_('images.removeButton')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onclick={() => handleRemove(entry.id)}
+                  title={$_("images.removeButton")}
+                >
                   <Icon icon="mdi:close" class="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -167,10 +207,14 @@
 
 <ConfirmDialog
   bind:open={showAlwaysLoadImagesConfirm}
-  title={$_('settingsGeneral.alwaysLoadImagesWarningTitle')}
-  description={$_('settingsGeneral.alwaysLoadImagesWarningDescription')}
-  confirmLabel={$_('settingsGeneral.disable')}
+  title={$_("settingsGeneral.alwaysLoadImagesWarningTitle")}
+  description={$_("settingsGeneral.alwaysLoadImagesWarningDescription")}
+  confirmLabel={$_("settingsGeneral.disable")}
   variant="destructive"
-  onConfirm={() => { onAlwaysLoadImagesChange?.(true) }}
-  onCancel={() => { alwaysLoadImages = false }}
+  onConfirm={() => {
+    onAlwaysLoadImagesChange?.(true);
+  }}
+  onCancel={() => {
+    alwaysLoadImages = false;
+  }}
 />

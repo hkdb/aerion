@@ -1,31 +1,31 @@
 <script lang="ts">
-  import Icon from '@iconify/svelte'
-  import * as Select from '$lib/components/ui/select'
-  import { Label } from '$lib/components/ui/label'
-  import { Input } from '$lib/components/ui/input'
-  import Switch from '$lib/components/ui/switch/Switch.svelte'
-  import { _, setLocale } from '$lib/i18n'
-  import { supportedLocales } from '$lib/i18n'
+  import { Input } from "$lib/components/ui/input";
+  import { Label } from "$lib/components/ui/label";
+  import * as Select from "$lib/components/ui/select";
+  import Switch from "$lib/components/ui/switch/Switch.svelte";
+  import { _, setLocale } from "$lib/i18n";
+  import { supportedLocales } from "$lib/i18n";
+  import Icon from "@iconify/svelte";
 
   interface Props {
-    markAsReadDelaySeconds: number
-    messageListDensity: string
-    themeMode: string
-    nativeTitleBar: boolean
-    showTitleBar: boolean
-    runBackground: boolean
-    startHidden: boolean
-    autostart: boolean
-    language: string
-    onDelayChange: (value: number) => void
-    onDensityChange: (value: string) => void
-    onThemeChange: (value: string) => void
-    onTitleBarChange: (nativeTitleBar: boolean, showTitleBar: boolean) => void
-    onRunBackgroundChange: (value: boolean) => void
-    onStartHiddenChange: (value: boolean) => void
-    onAutostartChange: (value: boolean) => void
-    onLanguageChange: (value: string) => void
-    accentBarUnread: boolean
+    markAsReadDelaySeconds: number;
+    messageListDensity: string;
+    themeMode: string;
+    nativeTitleBar: boolean;
+    showTitleBar: boolean;
+    runBackground: boolean;
+    startHidden: boolean;
+    autostart: boolean;
+    language: string;
+    onDelayChange: (value: number) => void;
+    onDensityChange: (value: string) => void;
+    onThemeChange: (value: string) => void;
+    onTitleBarChange: (nativeTitleBar: boolean, showTitleBar: boolean) => void;
+    onRunBackgroundChange: (value: boolean) => void;
+    onStartHiddenChange: (value: boolean) => void;
+    onAutostartChange: (value: boolean) => void;
+    onLanguageChange: (value: string) => void;
+    accentBarUnread: boolean;
   }
 
   let {
@@ -46,134 +46,159 @@
     onStartHiddenChange,
     onAutostartChange,
     onLanguageChange,
-    accentBarUnread = $bindable(),
-  }: Props = $props()
+    accentBarUnread = $bindable()
+  }: Props = $props();
 
   // Message list density options
   const densityOptions = $derived([
-    { value: 'micro', label: $_('settingsGeneral.densityMicro') },
-    { value: 'compact', label: $_('settingsGeneral.densityCompact') },
-    { value: 'standard', label: $_('settingsGeneral.densityStandard') },
-    { value: 'large', label: $_('settingsGeneral.densityLarge') },
-  ])
+    { value: "micro", label: $_("settingsGeneral.densityMicro") },
+    { value: "compact", label: $_("settingsGeneral.densityCompact") },
+    { value: "standard", label: $_("settingsGeneral.densityStandard") },
+    { value: "large", label: $_("settingsGeneral.densityLarge") }
+  ]);
 
   // Title bar options
   const titleBarOptions = $derived([
-    { value: 'aerion', label: $_('settingsGeneral.titleBarAerion'), description: $_('settingsGeneral.titleBarAerionDesc') },
-    { value: 'native', label: $_('settingsGeneral.titleBarNative'), description: $_('settingsGeneral.titleBarNativeDesc') },
-    { value: 'disable', label: $_('settingsGeneral.titleBarDisable'), description: $_('settingsGeneral.titleBarDisableDesc') },
-  ])
+    {
+      value: "aerion",
+      label: $_("settingsGeneral.titleBarAerion"),
+      description: $_("settingsGeneral.titleBarAerionDesc")
+    },
+    {
+      value: "native",
+      label: $_("settingsGeneral.titleBarNative"),
+      description: $_("settingsGeneral.titleBarNativeDesc")
+    },
+    {
+      value: "disable",
+      label: $_("settingsGeneral.titleBarDisable"),
+      description: $_("settingsGeneral.titleBarDisableDesc")
+    }
+  ]);
 
   const titleBarValue = $derived(
-    nativeTitleBar ? 'native' : showTitleBar ? 'aerion' : 'disable'
-  )
+    nativeTitleBar ? "native" : showTitleBar ? "aerion" : "disable"
+  );
 
   // Theme mode options
   const themeModeOptions = $derived([
-    { value: 'system', label: $_('settingsGeneral.themeSystem') },
-    { value: 'light', label: $_('settingsGeneral.themeLight') },
-    { value: 'light-blue', label: $_('settingsGeneral.themeLightBlue') },
-    { value: 'light-orange', label: $_('settingsGeneral.themeLightOrange') },
-    { value: 'light-balanced', label: $_('settingsGeneral.themeLightBalanced') },
-    { value: 'dark', label: $_('settingsGeneral.themeDark') },
-    { value: 'dark-gray', label: $_('settingsGeneral.themeDarkGray') },
-    { value: 'dark-balanced', label: $_('settingsGeneral.themeDarkBalanced') },
-  ])
+    { value: "system", label: $_("settingsGeneral.themeSystem") },
+    { value: "light", label: $_("settingsGeneral.themeLight") },
+    { value: "light-blue", label: $_("settingsGeneral.themeLightBlue") },
+    {
+      value: "light-orange",
+      label: $_("settingsGeneral.themeLightOrange")
+    },
+    {
+      value: "light-balanced",
+      label: $_("settingsGeneral.themeLightBalanced")
+    },
+    { value: "dark", label: $_("settingsGeneral.themeDark") },
+    { value: "dark-gray", label: $_("settingsGeneral.themeDarkGray") },
+    {
+      value: "dark-balanced",
+      label: $_("settingsGeneral.themeDarkBalanced")
+    },
+    {
+      value: "dark-catppuccin-mocha",
+      label: $_("settingsGeneral.themeCatppuccinMocha")
+    }
+  ]);
 
   function getDensityLabel(value: string): string {
-    return densityOptions.find(opt => opt.value === value)?.label || value
+    return densityOptions.find((opt) => opt.value === value)?.label || value;
   }
 
   function getThemeModeLabel(value: string): string {
-    return themeModeOptions.find(opt => opt.value === value)?.label || value
+    return themeModeOptions.find((opt) => opt.value === value)?.label || value;
   }
 
   // Language picker
   function getLanguageLabel(code: string): string {
-    return supportedLocales.find(l => l.code === code)?.name || code || 'English'
+    return (
+      supportedLocales.find((l) => l.code === code)?.name || code || "English"
+    );
   }
 
   function handleDensityChange(value: string) {
-    messageListDensity = value
-    onDensityChange?.(value)
+    messageListDensity = value;
+    onDensityChange?.(value);
   }
 
   function handleThemeChange(value: string) {
-    themeMode = value
-    onThemeChange?.(value)
+    themeMode = value;
+    onThemeChange?.(value);
   }
 
   function handleTitleBarChange(value: string) {
     switch (value) {
-      case 'aerion':
-        nativeTitleBar = false
-        showTitleBar = true
-        break
-      case 'native':
-        nativeTitleBar = true
-        showTitleBar = false
-        break
-      case 'disable':
-        nativeTitleBar = false
-        showTitleBar = false
-        break
+      case "aerion":
+        nativeTitleBar = false;
+        showTitleBar = true;
+        break;
+      case "native":
+        nativeTitleBar = true;
+        showTitleBar = false;
+        break;
+      case "disable":
+        nativeTitleBar = false;
+        showTitleBar = false;
+        break;
     }
-    onTitleBarChange?.(nativeTitleBar, showTitleBar)
+    onTitleBarChange?.(nativeTitleBar, showTitleBar);
   }
 
   function getTitleBarLabel(value: string): string {
-    return titleBarOptions.find(opt => opt.value === value)?.label || value
+    return titleBarOptions.find((opt) => opt.value === value)?.label || value;
   }
 
   function handleDelayInput(e: Event) {
-    const target = e.target as HTMLInputElement
-    const value = parseFloat(target.value)
-    markAsReadDelaySeconds = value
-    onDelayChange?.(value)
+    const target = e.target as HTMLInputElement;
+    const value = parseFloat(target.value);
+    markAsReadDelaySeconds = value;
+    onDelayChange?.(value);
   }
 
   function handleRunBackgroundChange(value: boolean) {
-    runBackground = value
+    runBackground = value;
     if (!value) {
-      startHidden = false
+      startHidden = false;
     }
-    onRunBackgroundChange?.(value)
+    onRunBackgroundChange?.(value);
   }
 
   function handleStartHiddenChange(value: boolean) {
-    startHidden = value
+    startHidden = value;
     if (value && !runBackground) {
-      runBackground = true
-      onRunBackgroundChange?.(true)
+      runBackground = true;
+      onRunBackgroundChange?.(true);
     }
-    onStartHiddenChange?.(value)
+    onStartHiddenChange?.(value);
   }
 
   function handleAutostartChange(value: boolean) {
-    autostart = value
-    onAutostartChange?.(value)
+    autostart = value;
+    onAutostartChange?.(value);
   }
 
   function handleLanguageChange(value: string) {
-    language = value
+    language = value;
     // Apply immediately for live preview
-    setLocale(value)
-    onLanguageChange?.(value)
+    setLocale(value);
+    onLanguageChange?.(value);
   }
-
-
 </script>
 
 <div class="space-y-6">
   <!-- Display Section -->
   <div class="space-y-4">
-    <h3 class="text-sm font-medium flex items-center gap-2">
+    <h3 class="text-sm font-medium gap-2 flex items-center">
       <Icon icon="mdi:format-size" class="w-4 h-4" />
-      {$_('settingsGeneral.display')}
+      {$_("settingsGeneral.display")}
     </h3>
 
     <div class="space-y-2">
-      <Label>{$_('settingsGeneral.titleBar')}</Label>
+      <Label>{$_("settingsGeneral.titleBar")}</Label>
       <Select.Root value={titleBarValue} onValueChange={handleTitleBarChange}>
         <Select.Trigger>
           <Select.Value>
@@ -187,16 +212,19 @@
         </Select.Content>
       </Select.Root>
       <p class="text-xs text-muted-foreground">
-        {$_('settingsGeneral.titleBarHelp')}
+        {$_("settingsGeneral.titleBarHelp")}
       </p>
     </div>
 
     <div class="space-y-2">
-      <Label>{$_('settingsGeneral.language')}</Label>
-      <Select.Root value={language || 'en'} onValueChange={handleLanguageChange}>
+      <Label>{$_("settingsGeneral.language")}</Label>
+      <Select.Root
+        value={language || "en"}
+        onValueChange={handleLanguageChange}
+      >
         <Select.Trigger>
           <Select.Value>
-            {getLanguageLabel(language || 'en')}
+            {getLanguageLabel(language || "en")}
           </Select.Value>
         </Select.Trigger>
         <Select.Content>
@@ -208,10 +236,10 @@
     </div>
 
     <div class="space-y-2">
-      <Label>{$_('settingsGeneral.theme')}</Label>
+      <Label>{$_("settingsGeneral.theme")}</Label>
       <Select.Root value={themeMode} onValueChange={handleThemeChange}>
         <Select.Trigger>
-          <Select.Value placeholder={$_('settingsGeneral.selectTheme')}>
+          <Select.Value placeholder={$_("settingsGeneral.selectTheme")}>
             {getThemeModeLabel(themeMode)}
           </Select.Value>
         </Select.Trigger>
@@ -222,7 +250,7 @@
         </Select.Content>
       </Select.Root>
       <p class="text-xs text-muted-foreground">
-        {$_('settingsGeneral.themeHelp')}
+        {$_("settingsGeneral.themeHelp")}
       </p>
     </div>
 
@@ -230,23 +258,25 @@
     <div class="space-y-2">
       <div class="flex items-center justify-between">
         <div>
-          <Label for="accent-bar-unread">{$_('settingsGeneral.accentBarUnread')}</Label>
+          <Label for="accent-bar-unread"
+            >{$_("settingsGeneral.accentBarUnread")}</Label
+          >
           <p class="text-xs text-muted-foreground">
-            {$_('settingsGeneral.accentBarUnreadHelp')}
+            {$_("settingsGeneral.accentBarUnreadHelp")}
           </p>
         </div>
-        <Switch
-          id="accent-bar-unread"
-          bind:checked={accentBarUnread}
-        />
+        <Switch id="accent-bar-unread" bind:checked={accentBarUnread} />
       </div>
     </div>
 
     <div class="space-y-2">
-      <Label>{$_('settingsGeneral.messageListDensity')}</Label>
-      <Select.Root value={messageListDensity} onValueChange={handleDensityChange}>
+      <Label>{$_("settingsGeneral.messageListDensity")}</Label>
+      <Select.Root
+        value={messageListDensity}
+        onValueChange={handleDensityChange}
+      >
         <Select.Trigger>
-          <Select.Value placeholder={$_('settingsGeneral.selectDensity')}>
+          <Select.Value placeholder={$_("settingsGeneral.selectDensity")}>
             {getDensityLabel(messageListDensity)}
           </Select.Value>
         </Select.Trigger>
@@ -257,24 +287,24 @@
         </Select.Content>
       </Select.Root>
       <p class="text-xs text-muted-foreground">
-        {$_('settingsGeneral.messageListDensityHelp')}
+        {$_("settingsGeneral.messageListDensityHelp")}
       </p>
     </div>
   </div>
 
   <!-- Divider -->
-  <div class="border-t border-border"></div>
+  <div class="border-border border-t"></div>
 
   <!-- Mark as Read Section -->
   <div class="space-y-4">
-    <h3 class="text-sm font-medium flex items-center gap-2">
+    <h3 class="text-sm font-medium gap-2 flex items-center">
       <Icon icon="mdi:email-open-outline" class="w-4 h-4" />
-      {$_('settingsGeneral.markAsRead')}
+      {$_("settingsGeneral.markAsRead")}
     </h3>
 
     <div class="space-y-2">
-      <Label>{$_('settingsGeneral.markAsReadAfter')}</Label>
-      <div class="flex items-center gap-2">
+      <Label>{$_("settingsGeneral.markAsReadAfter")}</Label>
+      <div class="gap-2 flex items-center">
         <Input
           type="number"
           value={markAsReadDelaySeconds}
@@ -284,30 +314,33 @@
           step={0.1}
           class="w-24"
         />
-        <span class="text-sm text-muted-foreground">{$_('common.seconds')}</span>
+        <span class="text-sm text-muted-foreground">{$_("common.seconds")}</span
+        >
       </div>
       <p class="text-xs text-muted-foreground">
-        {$_('settingsGeneral.markAsReadHelp')}
+        {$_("settingsGeneral.markAsReadHelp")}
       </p>
     </div>
   </div>
 
   <!-- Divider -->
-  <div class="border-t border-border"></div>
+  <div class="border-border border-t"></div>
 
   <!-- Background Section -->
   <div class="space-y-4">
-    <h3 class="text-sm font-medium flex items-center gap-2">
+    <h3 class="text-sm font-medium gap-2 flex items-center">
       <Icon icon="mdi:application-cog-outline" class="w-4 h-4" />
-      {$_('settingsGeneral.background')}
+      {$_("settingsGeneral.background")}
     </h3>
 
     <div class="space-y-2">
       <div class="flex items-center justify-between">
         <div class="space-y-0.5">
-          <Label for="run-background">{$_('settingsGeneral.runInBackground')}</Label>
+          <Label for="run-background"
+            >{$_("settingsGeneral.runInBackground")}</Label
+          >
           <p class="text-xs text-muted-foreground">
-            {$_('settingsGeneral.runInBackgroundHelp')}
+            {$_("settingsGeneral.runInBackgroundHelp")}
           </p>
         </div>
         <Switch
@@ -321,9 +354,13 @@
     <div class="space-y-2">
       <div class="flex items-center justify-between">
         <div class="space-y-0.5">
-          <Label for="start-hidden" class={!runBackground ? 'text-muted-foreground' : ''}>{$_('settingsGeneral.startHidden')}</Label>
+          <Label
+            for="start-hidden"
+            class={!runBackground ? "text-muted-foreground" : ""}
+            >{$_("settingsGeneral.startHidden")}</Label
+          >
           <p class="text-xs text-muted-foreground">
-            {$_('settingsGeneral.startHiddenHelp')}
+            {$_("settingsGeneral.startHiddenHelp")}
           </p>
         </div>
         <Switch
@@ -337,21 +374,22 @@
   </div>
 
   <!-- Divider -->
-  <div class="border-t border-border"></div>
+  <div class="border-border border-t"></div>
 
   <!-- Startup Section -->
   <div class="space-y-4">
-    <h3 class="text-sm font-medium flex items-center gap-2">
+    <h3 class="text-sm font-medium gap-2 flex items-center">
       <Icon icon="mdi:power" class="w-4 h-4" />
-      {$_('settingsGeneral.startup')}
+      {$_("settingsGeneral.startup")}
     </h3>
 
     <div class="space-y-2">
       <div class="flex items-center justify-between">
         <div class="space-y-0.5">
-          <Label for="autostart">{$_('settingsGeneral.autostartOnLogin')}</Label>
+          <Label for="autostart">{$_("settingsGeneral.autostartOnLogin")}</Label
+          >
           <p class="text-xs text-muted-foreground">
-            {$_('settingsGeneral.autostartHelp')}
+            {$_("settingsGeneral.autostartHelp")}
           </p>
         </div>
         <Switch
@@ -362,6 +400,4 @@
       </div>
     </div>
   </div>
-
 </div>
-

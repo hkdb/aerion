@@ -232,8 +232,8 @@ func (e *Engine) persistAutoDetectedMappings(accountID string) {
 	}
 
 	type mapping struct {
-		current  string
-		fType    folder.Type
+		current string
+		fType   folder.Type
 	}
 
 	mappings := []mapping{
