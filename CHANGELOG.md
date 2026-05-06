@@ -4,6 +4,7 @@
 ---
 
 - Added thread and message focus mode - [#129](https://github.com/hkdb/aerion/issues/129)
+- Added contact circle enable/disable
 - Added French translation
 - Fixed untranslated drop down menu items
 - Fixed iCloud Empty Trash - [#136](https://github.com/hkdb/aerion/issues/136)

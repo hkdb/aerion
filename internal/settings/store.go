@@ -31,6 +31,8 @@ const (
 	KeyNativeTitleBar            = "native_titlebar"
 	KeyAlwaysLoadImages          = "always_load_images"
 	KeyAccentBarUnread           = "accent_bar_unread"
+	KeyShowMessageListCircles    = "show_message_list_circles"
+	KeyShowViewerCircles         = "show_viewer_circles"
 )
 
 // Density values for message list
@@ -227,6 +229,50 @@ func (s *Store) SetAccentBarUnread(enabled bool) error {
 		v = "true"
 	}
 	return s.Set(KeyAccentBarUnread, v)
+}
+
+// GetShowMessageListCircles returns whether colored sender circles
+// are shown in the message list. Default: true.
+func (s *Store) GetShowMessageListCircles() (bool, error) {
+	value, err := s.Get(KeyShowMessageListCircles)
+	if err != nil {
+		return true, err
+	}
+	if value == "" {
+		return true, nil
+	}
+	return value == "true", nil
+}
+
+// SetShowMessageListCircles enables or disables colored sender circles in the message list
+func (s *Store) SetShowMessageListCircles(enabled bool) error {
+	v := "false"
+	if enabled {
+		v = "true"
+	}
+	return s.Set(KeyShowMessageListCircles, v)
+}
+
+// GetShowViewerCircles returns whether colored sender circles
+// are shown in the conversation viewer. Default: true.
+func (s *Store) GetShowViewerCircles() (bool, error) {
+	value, err := s.Get(KeyShowViewerCircles)
+	if err != nil {
+		return true, err
+	}
+	if value == "" {
+		return true, nil
+	}
+	return value == "true", nil
+}
+
+// SetShowViewerCircles enables or disables colored sender circles in the conversation viewer
+func (s *Store) SetShowViewerCircles(enabled bool) error {
+	v := "false"
+	if enabled {
+		v = "true"
+	}
+	return s.Set(KeyShowViewerCircles, v)
 }
 
 // GetMessageListSortOrder returns the current message list sort order

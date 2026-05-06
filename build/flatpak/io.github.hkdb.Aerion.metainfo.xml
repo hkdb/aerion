@@ -152,6 +152,7 @@
       <description>
         <ul>
           <li>Added thread and message focus mode - #129</li>
+          <li>Added contact circle enable/disable</li>
           <li>Added French translation</li>
           <li>Fixed untranslated drop down menu items</li>
           <li>Fixed iCloud Empty Trash - #136</li>

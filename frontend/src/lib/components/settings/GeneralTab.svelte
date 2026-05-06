@@ -26,6 +26,8 @@
     onAutostartChange: (value: boolean) => void
     onLanguageChange: (value: string) => void
     accentBarUnread: boolean
+    showMessageListCircles: boolean
+    showViewerCircles: boolean
   }
 
   let {
@@ -47,6 +49,8 @@
     onAutostartChange,
     onLanguageChange,
     accentBarUnread = $bindable(),
+    showMessageListCircles = $bindable(),
+    showViewerCircles = $bindable(),
   }: Props = $props()
 
   // Message list density options
@@ -224,6 +228,38 @@
       <p class="text-xs text-muted-foreground">
         {$_('settingsGeneral.themeHelp')}
       </p>
+    </div>
+
+    <!-- Show colored circles in message list -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <Label for="show-message-list-circles">{$_('settingsGeneral.showMessageListCircles')}</Label>
+          <p class="text-xs text-muted-foreground">
+            {$_('settingsGeneral.showMessageListCirclesHelp')}
+          </p>
+        </div>
+        <Switch
+          id="show-message-list-circles"
+          bind:checked={showMessageListCircles}
+        />
+      </div>
+    </div>
+
+    <!-- Show colored circles in conversation viewer -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <Label for="show-viewer-circles">{$_('settingsGeneral.showViewerCircles')}</Label>
+          <p class="text-xs text-muted-foreground">
+            {$_('settingsGeneral.showViewerCirclesHelp')}
+          </p>
+        </div>
+        <Switch
+          id="show-viewer-circles"
+          bind:checked={showViewerCircles}
+        />
+      </div>
     </div>
 
     <!-- Accent bar for unread messages -->

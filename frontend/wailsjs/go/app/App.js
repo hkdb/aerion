@@ -414,8 +414,16 @@ export function GetSearchCountUnifiedInbox(arg1, arg2) {
   return window['go']['app']['App']['GetSearchCountUnifiedInbox'](arg1, arg2);
 }
 
+export function GetShowMessageListCircles() {
+  return window['go']['app']['App']['GetShowMessageListCircles']();
+}
+
 export function GetShowTitleBar() {
   return window['go']['app']['App']['GetShowTitleBar']();
+}
+
+export function GetShowViewerCircles() {
+  return window['go']['app']['App']['GetShowViewerCircles']();
 }
 
 export function GetSourceAddressbooks(arg1) {
@@ -842,8 +850,16 @@ export function SetSMIMESignPolicy(arg1, arg2) {
   return window['go']['app']['App']['SetSMIMESignPolicy'](arg1, arg2);
 }
 
+export function SetShowMessageListCircles(arg1) {
+  return window['go']['app']['App']['SetShowMessageListCircles'](arg1);
+}
+
 export function SetShowTitleBar(arg1) {
   return window['go']['app']['App']['SetShowTitleBar'](arg1);
+}
+
+export function SetShowViewerCircles(arg1) {
+  return window['go']['app']['App']['SetShowViewerCircles'](arg1);
 }
 
 export function SetStartHidden(arg1) {

@@ -17,6 +17,7 @@
   import MessageContextMenu from '$lib/components/common/MessageContextMenu.svelte'
   import { _ } from '$lib/i18n'
   import { isDialogGuardActive } from '$lib/stores/dialogGuard'
+  import { getShowViewerCircles } from '$lib/stores/settings.svelte'
 
   interface Props {
     threadId?: string | null
@@ -1365,12 +1366,14 @@
                   role="button"
                   tabindex="0"
                 >
-                  <!-- Avatar -->
-                  <div
-                    class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-medium {getAvatarColor(msg.fromEmail)}"
-                  >
-                    {getInitials(msg.fromName || msg.fromEmail)}
-                  </div>
+                  <!-- Sender circle (colored, with initials) -->
+                  {#if getShowViewerCircles()}
+                    <div
+                      class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-medium {getAvatarColor(msg.fromEmail)}"
+                    >
+                      {getInitials(msg.fromName || msg.fromEmail)}
+                    </div>
+                  {/if}
 
                   <!-- Header Info -->
                   <div class="flex-1 min-w-0">

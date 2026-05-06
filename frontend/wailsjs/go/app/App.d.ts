@@ -223,7 +223,11 @@ export function GetSearchCount(arg1:string,arg2:string,arg3:string,arg4:string):
 
 export function GetSearchCountUnifiedInbox(arg1:string,arg2:string):Promise<number>;
 
+export function GetShowMessageListCircles():Promise<boolean>;
+
 export function GetShowTitleBar():Promise<boolean>;
+
+export function GetShowViewerCircles():Promise<boolean>;
 
 export function GetSourceAddressbooks(arg1:string):Promise<Array<carddav.Addressbook>>;
 
@@ -437,7 +441,11 @@ export function SetSMIMEEncryptPolicy(arg1:string,arg2:string):Promise<void>;
 
 export function SetSMIMESignPolicy(arg1:string,arg2:string):Promise<void>;
 
+export function SetShowMessageListCircles(arg1:boolean):Promise<void>;
+
 export function SetShowTitleBar(arg1:boolean):Promise<void>;
+
+export function SetShowViewerCircles(arg1:boolean):Promise<void>;
 
 export function SetStartHidden(arg1:boolean):Promise<void>;
 
