@@ -3,10 +3,10 @@
 **v0.2.1 - 05-07-2026**
 ---
 
-- Added thread and message focus mode
+- Added thread and message focus mode - [#129](https://github.com/hkdb/aerion/issues/129)
 - Added French translation
 - Fixed untranslated drop down menu items
-- Fixed iCloud Empty Trash [#136](https://github.com/hkdb/aerion/issues/136)
+- Fixed iCloud Empty Trash - [#136](https://github.com/hkdb/aerion/issues/136)
 - Added ESLint for frontend linting
 
 **Note:** The linting and cleanup in this release should bring visiable frontend performance improvements.

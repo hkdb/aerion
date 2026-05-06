@@ -151,10 +151,10 @@
     <release version="0.2.1" date="2026-05-07">
       <description>
         <ul>
-          <li>Added thread and message focus mode</li>
+          <li>Added thread and message focus mode - #129</li>
           <li>Added French translation</li>
           <li>Fixed untranslated drop down menu items</li>
-          <li>Fixed iCloud Empty Trash #136</li>
+          <li>Fixed iCloud Empty Trash - #136</li>
           <li>Added ESLint for frontend linting</li>
         </ul>
         <p>Note:</p>
