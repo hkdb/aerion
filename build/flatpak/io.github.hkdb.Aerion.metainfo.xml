@@ -154,7 +154,7 @@
           <li>Added thread and message focus mode - #129</li>
           <li>Added contact circle enable/disable</li>
           <li>Added French translation</li>
-          <li>Added keyboard expand/collapse of focused messages</li>
+          <li>Fixed keyboard expand/collapse of focused messages</li>
           <li>Fixed untranslated drop down menu items</li>
           <li>Fixed iCloud Empty Trash - #136</li>
           <li>Added ESLint for frontend linting</li>
