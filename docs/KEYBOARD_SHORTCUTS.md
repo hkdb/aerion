@@ -45,6 +45,7 @@ These shortcuts work anywhere in the application (unless in composer).
 | `Ctrl+J` | Mark as spam (keyboard-focused or checked messages) |
 | `Ctrl+L` | Load remote images in viewed message |
 | `Ctrl+Shift+L` | Open "Always Load Images" dropdown |
+| `Shift+F` | Toggle focus mode for the message |
 
 ---
 
@@ -80,8 +81,11 @@ These shortcuts depend on which pane is focused. They are disabled when typing i
 |----------|--------|
 | `Up` / `K` | Scroll up |
 | `Down` / `J` | Scroll down |
+| `Tab` | Cycle through messages when focused on conversation viewer |
+| `Delete` / `Backspace` | Delete focused message when focused on conversation viewer |
 | `Ctrl + A` | Select all text of message in viewport |
 | `Alt(R)` | Brings up context menu for the message focused |
+| `F` | Toggles focus mode on the current thread (conversation) |
 
 ---
 
