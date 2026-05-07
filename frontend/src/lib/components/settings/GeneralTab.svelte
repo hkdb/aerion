@@ -82,6 +82,7 @@
     { value: 'dark', label: $_('settingsGeneral.themeDark') },
     { value: 'dark-gray', label: $_('settingsGeneral.themeDarkGray') },
     { value: 'dark-balanced', label: $_('settingsGeneral.themeDarkBalanced') },
+    { value: 'catppuccin-mocha', label: 'Catppuccin Mocha' },
   ])
 
   function getDensityLabel(value: string): string {

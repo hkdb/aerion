@@ -170,30 +170,13 @@
   }
 
   function getAvatarColor(conv: message.Conversation): string {
-    const colors = [
-      'bg-red-500',
-      'bg-orange-500',
-      'bg-amber-500',
-      'bg-yellow-500',
-      'bg-lime-500',
-      'bg-green-500',
-      'bg-emerald-500',
-      'bg-teal-500',
-      'bg-cyan-500',
-      'bg-sky-500',
-      'bg-blue-500',
-      'bg-indigo-500',
-      'bg-violet-500',
-      'bg-purple-500',
-      'bg-fuchsia-500',
-      'bg-pink-500',
-    ]
+    // Returns a theme-driven avatar class (.avatar-1 .. .avatar-14, defined in themes.css).
     const email = conv.participants?.[0]?.email || conv.threadId
     let hash = 0
     for (let i = 0; i < email.length; i++) {
       hash = email.charCodeAt(i) + ((hash << 5) - hash)
     }
-    return colors[Math.abs(hash) % colors.length]
+    return `avatar-${(Math.abs(hash) % 14) + 1}`
   }
 
   async function handleStarClick(e: MouseEvent) {
@@ -295,7 +278,7 @@
     <!-- Sender circle (colored, with initials) -->
     {#if getShowMessageListCircles()}
       <div
-        class="{densityClasses.avatar[density]} rounded-full flex-shrink-0 flex items-center justify-center text-white font-medium {getAvatarColor(
+        class="{densityClasses.avatar[density]} rounded-full flex-shrink-0 flex items-center justify-center font-medium {getAvatarColor(
           conversation
         )}"
       >

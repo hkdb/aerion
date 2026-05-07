@@ -1,4 +1,24 @@
 @layer base {
+  /* Avatar palette — global defaults (Tailwind *-500 colors with white initials).
+     Themes may override any subset of these to fit their visual identity. */
+  :root {
+    --avatar-fg: 0 0% 100%;
+    --avatar-1:  0 84% 60%;    /* red */
+    --avatar-2:  25 95% 53%;   /* orange */
+    --avatar-3:  38 92% 50%;   /* amber */
+    --avatar-4:  48 96% 53%;   /* yellow */
+    --avatar-5:  142 71% 45%;  /* green */
+    --avatar-6:  160 84% 39%;  /* emerald */
+    --avatar-7:  173 80% 40%;  /* teal */
+    --avatar-8:  189 95% 43%;  /* cyan */
+    --avatar-9:  199 89% 48%;  /* sky */
+    --avatar-10: 217 91% 60%;  /* blue */
+    --avatar-11: 239 84% 67%;  /* indigo */
+    --avatar-12: 258 90% 66%;  /* violet */
+    --avatar-13: 271 91% 65%;  /* purple */
+    --avatar-14: 330 81% 60%;  /* pink */
+  }
+
   /* Default Light Purple Theme */
   :root,
   [data-theme="light"] {
@@ -165,12 +185,70 @@
     --input: 210 10% 20%;
     --ring: 215 10% 50%;
   }
+
+  /* Catppuccin Mocha — palette mapping from catppuccin/shadcn-ui (mocha-mauve)
+     with Aerion-specific --ring override (mauve, matching --primary convention). */
+  [data-theme="catppuccin-mocha"] {
+    --background: 240 21% 15%;           /* base #1E1E2E */
+    --foreground: 226 64% 88%;           /* text #CDD6F4 */
+    --card: 240 21% 15%;                 /* base */
+    --card-foreground: 226 64% 88%;      /* text */
+    --popover: 240 21% 15%;              /* base */
+    --popover-foreground: 226 64% 88%;   /* text */
+    --primary: 267 84% 81%;              /* mauve #CBA6F7 */
+    --primary-foreground: 240 21% 15%;   /* base */
+    --secondary: 237 16% 23%;            /* surface0 #313244 */
+    --secondary-foreground: 226 64% 88%; /* text */
+    --muted: 237 16% 23%;                /* surface0 */
+    --muted-foreground: 227 36% 80%;     /* subtext1 #BAC2DE */
+    --accent: 237 16% 23%;               /* surface0 */
+    --accent-foreground: 226 64% 88%;    /* text */
+    --destructive: 343 81% 75%;          /* red #F38BA8 */
+    --destructive-foreground: 240 21% 15%; /* base */
+    --border: 234 13% 31%;               /* surface1 #45475A */
+    --input: 234 13% 31%;                /* surface1 */
+    --ring: 267 84% 81%;                 /* mauve */
+    /* Avatar palette: 14 distinct Catppuccin pastel colors with dark initials. */
+    --avatar-fg: 240 21% 15%;            /* base — dark text on light pastels */
+    --avatar-1:  10 56% 91%;             /* rosewater */
+    --avatar-2:  0 59% 88%;              /* flamingo */
+    --avatar-3:  316 72% 86%;            /* pink */
+    --avatar-4:  267 84% 81%;            /* mauve */
+    --avatar-5:  343 81% 75%;            /* red */
+    --avatar-6:  350 65% 77%;            /* maroon */
+    --avatar-7:  23 92% 75%;             /* peach */
+    --avatar-8:  41 86% 83%;             /* yellow */
+    --avatar-9:  115 54% 76%;            /* green */
+    --avatar-10: 170 57% 73%;            /* teal */
+    --avatar-11: 189 71% 73%;            /* sky */
+    --avatar-12: 199 76% 69%;            /* sapphire */
+    --avatar-13: 217 92% 76%;            /* blue */
+    --avatar-14: 232 97% 85%;            /* lavender */
+  }
 }
+
+/* Avatar circle utility classes — read theme-defined --avatar-* variables.
+   Used by getAvatarColor() in conversation/message components. */
+.avatar-1  { background-color: hsl(var(--avatar-1));  color: hsl(var(--avatar-fg)); }
+.avatar-2  { background-color: hsl(var(--avatar-2));  color: hsl(var(--avatar-fg)); }
+.avatar-3  { background-color: hsl(var(--avatar-3));  color: hsl(var(--avatar-fg)); }
+.avatar-4  { background-color: hsl(var(--avatar-4));  color: hsl(var(--avatar-fg)); }
+.avatar-5  { background-color: hsl(var(--avatar-5));  color: hsl(var(--avatar-fg)); }
+.avatar-6  { background-color: hsl(var(--avatar-6));  color: hsl(var(--avatar-fg)); }
+.avatar-7  { background-color: hsl(var(--avatar-7));  color: hsl(var(--avatar-fg)); }
+.avatar-8  { background-color: hsl(var(--avatar-8));  color: hsl(var(--avatar-fg)); }
+.avatar-9  { background-color: hsl(var(--avatar-9));  color: hsl(var(--avatar-fg)); }
+.avatar-10 { background-color: hsl(var(--avatar-10)); color: hsl(var(--avatar-fg)); }
+.avatar-11 { background-color: hsl(var(--avatar-11)); color: hsl(var(--avatar-fg)); }
+.avatar-12 { background-color: hsl(var(--avatar-12)); color: hsl(var(--avatar-fg)); }
+.avatar-13 { background-color: hsl(var(--avatar-13)); color: hsl(var(--avatar-fg)); }
+.avatar-14 { background-color: hsl(var(--avatar-14)); color: hsl(var(--avatar-fg)); }
 
 /* Dark theme mark highlight override */
 .dark mark,
 [data-theme="dark"] mark,
 [data-theme="dark-gray"] mark,
-[data-theme="dark-balanced"] mark {
+[data-theme="dark-balanced"] mark,
+[data-theme="catppuccin-mocha"] mark {
   background-color: hsl(var(--primary) / 0.35);
 }
