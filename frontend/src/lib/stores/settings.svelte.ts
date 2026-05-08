@@ -13,8 +13,8 @@ export type MessageListDensity = 'micro' | 'compact' | 'standard' | 'large'
 export type MessageListSortOrder = 'newest' | 'oldest'
 export type ThemeMode =
   | 'system'
-  | 'light' | 'light-blue' | 'light-orange' | 'light-balanced' | 'adwaita-light'
-  | 'dark' | 'dark-gray' | 'dark-balanced' | 'adwaita-dark'
+  | 'light' | 'light-blue' | 'light-orange' | 'light-balanced' | 'adwaita-light' | 'breeze-light'
+  | 'dark' | 'dark-gray' | 'dark-balanced' | 'adwaita-dark' | 'breeze-dark'
   | 'catppuccin-latte' | 'catppuccin-mocha'
   | 'dracula' | 'tokyo-night'
 

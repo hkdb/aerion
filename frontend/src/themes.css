@@ -13,6 +13,7 @@
 @import './themes/_defaults.css';
 @import './themes/built-in.css';
 @import './themes/adwaita.css';
+@import './themes/breeze.css';
 @import './themes/catppuccin.css';
 @import './themes/dracula.css';
 @import './themes/tokyo-night.css';

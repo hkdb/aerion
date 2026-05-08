@@ -1,0 +1,83 @@
+/* Breeze — KDE Plasma default. Palette mapping from KDE/breeze:
+   colors/BreezeLight.colors and colors/BreezeDark.colors (the canonical reference).
+   Iconic Breeze blue #3DAEE9 (Selection BackgroundNormal) drives --primary in
+   both variants. Aerion-specific override: --ring matches --primary. */
+@layer base {
+  /* Breeze Light */
+  [data-theme="breeze-light"] {
+    --background: 210 8% 94%;              /* Window BackgroundNormal #EFF0F1 */
+    --foreground: 210 8% 15%;              /* Window ForegroundNormal #232629 */
+    --card: 0 0% 100%;                     /* View BackgroundNormal #FFFFFF */
+    --card-foreground: 210 8% 15%;
+    --popover: 0 0% 100%;                  /* View BackgroundNormal */
+    --popover-foreground: 210 8% 15%;
+    --primary: 200 80% 58%;                /* Selection BackgroundNormal #3DAEE9 — Breeze blue */
+    --primary-foreground: 0 0% 100%;       /* Selection ForegroundNormal */
+    --secondary: 210 8% 90%;               /* Window BackgroundAlternate #E3E5E7 */
+    --secondary-foreground: 210 8% 15%;
+    --muted: 210 8% 90%;                   /* Window BackgroundAlternate */
+    --muted-foreground: 210 11% 49%;       /* Window ForegroundInactive #707D8A */
+    --accent: 210 8% 90%;
+    --accent-foreground: 210 8% 15%;
+    --destructive: 354 67% 56%;            /* ForegroundNegative #DA4453 — KDE standard red */
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 8% 80%;                  /* derived: visible on white view */
+    --input: 210 8% 80%;
+    --ring: 200 80% 58%;                   /* Breeze blue */
+    /* Avatar palette: KDE Plasma standard 9 colors with white initials. */
+    --avatar-fg: 0 0% 100%;
+    --avatar-1:  200 80% 58%;              /* Plasma Blue #3DAEE9 */
+    --avatar-2:  168 76% 42%;              /* Plasma Cyan #1ABC9C */
+    --avatar-3:  145 63% 42%;              /* Plasma Green #27AE60 */
+    --avatar-4:  38 98% 64%;               /* Plasma Yellow #FDBC4B */
+    --avatar-5:  28 100% 48%;              /* Plasma Orange #F67400 */
+    --avatar-6:  354 67% 56%;              /* Plasma Red #DA4453 */
+    --avatar-7:  340 58% 61%;              /* Plasma Pink #D56188 */
+    --avatar-8:  283 39% 53%;              /* Plasma Purple #9B59B6 */
+    --avatar-9:  24 37% 56%;               /* Plasma Brown #B88766 */
+    --avatar-10: 200 80% 58%;              /* Blue (repeat) */
+    --avatar-11: 168 76% 42%;              /* Cyan (repeat) */
+    --avatar-12: 145 63% 42%;              /* Green (repeat) */
+    --avatar-13: 38 98% 64%;               /* Yellow (repeat) */
+    --avatar-14: 28 100% 48%;              /* Orange (repeat) */
+  }
+
+  /* Breeze Dark */
+  [data-theme="breeze-dark"] {
+    --background: 210 9% 14%;              /* Window BackgroundNormal #202326 */
+    --foreground: 0 0% 99%;                /* Window ForegroundNormal #FCFCFC */
+    --card: 210 9% 9%;                     /* View BackgroundNormal #141618 (darker — Breeze convention) */
+    --card-foreground: 0 0% 99%;
+    --popover: 215 9% 17%;                 /* Window BackgroundAlternate #292C30 */
+    --popover-foreground: 0 0% 99%;
+    --primary: 200 80% 58%;                /* Selection BackgroundNormal #3DAEE9 — Breeze blue */
+    --primary-foreground: 0 0% 99%;
+    --secondary: 215 9% 17%;               /* Window BackgroundAlternate */
+    --secondary-foreground: 0 0% 99%;
+    --muted: 215 9% 17%;
+    --muted-foreground: 210 9% 66%;        /* Window ForegroundInactive #A1A9B1 */
+    --accent: 215 9% 17%;
+    --accent-foreground: 0 0% 99%;
+    --destructive: 354 67% 56%;            /* ForegroundNegative #DA4453 */
+    --destructive-foreground: 0 0% 99%;
+    --border: 215 6% 24%;                  /* derived: visible against secondary */
+    --input: 215 6% 24%;
+    --ring: 200 80% 58%;                   /* Breeze blue */
+    /* Avatar palette: same 9 KDE Plasma colors as Breeze Light. */
+    --avatar-fg: 0 0% 100%;
+    --avatar-1:  200 80% 58%;              /* Plasma Blue */
+    --avatar-2:  168 76% 42%;              /* Plasma Cyan */
+    --avatar-3:  145 63% 42%;              /* Plasma Green */
+    --avatar-4:  38 98% 64%;               /* Plasma Yellow */
+    --avatar-5:  28 100% 48%;              /* Plasma Orange */
+    --avatar-6:  354 67% 56%;              /* Plasma Red */
+    --avatar-7:  340 58% 61%;              /* Plasma Pink */
+    --avatar-8:  283 39% 53%;              /* Plasma Purple */
+    --avatar-9:  24 37% 56%;               /* Plasma Brown */
+    --avatar-10: 200 80% 58%;              /* Blue (repeat) */
+    --avatar-11: 168 76% 42%;              /* Cyan (repeat) */
+    --avatar-12: 145 63% 42%;              /* Green (repeat) */
+    --avatar-13: 38 98% 64%;               /* Yellow (repeat) */
+    --avatar-14: 28 100% 48%;              /* Orange (repeat) */
+  }
+}
