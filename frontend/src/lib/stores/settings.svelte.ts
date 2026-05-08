@@ -13,9 +13,10 @@ export type MessageListDensity = 'micro' | 'compact' | 'standard' | 'large'
 export type MessageListSortOrder = 'newest' | 'oldest'
 export type ThemeMode =
   | 'system'
-  | 'light' | 'light-blue' | 'light-orange' | 'light-balanced'
-  | 'dark' | 'dark-gray' | 'dark-balanced'
+  | 'light' | 'light-blue' | 'light-orange' | 'light-balanced' | 'adwaita-light'
+  | 'dark' | 'dark-gray' | 'dark-balanced' | 'adwaita-dark'
   | 'catppuccin-latte' | 'catppuccin-mocha'
+  | 'dracula'
 
 // Module-level reactive state
 let messageListDensity = $state<MessageListDensity>('standard')

@@ -186,6 +186,46 @@
     --ring: 215 10% 50%;
   }
 
+  /* Adwaita Light — GNOME default, palette mapping from libadwaita named colors
+     (https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/css-variables.html). */
+  [data-theme="adwaita-light"] {
+    --background: 240 11% 98%;             /* window_bg #FAFAFB */
+    --foreground: 240 5% 21%;              /* window_fg rgb(0 0 6 / 80%) over white */
+    --card: 0 0% 100%;                     /* view_bg #FFFFFF */
+    --card-foreground: 240 5% 21%;         /* view_fg */
+    --popover: 0 0% 100%;                  /* headerbar_bg #FFFFFF */
+    --popover-foreground: 240 5% 21%;      /* headerbar_fg */
+    --primary: 213 76% 55%;                /* accent_bg #3584E4 — Adwaita blue */
+    --primary-foreground: 0 0% 100%;       /* accent_fg */
+    --secondary: 240 5% 92%;               /* sidebar_bg #EBEBED */
+    --secondary-foreground: 240 5% 21%;    /* foreground */
+    --muted: 240 5% 92%;                   /* sidebar_bg */
+    --muted-foreground: 240 5% 40%;        /* derived: dim foreground */
+    --accent: 240 5% 92%;                  /* sidebar_bg */
+    --accent-foreground: 240 5% 21%;       /* foreground */
+    --destructive: 357 79% 49%;            /* destructive_bg #E01B24 */
+    --destructive-foreground: 0 0% 100%;   /* destructive_fg */
+    --border: 0 0% 83%;                    /* derived: ~12% darker than window */
+    --input: 0 0% 83%;                     /* same as border */
+    --ring: 213 76% 55%;                   /* Adwaita blue (matches primary) */
+    /* Avatar palette: GNOME 9 accent colors (libadwaita 1.6+ user choices). */
+    --avatar-fg: 0 0% 100%;                /* white */
+    --avatar-1:  213 76% 55%;              /* blue #3584E4 */
+    --avatar-2:  189 67% 39%;              /* teal #2190A4 */
+    --avatar-3:  128 43% 40%;              /* green #3A944A */
+    --avatar-4:  41 100% 39%;              /* yellow #C88800 */
+    --avatar-5:  23 100% 46%;              /* orange #ED5B00 */
+    --avatar-6:  354 80% 54%;              /* red #E62D42 */
+    --avatar-7:  332 56% 60%;              /* pink #D56199 */
+    --avatar-8:  290 45% 46%;              /* purple #9141AC */
+    --avatar-9:  211 14% 51%;              /* slate #6F8396 */
+    --avatar-10: 213 76% 55%;              /* blue (repeat) */
+    --avatar-11: 128 43% 40%;              /* green (repeat) */
+    --avatar-12: 23 100% 46%;              /* orange (repeat) */
+    --avatar-13: 290 45% 46%;              /* purple (repeat) */
+    --avatar-14: 332 56% 60%;              /* pink (repeat) */
+  }
+
   /* Catppuccin Latte — palette mapping from catppuccin/shadcn-ui (latte-mauve)
      with Aerion-specific --ring override (mauve, matching --primary convention). */
   [data-theme="catppuccin-latte"] {
@@ -227,6 +267,45 @@
     --avatar-14: 231 97% 72%;            /* lavender */
   }
 
+  /* Adwaita Dark — GNOME default, palette mapping from libadwaita named colors. */
+  [data-theme="adwaita-dark"] {
+    --background: 240 6% 14%;              /* window_bg #222226 */
+    --foreground: 0 0% 100%;               /* window_fg #FFFFFF */
+    --card: 240 5% 12%;                    /* view_bg #1D1D20 (slightly darker — Adwaita convention) */
+    --card-foreground: 0 0% 100%;          /* view_fg */
+    --popover: 240 4% 19%;                 /* headerbar_bg #2E2E32 */
+    --popover-foreground: 0 0% 100%;       /* headerbar_fg */
+    --primary: 213 76% 55%;                /* accent_bg #3584E4 — Adwaita blue */
+    --primary-foreground: 0 0% 100%;       /* accent_fg */
+    --secondary: 240 4% 19%;               /* headerbar/sidebar */
+    --secondary-foreground: 0 0% 100%;     /* foreground */
+    --muted: 240 4% 19%;                   /* same tier */
+    --muted-foreground: 240 2% 75%;        /* rgba(255,255,255,0.7) over window_bg */
+    --accent: 240 4% 19%;                  /* same tier */
+    --accent-foreground: 0 0% 100%;        /* foreground */
+    --destructive: 356 75% 43%;            /* destructive_bg #C01C28 */
+    --destructive-foreground: 0 0% 100%;   /* destructive_fg */
+    --border: 240 3% 27%;                  /* rgba(255,255,255,0.15) over window_bg */
+    --input: 240 3% 27%;                   /* same as border */
+    --ring: 213 76% 55%;                   /* Adwaita blue */
+    /* Avatar palette: GNOME 9 accent colors (libadwaita 1.6+ user choices). */
+    --avatar-fg: 0 0% 100%;                /* white */
+    --avatar-1:  213 76% 55%;              /* blue */
+    --avatar-2:  189 67% 39%;              /* teal */
+    --avatar-3:  128 43% 40%;              /* green */
+    --avatar-4:  41 100% 39%;              /* yellow */
+    --avatar-5:  23 100% 46%;              /* orange */
+    --avatar-6:  354 80% 54%;              /* red */
+    --avatar-7:  332 56% 60%;              /* pink */
+    --avatar-8:  290 45% 46%;              /* purple */
+    --avatar-9:  211 14% 51%;              /* slate */
+    --avatar-10: 213 76% 55%;              /* blue (repeat) */
+    --avatar-11: 128 43% 40%;              /* green (repeat) */
+    --avatar-12: 23 100% 46%;              /* orange (repeat) */
+    --avatar-13: 290 45% 46%;              /* purple (repeat) */
+    --avatar-14: 332 56% 60%;              /* pink (repeat) */
+  }
+
   /* Catppuccin Mocha — palette mapping from catppuccin/shadcn-ui (mocha-mauve)
      with Aerion-specific --ring override (mauve, matching --primary convention). */
   [data-theme="catppuccin-mocha"] {
@@ -266,6 +345,50 @@
     --avatar-13: 217 92% 76%;            /* blue */
     --avatar-14: 232 97% 85%;            /* lavender */
   }
+
+  /* Dracula — palette mapping per draculatheme.com spec.
+     No official shadcn-ui port exists for Dracula; mapping mirrors the same
+     surface tier strategy Catppuccin's port uses (Aerion variables are the
+     same shadcn names). Aerion-specific --ring override (Purple, matching
+     --primary convention). */
+  [data-theme="dracula"] {
+    --background: 231 15% 18%;             /* Background #282A36 */
+    --foreground: 60 30% 96%;              /* Foreground #F8F8F2 */
+    --card: 231 15% 18%;                   /* Background */
+    --card-foreground: 60 30% 96%;         /* Foreground */
+    --popover: 231 15% 18%;                /* Background */
+    --popover-foreground: 60 30% 96%;      /* Foreground */
+    --primary: 265 89% 78%;                /* Purple #BD93F9 */
+    --primary-foreground: 231 15% 18%;     /* Background */
+    --secondary: 232 14% 31%;              /* Selection #44475A */
+    --secondary-foreground: 60 30% 96%;    /* Foreground */
+    --muted: 232 14% 31%;                  /* Selection */
+    --muted-foreground: 224 27% 51%;       /* Comment #6272A4 */
+    --accent: 232 14% 31%;                 /* Selection */
+    --accent-foreground: 60 30% 96%;       /* Foreground */
+    --destructive: 0 100% 67%;             /* Red #FF5555 */
+    --destructive-foreground: 231 15% 18%; /* Background */
+    --border: 232 14% 31%;                 /* Selection */
+    --input: 232 14% 31%;                  /* Selection */
+    --ring: 265 89% 78%;                   /* Purple */
+    /* Avatar palette: 7 Dracula spec colors, repeated to fill 14 slots.
+       All colors are bright (lightness 65-78%) — use dark text. */
+    --avatar-fg: 231 15% 18%;              /* Background */
+    --avatar-1:  0 100% 67%;               /* red */
+    --avatar-2:  31 100% 71%;              /* orange */
+    --avatar-3:  65 92% 76%;               /* yellow */
+    --avatar-4:  135 94% 65%;              /* green */
+    --avatar-5:  191 97% 77%;              /* cyan */
+    --avatar-6:  265 89% 78%;              /* purple */
+    --avatar-7:  326 100% 74%;             /* pink */
+    --avatar-8:  0 100% 67%;               /* red (repeat) */
+    --avatar-9:  31 100% 71%;              /* orange (repeat) */
+    --avatar-10: 65 92% 76%;               /* yellow (repeat) */
+    --avatar-11: 135 94% 65%;              /* green (repeat) */
+    --avatar-12: 191 97% 77%;              /* cyan (repeat) */
+    --avatar-13: 265 89% 78%;              /* purple (repeat) */
+    --avatar-14: 326 100% 74%;             /* pink (repeat) */
+  }
 }
 
 /* Avatar circle utility classes — read theme-defined --avatar-* variables.
@@ -290,6 +413,8 @@
 [data-theme="dark"] mark,
 [data-theme="dark-gray"] mark,
 [data-theme="dark-balanced"] mark,
-[data-theme="catppuccin-mocha"] mark {
+[data-theme="adwaita-dark"] mark,
+[data-theme="catppuccin-mocha"] mark,
+[data-theme="dracula"] mark {
   background-color: hsl(var(--primary) / 0.35);
 }

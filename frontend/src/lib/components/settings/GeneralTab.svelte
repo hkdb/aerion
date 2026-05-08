@@ -79,11 +79,14 @@
     { value: 'light-blue', label: $_('settingsGeneral.themeLightBlue') },
     { value: 'light-orange', label: $_('settingsGeneral.themeLightOrange') },
     { value: 'light-balanced', label: $_('settingsGeneral.themeLightBalanced') },
+    { value: 'adwaita-light', label: 'Adwaita (Light)' },
     { value: 'catppuccin-latte', label: 'Catppuccin Latte' },
     { value: 'dark', label: $_('settingsGeneral.themeDark') },
     { value: 'dark-gray', label: $_('settingsGeneral.themeDarkGray') },
     { value: 'dark-balanced', label: $_('settingsGeneral.themeDarkBalanced') },
+    { value: 'adwaita-dark', label: 'Adwaita (Dark)' },
     { value: 'catppuccin-mocha', label: 'Catppuccin Mocha' },
+    { value: 'dracula', label: 'Dracula' },
   ])
 
   function getDensityLabel(value: string): string {

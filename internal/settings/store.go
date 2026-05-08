@@ -62,11 +62,14 @@ const (
 	ThemeModeLightBlue   = "light-blue"   // New
 	ThemeModeLightOrange   = "light-orange"   // New
 	ThemeModeLightBalanced = "light-balanced" // New
+	ThemeModeAdwaitaLight  = "adwaita-light"  // Adwaita Light
 	ThemeModeDark          = "dark"           // Default dark purple
 	ThemeModeDarkGray     = "dark-gray"     // New
 	ThemeModeDarkBalanced = "dark-balanced" // New
+	ThemeModeAdwaitaDark  = "adwaita-dark"  // Adwaita Dark
 	ThemeModeCatppuccinLatte = "catppuccin-latte" // Catppuccin Latte
 	ThemeModeCatppuccinMocha = "catppuccin-mocha" // Catppuccin Mocha
+	ThemeModeDracula         = "dracula"          // Dracula
 )
 
 // DefaultThemeMode is the default theme mode
@@ -313,11 +316,12 @@ func (s *Store) GetThemeMode() (string, error) {
 func (s *Store) SetThemeMode(mode string) error {
 	switch mode {
 	case ThemeModeSystem, ThemeModeLight, ThemeModeLightBlue, ThemeModeLightOrange, ThemeModeLightBalanced,
-		ThemeModeDark, ThemeModeDarkGray, ThemeModeDarkBalanced,
-		ThemeModeCatppuccinLatte, ThemeModeCatppuccinMocha:
+		ThemeModeAdwaitaLight,
+		ThemeModeDark, ThemeModeDarkGray, ThemeModeDarkBalanced, ThemeModeAdwaitaDark,
+		ThemeModeCatppuccinLatte, ThemeModeCatppuccinMocha, ThemeModeDracula:
 		return s.Set(KeyThemeMode, mode)
 	default:
-		return fmt.Errorf("invalid theme mode: %s (must be 'system', 'light', 'light-blue', 'light-orange', 'light-balanced', 'dark', 'dark-gray', 'dark-balanced', 'catppuccin-latte', or 'catppuccin-mocha')", mode)
+		return fmt.Errorf("invalid theme mode: %s (must be 'system', 'light', 'light-blue', 'light-orange', 'light-balanced', 'adwaita-light', 'dark', 'dark-gray', 'dark-balanced', 'adwaita-dark', 'catppuccin-latte', 'catppuccin-mocha', or 'dracula')", mode)
 	}
 }
 
