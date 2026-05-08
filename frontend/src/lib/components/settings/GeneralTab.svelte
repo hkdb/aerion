@@ -90,6 +90,8 @@
     { value: 'dark-balanced', label: $_('settingsGeneral.themeDarkBalanced') },
     { value: 'adwaita-dark', label: 'Adwaita (Dark)' },
     { value: 'breeze-dark', label: 'Breeze (Dark)' },
+    { value: 'catppuccin-frappe', label: 'Catppuccin Frappé' },
+    { value: 'catppuccin-macchiato', label: 'Catppuccin Macchiato' },
     { value: 'catppuccin-mocha', label: 'Catppuccin Mocha' },
     { value: 'dracula', label: 'Dracula' },
     { value: 'nord-dark', label: 'Nord (Dark)' },

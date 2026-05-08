@@ -69,8 +69,10 @@ const (
 	ThemeModeDarkBalanced = "dark-balanced" // New
 	ThemeModeAdwaitaDark  = "adwaita-dark"  // Adwaita Dark
 	ThemeModeBreezeDark   = "breeze-dark"   // Breeze Dark
-	ThemeModeCatppuccinLatte = "catppuccin-latte" // Catppuccin Latte
-	ThemeModeCatppuccinMocha = "catppuccin-mocha" // Catppuccin Mocha
+	ThemeModeCatppuccinLatte     = "catppuccin-latte"     // Catppuccin Latte
+	ThemeModeCatppuccinFrappe    = "catppuccin-frappe"    // Catppuccin Frappé
+	ThemeModeCatppuccinMacchiato = "catppuccin-macchiato" // Catppuccin Macchiato
+	ThemeModeCatppuccinMocha     = "catppuccin-mocha"     // Catppuccin Mocha
 	ThemeModeDracula         = "dracula"          // Dracula
 	ThemeModeTokyoNight      = "tokyo-night"      // Tokyo Night
 	ThemeModeNordLight       = "nord-light"       // Nord Light
@@ -327,12 +329,13 @@ func (s *Store) SetThemeMode(mode string) error {
 	case ThemeModeSystem, ThemeModeLight, ThemeModeLightBlue, ThemeModeLightOrange, ThemeModeLightBalanced,
 		ThemeModeAdwaitaLight, ThemeModeBreezeLight,
 		ThemeModeDark, ThemeModeDarkGray, ThemeModeDarkBalanced, ThemeModeAdwaitaDark, ThemeModeBreezeDark,
-		ThemeModeCatppuccinLatte, ThemeModeCatppuccinMocha, ThemeModeDracula, ThemeModeTokyoNight,
+		ThemeModeCatppuccinLatte, ThemeModeCatppuccinFrappe, ThemeModeCatppuccinMacchiato, ThemeModeCatppuccinMocha,
+		ThemeModeDracula, ThemeModeTokyoNight,
 		ThemeModeNordLight, ThemeModeNordDark, ThemeModePopLight, ThemeModePopDark,
 		ThemeModeYaruLight, ThemeModeYaruDark:
 		return s.Set(KeyThemeMode, mode)
 	default:
-		return fmt.Errorf("invalid theme mode: %s (must be 'system', 'light', 'light-blue', 'light-orange', 'light-balanced', 'adwaita-light', 'breeze-light', 'dark', 'dark-gray', 'dark-balanced', 'adwaita-dark', 'breeze-dark', 'catppuccin-latte', 'catppuccin-mocha', 'dracula', 'tokyo-night', 'nord-light', 'nord-dark', 'pop-light', 'pop-dark', 'yaru-light', or 'yaru-dark')", mode)
+		return fmt.Errorf("invalid theme mode: %s (must be 'system', 'light', 'light-blue', 'light-orange', 'light-balanced', 'adwaita-light', 'breeze-light', 'dark', 'dark-gray', 'dark-balanced', 'adwaita-dark', 'breeze-dark', 'catppuccin-latte', 'catppuccin-frappe', 'catppuccin-macchiato', 'catppuccin-mocha', 'dracula', 'tokyo-night', 'nord-light', 'nord-dark', 'pop-light', 'pop-dark', 'yaru-light', or 'yaru-dark')", mode)
 	}
 }
 

@@ -8,6 +8,7 @@
   import { GetReadReceiptResponsePolicy, SetReadReceiptResponsePolicy, GetMarkAsReadDelay, SetMarkAsReadDelay, GetMessageListDensity, SetMessageListDensity, GetThemeMode, SetThemeMode, GetShowTitleBar, SetShowTitleBar, GetRunBackground, SetRunBackground, GetStartHidden, SetStartHidden, GetAutostart, SetAutostart, GetLanguage, SetLanguage, GetComposerMode, SetComposerMode, GetMailtoMode, SetMailtoMode, GetComposerFormat, SetComposerFormat, GetNativeTitleBar, SetNativeTitleBar, GetAlwaysLoadImages, SetAlwaysLoadImages, GetAccentBarUnread, SetAccentBarUnread, GetShowMessageListCircles, SetShowMessageListCircles, GetShowViewerCircles, SetShowViewerCircles, QuitApp } from '../../../../wailsjs/go/app/App.js'
   import { addToast } from '$lib/stores/toast'
   import { setMessageListDensity as updateDensityStore, setThemeMode as updateThemeStore, setShowTitleBar as updateShowTitleBarStore, setRunBackground as updateRunBackgroundStore, setStartHidden as updateStartHiddenStore, setAutostart as updateAutostartStore, setLanguage as updateLanguageStore, setComposerMode as updateComposerModeStore, setMailtoMode as updateMailtoModeStore, setComposerFormat as updateComposerFormatStore, setNativeTitleBar as updateNativeTitleBarStore, setAlwaysLoadImages as updateAlwaysLoadImagesStore, setAccentBarUnread as updateAccentBarUnreadStore, setShowMessageListCircles as updateShowMessageListCirclesStore, setShowViewerCircles as updateShowViewerCirclesStore, type MessageListDensity, type ThemeMode, type ComposerMode, type ComposerFormat } from '$lib/stores/settings.svelte'
+  import { applyThemeFromMode } from '$lib/stores/theme.svelte'
   import { _ } from '$lib/i18n'
   import ConfirmDialog from '$lib/components/ui/confirm-dialog/ConfirmDialog.svelte'
   import GeneralTab from './GeneralTab.svelte'
@@ -48,10 +49,22 @@
   let showMessageListCircles = $state<boolean>(true)
   let showViewerCircles = $state<boolean>(true)
   let originalNativeTitleBar = false
+  // Snapshot of the saved theme at dialog open time. Used to revert live preview
+  // if the dialog closes without Save (Cancel / ESC / click-outside).
+  let originalThemeMode = ''
+  let hasSaved = $state(false)
   let showRestartDialog = $state(false)
   let loading = $state(true)
   let saving = $state(false)
   let activeTab = $state('general')
+
+  // Live theme preview: apply the picker's current value to the document
+  // immediately so the user sees what each theme looks like before saving.
+  // The revert path is in handleOpenChange when the dialog closes unsaved.
+  $effect(() => {
+    if (loading || !themeMode) return
+    applyThemeFromMode(themeMode as ThemeMode)
+  })
 
   // Load settings on mount
   onMount(async () => {
@@ -67,6 +80,7 @@
 
   async function loadSettings() {
     loading = true
+    hasSaved = false
     try {
       const [policy, delayMs, density, theme, titleBar, runBg, startHid, autoSt, lang, comp, mail, compFmt, nativeTB, alwaysImages, accentBar, listCircles, viewerCircles] = await Promise.all([
         GetReadReceiptResponsePolicy(),
@@ -92,6 +106,7 @@
       markAsReadDelaySeconds = delayMs < 0 ? -1 : delayMs / 1000
       messageListDensity = density
       themeMode = theme
+      originalThemeMode = theme
       showTitleBar = titleBar
       runBackground = runBg
       startHidden = startHid
@@ -161,6 +176,8 @@
         type: 'success',
         message: $_('toast.settingsSaved'),
       })
+      hasSaved = true
+      originalThemeMode = themeMode
       // Show restart dialog if native title bar setting changed
       if (nativeTitleBar !== originalNativeTitleBar) {
         originalNativeTitleBar = nativeTitleBar
@@ -188,6 +205,10 @@
   function handleOpenChange(isOpen: boolean) {
     open = isOpen
     if (!isOpen) {
+      // Revert live theme preview if the user closed without saving.
+      if (!hasSaved && originalThemeMode && themeMode !== originalThemeMode) {
+        applyThemeFromMode(originalThemeMode as ThemeMode)
+      }
       onClose?.()
     }
   }

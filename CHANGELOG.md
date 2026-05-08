@@ -4,8 +4,8 @@
 ---
 
 - Made contact circles themeable
-- Added Catppuccin Mocha theme
-- Added Catppuccin Latte theme
+- Added live theme change preview
+- Added Catppuccin themes
 - Added Dracula theme
 - Added Toky Night theme
 - Added Nord Light/Dark themes

@@ -77,12 +77,6 @@ export function handleMediaQueryChange(matches: boolean) {
 
 /** Handle 'theme:changed' IPC events for composer windows. */
 export function handleThemeChanged(newTheme: string) {
-  const validThemes: ThemeMode[] = [
-    'system', 'light', 'light-blue', 'light-orange',
-    'dark', 'dark-gray', 'dark-balanced',
-  ]
-  if (!validThemes.includes(newTheme as ThemeMode)) return
-
   if (newTheme === 'system') {
     applyThemeFromMode('system')
     return

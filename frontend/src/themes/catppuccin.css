@@ -42,6 +42,84 @@
     --avatar-14: 231 97% 72%;            /* lavender */
   }
 
+  /* Catppuccin Frappé — Lightest of the dark flavors. */
+  [data-theme="catppuccin-frappe"] {
+    --background: 229 19% 23%;           /* base #303446 */
+    --foreground: 227 70% 87%;           /* text #C6D0F5 */
+    --card: 229 19% 23%;                 /* base */
+    --card-foreground: 227 70% 87%;
+    --popover: 229 19% 23%;              /* base */
+    --popover-foreground: 227 70% 87%;
+    --primary: 277 59% 76%;              /* mauve #CA9EE6 */
+    --primary-foreground: 229 19% 23%;   /* base */
+    --secondary: 230 16% 30%;            /* surface0 #414559 */
+    --secondary-foreground: 227 70% 87%;
+    --muted: 230 16% 30%;                /* surface0 */
+    --muted-foreground: 227 44% 80%;     /* subtext1 #B5BFE2 */
+    --accent: 230 16% 30%;               /* surface0 */
+    --accent-foreground: 227 70% 87%;
+    --destructive: 359 68% 71%;          /* red #E78284 */
+    --destructive-foreground: 229 19% 23%; /* base */
+    --border: 227 15% 37%;               /* surface1 #51576D */
+    --input: 227 15% 37%;
+    --ring: 277 59% 76%;                 /* mauve */
+    /* Avatar palette: 14 distinct Catppuccin Frappé colors with dark initials. */
+    --avatar-fg: 229 19% 23%;            /* base */
+    --avatar-1:  10 57% 88%;             /* rosewater #F2D5CF */
+    --avatar-2:  0 59% 84%;              /* flamingo #EEBEBE */
+    --avatar-3:  316 73% 84%;            /* pink #F4B8E4 */
+    --avatar-4:  277 59% 76%;            /* mauve */
+    --avatar-5:  359 68% 71%;            /* red */
+    --avatar-6:  358 66% 76%;            /* maroon #EA999C */
+    --avatar-7:  20 79% 70%;             /* peach #EF9F76 */
+    --avatar-8:  40 62% 73%;             /* yellow #E5C890 */
+    --avatar-9:  96 44% 68%;             /* green #A6D189 */
+    --avatar-10: 172 40% 65%;            /* teal #81C8BE */
+    --avatar-11: 189 48% 73%;            /* sky #99D1DB */
+    --avatar-12: 199 55% 69%;            /* sapphire #85C1DC */
+    --avatar-13: 222 74% 74%;            /* blue #8CAAEE */
+    --avatar-14: 239 67% 84%;            /* lavender #BABBF1 */
+  }
+
+  /* Catppuccin Macchiato — Mid-dark flavor between Frappé and Mocha. */
+  [data-theme="catppuccin-macchiato"] {
+    --background: 232 23% 18%;           /* base #24273A */
+    --foreground: 227 68% 88%;           /* text #CAD3F5 */
+    --card: 232 23% 18%;                 /* base */
+    --card-foreground: 227 68% 88%;
+    --popover: 232 23% 18%;              /* base */
+    --popover-foreground: 227 68% 88%;
+    --primary: 267 83% 80%;              /* mauve #C6A0F6 */
+    --primary-foreground: 232 23% 18%;   /* base */
+    --secondary: 230 19% 26%;            /* surface0 #363A4F */
+    --secondary-foreground: 227 68% 88%;
+    --muted: 230 19% 26%;                /* surface0 */
+    --muted-foreground: 228 39% 80%;     /* subtext1 #B8C0E0 */
+    --accent: 230 19% 26%;               /* surface0 */
+    --accent-foreground: 227 68% 88%;
+    --destructive: 351 74% 73%;          /* red #ED8796 */
+    --destructive-foreground: 232 23% 18%; /* base */
+    --border: 231 16% 34%;               /* surface1 #494D64 */
+    --input: 231 16% 34%;
+    --ring: 267 83% 80%;                 /* mauve */
+    /* Avatar palette: 14 distinct Catppuccin Macchiato colors with dark initials. */
+    --avatar-fg: 232 23% 18%;            /* base */
+    --avatar-1:  10 59% 90%;             /* rosewater #F4DBD6 */
+    --avatar-2:  0 58% 86%;              /* flamingo #F0C6C6 */
+    --avatar-3:  316 74% 85%;            /* pink #F5BDE6 */
+    --avatar-4:  267 83% 80%;            /* mauve */
+    --avatar-5:  351 74% 73%;            /* red */
+    --avatar-6:  355 71% 77%;            /* maroon #EE99A0 */
+    --avatar-7:  21 86% 73%;             /* peach #F5A97F */
+    --avatar-8:  40 70% 78%;             /* yellow #EED49F */
+    --avatar-9:  105 48% 72%;            /* green #A6DA95 */
+    --avatar-10: 171 47% 69%;            /* teal #8BD5CA */
+    --avatar-11: 189 59% 73%;            /* sky #91D7E3 */
+    --avatar-12: 199 66% 69%;            /* sapphire #7DC4E4 */
+    --avatar-13: 220 83% 75%;            /* blue #8AADF4 */
+    --avatar-14: 234 82% 85%;            /* lavender #B7BDF8 */
+  }
+
   /* Catppuccin Mocha — Light pastels on dark base; dark initials. */
   [data-theme="catppuccin-mocha"] {
     --background: 240 21% 15%;           /* base #1E1E2E */
