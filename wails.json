@@ -9,12 +9,12 @@
   "info": {
     "companyName": "Aerion",
     "productName": "Aerion",
-    "productVersion": "0.2.2-dev",
+    "productVersion": "0.2.2",
     "copyright": "Copyright 2024-2025",
     "comments": "A modern, cross-platform email client"
   },
   "author": {
     "name": "hkdb",
-    "email": ""
+    "email": "hkdb@3df.io"
   }
 }
