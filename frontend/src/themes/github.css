@@ -1,0 +1,84 @@
+/* GitHub — palette transcribed from primer/primitives:
+   src/tokens/base/color/{light,dark}/{light,dark}.json5 (canonical reference).
+   Primary uses GitHub's iconic green action color (#2DA44E light / #3FB950
+   dark) — matches the "Sign up" / "Code" / "Create" button feel rather than
+   the blue link accent. Aerion-specific override: --ring matches --primary. */
+@layer base {
+  /* GitHub Light — canvas-subtle bg with white view cards (the iconic look). */
+  [data-theme="github-light"] {
+    --background: 210 29% 97%;             /* canvas.subtle / neutral.1 #F6F8FA */
+    --foreground: 213 13% 14%;             /* base.color.black #1F2328 */
+    --card: 0 0% 100%;                     /* canvas.default / neutral.0 #FFFFFF */
+    --card-foreground: 213 13% 14%;
+    --popover: 0 0% 100%;                  /* canvas.default */
+    --popover-foreground: 213 13% 14%;
+    --primary: 137 57% 41%;                /* success.emphasis #2DA44E — GitHub action green */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 23% 95%;              /* neutral.2 #EFF2F5 */
+    --secondary-foreground: 213 13% 14%;
+    --muted: 210 23% 95%;                  /* neutral.2 */
+    --muted-foreground: 213 11% 39%;       /* neutral.9 #59636E */
+    --accent: 210 23% 95%;                 /* neutral.2 */
+    --accent-foreground: 213 13% 14%;
+    --destructive: 356 71% 47%;            /* red.5 #CF222E */
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 18% 85%;                 /* neutral.6 #D1D9E0 */
+    --input: 210 18% 85%;
+    --ring: 137 57% 41%;                   /* GitHub green */
+    /* Avatar palette: GitHub state colors with white initials. */
+    --avatar-fg: 0 0% 100%;
+    --avatar-1:  212 92% 45%;              /* blue #0969DA */
+    --avatar-2:  137 66% 30%;              /* green #1A7F37 */
+    --avatar-3:  43 100% 37%;              /* yellow #BF8700 */
+    --avatar-4:  24 100% 37%;              /* orange #BC4C00 */
+    --avatar-5:  356 71% 47%;              /* red #CF222E */
+    --avatar-6:  261 73% 59%;              /* purple #8250DF */
+    --avatar-7:  326 53% 49%;              /* pink #BF3989 — sponsors */
+    --avatar-8:  212 92% 45%;              /* blue (repeat) */
+    --avatar-9:  137 66% 30%;              /* green (repeat) */
+    --avatar-10: 43 100% 37%;              /* yellow (repeat) */
+    --avatar-11: 24 100% 37%;              /* orange (repeat) */
+    --avatar-12: 356 71% 47%;              /* red (repeat) */
+    --avatar-13: 261 73% 59%;              /* purple (repeat) */
+    --avatar-14: 326 53% 49%;              /* pink (repeat) */
+  }
+
+  /* GitHub Dark — canvas-default near-black bg. */
+  [data-theme="github-dark"] {
+    --background: 220 27% 8%;              /* canvas.default / neutral.0 #0D1117 */
+    --foreground: 213 73% 96%;             /* neutral.11 #F0F6FC */
+    --card: 220 27% 8%;                    /* canvas.default — flat, Aerion convention */
+    --card-foreground: 213 73% 96%;
+    --popover: 213 25% 11%;                /* neutral.1 #151B23 — slightly elevated */
+    --popover-foreground: 213 73% 96%;
+    --primary: 134 50% 49%;                /* success.emphasis dark #3FB950 — GitHub action green */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 213 25% 11%;              /* neutral.1 #151B23 */
+    --secondary-foreground: 213 73% 96%;
+    --muted: 213 25% 11%;                  /* neutral.1 */
+    --muted-foreground: 215 8% 60%;        /* neutral.8 #9198A1 */
+    --accent: 213 25% 11%;                 /* neutral.1 */
+    --accent-foreground: 213 73% 96%;
+    --destructive: 3 92% 63%;              /* red.4 dark #F85149 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 213 12% 27%;                 /* neutral.6 #3D444D */
+    --input: 213 12% 27%;
+    --ring: 134 50% 49%;                   /* GitHub green dark */
+    /* Avatar palette: same GitHub state colors as Light variant. */
+    --avatar-fg: 0 0% 100%;
+    --avatar-1:  212 92% 45%;              /* blue */
+    --avatar-2:  137 66% 30%;              /* green */
+    --avatar-3:  43 100% 37%;              /* yellow */
+    --avatar-4:  24 100% 37%;              /* orange */
+    --avatar-5:  356 71% 47%;              /* red */
+    --avatar-6:  261 73% 59%;              /* purple */
+    --avatar-7:  326 53% 49%;              /* pink */
+    --avatar-8:  212 92% 45%;              /* blue (repeat) */
+    --avatar-9:  137 66% 30%;              /* green (repeat) */
+    --avatar-10: 43 100% 37%;              /* yellow (repeat) */
+    --avatar-11: 24 100% 37%;              /* orange (repeat) */
+    --avatar-12: 356 71% 47%;              /* red (repeat) */
+    --avatar-13: 261 73% 59%;              /* purple (repeat) */
+    --avatar-14: 326 53% 49%;              /* pink (repeat) */
+  }
+}

@@ -74,6 +74,8 @@ const (
 	ThemeModeCatppuccinMacchiato = "catppuccin-macchiato" // Catppuccin Macchiato
 	ThemeModeCatppuccinMocha     = "catppuccin-mocha"     // Catppuccin Mocha
 	ThemeModeDracula         = "dracula"          // Dracula
+	ThemeModeGithubLight     = "github-light"     // GitHub Light
+	ThemeModeGithubDark      = "github-dark"      // GitHub Dark
 	ThemeModeTokyoNight      = "tokyo-night"      // Tokyo Night
 	ThemeModeNordLight       = "nord-light"       // Nord Light
 	ThemeModeNordDark        = "nord-dark"        // Nord Dark
@@ -330,12 +332,12 @@ func (s *Store) SetThemeMode(mode string) error {
 		ThemeModeAdwaitaLight, ThemeModeBreezeLight,
 		ThemeModeDark, ThemeModeDarkGray, ThemeModeDarkBalanced, ThemeModeAdwaitaDark, ThemeModeBreezeDark,
 		ThemeModeCatppuccinLatte, ThemeModeCatppuccinFrappe, ThemeModeCatppuccinMacchiato, ThemeModeCatppuccinMocha,
-		ThemeModeDracula, ThemeModeTokyoNight,
+		ThemeModeDracula, ThemeModeGithubLight, ThemeModeGithubDark, ThemeModeTokyoNight,
 		ThemeModeNordLight, ThemeModeNordDark, ThemeModePopLight, ThemeModePopDark,
 		ThemeModeYaruLight, ThemeModeYaruDark:
 		return s.Set(KeyThemeMode, mode)
 	default:
-		return fmt.Errorf("invalid theme mode: %s (must be 'system', 'light', 'light-blue', 'light-orange', 'light-balanced', 'adwaita-light', 'breeze-light', 'dark', 'dark-gray', 'dark-balanced', 'adwaita-dark', 'breeze-dark', 'catppuccin-latte', 'catppuccin-frappe', 'catppuccin-macchiato', 'catppuccin-mocha', 'dracula', 'tokyo-night', 'nord-light', 'nord-dark', 'pop-light', 'pop-dark', 'yaru-light', or 'yaru-dark')", mode)
+		return fmt.Errorf("invalid theme mode: %s (must be 'system', 'light', 'light-blue', 'light-orange', 'light-balanced', 'adwaita-light', 'breeze-light', 'dark', 'dark-gray', 'dark-balanced', 'adwaita-dark', 'breeze-dark', 'catppuccin-latte', 'catppuccin-frappe', 'catppuccin-macchiato', 'catppuccin-mocha', 'dracula', 'github-light', 'github-dark', 'tokyo-night', 'nord-light', 'nord-dark', 'pop-light', 'pop-dark', 'yaru-light', or 'yaru-dark')", mode)
 	}
 }
 

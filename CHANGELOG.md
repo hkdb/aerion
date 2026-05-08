@@ -7,6 +7,7 @@
 - Added live theme change preview
 - Added Catppuccin themes
 - Added Dracula theme
+- Added Github theme
 - Added Toky Night theme
 - Added Nord Light/Dark themes
 - Added Pop! Light/Dark themes
