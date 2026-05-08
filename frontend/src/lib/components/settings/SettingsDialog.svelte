@@ -197,7 +197,14 @@
     }
   }
 
+  function revertLivePreview() {
+    if (!hasSaved && originalThemeMode && themeMode !== originalThemeMode) {
+      applyThemeFromMode(originalThemeMode as ThemeMode)
+    }
+  }
+
   function handleCancel() {
+    revertLivePreview()
     open = false
     onClose?.()
   }
@@ -205,10 +212,7 @@
   function handleOpenChange(isOpen: boolean) {
     open = isOpen
     if (!isOpen) {
-      // Revert live theme preview if the user closed without saving.
-      if (!hasSaved && originalThemeMode && themeMode !== originalThemeMode) {
-        applyThemeFromMode(originalThemeMode as ThemeMode)
-      }
+      revertLivePreview()
       onClose?.()
     }
   }

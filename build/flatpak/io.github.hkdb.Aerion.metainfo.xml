@@ -153,16 +153,16 @@
         <ul>
           <li>Made contact circles themeable</li>
           <li>Added live theme change preview</li>
-          <li>Added Adwaita Light/Dark themes</li>
-          <li>Added Breeze Light/Dark themes</li>
-          <li>Added Catppuccin themes</li>
+          <li>Added Adwaita themes (Light/Dark)</li>
+          <li>Added Breeze themes (Light/Dark)</li>
+          <li>Added Catppuccin themes (Latte/Frappe/Macchiato/Mocha)</li>
           <li>Added Dracula theme</li>
-          <li>Added Github themes</li>
+          <li>Added Github themes (Light/Soft Dark/Dark)</li>
           <li>Added Tokyo Night theme</li>
-          <li>Added Nord Light/Dark themes</li>
-          <li>Added Pop! Light/Dark themes</li>
-          <li>Added VS Code Light/Dark themes</li>
-          <li>Added Yaru Light/Dark themes</li>
+          <li>Added Nord themes (Light/Dark)</li>
+          <li>Added Pop! themes (Light/Dark)</li>
+          <li>Added VS Code themes (Light/Dark)</li>
+          <li>Added Yaru themes (Light/Dark)</li>
         </ul>
       </description>
     </release>
