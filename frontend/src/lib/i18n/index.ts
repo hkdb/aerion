@@ -6,6 +6,7 @@ register('fr', () => import('./locales/fr.json'))
 register('zh-TW', () => import('./locales/zh-TW.json'))
 register('zh-HK', () => import('./locales/zh-HK.json'))
 register('zh-CN', () => import('./locales/zh-CN.json'))
+register('pl', () => import('./locales/pl.json'))
 
 // Supported locales for the language picker
 export const supportedLocales = [
@@ -14,6 +15,7 @@ export const supportedLocales = [
   { code: 'zh-TW', name: '繁體中文 (台灣)' },
   { code: 'zh-HK', name: '繁體中文 (香港)' },
   { code: 'zh-CN', name: '简体中文' },
+  { code: 'pl', name: 'Polski' },
 ] as const
 
 /**
