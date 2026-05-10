@@ -9,6 +9,7 @@
   <summary xml:lang="zh-TW">一款現代化，輕量級的開源 Linux 電子郵件客戶端應用程式</summary>
   <summary xml:lang="zh-HK">一款現代化，輕量級的開源 Linux 電子郵件客戶端應用程式</summary>
   <summary xml:lang="zh-CN">一款现代化，轻量级的开源 Linux 电子邮件客户端应用程序</summary>
+  <summary xml:lang="fr">Lekki otwartoźródłowy klient e-mail dla Linuksa</summary>
   <description>
     <p>
       Aerion is a modern, lightweight email client inspired by Geary, focused on
@@ -27,12 +28,17 @@
     <p xml:lang="zh-CN">
       Aerion 是一款以 Geary 为灵感，注重资源效率与简洁使用体验的现代化轻量级电子邮件客户端应用程序。
     </p>
+    <p xml:lang="pl">
+      Aerion to nowoczesny, lekki klient poczty e-mail inspirowany Geary, 
+      skoncentrowany na efektywności zasobów i przejrzystym interfejsie użytkownika.
+    </p>
 
     <p>Features:</p>
     <p xml:lang="fr">Fonctionnalités :</p>
     <p xml:lang="zh-TW">功能特色：</p>
     <p xml:lang="zh-HK">功能特色：</p>
     <p xml:lang="zh-CN">功能特色：</p>
+    <p xml:lang="pl">Funkcjonalności :</p>
 
     <ul>
       <li>Multiple email accounts with unified inbox</li>
@@ -40,60 +46,70 @@
       <li xml:lang="zh-TW">多帳號支援與統一收件匣</li>
       <li xml:lang="zh-HK">多帳戶支援與統一收件箱</li>
       <li xml:lang="zh-CN">多账号支持与统一收件箱</li>
+      <li xml:lang="pl">Wiele kont e-mail ze wspólną skrzynką odbiorczą</li>
 
       <li>Support for Gmail, Outlook, and generic IMAP/SMTP</li>
       <li xml:lang="fr">Prise en charge de Gmail, Outlook et IMAP/SMTP générique</li>
       <li xml:lang="zh-TW">支援 Gmail、Outlook 及通用 IMAP/SMTP</li>
       <li xml:lang="zh-HK">支援 Gmail、Outlook 及通用 IMAP/SMTP</li>
       <li xml:lang="zh-CN">支持 Gmail、Outlook 及通用 IMAP/SMTP</li>
+      <li xml:lang="pl">Obsługa Gmaila, Outlooka i ogólnego protokołu IMAP/SMTP</li>
 
       <li>Conversation threading</li>
       <li xml:lang="fr">Affichage des messages par fil de discussion</li>
       <li xml:lang="zh-TW">對話串檢視</li>
       <li xml:lang="zh-HK">對話串檢視</li>
       <li xml:lang="zh-CN">会话线程视图</li>
+      <li xml:lang="pl">Wątkowanie konwersacji</li>
 
       <li>Rich text WYSIWYG composer with TipTap editor</li>
       <li xml:lang="fr">Éditeur de message WYSIWYG en texte enrichi avec TipTap</li>
       <li xml:lang="zh-TW">使用 TipTap 編輯器的所見即所得撰寫介面</li>
       <li xml:lang="zh-HK">使用 TipTap 編輯器的所見即所得撰寫界面</li>
       <li xml:lang="zh-CN">使用 TipTap 编辑器的所见即所得撰写界面</li>
+      <li xml:lang="pl">Kompozytor WYSIWYG z bogatym tekstem i edytorem TipTap</li>
 
       <li>Contact sync (CardDAV, Google, Microsoft) for auto-completion</li>
       <li xml:lang="fr">Synchronisation des contacts (CardDAV, Google, Microsoft) pour l'auto-complétion</li>
       <li xml:lang="zh-TW">聯絡人同步（CardDAV、Google、Microsoft）與自動完成</li>
       <li xml:lang="zh-HK">聯絡人同步（CardDAV、Google、Microsoft）與自動完成</li>
       <li xml:lang="zh-CN">联系人同步（CardDAV、Google、Microsoft）与自动补全</li>
+      <li xml:lang="pl">Synchronizacja kontaktów (CardDAV, Google, Microsoft) w celu automatycznego uzupełniania</li>
 
       <li>Dark mode and multiple color themes</li>
       <li xml:lang="fr">Mode sombre et thèmes de couleurs multiples</li>
       <li xml:lang="zh-TW">深色模式與多種色彩主題</li>
       <li xml:lang="zh-HK">深色模式與多種色彩主題</li>
       <li xml:lang="zh-CN">深色模式与多种颜色主题</li>
+      <li xml:lang="pl">Tryb ciemny i wiele motywów kolorystycznych</li>
 
       <li>Keyboard-friendly navigation with vim-style shortcuts</li>
       <li xml:lang="fr">Navigation au clavier avec raccourcis de style Vim</li>
       <li xml:lang="zh-TW">支援 Vim 風格快捷鍵的鍵盤導航</li>
       <li xml:lang="zh-HK">支援 Vim 風格快捷鍵的鍵盤導航</li>
       <li xml:lang="zh-CN">支持 Vim 风格快捷键的键盘导航</li>
+      <li xml:lang="pl">Nawigacja przyjazna dla klawiatury ze skrótami w stylu vim</li>
 
       <li>Detachable composer window</li>
       <li xml:lang="fr">Fenêtre de rédaction détachable</li>
       <li xml:lang="zh-TW">可分離的撰寫視窗</li>
       <li xml:lang="zh-HK">可分離的撰寫視窗</li>
       <li xml:lang="zh-CN">可分离的撰写窗口</li>
+      <li xml:lang="pl">Odłączane okno kompozytora</li>
 
       <li>Basic tracking element removal from emails</li>
       <li xml:lang="fr">Suppression basique des éléments de suivi des e-mails</li>
       <li xml:lang="zh-TW">基本的郵件追蹤元素移除</li>
       <li xml:lang="zh-HK">基本的郵件追蹤元素移除</li>
       <li xml:lang="zh-CN">基本的邮件追踪元素移除</li>
+      <li xml:lang="pl">Usuwanie podstawowych elementów śledzących z wiadomości e-mail</li>
 
       <li>PGP and S/MIME support</li>
       <li xml:lang="fr">Prise en charge de PGP et S/MIME</li>
       <li xml:lang="zh-TW">PGP 與 S/MIME 支援</li>
       <li xml:lang="zh-HK">PGP 與 S/MIME 支援</li>
       <li xml:lang="zh-CN">PGP 与 S/MIME 支持</li>
+      <li xml:lang="pl">Obsługa PGP i S/MIME</li>
     </ul>
   </description>
 
@@ -107,6 +123,7 @@
       <caption xml:lang="zh-TW">Aerion 主視窗顯示收件匣</caption>
       <caption xml:lang="zh-HK">Aerion 主視窗顯示收件箱</caption>
       <caption xml:lang="zh-CN">Aerion 主窗口显示收件箱</caption>
+      <caption xml:lang="pl">Główne okno Aerion pokazujące skrzynkę odbiorczą</caption>
     </screenshot>
   </screenshots>
 
@@ -141,6 +158,7 @@
     <keyword xml:lang="zh-HK">郵件</keyword>
     <keyword xml:lang="zh-CN">电子邮件</keyword>
     <keyword xml:lang="zh-CN">邮件</keyword>
+    <keyword xml:lang="pl">poczta e-mail</keyword>
   </keywords>
 
   <provides>
