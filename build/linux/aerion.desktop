@@ -3,16 +3,19 @@ Version=1.5
 Type=Application
 Name=Aerion
 GenericName=Email
+GenericName[cs]=E-mail
 GenericName[fr]=Client e-mail
 GenericName[zh_TW]=電子郵件
 GenericName[zh_HK]=電子郵件
 GenericName[zh_CN]=电子邮件
 Comment=A modern, cross-platform email client
+Comment[cs]=Moderní, multiplatformní e-mailový klient
 Comment[fr]=Un client e-mail moderne et léger pour Linux
 Comment[zh_TW]=一款現代化，輕量級的開源 Linux 電子郵件客戶端應用程式
 Comment[zh_HK]=一款現代化，輕量級的開源 Linux 電子郵件客戶端應用程式
 Comment[zh_CN]=一款现代化，轻量级的开源 Linux 电子邮件客户端应用程序
 Keywords=Mail;E-mail;email;IMAP;SMTP;CardDAV;
+Keywords[cs]=Pošta;E-mail;email;IMAP;SMTP;CardDAV;Zprávy;
 Keywords[fr]=e-mail;mail;courriel;messagerie;IMAP;SMTP;
 Keywords[zh_TW]=郵件;電子郵件;IMAP;SMTP;CardDAV;
 Keywords[zh_HK]=郵件;電子郵件;IMAP;SMTP;CardDAV;
@@ -30,6 +33,7 @@ Actions=compose;
 
 [Desktop Action compose]
 Name=Compose New Email
+Name[cs]=Napsat nový e-mail
 Name[fr]=Rédiger un nouveau message
 Name[zh_TW]=撰寫新郵件
 Name[zh_HK]=撰寫新郵件
