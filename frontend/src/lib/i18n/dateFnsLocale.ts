@@ -27,14 +27,9 @@ export async function loadDateFnsLocale(code: string): Promise<Locale | undefine
       dateFnsLocale = mod.cs
       break
     }
-    case 'zh-TW': {
-      const mod = await import('date-fns/locale/zh-TW')
-      dateFnsLocale = mod.zhTW
-      break
-    }
-    case 'zh-HK': {
-      const mod = await import('date-fns/locale/zh-HK')
-      dateFnsLocale = mod.zhHK
+    case 'fr': {
+      const mod = await import('date-fns/locale/fr')
+      dateFnsLocale = mod.fr
       break
     }
     case 'zh-CN': {
@@ -42,9 +37,14 @@ export async function loadDateFnsLocale(code: string): Promise<Locale | undefine
       dateFnsLocale = mod.zhCN
       break
     }
-    case 'fr': {
-      const mod = await import('date-fns/locale/fr')
-      dateFnsLocale = mod.fr
+    case 'zh-HK': {
+      const mod = await import('date-fns/locale/zh-HK')
+      dateFnsLocale = mod.zhHK
+      break
+    }
+    case 'zh-TW': {
+      const mod = await import('date-fns/locale/zh-TW')
+      dateFnsLocale = mod.zhTW
       break
     }
   }

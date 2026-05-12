@@ -112,10 +112,12 @@ Edit `frontend/src/lib/i18n/index.ts` and add a `register()` call for the new lo
 
 ```typescript
 register('en', () => import('./locales/en.json'))
-register('zh-TW', () => import('./locales/zh-TW.json'))
-register('zh-HK', () => import('./locales/zh-HK.json'))
+register('cs', () => import('./locales/cs.json'))
+register('fr', () => import('./locales/fr.json'))
+register('ja', () => import('./locales/ja.json'))     // ← Insert alphabetically (English stays first)
 register('zh-CN', () => import('./locales/zh-CN.json'))
-register('ja', () => import('./locales/ja.json'))     // ← Add this line
+register('zh-HK', () => import('./locales/zh-HK.json'))
+register('zh-TW', () => import('./locales/zh-TW.json'))
 ```
 
 ### 3. Add to Supported Locales
@@ -125,12 +127,16 @@ In the same file (`frontend/src/lib/i18n/index.ts`), add the locale to the `supp
 ```typescript
 export const supportedLocales = [
   { code: 'en', name: 'English' },
-  { code: 'zh-TW', name: '繁體中文 (台灣)' },
+  { code: 'cs', name: 'Čeština' },
+  { code: 'fr', name: 'Français' },
+  { code: 'ja', name: '日本語' },                     // ← Insert alphabetically (English stays first)
+  { code: 'zh-CN', name: '简体中文 (中国)' },
   { code: 'zh-HK', name: '繁體中文 (香港)' },
-  { code: 'zh-CN', name: '简体中文' },
-  { code: 'ja', name: '日本語' },                     // ← Add this line
+  { code: 'zh-TW', name: '繁體中文 (台灣)' },
 ] as const
 ```
+
+**Ordering convention**: English is always first; the rest are alphabetical by locale code.
 
 Use the language's native name for the `name` field — this is what appears in the Settings language picker.
 
@@ -140,13 +146,13 @@ Edit `frontend/src/lib/i18n/dateFnsLocale.ts` and add a case to the switch state
 
 ```typescript
 switch (code) {
-  case 'zh-TW': {
-    const mod = await import('date-fns/locale/zh-TW')
-    dateFnsLocale = mod.zhTW
+  case 'cs': {
+    const mod = await import('date-fns/locale/cs')
+    dateFnsLocale = mod.cs
     break
   }
-  // ... existing cases ...
-  case 'ja': {                                         // ← Add this block
+  // ... existing cases (alphabetical by locale code) ...
+  case 'ja': {                                         // ← Insert alphabetically
     const mod = await import('date-fns/locale/ja')
     dateFnsLocale = mod.ja
     break
@@ -197,7 +203,7 @@ This file is displayed in software centers (Flathub, GNOME Software). Add `xml:l
 <keyword xml:lang="ja">電子メール</keyword>
 ```
 
-Refer to the existing `zh-TW`, `zh-HK`, and `zh-CN` entries as working examples.
+Refer to the existing `cs`, `fr`, `zh-CN`, `zh-HK`, and `zh-TW` entries as working examples. Place new locale entries alphabetically by code (English first, the rest alphabetical).
 
 #### B. Desktop Entry (`build/linux/aerion.desktop`)
 
@@ -245,9 +251,11 @@ No backend changes are needed. The language setting is stored via the existing `
 | Code | Language | File |
 |------|----------|------|
 | `en` | English | `locales/en.json` (source of truth) |
-| `zh-TW` | Traditional Chinese (Taiwan) | `locales/zh-TW.json` |
+| `cs` | Czech | `locales/cs.json` |
+| `fr` | French | `locales/fr.json` |
+| `zh-CN` | Simplified Chinese (China) | `locales/zh-CN.json` |
 | `zh-HK` | Traditional Chinese (Hong Kong) | `locales/zh-HK.json` |
-| `zh-CN` | Simplified Chinese | `locales/zh-CN.json` |
+| `zh-TW` | Traditional Chinese (Taiwan) | `locales/zh-TW.json` |
 
 ## Translation Key Namespaces
 
