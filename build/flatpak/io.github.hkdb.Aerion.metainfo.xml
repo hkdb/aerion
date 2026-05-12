@@ -176,6 +176,7 @@
         <ul>
           <li>Added Czech translation</li>
           <li>Added composer del/backspace guard to prevent accidental message delete</li>
+          <li>Fixed detached composer system theme detection - #153</li>
         </ul>
       </description>
     </release>

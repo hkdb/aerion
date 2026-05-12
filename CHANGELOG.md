@@ -6,6 +6,7 @@
 
 - Added Czech translation
 - Added composer del/backspace guard to prevent accidental message delete
+- Fixed detached composer system theme detection - [#153](https://github.com/hkdb/aerion/issues/153)
 
 
 **v0.2.2 - 05-09-2026**

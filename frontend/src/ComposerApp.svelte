@@ -12,7 +12,7 @@
   import { getShowTitleBar, getNativeTitleBar, setShowTitleBar, setNativeTitleBar } from '$lib/stores/settings.svelte'
   import { initTheme, handleThemeChanged, type ThemeMode } from '$lib/stores/theme.svelte'
   // @ts-ignore - wailsjs imports
-  import { GetComposeMode, PrepareReply, GetDraft, CloseWindow, GetThemeMode, GetShowTitleBar, GetNativeTitleBar, RefreshWindowConstraints } from '../wailsjs/go/app/ComposerApp.js'
+  import { GetComposeMode, PrepareReply, GetDraft, CloseWindow, GetThemeMode, GetSystemTheme, GetShowTitleBar, GetNativeTitleBar, RefreshWindowConstraints } from '../wailsjs/go/app/ComposerApp.js'
   // @ts-ignore - wailsjs imports
   import { smtp, app } from '../wailsjs/go/models'
   // @ts-ignore - wailsjs runtime
@@ -71,10 +71,10 @@
     // Load saved theme mode from backend and apply (probes XDG portal)
     try {
       const savedThemeMode = await GetThemeMode() as ThemeMode
-      await initTheme(savedThemeMode)
+      await initTheme(savedThemeMode, GetSystemTheme)
     } catch (err) {
       console.error('Failed to load theme mode:', err)
-      await initTheme('system')
+      await initTheme('system', GetSystemTheme)
     }
 
     // Show window after theme is applied (prevents white flash on startup)

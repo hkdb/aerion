@@ -1,9 +1,10 @@
 // Theme store - centralizes all theme application and system theme detection logic
 //
 // Used by both App.svelte (main window) and ComposerApp.svelte (detached composer).
+// The OS theme probe is injected by the caller because each Wails process binds a
+// different Go struct (App vs ComposerApp), and importing the wrong binding at the
+// module level silently fails at runtime.
 
-// @ts-ignore - wailsjs path
-import { GetSystemTheme } from '../../../wailsjs/go/app/App'
 import { getThemeMode, type ThemeMode } from './settings.svelte'
 
 export type { ThemeMode }
@@ -42,11 +43,15 @@ export function applyThemeFromMode(mode: ThemeMode) {
 
 /**
  * Initialize the theme on mount.
- * Probes the XDG Settings Portal for system theme, then applies the stored mode.
+ * Probes the XDG Settings Portal for system theme via the caller-supplied binding,
+ * then applies the stored mode.
  */
-export async function initTheme(storedMode: ThemeMode) {
+export async function initTheme(
+  storedMode: ThemeMode,
+  getSystemTheme: () => Promise<string>,
+) {
   try {
-    const sysTheme = await GetSystemTheme()
+    const sysTheme = await getSystemTheme()
     if (sysTheme === 'light' || sysTheme === 'dark') {
       portalThemeAvailable = true
       portalTheme = sysTheme
