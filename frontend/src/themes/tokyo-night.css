@@ -5,6 +5,7 @@
    --ring override (Blue, matching --primary convention). */
 @layer base {
   [data-theme="tokyo-night"] {
+    color-scheme: dark;
     --background: 235 19% 13%;             /* bg #1A1B26 */
     --foreground: 229 73% 86%;             /* fg #C0CAF5 */
     --card: 235 19% 13%;                   /* bg */

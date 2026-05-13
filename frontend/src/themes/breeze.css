@@ -5,6 +5,7 @@
 @layer base {
   /* Breeze Light */
   [data-theme="breeze-light"] {
+    color-scheme: light;
     --background: 210 8% 94%;              /* Window BackgroundNormal #EFF0F1 */
     --foreground: 210 8% 15%;              /* Window ForegroundNormal #232629 */
     --card: 0 0% 100%;                     /* View BackgroundNormal #FFFFFF */
@@ -44,6 +45,7 @@
 
   /* Breeze Dark */
   [data-theme="breeze-dark"] {
+    color-scheme: dark;
     --background: 210 9% 14%;              /* Window BackgroundNormal #202326 */
     --foreground: 0 0% 99%;                /* Window ForegroundNormal #FCFCFC */
     --card: 210 9% 9%;                     /* View BackgroundNormal #141618 (darker — Breeze convention) */

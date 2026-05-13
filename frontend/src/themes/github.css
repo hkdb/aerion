@@ -6,6 +6,7 @@
 @layer base {
   /* GitHub Light — canvas-subtle bg with white view cards (the iconic look). */
   [data-theme="github-light"] {
+    color-scheme: light;
     --background: 210 29% 97%;             /* canvas.subtle / neutral.1 #F6F8FA */
     --foreground: 213 13% 14%;             /* base.color.black #1F2328 */
     --card: 0 0% 100%;                     /* canvas.default / neutral.0 #FFFFFF */
@@ -47,6 +48,7 @@
      "Dark Dimmed" in primer/primitives). Softer mid-dark blue-gray bg, less
      harsh than Dark default. Primary green is Primer's dimmed variant. */
   [data-theme="github-soft-dark"] {
+    color-scheme: dark;
     --background: 213 17% 17%;             /* bgColor.default #212830 */
     --foreground: 214 18% 85%;             /* fgColor.default #D1D7E0 */
     --card: 213 17% 17%;                   /* bgColor.default — flat, Aerion convention */
@@ -87,6 +89,7 @@
 
   /* GitHub Dark — canvas-default near-black bg. */
   [data-theme="github-dark"] {
+    color-scheme: dark;
     --background: 220 27% 8%;              /* canvas.default / neutral.0 #0D1117 */
     --foreground: 213 73% 96%;             /* neutral.11 #F0F6FC */
     --card: 220 27% 8%;                    /* canvas.default — flat, Aerion convention */

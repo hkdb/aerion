@@ -4,6 +4,7 @@
   /* Default Light Purple Theme */
   :root,
   [data-theme="light"] {
+    color-scheme: light;
     --background: 0 0% 96%;
     --foreground: 224 71.4% 4.1%;
     --card: 0 0% 100%;
@@ -28,6 +29,7 @@
 
   /* Light Blue Theme */
   [data-theme="light-blue"] {
+    color-scheme: light;
     --background: 0 0% 96%;
     --foreground: 224 71.4% 4.1%;
     --card: 0 0% 100%;
@@ -52,6 +54,7 @@
 
   /* Light Orange Theme */
   [data-theme="light-orange"] {
+    color-scheme: light;
     --background: 0 0% 96%;
     --foreground: 224 71.4% 4.1%;
     --card: 0 0% 100%;
@@ -76,6 +79,7 @@
 
   /* Light Balanced Theme – darker light gray with gray accents */
   [data-theme="light-balanced"] {
+    color-scheme: light;
     --background: 210 8% 88%;
     --foreground: 224 71.4% 4.1%;
     --card: 210 6% 93%;
@@ -101,6 +105,7 @@
   /* Default Dark Purple Theme */
   .dark,
   [data-theme="dark"] {
+    color-scheme: dark;
     --background: 224 71.4% 4.1%;
     --foreground: 210 20% 98%;
     --card: 224 71.4% 4.1%;
@@ -124,6 +129,7 @@
 
   /* Dark Gray Theme */
   [data-theme="dark-gray"] {
+    color-scheme: dark;
     --background: 222 13% 9%;
     --foreground: 210 20% 98%;
     --card: 222 13% 9%;
@@ -147,6 +153,7 @@
 
   /* Dark Balanced Theme – mid-dark background with gray accents */
   [data-theme="dark-balanced"] {
+    color-scheme: dark;
     --background: 210 11% 14%;
     --foreground: 210 20% 98%;
     --card: 210 11% 14%;

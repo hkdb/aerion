@@ -5,6 +5,7 @@
 @layer base {
   /* Catppuccin Latte — Saturated mid-lightness colors with white initials. */
   [data-theme="catppuccin-latte"] {
+    color-scheme: light;
     --background: 220 23% 95%;           /* base #EFF1F5 */
     --foreground: 234 16% 35%;           /* text #4C4F69 */
     --card: 220 23% 95%;                 /* base */
@@ -44,6 +45,7 @@
 
   /* Catppuccin Frappé — Lightest of the dark flavors. */
   [data-theme="catppuccin-frappe"] {
+    color-scheme: dark;
     --background: 229 19% 23%;           /* base #303446 */
     --foreground: 227 70% 87%;           /* text #C6D0F5 */
     --card: 229 19% 23%;                 /* base */
@@ -83,6 +85,7 @@
 
   /* Catppuccin Macchiato — Mid-dark flavor between Frappé and Mocha. */
   [data-theme="catppuccin-macchiato"] {
+    color-scheme: dark;
     --background: 232 23% 18%;           /* base #24273A */
     --foreground: 227 68% 88%;           /* text #CAD3F5 */
     --card: 232 23% 18%;                 /* base */
@@ -122,6 +125,7 @@
 
   /* Catppuccin Mocha — Light pastels on dark base; dark initials. */
   [data-theme="catppuccin-mocha"] {
+    color-scheme: dark;
     --background: 240 21% 15%;           /* base #1E1E2E */
     --foreground: 226 64% 88%;           /* text #CDD6F4 */
     --card: 240 21% 15%;                 /* base */

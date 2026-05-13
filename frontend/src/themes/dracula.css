@@ -5,6 +5,7 @@
    --primary convention). */
 @layer base {
   [data-theme="dracula"] {
+    color-scheme: dark;
     --background: 231 15% 18%;             /* Background #282A36 */
     --foreground: 60 30% 96%;              /* Foreground #F8F8F2 */
     --card: 231 15% 18%;                   /* Background */

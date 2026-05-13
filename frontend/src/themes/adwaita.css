@@ -4,6 +4,7 @@
 @layer base {
   /* Adwaita Light */
   [data-theme="adwaita-light"] {
+    color-scheme: light;
     --background: 240 11% 98%;             /* window_bg #FAFAFB */
     --foreground: 240 5% 21%;              /* window_fg rgb(0 0 6 / 80%) over white */
     --card: 0 0% 100%;                     /* view_bg #FFFFFF */
@@ -43,6 +44,7 @@
 
   /* Adwaita Dark */
   [data-theme="adwaita-dark"] {
+    color-scheme: dark;
     --background: 240 6% 14%;              /* window_bg #222226 */
     --foreground: 0 0% 100%;               /* window_fg #FFFFFF */
     --card: 240 5% 12%;                    /* view_bg #1D1D20 (slightly darker — Adwaita convention) */

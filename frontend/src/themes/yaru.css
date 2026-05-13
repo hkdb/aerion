@@ -5,6 +5,7 @@
 @layer base {
   /* Yaru Light — $bg_color #FAFAFA, $base_color #FFFFFF (slightly brighter view). */
   [data-theme="yaru-light"] {
+    color-scheme: light;
     --background: 0 0% 98%;                /* $bg_color #FAFAFA */
     --foreground: 0 0% 24%;                /* $inkstone #3D3D3D — Yaru's near-black fg */
     --card: 0 0% 100%;                     /* $base_color #FFFFFF */
@@ -45,6 +46,7 @@
   /* Yaru Dark — $bg_color (lighten jet 8%), $base_color (lighten jet 6%, slightly
      darker view per libadwaita/Yaru convention). */
   [data-theme="yaru-dark"] {
+    color-scheme: dark;
     --background: 0 0% 17%;                /* $bg_color #2C2C2C */
     --foreground: 0 0% 97%;                /* $porcelain #F7F7F7 */
     --card: 0 0% 15%;                      /* $base_color #262626 — view, slightly darker */

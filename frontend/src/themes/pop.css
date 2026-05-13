@@ -12,6 +12,7 @@
 @layer base {
   /* Pop! Light — primary.base bg, secondary.base elevated cards. */
   [data-theme="pop-light"] {
+    color-scheme: light;
     --background: 0 0% 92%;                /* primary.base #EBEBEB */
     --foreground: 0 0% 0%;                 /* neutral_10 #000000 */
     --card: 0 0% 99%;                      /* secondary.base #FCFCFC */
@@ -52,6 +53,7 @@
   /* Pop! Dark — primary.base bg (the COSMIC app window color), with the iconic
      bright cyan accent #63D0DF. */
   [data-theme="pop-dark"] {
+    color-scheme: dark;
     --background: 0 0% 15%;                /* primary.base #272727 */
     --foreground: 0 0% 100%;               /* neutral_10 #FFFFFF */
     --card: 0 0% 15%;                      /* primary.base — flat, Aerion convention */

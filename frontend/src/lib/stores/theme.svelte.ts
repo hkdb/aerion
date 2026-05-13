@@ -13,15 +13,15 @@ export type { ThemeMode }
 let portalThemeAvailable = false
 let portalTheme: 'light' | 'dark' = 'light'
 
-/** Apply a resolved theme to the document element. */
+/** Apply a resolved theme to the document element. The dark/light classification
+ *  is read from the CSS-declared `color-scheme` property on the matching
+ *  [data-theme="..."] block, so each theme owns its own scheme — no JS list to
+ *  maintain. We mirror it as the `.dark` class so Tailwind `dark:` variants and
+ *  any `.dark mark`-style selectors keep working. */
 export function applyTheme(themeName: ThemeMode) {
   document.documentElement.setAttribute('data-theme', themeName)
-
-  // Legacy: Also set .dark class for backwards compat
-  document.documentElement.classList.remove('dark')
-  if (themeName.startsWith('dark')) {
-    document.documentElement.classList.add('dark')
-  }
+  const scheme = getComputedStyle(document.documentElement).colorScheme.trim()
+  document.documentElement.classList.toggle('dark', scheme === 'dark')
 }
 
 /** Resolve a ThemeMode (which may be 'system') to a concrete theme and apply it. */

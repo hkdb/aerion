@@ -8,6 +8,7 @@
   /* Nord Light — Snow Storm bg, Polar Night text. nord10 (darker Frost) as
      primary for sufficient contrast on light bg. */
   [data-theme="nord-light"] {
+    color-scheme: light;
     --background: 219 28% 95%;             /* nord6 #ECEFF4 */
     --foreground: 220 16% 22%;             /* nord0 #2E3440 */
     --card: 219 28% 95%;                   /* nord6 */
@@ -49,6 +50,7 @@
   /* Nord Dark — Polar Night bg, Snow Storm text. nord8 (lighter Frost) as
      primary, the canonical Nord dark accent. */
   [data-theme="nord-dark"] {
+    color-scheme: dark;
     --background: 220 16% 22%;             /* nord0 #2E3440 */
     --foreground: 219 28% 95%;             /* nord6 #ECEFF4 */
     --card: 220 16% 22%;                   /* nord0 */

@@ -15,24 +15,9 @@
 .avatar-13 { background-color: hsl(var(--avatar-13)); color: hsl(var(--avatar-fg)); }
 .avatar-14 { background-color: hsl(var(--avatar-14)); color: hsl(var(--avatar-fg)); }
 
-/* Dark theme mark (highlight) override. When adding a new dark theme, append
-   its [data-theme="..."] mark selector here so highlighted text stays readable. */
-.dark mark,
-[data-theme="dark"] mark,
-[data-theme="dark-gray"] mark,
-[data-theme="dark-balanced"] mark,
-[data-theme="adwaita-dark"] mark,
-[data-theme="breeze-dark"] mark,
-[data-theme="catppuccin-frappe"] mark,
-[data-theme="catppuccin-macchiato"] mark,
-[data-theme="catppuccin-mocha"] mark,
-[data-theme="dracula"] mark,
-[data-theme="github-dark"] mark,
-[data-theme="github-soft-dark"] mark,
-[data-theme="nord-dark"] mark,
-[data-theme="pop-dark"] mark,
-[data-theme="tokyo-night"] mark,
-[data-theme="vs-code-dark"] mark,
-[data-theme="yaru-dark"] mark {
+/* Dark theme mark (highlight) override. Applies to every theme whose CSS
+   block declares `color-scheme: dark` — applyTheme() mirrors that into the
+   `.dark` class on <html>, so this single selector covers all dark themes. */
+.dark mark {
   background-color: hsl(var(--primary) / 0.35);
 }

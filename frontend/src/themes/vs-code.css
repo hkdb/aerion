@@ -6,6 +6,7 @@
 @layer base {
   /* VS Code Light Modern */
   [data-theme="vs-code-light"] {
+    color-scheme: light;
     --background: 0 0% 97%;            /* activityBar.background #F8F8F8 — chrome */
     --foreground: 0 0% 23%;            /* editor.foreground #3B3B3B */
     --card: 0 0% 100%;                 /* editor.background #FFFFFF */
@@ -45,6 +46,7 @@
 
   /* VS Code Dark Modern */
   [data-theme="vs-code-dark"] {
+    color-scheme: dark;
     --background: 0 0% 12%;            /* editor.background #1F1F1F */
     --foreground: 0 0% 80%;            /* editor.foreground #CCCCCC */
     --card: 0 0% 12%;                  /* editor.background — flat */

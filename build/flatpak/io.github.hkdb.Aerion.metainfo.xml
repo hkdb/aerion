@@ -182,6 +182,7 @@
           <li>Added composer del/backspace guard to prevent accidental message delete</li>
           <li>Fixed detached composer system theme detection - #153</li>
           <li>Fixed launch flow - #154</li>
+          <li>Fixed dark theme rendering - #155</li>
         </ul>
       </description>
     </release>
