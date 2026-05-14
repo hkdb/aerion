@@ -171,7 +171,7 @@
   </provides>
 
   <releases>
-    <release version="0.2.3" date="2026-05-15">
+    <release version="0.2.3" date="2026-05-14">
       <description>
         <ul>
           <li>Added Czech translation</li>

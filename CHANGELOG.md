@@ -1,7 +1,7 @@
 # CHANGELOG
 
 
-**v0.2.3 - 05-15-2026**
+**v0.2.3 - 05-14-2026**
 ---
 
 - Added Czech translation
