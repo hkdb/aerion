@@ -24,6 +24,11 @@ func PortalOpenFile(filePath string) error {
 	return fmt.Errorf("portal not supported on this platform")
 }
 
+// PortalOpenURI is not supported on non-Linux platforms.
+func PortalOpenURI(uri string) error {
+	return fmt.Errorf("portal not supported on this platform")
+}
+
 // IsDocPortalPath always returns false on non-Linux platforms.
 func IsDocPortalPath(path string) bool {
 	return false

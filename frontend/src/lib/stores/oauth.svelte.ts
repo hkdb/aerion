@@ -45,6 +45,9 @@ class OAuthStore {
   flowProvider = $state<OAuthProvider | null>(null)
   flowError = $state<string | null>(null)
   flowResult = $state<OAuthFlowResult | null>(null)
+  // Authorization URL — exposed so the UI can offer a "Copy link" fallback
+  // when the browser fails to open (e.g., portal misconfig in Flatpak).
+  authURL = $state<string | null>(null)
 
   // Configured providers (cached)
   private configuredProviders = $state<OAuthProvider[]>([])
@@ -61,11 +64,12 @@ class OAuthStore {
     if (this.eventsInitialized) return
     this.eventsInitialized = true
 
-    EventsOn('oauth:started', (data: { provider: string }) => {
+    EventsOn('oauth:started', (data: { provider: string; authURL?: string }) => {
       this.flowState = 'pending'
       this.flowProvider = data.provider as OAuthProvider
       this.flowError = null
       this.flowResult = null
+      this.authURL = data.authURL ?? null
     })
 
     EventsOn('oauth:success', (data: { provider: string; email: string; expiresIn: number }) => {
@@ -137,6 +141,7 @@ class OAuthStore {
       this.flowProvider = provider
       this.flowError = null
       this.flowResult = null
+      this.authURL = null
 
       await StartOAuthFlow(provider)
       // State will be updated via events
@@ -163,6 +168,7 @@ class OAuthStore {
     this.flowProvider = null
     this.flowError = null
     this.flowResult = null
+    this.authURL = null
   }
 
   /**

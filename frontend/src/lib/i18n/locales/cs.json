@@ -605,6 +605,7 @@
     "redirectToSignIn": "Budete přesměrováni na bezpečné přihlášení",
     "waitingForAuth": "Čekání na ověření...",
     "completeSignIn": "Dokončete přihlášení v prohlížeči",
+    "linkCopied": "Zkopírováno",
     "connectedSuccessfully": "Úspěšně připojeno",
     "authFailed": "Ověření selhalo",
     "tryAgain": "Zkusit znovu",

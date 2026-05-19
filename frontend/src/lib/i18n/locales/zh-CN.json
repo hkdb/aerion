@@ -603,6 +603,7 @@
     "redirectToSignIn": "您将被重定向到安全登录页面",
     "waitingForAuth": "等待认证中...",
     "completeSignIn": "请在浏览器中完成登录",
+    "linkCopied": "已复制",
     "connectedSuccessfully": "连接成功",
     "authFailed": "认证失败",
     "tryAgain": "重试",

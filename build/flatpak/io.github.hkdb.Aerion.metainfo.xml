@@ -174,7 +174,8 @@
     <release version="0.2.4" date="2026-05-19">
       <description>
         <ul>
-          <li></li>
+          <li>Improved oAuth browser open - #120</li>
+          <li>Added copy link for oAuth - #120</li>
         </ul>
       </description>
     </release>

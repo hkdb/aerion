@@ -605,6 +605,7 @@
     "redirectToSignIn": "You'll be redirected to sign in securely",
     "waitingForAuth": "Waiting for authentication...",
     "completeSignIn": "Complete sign-in in your browser",
+    "linkCopied": "Copied",
     "connectedSuccessfully": "Connected successfully",
     "authFailed": "Authentication failed",
     "tryAgain": "Try again",

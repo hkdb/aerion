@@ -4,7 +4,8 @@
 **v0.2.4 - 05-19-2026**
 ---
 
-
+- Improved oAuth browser open - [#120](https://github.com/hkdb/aerion/issues/120)
+- Added copy link for oAuth - [#120](https://github.com/hkdb/aerion/issues/120)
 
 
 **v0.2.3 - 05-14-2026**

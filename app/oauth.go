@@ -9,6 +9,7 @@ import (
 	"github.com/hkdb/aerion/internal/imap"
 	"github.com/hkdb/aerion/internal/logging"
 	"github.com/hkdb/aerion/internal/oauth2"
+	"github.com/hkdb/aerion/internal/platform"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -39,11 +40,6 @@ func (a *App) StartOAuthFlow(provider string) error {
 
 	log.Info().Str("provider", provider).Msg("Starting OAuth flow")
 
-	// Emit started event
-	wailsRuntime.EventsEmit(a.ctx, "oauth:started", map[string]interface{}{
-		"provider": provider,
-	})
-
 	// Start the OAuth flow
 	authURL, err := a.oauth2Manager.StartAuthFlow(a.ctx, provider)
 	if err != nil {
@@ -54,8 +50,21 @@ func (a *App) StartOAuthFlow(provider string) error {
 		return fmt.Errorf("failed to start OAuth flow: %w", err)
 	}
 
-	// Open browser with auth URL
-	wailsRuntime.BrowserOpenURL(a.ctx, authURL)
+	// Emit started event with the auth URL so the frontend can show a
+	// "Copy link" fallback affordance for users whose browser fails to open.
+	wailsRuntime.EventsEmit(a.ctx, "oauth:started", map[string]interface{}{
+		"provider": provider,
+		"authURL":  authURL,
+	})
+
+	// Open browser with auth URL. Try the OpenURI portal first — works in
+	// Flatpak sandbox (where xdg-open can't reach host browsers) and triggers
+	// the host's URL-handler notification on Wayland DEs. Fall back to Wails'
+	// BrowserOpenURL on any portal error.
+	if perr := platform.PortalOpenURI(authURL); perr != nil {
+		log.Debug().Err(perr).Msg("Portal OpenURI failed, falling back to BrowserOpenURL")
+		wailsRuntime.BrowserOpenURL(a.ctx, authURL)
+	}
 
 	// Wait for callback in background
 	go func() {
