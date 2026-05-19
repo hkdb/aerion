@@ -59,7 +59,10 @@ jobs:
       - name: Install Windows dependencies (NSIS)
         if: matrix.platform == 'windows'
         shell: pwsh
-        run: choco install nsis -y --no-progress
+        run: |
+          choco install nsis -y --no-progress
+          # Wails detects NSIS via exec.LookPath("makensis") — make sure subsequent steps see it.
+          Add-Content -Path $env:GITHUB_PATH -Value "C:\Program Files (x86)\NSIS"
 
       - name: Install frontend dependencies
         run: |

@@ -72,7 +72,7 @@ ManifestDPIAware true
 
 Name "${INFO_PRODUCTNAME}"
 OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
-InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}" # Default installing folder ($PROGRAMFILES is Program Files folder).
+InstallDir "$PROGRAMFILES64\${INFO_PRODUCTNAME}" # Default installing folder ($PROGRAMFILES is Program Files folder).
 ShowInstDetails show # This will always show the installation details.
 
 Function .onInit
@@ -94,6 +94,23 @@ Section
     !insertmacro wails.associateFiles
     !insertmacro wails.associateCustomProtocols
 
+    ; Register as a Windows Mail client so Aerion appears in
+    ; Settings → Default Apps → Email (alongside Outlook/Thunderbird).
+    SetRegView 64
+    WriteRegStr HKLM "SOFTWARE\Clients\Mail\${INFO_PRODUCTNAME}" "" "${INFO_PRODUCTNAME}"
+    WriteRegStr HKLM "SOFTWARE\Clients\Mail\${INFO_PRODUCTNAME}\Capabilities" "ApplicationName" "${INFO_PRODUCTNAME}"
+    WriteRegStr HKLM "SOFTWARE\Clients\Mail\${INFO_PRODUCTNAME}\Capabilities" "ApplicationDescription" "An Open Source Lightweight E-Mail Client"
+    WriteRegStr HKLM "SOFTWARE\Clients\Mail\${INFO_PRODUCTNAME}\Capabilities" "ApplicationIcon" "$INSTDIR\${PRODUCT_EXECUTABLE},0"
+    WriteRegStr HKLM "SOFTWARE\Clients\Mail\${INFO_PRODUCTNAME}\Capabilities\UrlAssociations" "mailto" "${INFO_PRODUCTNAME}Mailto"
+    WriteRegStr HKLM "SOFTWARE\Clients\Mail\${INFO_PRODUCTNAME}\shell\open\command" "" "$\"$INSTDIR\${PRODUCT_EXECUTABLE}$\" $\"%1$\""
+
+    WriteRegStr HKLM "SOFTWARE\Classes\${INFO_PRODUCTNAME}Mailto" "" "URL:MailTo Protocol"
+    WriteRegStr HKLM "SOFTWARE\Classes\${INFO_PRODUCTNAME}Mailto" "URL Protocol" ""
+    WriteRegStr HKLM "SOFTWARE\Classes\${INFO_PRODUCTNAME}Mailto\DefaultIcon" "" "$INSTDIR\${PRODUCT_EXECUTABLE},0"
+    WriteRegStr HKLM "SOFTWARE\Classes\${INFO_PRODUCTNAME}Mailto\shell\open\command" "" "$\"$INSTDIR\${PRODUCT_EXECUTABLE}$\" $\"%1$\""
+
+    WriteRegStr HKLM "SOFTWARE\RegisteredApplications" "${INFO_PRODUCTNAME}" "SOFTWARE\Clients\Mail\${INFO_PRODUCTNAME}\Capabilities"
+
     !insertmacro wails.writeUninstaller
 SectionEnd
 
@@ -109,6 +126,12 @@ Section "uninstall"
 
     !insertmacro wails.unassociateFiles
     !insertmacro wails.unassociateCustomProtocols
+
+    ; Clean up the mail-client registration written during install.
+    SetRegView 64
+    DeleteRegKey HKLM "SOFTWARE\Clients\Mail\${INFO_PRODUCTNAME}"
+    DeleteRegKey HKLM "SOFTWARE\Classes\${INFO_PRODUCTNAME}Mailto"
+    DeleteRegValue HKLM "SOFTWARE\RegisteredApplications" "${INFO_PRODUCTNAME}"
 
     !insertmacro wails.deleteUninstaller
 SectionEnd
