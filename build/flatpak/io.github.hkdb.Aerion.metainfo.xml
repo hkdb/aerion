@@ -176,6 +176,7 @@
         <ul>
           <li>Improved oAuth browser open - #120</li>
           <li>Added copy link for oAuth - #120</li>
+          <li>Added dark mail content option - #49</li>
           <li>Use desktop portal for email links first and fallback to xdg-open if it fails</li>
           <li>Added -version flag - #167</li>
           <li>Added setup exe and default app registration for Windows - #149</li>

@@ -6,6 +6,7 @@
 
 - Improved oAuth browser open - [#120](https://github.com/hkdb/aerion/issues/120)
 - Added copy link for oAuth - [#120](https://github.com/hkdb/aerion/issues/120)
+- Added dark mail content option - [#49](https://github.com/hkdb/aerion/issues/49)
 - Use desktop portal for email links first and fallback to xdg-open if it fails
 - Added -version flag - [#167](https://github.com/hkdb/aerion/issues/167)
 - Added setup exe and default app registration for Windows - [#149](https://github.com/hkdb/aerion/issues/149)

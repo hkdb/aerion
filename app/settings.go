@@ -254,6 +254,17 @@ func (a *App) SetAlwaysLoadImages(enabled bool) error {
 	return a.settingsStore.SetAlwaysLoadImages(enabled)
 }
 
+// GetDarkMailContent returns whether email content should be visually darkened
+// while Aerion is in dark mode.
+func (a *App) GetDarkMailContent() (bool, error) {
+	return a.settingsStore.GetDarkMailContent()
+}
+
+// SetDarkMailContent persists the dark-mail-content toggle.
+func (a *App) SetDarkMailContent(enabled bool) error {
+	return a.settingsStore.SetDarkMailContent(enabled)
+}
+
 // AddImageAllowlist adds a domain or sender to the image allowlist
 // entryType: "domain" or "sender"
 // value: the domain (e.g., "company.com") or email (e.g., "newsletter@company.com")

@@ -171,7 +171,9 @@
     "forSender": "Pour {email}",
     "focusThread": "Mode focus (conversation)",
     "focusMessage": "Mode focus (message)",
-    "exitFocus": "Quitter le mode focus"
+    "exitFocus": "Quitter le mode focus",
+    "darkMailToLight": "Afficher cet e-mail sans filtre sombre",
+    "darkMailToDark": "Appliquer le filtre sombre à cet e-mail"
   },
   "composer": {
     "newMessage": "Nouveau message",
@@ -431,6 +433,8 @@
     "showViewerCirclesHelp": "Pastille colorée avec les initiales de l'expéditeur",
     "accentBarUnread": "Barre d'accentuation (non lus)",
     "accentBarUnreadHelp": "Affiche une barre à gauche des messages non lus pour une identification facile.",
+    "darkMailContent": "Contenu d'e-mail sombre",
+    "darkMailContentHelp": "Appliquer un filtre sombre au contenu des messages e-mail lorsque Aerion est en mode sombre.",
     "selectDensity": "Sélectionner la densité",
     "readReceipts": "Accusés de réception",
     "readReceiptPolicy": "Lorsqu'on vous demande un accusé",

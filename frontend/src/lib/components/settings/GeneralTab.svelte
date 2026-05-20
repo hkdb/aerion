@@ -6,6 +6,7 @@
   import Switch from '$lib/components/ui/switch/Switch.svelte'
   import { _, setLocale } from '$lib/i18n'
   import { supportedLocales } from '$lib/i18n'
+  import { getIsDarkActive } from '$lib/stores/theme.svelte'
 
   interface Props {
     markAsReadDelaySeconds: number
@@ -28,6 +29,7 @@
     accentBarUnread: boolean
     showMessageListCircles: boolean
     showViewerCircles: boolean
+    darkMailContent: boolean
   }
 
   let {
@@ -51,6 +53,7 @@
     accentBarUnread = $bindable(),
     showMessageListCircles = $bindable(),
     showViewerCircles = $bindable(),
+    darkMailContent = $bindable(),
   }: Props = $props()
 
   // Message list density options
@@ -250,6 +253,24 @@
         {$_('settingsGeneral.themeHelp')}
       </p>
     </div>
+
+    <!-- Dark mail content — only relevant when a dark theme is active -->
+    {#if getIsDarkActive()}
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <div>
+            <Label for="dark-mail-content">{$_('settingsGeneral.darkMailContent')}</Label>
+            <p class="text-xs text-muted-foreground">
+              {$_('settingsGeneral.darkMailContentHelp')}
+            </p>
+          </div>
+          <Switch
+            id="dark-mail-content"
+            bind:checked={darkMailContent}
+          />
+        </div>
+      </div>
+    {/if}
 
     <!-- Show colored circles in message list -->
     <div class="space-y-2">

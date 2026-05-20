@@ -171,7 +171,9 @@
     "forSender": "Pro odesílatele {email}",
     "focusThread": "Zaměřit vlákno",
     "focusMessage": "Zaměřit zprávu",
-    "exitFocus": "Ukončit režim zaměření"
+    "exitFocus": "Ukončit režim zaměření",
+    "darkMailToLight": "Zobrazit tento e-mail bez tmavého filtru",
+    "darkMailToDark": "Použít tmavý filtr na tento e-mail"
   },
   "composer": {
     "newMessage": "Nová zpráva",
@@ -431,6 +433,8 @@
     "showViewerCirclesHelp": "Zobrazit barevné kroužky s iniciálami odesílatele v náhledu konverzace",
     "accentBarUnread": "Zvýraznění nepřečtených zpráv",
     "accentBarUnreadHelp": "Zobrazuje barevný pruh vlevo u nepřečtených zpráv pro snadnější rozpoznání.",
+    "darkMailContent": "Tmavý obsah e-mailů",
+    "darkMailContentHelp": "Použít tmavý filtr na obsah e-mailových zpráv, když je Aerion v tmavém režimu.",
     "selectDensity": "Vybrat hustotu",
     "readReceipts": "Potvrzení o přečtení",
     "readReceiptPolicy": "Když někdo požaduje potvrzení o přečtení",

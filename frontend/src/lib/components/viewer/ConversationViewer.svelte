@@ -17,7 +17,8 @@
   import MessageContextMenu from '$lib/components/common/MessageContextMenu.svelte'
   import { _ } from '$lib/i18n'
   import { isDialogGuardActive } from '$lib/stores/dialogGuard'
-  import { getShowViewerCircles } from '$lib/stores/settings.svelte'
+  import { getShowViewerCircles, getDarkMailContent } from '$lib/stores/settings.svelte'
+  import { getIsDarkActive } from '$lib/stores/theme.svelte'
 
   interface Props {
     threadId?: string | null
@@ -111,6 +112,21 @@
 
   // Track which messages are expanded (unread messages auto-expand)
   let expandedMessages = $state<Set<string>>(new Set())
+
+  // Per-message override for the dark-mail-content filter. Runtime-only,
+  // resets when the conversation changes. Truthy value = user explicitly
+  // disabled the filter for this message.
+  let darkMailOverrides = $state<Record<string, boolean>>({})
+
+  function shouldDarkenMessage(msgId: string): boolean {
+    if (!getDarkMailContent()) return false
+    if (!getIsDarkActive()) return false
+    return !darkMailOverrides[msgId]
+  }
+
+  function toggleDarkMailOverride(msgId: string) {
+    darkMailOverrides = { ...darkMailOverrides, [msgId]: !darkMailOverrides[msgId] }
+  }
 
   // Track focused message for keyboard deletion
   let focusedMessageId = $state<string | null>(null)
@@ -357,6 +373,7 @@
       refreshTimer = null
     }
     messagesWithImagesLoaded.clear()
+    darkMailOverrides = {}
     // Reset focused message on thread change so opening a thread starts fresh.
     // Same-thread refreshes (handled via scheduleRefresh) preserve focus.
     focusedMessageId = null
@@ -1483,30 +1500,41 @@
                   </div>
 
                   <!-- Date, edit button (drafts), and expand icon -->
-                  <div class="flex items-center gap-2 flex-shrink-0">
-                    <span class="text-sm text-muted-foreground">
-                      {formatDate(msg.date)}
-                    </span>
-                    {#if isDraftsFolder}
+                  <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm text-muted-foreground">
+                        {formatDate(msg.date)}
+                      </span>
+                      {#if isDraftsFolder}
+                        <button
+                          class="p-1 rounded hover:bg-muted transition-colors"
+                          title={$_('viewer.editDraft')}
+                          onclick={(e) => { e.stopPropagation(); onEditDraft?.(msg.id) }}
+                        >
+                          <Icon icon="mdi:pencil" class="w-4 h-4 text-muted-foreground" />
+                        </button>
+                      {/if}
                       <button
                         class="p-1 rounded hover:bg-muted transition-colors"
-                        title={$_('viewer.editDraft')}
-                        onclick={(e) => { e.stopPropagation(); onEditDraft?.(msg.id) }}
+                        title={isFocusedMsg ? $_('viewer.exitFocus') : $_('viewer.focusMessage')}
+                        onclick={(e) => { e.stopPropagation(); onToggleMessageFocus?.(msg.id) }}
                       >
-                        <Icon icon="mdi:pencil" class="w-4 h-4 text-muted-foreground" />
+                        <Icon icon={isFocusedMsg ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'} class="w-4 h-4 text-muted-foreground" />
+                      </button>
+                      <Icon
+                        icon={isExpanded ? 'mdi:chevron-up' : 'mdi:chevron-down'}
+                        class="w-5 h-5 text-muted-foreground"
+                      />
+                    </div>
+                    {#if getDarkMailContent() && getIsDarkActive()}
+                      <button
+                        class="text-xs leading-none px-1.5 py-0.5 rounded hover:bg-muted transition-colors"
+                        title={shouldDarkenMessage(msg.id) ? $_('viewer.darkMailToLight') : $_('viewer.darkMailToDark')}
+                        onclick={(e) => { e.stopPropagation(); toggleDarkMailOverride(msg.id) }}
+                      >
+                        {shouldDarkenMessage(msg.id) ? '☀️' : '🌛'}
                       </button>
                     {/if}
-                    <button
-                      class="p-1 rounded hover:bg-muted transition-colors"
-                      title={isFocusedMsg ? $_('viewer.exitFocus') : $_('viewer.focusMessage')}
-                      onclick={(e) => { e.stopPropagation(); onToggleMessageFocus?.(msg.id) }}
-                    >
-                      <Icon icon={isFocusedMsg ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'} class="w-4 h-4 text-muted-foreground" />
-                    </button>
-                    <Icon
-                      icon={isExpanded ? 'mdi:chevron-up' : 'mdi:chevron-down'}
-                      class="w-5 h-5 text-muted-foreground"
-                    />
                   </div>
                 </div>
 
@@ -1667,6 +1695,7 @@
                             onCompose={onComposeToAddress}
                             onImagesLoaded={() => messagesWithImagesLoaded.add(msg.id)}
                             encryptedInlineAttachments={pgpResults[msg.id]?.inlineAttachments ?? smimeResults[msg.id]?.inlineAttachments}
+                            darken={shouldDarkenMessage(msg.id)}
                           />
                         {/if}
                       </div>
