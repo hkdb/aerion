@@ -438,6 +438,13 @@ Special thanks to translation contributors for making Aerion more accessible:
       </a><br>
       <sub>Français (fr)</sub>
     </td>
+    <td align="center">
+      <a href="https://github.com/dexblasnoot">
+        <img src="https://github.com/dexblasnoot.png" width="80"><br>
+        <sub><b>dexblasnoot</b></sub>
+      </a><br>
+      <sub>Norsk Bokmål (nb)</sub>
+    </td>
   </tr>
 </table>
 

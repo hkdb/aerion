@@ -10,6 +10,7 @@
 - Use desktop portal for email links first and fallback to xdg-open if it fails
 - Added -version flag - [#167](https://github.com/hkdb/aerion/issues/167)
 - Added setup exe and default app registration for Windows - [#149](https://github.com/hkdb/aerion/issues/149)
+- Added Norwegian translation
 - Fixed dark to light core theme switch bug - [#187](https://github.com/hkdb/aerion/issues/187)
 
 

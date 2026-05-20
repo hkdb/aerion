@@ -58,7 +58,7 @@
       <li>Support for Gmail, Outlook, and generic IMAP/SMTP</li>
       <li xml:lang="cs">Podpora Gmailu, Outlooku a obecného IMAP/SMTP</li>
       <li xml:lang="fr">Prise en charge de Gmail, Outlook et IMAP/SMTP générique</li>
-      <li xml:lang="nb">Støtte for GMail, Outlook og øvrige tjenester via IMAP/SMTP</li>
+      <li xml:lang="nb">Støtte for Gmail, Outlook og øvrige tjenester via IMAP/SMTP</li>
       <li xml:lang="zh-CN">支持 Gmail、Outlook 及通用 IMAP/SMTP</li>
       <li xml:lang="zh-HK">支援 Gmail、Outlook 及通用 IMAP/SMTP</li>
       <li xml:lang="zh-TW">支援 Gmail、Outlook 及通用 IMAP/SMTP</li>
@@ -137,7 +137,7 @@
       <caption>Aerion main window showing inbox</caption>
       <caption xml:lang="cs">Hlavní okno aplikace Aerion zobrazující schránku</caption>
       <caption xml:lang="fr">Fenêtre principale d'Aerion affichant la boîte de réception</caption>
-      <caption xml:lang="nb">Aerion-vindu som viser innboks</captiom>
+      <caption xml:lang="nb">Aerion-vindu som viser innboks</caption>
       <caption xml:lang="zh-CN">Aerion 主窗口显示收件箱</caption>
       <caption xml:lang="zh-HK">Aerion 主視窗顯示收件箱</caption>
       <caption xml:lang="zh-TW">Aerion 主視窗顯示收件匣</caption>
@@ -200,6 +200,7 @@
           <li>Use desktop portal for email links first and fallback to xdg-open if it fails</li>
           <li>Added -version flag - #167</li>
           <li>Added setup exe and default app registration for Windows - #149</li>
+          <li>Added Norwegian translation</li>
           <li>Fixed dark to light core theme switch bug - #187</li>
         </ul>
       </description>
