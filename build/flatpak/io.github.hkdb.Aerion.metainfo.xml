@@ -191,7 +191,7 @@
   </provides>
 
   <releases>
-    <release version="0.2.4" date="2026-05-19">
+    <release version="0.2.4" date="2026-05-20">
       <description>
         <ul>
           <li>Improved oAuth browser open - #120</li>
@@ -200,7 +200,7 @@
           <li>Use desktop portal for email links first and fallback to xdg-open if it fails</li>
           <li>Added -version flag - #167</li>
           <li>Added setup exe and default app registration for Windows - #149</li>
-          <li>Added Norwegian translation</li>
+          <li>Added Norwegian translation - #150</li>
           <li>Fixed dark to light core theme switch bug - #187</li>
         </ul>
       </description>
