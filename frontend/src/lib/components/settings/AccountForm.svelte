@@ -19,6 +19,7 @@
     type OAuthProvider,
   } from '$lib/config/providers'
   import { oauthStore } from '$lib/stores/oauth.svelte'
+  import { toasts } from '$lib/stores/toast'
   // @ts-ignore - wailsjs path
   import { account, certificate } from '../../../../wailsjs/go/models'
   // @ts-ignore - wailsjs path
@@ -293,6 +294,22 @@
   // Cancel OAuth flow
   function cancelOAuthFlow() {
     oauthStore.cancelFlow()
+  }
+
+  // Copy-link fallback for OAuth waiting state — used when the browser fails
+  // to open and the user needs to paste the URL manually.
+  let oauthLinkCopied = $state(false)
+  let oauthCopiedResetTimer: ReturnType<typeof setTimeout> | null = null
+  async function handleCopyOAuthLink() {
+    if (!oauthStore.authURL) return
+    try {
+      await navigator.clipboard.writeText(oauthStore.authURL)
+      oauthLinkCopied = true
+      if (oauthCopiedResetTimer) clearTimeout(oauthCopiedResetTimer)
+      oauthCopiedResetTimer = setTimeout(() => { oauthLinkCopied = false }, 1500)
+    } catch {
+      toasts.error($_('viewer.failedToCopy'))
+    }
   }
 
   // Get OAuth button text based on provider
@@ -690,6 +707,16 @@
                           {$_('account.completeSignIn')}
                         </p>
                       </div>
+                      {#if oauthStore.authURL}
+                        <button
+                          type="button"
+                          class="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
+                          onclick={handleCopyOAuthLink}
+                        >
+                          {oauthLinkCopied ? $_('account.linkCopied') : $_('viewer.copyLink')}
+                          <Icon icon={oauthLinkCopied ? 'mdi:check' : 'mdi:content-copy'} class="w-3.5 h-3.5" />
+                        </button>
+                      {/if}
                       <Button
                         type="button"
                         variant="ghost"

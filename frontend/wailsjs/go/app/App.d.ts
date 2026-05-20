@@ -151,6 +151,8 @@ export function GetConversationCount(arg1:string,arg2:string,arg3:string):Promis
 
 export function GetConversations(arg1:string,arg2:string,arg3:number,arg4:number,arg5:string,arg6:string):Promise<Array<message.Conversation>>;
 
+export function GetDarkMailContent():Promise<boolean>;
+
 export function GetDraft(arg1:string):Promise<smtp.ComposeMessage>;
 
 export function GetFTSIndexStatus(arg1:string):Promise<message.FTSIndexStatus>;
@@ -412,6 +414,8 @@ export function SetAutostart(arg1:boolean):Promise<void>;
 export function SetComposerFormat(arg1:string):Promise<void>;
 
 export function SetComposerMode(arg1:string):Promise<void>;
+
+export function SetDarkMailContent(arg1:boolean):Promise<void>;
 
 export function SetDefaultIdentity(arg1:string,arg2:string):Promise<void>;
 

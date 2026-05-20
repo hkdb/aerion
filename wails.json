@@ -9,9 +9,15 @@
   "info": {
     "companyName": "Aerion",
     "productName": "Aerion",
-    "productVersion": "0.2.3",
+    "productVersion": "0.2.4",
     "copyright": "Copyright 2024-2025",
-    "comments": "A modern, cross-platform email client"
+    "comments": "A modern, cross-platform email client",
+    "protocols": [
+      {
+        "scheme": "mailto",
+        "description": "Email"
+      }
+    ]
   },
   "author": {
     "name": "hkdb",

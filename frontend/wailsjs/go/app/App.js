@@ -270,6 +270,10 @@ export function GetConversations(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['app']['App']['GetConversations'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
+export function GetDarkMailContent() {
+  return window['go']['app']['App']['GetDarkMailContent']();
+}
+
 export function GetDraft(arg1) {
   return window['go']['app']['App']['GetDraft'](arg1);
 }
@@ -792,6 +796,10 @@ export function SetComposerFormat(arg1) {
 
 export function SetComposerMode(arg1) {
   return window['go']['app']['App']['SetComposerMode'](arg1);
+}
+
+export function SetDarkMailContent(arg1) {
+  return window['go']['app']['App']['SetDarkMailContent'](arg1);
 }
 
 export function SetDefaultIdentity(arg1, arg2) {

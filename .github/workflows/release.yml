@@ -56,6 +56,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
+      - name: Install Windows dependencies (NSIS)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          # Wails detects NSIS via exec.LookPath("makensis") — make sure subsequent steps see it.
+          Add-Content -Path $env:GITHUB_PATH -Value "C:\Program Files (x86)\NSIS"
+
       - name: Install frontend dependencies
         run: |
           cd frontend
@@ -118,8 +126,9 @@ jobs:
         env:
           GOARCH: ${{ matrix.arch }}
         run: |
-          make build
+          make build-windows-installer
           Move-Item build/bin/aerion.exe build/bin/Aerion-windows-${{ matrix.arch }}.exe
+          Move-Item build/bin/aerion-${{ matrix.arch }}-installer.exe build/bin/Aerion-windows-setup-${{ matrix.arch }}.exe
 
       - uses: actions/upload-artifact@v7
         with:

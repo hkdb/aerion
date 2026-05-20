@@ -19,9 +19,10 @@
     onCompose?: (to: string) => void
     onImagesLoaded?: () => void
     encryptedInlineAttachments?: Record<string, string>
+    darken?: boolean
   }
 
-  let { messageId, accountId: _accountId, bodyHtml = '', bodyText = '', fromEmail = '', onCompose, onImagesLoaded, encryptedInlineAttachments }: Props = $props()
+  let { messageId, accountId: _accountId, bodyHtml = '', bodyText = '', fromEmail = '', onCompose, onImagesLoaded, encryptedInlineAttachments, darken = false }: Props = $props()
 
   // State for remote image handling
   let imagesBlocked = $state(true)
@@ -100,9 +101,22 @@
     return processed
   }
 
-  function buildIframeContent(html: string): string {
+  function buildIframeContent(html: string, applyDarken: boolean): string {
     const processedHtml = processHtml(html, imagesBlocked)
     const imgSrc = imagesBlocked ? "'self' data:" : '* data:'
+
+    // Double-invert: page-level invert + image-level re-invert keeps photos
+    // looking normal while flipping text, backgrounds, and CSS-defined colors.
+    // Blocked-image placeholders intentionally skip the re-invert so they end
+    // up dark too — they're chrome, not content.
+    // color-scheme: dark switches the UA-default iframe viewport bg to dark so
+    // the rounded-corner edge has no white sliver bleeding through.
+    const darkenStyles = applyDarken ? `
+    html { filter: invert(1) hue-rotate(180deg); background: #fff; color-scheme: dark; }
+    img:not([data-blocked-src]), video, iframe, [data-no-invert] { filter: invert(1) hue-rotate(180deg); }
+` : `
+    html { color-scheme: light; }
+`
 
     const iframeScript = `
       function sendHeight() {
@@ -260,7 +274,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; img-src ${imgSrc}; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
-  <style>
+  <sty` + `le>${darkenStyles}
     /* Minimal base styles - avoid overriding email's inline styles */
     * { box-sizing: border-box; }
     html, body {
@@ -284,7 +298,7 @@
     blockquote:not([style]) { margin: 0.5em 0; padding-left: 1em; border-left: 3px solid #e5e7eb; color: #6b7280; }
     pre:not([style]) { background: #f3f4f6; padding: 0.5em; border-radius: 4px; overflow-x: auto; }
     /* Remove table/td defaults that conflict with email layouts */
-  </style>
+  </sty` + `le>
 </head>
 <body>
 ${processedHtml}
@@ -512,9 +526,10 @@ ${processedHtml}
   $effect(() => {
     const html = bodyHtml
     void imagesBlocked // dependency only
+    const applyDarken = darken
 
     if (iframeElement && html) {
-      const content = buildIframeContent(html)
+      const content = buildIframeContent(html, applyDarken)
       iframeElement.srcdoc = content
       iframeReady = false
       lastSentMessageId = null
@@ -652,7 +667,7 @@ ${processedHtml}
       bind:this={iframeElement}
       title={$_('aria.emailContent')}
       sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-      class="w-full border-0 rounded-md bg-white min-h-[100px]"
+      class="w-full border-0 rounded-md min-h-[100px] {darken ? 'bg-black' : 'bg-white'}"
       style="height: 200px;"
     ></iframe>
   {:else if bodyText}

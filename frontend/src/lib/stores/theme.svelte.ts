@@ -13,6 +13,14 @@ export type { ThemeMode }
 let portalThemeAvailable = false
 let portalTheme: 'light' | 'dark' = 'light'
 
+// Reactive flag mirroring the `.dark` class on <html>. Consumers (e.g., the
+// email-content dark-filter toggle) need a Svelte-reactive way to observe it.
+let isDarkActive = $state<boolean>(false)
+
+export function getIsDarkActive(): boolean {
+  return isDarkActive
+}
+
 /** Apply a resolved theme to the document element. The dark/light classification
  *  is read from the CSS-declared `color-scheme` property on the matching
  *  [data-theme="..."] block, so each theme owns its own scheme — no JS list to
@@ -21,7 +29,9 @@ let portalTheme: 'light' | 'dark' = 'light'
 export function applyTheme(themeName: ThemeMode) {
   document.documentElement.setAttribute('data-theme', themeName)
   const scheme = getComputedStyle(document.documentElement).colorScheme.trim()
-  document.documentElement.classList.toggle('dark', scheme === 'dark')
+  const dark = scheme === 'dark'
+  document.documentElement.classList.toggle('dark', dark)
+  isDarkActive = dark
 }
 
 /** Resolve a ThemeMode (which may be 'system') to a concrete theme and apply it. */

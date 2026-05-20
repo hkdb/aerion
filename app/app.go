@@ -909,6 +909,17 @@ func (a *App) OpenURL(url string) error {
 		return fmt.Errorf("URL protocol not allowed for security reasons")
 	}
 
+	// On Linux, try the OpenURI portal first — works in Flatpak (where xdg-open
+	// can't reach host browsers) and triggers the host's URL-handler
+	// notification on Wayland DEs. Fall through to xdg-open on portal error.
+	if runtime.GOOS == "linux" {
+		perr := platform.PortalOpenURI(url)
+		if perr == nil {
+			return nil
+		}
+		log.Debug().Err(perr).Msg("Portal OpenURI failed, falling back to xdg-open")
+	}
+
 	var cmd *exec.Cmd
 
 	// Determine the command based on the operating system

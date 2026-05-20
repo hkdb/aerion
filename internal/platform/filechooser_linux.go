@@ -306,6 +306,34 @@ func PortalOpenFile(filePath string) error {
 	return nil
 }
 
+// PortalOpenURI opens a URI with the user's default handler via the XDG
+// OpenURI portal. Works inside the Flatpak sandbox (unlike xdg-open) and
+// triggers the host's URL-handler notification on Wayland DEs.
+// Callers should fall back to wailsRuntime.BrowserOpenURL on error.
+func PortalOpenURI(uri string) error {
+	log := logging.WithComponent("filechooser")
+
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		return fmt.Errorf("failed to connect to session bus: %w", err)
+	}
+
+	var hasOwner bool
+	if err := conn.BusObject().Call("org.freedesktop.DBus.NameHasOwner", 0, "org.freedesktop.portal.Desktop").Store(&hasOwner); err != nil || !hasOwner {
+		return fmt.Errorf("portal service not available")
+	}
+
+	obj := conn.Object("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop")
+	options := map[string]dbus.Variant{}
+	call := obj.Call("org.freedesktop.portal.OpenURI.OpenURI", 0, "", uri, options)
+	if call.Err != nil {
+		return fmt.Errorf("OpenURI portal call failed: %w", call.Err)
+	}
+
+	log.Debug().Str("uri", uri).Msg("Opened URI via portal")
+	return nil
+}
+
 // uriToPath converts a file:// URI to a filesystem path.
 func uriToPath(uri string) (string, error) {
 	parsed, err := url.Parse(uri)

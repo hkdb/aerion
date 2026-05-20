@@ -10,6 +10,7 @@ import (
 	"github.com/hkdb/aerion/internal/credentials"
 	"github.com/hkdb/aerion/internal/logging"
 	"github.com/hkdb/aerion/internal/oauth2"
+	"github.com/hkdb/aerion/internal/platform"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -364,11 +365,6 @@ func (a *App) StartContactsOnlyOAuthFlow(provider string) error {
 
 	log.Info().Str("provider", provider).Msg("Starting contacts-only OAuth flow")
 
-	// Emit started event
-	wailsRuntime.EventsEmit(a.ctx, "contact-source-oauth:started", map[string]interface{}{
-		"provider": provider,
-	})
-
 	// Start the OAuth flow using the contacts-only provider
 	authURL, err := a.oauth2Manager.StartAuthFlowWithProvider(a.ctx, &providerConfig)
 	if err != nil {
@@ -379,8 +375,19 @@ func (a *App) StartContactsOnlyOAuthFlow(provider string) error {
 		return fmt.Errorf("failed to start OAuth flow: %w", err)
 	}
 
-	// Open browser with auth URL
-	wailsRuntime.BrowserOpenURL(a.ctx, authURL)
+	// Emit started event with the auth URL so the frontend can show a
+	// "Copy link" fallback affordance for users whose browser fails to open.
+	wailsRuntime.EventsEmit(a.ctx, "contact-source-oauth:started", map[string]interface{}{
+		"provider": provider,
+		"authURL":  authURL,
+	})
+
+	// Open browser with auth URL. Portal-first for Flatpak/Wayland correctness,
+	// fall back to Wails' BrowserOpenURL on portal error.
+	if perr := platform.PortalOpenURI(authURL); perr != nil {
+		log.Debug().Err(perr).Msg("Portal OpenURI failed, falling back to BrowserOpenURL")
+		wailsRuntime.BrowserOpenURL(a.ctx, authURL)
+	}
 
 	// Wait for callback in background
 	go func() {

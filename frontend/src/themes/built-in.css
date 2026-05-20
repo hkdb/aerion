@@ -103,7 +103,6 @@
   }
 
   /* Default Dark Purple Theme */
-  .dark,
   [data-theme="dark"] {
     color-scheme: dark;
     --background: 224 71.4% 4.1%;

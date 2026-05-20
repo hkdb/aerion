@@ -7,6 +7,7 @@
   <summary>Lightweight open-source email client for Linux</summary>
   <summary xml:lang="cs">Nenáročný open-source e-mailový klient pro Linux</summary>
   <summary xml:lang="fr">Client e-mail open-source léger pour Linux</summary>
+  <summary xml:lang="nb">Lettvekt e-postklient for Linux med åpen kildekode</summary>
   <summary xml:lang="zh-CN">一款现代化，轻量级的开源 Linux 电子邮件客户端应用程序</summary>
   <summary xml:lang="zh-HK">一款現代化，輕量級的開源 Linux 電子郵件客戶端應用程式</summary>
   <summary xml:lang="zh-TW">一款現代化，輕量級的開源 Linux 電子郵件客戶端應用程式</summary>
@@ -23,6 +24,10 @@
       Aerion est un client e-mail moderne et léger inspiré par Geary, axé sur 
       l'efficacité des ressources et une expérience utilisateur épurée.
     </p>
+    <p xml:lang="nb">
+      Aerion er en moderne og lettvekt e-postklient inspirert av Geary, fokusert på
+      effektiv ressursbruk og en ren brukeropplevelse.
+    </p>
     <p xml:lang="zh-CN">
       Aerion 是一款以 Geary 为灵感，注重资源效率与简洁使用体验的现代化轻量级电子邮件客户端应用程序。
     </p>
@@ -36,6 +41,7 @@
     <p>Features:</p>
     <p xml:lang="cs">Funkce:</p>
     <p xml:lang="fr">Fonctionnalités :</p>
+    <p xml:lang="nb">Funksjoner:</p>
     <p xml:lang="zh-CN">功能特色：</p>
     <p xml:lang="zh-HK">功能特色：</p>
     <p xml:lang="zh-TW">功能特色：</p>
@@ -44,6 +50,7 @@
       <li>Multiple email accounts with unified inbox</li>
       <li xml:lang="cs">Více e-mailových účtů se sjednocenou schránkou</li>
       <li xml:lang="fr">Plusieurs comptes e-mail avec une boîte de réception unifiée</li>
+      <li xml:lang="nb">Bruk flere e-postkontoer med en felles innboks</li>
       <li xml:lang="zh-CN">多账号支持与统一收件箱</li>
       <li xml:lang="zh-HK">多帳戶支援與統一收件箱</li>
       <li xml:lang="zh-TW">多帳號支援與統一收件匣</li>
@@ -51,6 +58,7 @@
       <li>Support for Gmail, Outlook, and generic IMAP/SMTP</li>
       <li xml:lang="cs">Podpora Gmailu, Outlooku a obecného IMAP/SMTP</li>
       <li xml:lang="fr">Prise en charge de Gmail, Outlook et IMAP/SMTP générique</li>
+      <li xml:lang="nb">Støtte for Gmail, Outlook og øvrige tjenester via IMAP/SMTP</li>
       <li xml:lang="zh-CN">支持 Gmail、Outlook 及通用 IMAP/SMTP</li>
       <li xml:lang="zh-HK">支援 Gmail、Outlook 及通用 IMAP/SMTP</li>
       <li xml:lang="zh-TW">支援 Gmail、Outlook 及通用 IMAP/SMTP</li>
@@ -58,6 +66,7 @@
       <li>Conversation threading</li>
       <li xml:lang="cs">Zobrazení konverzačních vláken</li>
       <li xml:lang="fr">Affichage des messages par fil de discussion</li>
+      <li xml:lang="nb">Vise samtaler som tråder</li>
       <li xml:lang="zh-CN">会话线程视图</li>
       <li xml:lang="zh-HK">對話串檢視</li>
       <li xml:lang="zh-TW">對話串檢視</li>
@@ -65,6 +74,7 @@
       <li>Rich text WYSIWYG composer with TipTap editor</li>
       <li xml:lang="cs">Vizuální (WYSIWYG) editor formátovaného textu využívající TipTap</li>
       <li xml:lang="fr">Éditeur de message WYSIWYG en texte enrichi avec TipTap</li>
+      <li xml:lang="nb">Enkel WYSIWYG-skriving med rik tekst med TipTap</li>
       <li xml:lang="zh-CN">使用 TipTap 编辑器的所见即所得撰写界面</li>
       <li xml:lang="zh-HK">使用 TipTap 編輯器的所見即所得撰寫界面</li>
       <li xml:lang="zh-TW">使用 TipTap 編輯器的所見即所得撰寫介面</li>
@@ -72,6 +82,7 @@
       <li>Contact sync (CardDAV, Google, Microsoft) for auto-completion</li>
       <li xml:lang="cs">Synchronizace kontaktů (CardDAV, Google, Microsoft) pro automatické doplňování</li>
       <li xml:lang="fr">Synchronisation des contacts (CardDAV, Google, Microsoft) pour l'auto-complétion</li>
+      <li xml:lang="nb">Synkronisere kontakter via CardDAV, Google eller Microsoft for automatisk fullføring</li>
       <li xml:lang="zh-CN">联系人同步（CardDAV、Google、Microsoft）与自动补全</li>
       <li xml:lang="zh-HK">聯絡人同步（CardDAV、Google、Microsoft）與自動完成</li>
       <li xml:lang="zh-TW">聯絡人同步（CardDAV、Google、Microsoft）與自動完成</li>
@@ -79,6 +90,7 @@
       <li>Dark mode and multiple color themes</li>
       <li xml:lang="cs">Tmavý režim a několik barevných motivů</li>
       <li xml:lang="fr">Mode sombre et thèmes de couleurs multiples</li>
+      <li xml:lang="nb">Mørk modus og flere fargelagte temaer</li>
       <li xml:lang="zh-CN">深色模式与多种颜色主题</li>
       <li xml:lang="zh-HK">深色模式與多種色彩主題</li>
       <li xml:lang="zh-TW">深色模式與多種色彩主題</li>
@@ -86,6 +98,7 @@
       <li>Keyboard-friendly navigation with vim-style shortcuts</li>
       <li xml:lang="cs">Ovládání z klávesnice se zkratkami ve stylu Vim</li>
       <li xml:lang="fr">Navigation au clavier avec raccourcis de style Vim</li>
+      <li xml:lang="nb">Tastaturvennlig navigasjon med Vim-aktige snarveier</li>
       <li xml:lang="zh-CN">支持 Vim 风格快捷键的键盘导航</li>
       <li xml:lang="zh-HK">支援 Vim 風格快捷鍵的鍵盤導航</li>
       <li xml:lang="zh-TW">支援 Vim 風格快捷鍵的鍵盤導航</li>
@@ -93,6 +106,7 @@
       <li>Detachable composer window</li>
       <li xml:lang="cs">Oddělitelné okno pro psaní zprávy</li>
       <li xml:lang="fr">Fenêtre de rédaction détachable</li>
+      <li xml:lang="nb">Avtagbart vindu for skriving</li>
       <li xml:lang="zh-CN">可分离的撰写窗口</li>
       <li xml:lang="zh-HK">可分離的撰寫視窗</li>
       <li xml:lang="zh-TW">可分離的撰寫視窗</li>
@@ -100,6 +114,7 @@
       <li>Basic tracking element removal from emails</li>
       <li xml:lang="cs">Základní odstraňování sledovacích prvků z e-mailů</li>
       <li xml:lang="fr">Suppression basique des éléments de suivi des e-mails</li>
+      <li xml:lang="nb">Fjerning av enkle sporingselementer fra e-poster</li>
       <li xml:lang="zh-CN">基本的邮件追踪元素移除</li>
       <li xml:lang="zh-HK">基本的郵件追蹤元素移除</li>
       <li xml:lang="zh-TW">基本的郵件追蹤元素移除</li>
@@ -107,6 +122,7 @@
       <li>PGP and S/MIME support</li>
       <li xml:lang="cs">Podpora PGP a S/MIME</li>
       <li xml:lang="fr">Prise en charge de PGP et S/MIME</li>
+      <li xml:lang="nb">Støtte for PGP og S/MIME</li>
       <li xml:lang="zh-CN">PGP 与 S/MIME 支持</li>
       <li xml:lang="zh-HK">PGP 與 S/MIME 支援</li>
       <li xml:lang="zh-TW">PGP 與 S/MIME 支援</li>
@@ -121,6 +137,7 @@
       <caption>Aerion main window showing inbox</caption>
       <caption xml:lang="cs">Hlavní okno aplikace Aerion zobrazující schránku</caption>
       <caption xml:lang="fr">Fenêtre principale d'Aerion affichant la boîte de réception</caption>
+      <caption xml:lang="nb">Aerion-vindu som viser innboks</caption>
       <caption xml:lang="zh-CN">Aerion 主窗口显示收件箱</caption>
       <caption xml:lang="zh-HK">Aerion 主視窗顯示收件箱</caption>
       <caption xml:lang="zh-TW">Aerion 主視窗顯示收件匣</caption>
@@ -158,6 +175,9 @@
     <keyword xml:lang="fr">courriel</keyword>
     <keyword xml:lang="fr">messagerie</keyword>
 
+    <keyword xml:lang="nb">e-post</keyword>
+    <keyword xml:lang="nb">melding</keyword>
+
     <keyword xml:lang="zh-CN">电子邮件</keyword>
     <keyword xml:lang="zh-CN">邮件</keyword>
     <keyword xml:lang="zh-HK">電子郵件</keyword>
@@ -171,6 +191,20 @@
   </provides>
 
   <releases>
+    <release version="0.2.4" date="2026-05-20">
+      <description>
+        <ul>
+          <li>Improved oAuth browser open - #120</li>
+          <li>Added copy link for oAuth - #120</li>
+          <li>Added dark mail content option - #49</li>
+          <li>Use desktop portal for email links first and fallback to xdg-open if it fails</li>
+          <li>Added -version flag - #167</li>
+          <li>Added setup exe and default app registration for Windows - #149</li>
+          <li>Added Norwegian translation - #150</li>
+          <li>Fixed dark to light core theme switch bug - #187</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.3" date="2026-05-14">
       <description>
         <ul>

@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"flag"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"net/url"
@@ -32,6 +33,7 @@ var (
 	draftID     = flag.String("draft-id", "", "Draft ID to resume editing")
 	mailtoFlag  = flag.String("mailto", "", "Mailto URL to open in composer (detached mode)")
 	dbusNotify  = flag.Bool("dbus-notify", false, "Use direct D-Bus notifications instead of portal (Linux only)")
+	versionFlag = flag.Bool("version", false, "Show version and exit")
 )
 
 // DebugMode returns whether debug logging is enabled
@@ -43,6 +45,11 @@ func DebugMode() bool {
 func main() {
 	platform.MonitorGBMErrors()
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Println(app.Version)
+		return
+	}
 
 	// On Windows, GUI apps have no console. Allocate one for debug output.
 	if DebugMode() {

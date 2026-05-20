@@ -171,7 +171,9 @@
     "forSender": "For {email}",
     "focusThread": "Focus thread",
     "focusMessage": "Focus message",
-    "exitFocus": "Exit focus mode"
+    "exitFocus": "Exit focus mode",
+    "darkMailToLight": "Show this email without dark filter",
+    "darkMailToDark": "Apply dark filter to this email"
   },
   "composer": {
     "newMessage": "New Message",
@@ -431,6 +433,8 @@
     "showViewerCirclesHelp": "Show colored circles with sender initials in the conversation viewer",
     "accentBarUnread": "Accent bar for unread messages",
     "accentBarUnreadHelp": "Shows a bar on the left side of unread messages for easier identification.",
+    "darkMailContent": "Dark mail content",
+    "darkMailContentHelp": "Apply a dark filter to email message content when Aerion is in dark mode.",
     "selectDensity": "Select density",
     "readReceipts": "Read Receipts",
     "readReceiptPolicy": "When someone requests a read receipt",
@@ -605,6 +609,7 @@
     "redirectToSignIn": "You'll be redirected to sign in securely",
     "waitingForAuth": "Waiting for authentication...",
     "completeSignIn": "Complete sign-in in your browser",
+    "linkCopied": "Copied",
     "connectedSuccessfully": "Connected successfully",
     "authFailed": "Authentication failed",
     "tryAgain": "Try again",

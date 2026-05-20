@@ -30,6 +30,7 @@ const (
 	KeyComposerFormat            = "composer_format"
 	KeyNativeTitleBar            = "native_titlebar"
 	KeyAlwaysLoadImages          = "always_load_images"
+	KeyDarkMailContent           = "dark_mail_content"
 	KeyAccentBarUnread           = "accent_bar_unread"
 	KeyShowMessageListCircles    = "show_message_list_circles"
 	KeyShowViewerCircles         = "show_viewer_circles"
@@ -542,6 +543,25 @@ func (s *Store) SetAlwaysLoadImages(enabled bool) error {
 		value = "true"
 	}
 	return s.Set(KeyAlwaysLoadImages, value)
+}
+
+// GetDarkMailContent returns whether email content should be visually darkened
+// while Aerion is in dark mode. Off by default.
+func (s *Store) GetDarkMailContent() (bool, error) {
+	value, err := s.Get(KeyDarkMailContent)
+	if err != nil {
+		return false, err
+	}
+	return value == "true", nil
+}
+
+// SetDarkMailContent persists the dark-mail-content toggle.
+func (s *Store) SetDarkMailContent(enabled bool) error {
+	value := "false"
+	if enabled {
+		value = "true"
+	}
+	return s.Set(KeyDarkMailContent, value)
 }
 
 // ReadNativeTitleBar opens the database directly to read the native_titlebar setting.

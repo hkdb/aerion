@@ -145,9 +145,16 @@
   // Set up OAuth event listeners
   $effect(() => {
     if (open) {
+      // Listen for OAuth started — captures the auth URL so the user can copy
+      // it as a fallback if the browser doesn't open automatically.
+      EventsOn('contact-source-oauth:started', (data: { provider: string; authURL?: string }) => {
+        oauthAuthURL = data.authURL ?? null
+      })
+
       // Listen for OAuth success
       EventsOn('contact-source-oauth:success', (data: { provider: string; email: string }) => {
         oauthInProgress = false
+        oauthAuthURL = null
         oauthEmail = data.email
         if (!name) {
           name = `${data.provider === 'google' ? 'Google' : 'Microsoft'} Contacts (${data.email})`
@@ -157,6 +164,7 @@
       // Listen for OAuth error
       EventsOn('contact-source-oauth:error', (data: { error: string }) => {
         oauthInProgress = false
+        oauthAuthURL = null
         console.error('OAuth failed:', data.error)
         addToast({ type: 'error', message: $_('toast.oauthFailed') })
       })
@@ -164,15 +172,33 @@
       // Listen for OAuth cancelled
       EventsOn('contact-source-oauth:cancelled', () => {
         oauthInProgress = false
+        oauthAuthURL = null
       })
 
       return () => {
+        EventsOff('contact-source-oauth:started')
         EventsOff('contact-source-oauth:success')
         EventsOff('contact-source-oauth:error')
         EventsOff('contact-source-oauth:cancelled')
       }
     }
   })
+
+  // Copy-link fallback for OAuth waiting state
+  let oauthAuthURL = $state<string | null>(null)
+  let oauthLinkCopied = $state(false)
+  let oauthCopiedResetTimer: ReturnType<typeof setTimeout> | null = null
+  async function handleCopyOAuthLink() {
+    if (!oauthAuthURL) return
+    try {
+      await navigator.clipboard.writeText(oauthAuthURL)
+      oauthLinkCopied = true
+      if (oauthCopiedResetTimer) clearTimeout(oauthCopiedResetTimer)
+      oauthCopiedResetTimer = setTimeout(() => { oauthLinkCopied = false }, 1500)
+    } catch {
+      addToast({ type: 'error', message: $_('viewer.failedToCopy') })
+    }
+  }
 
   async function loadExistingAddressbooks() {
     if (!editSource) return
@@ -596,9 +622,20 @@
                   <p class="text-sm text-muted-foreground">
                     {$_('contactSource.waitingForSignIn')}
                   </p>
+                  {#if oauthAuthURL}
+                    <button
+                      type="button"
+                      class="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors mx-auto"
+                      onclick={handleCopyOAuthLink}
+                    >
+                      {oauthLinkCopied ? $_('account.linkCopied') : $_('viewer.copyLink')}
+                      <Icon icon={oauthLinkCopied ? 'mdi:check' : 'mdi:content-copy'} class="w-3.5 h-3.5" />
+                    </button>
+                  {/if}
                   <Button variant="ghost" size="sm" onclick={() => {
                     contactSourcesStore.cancelOAuthFlow()
                     oauthInProgress = false
+                    oauthAuthURL = null
                   }}>
                     {$_('common.cancel')}
                   </Button>

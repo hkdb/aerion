@@ -171,7 +171,9 @@
     "forSender": "针对 {email}",
     "focusThread": "专注模式（对话）",
     "focusMessage": "专注模式（消息）",
-    "exitFocus": "退出专注模式"
+    "exitFocus": "退出专注模式",
+    "darkMailToLight": "不对此邮件应用深色滤镜",
+    "darkMailToDark": "对此邮件应用深色滤镜"
   },
   "composer": {
     "newMessage": "新邮件",
@@ -430,6 +432,8 @@
     "showViewerCirclesHelp": "在对话视图中显示带有寄件人姓名缩写的彩色圆圈",
     "accentBarUnread": "未读邮件标记线",
     "accentBarUnreadHelp": "在未读邮件左侧显示标记线，方便识别。",
+    "darkMailContent": "邮件内容深色化",
+    "darkMailContentHelp": "当 Aerion 处于深色模式时，对邮件内容应用深色滤镜。",
     "selectDensity": "选择密度",
     "readReceipts": "回执",
     "readReceiptPolicy": "当有人请求回执时",
@@ -603,6 +607,7 @@
     "redirectToSignIn": "您将被重定向到安全登录页面",
     "waitingForAuth": "等待认证中...",
     "completeSignIn": "请在浏览器中完成登录",
+    "linkCopied": "已复制",
     "connectedSuccessfully": "连接成功",
     "authFailed": "认证失败",
     "tryAgain": "重试",
