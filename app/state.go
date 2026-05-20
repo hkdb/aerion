@@ -27,7 +27,7 @@ func (a *App) SaveUIState(state *appstate.UIState) error {
 // the About dialog via GetAppInfo() and by the --version CLI flag in main.go.
 // (wails.json, frontend/package.json, and metainfo.xml each carry their own
 // version strings for their respective tooling.)
-const Version = "0.2.4"
+const Version = "0.2.5-dev"
 
 // AppInfo contains application metadata
 type AppInfo struct {
