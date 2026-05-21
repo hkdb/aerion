@@ -476,7 +476,7 @@ Special thanks to translation contributors for making Aerion more accessible:
         <sub><b>dev-inside</b></sub>
       </a><br>
       <sub>Deutsch (de)</sub><br>
-      <small><em>reviewer</em></small>
+      <sup><small><em>reviewer</em></small></sup>
     </td>
     <td align="center" valign="top" width="160">
       <a href="https://github.com/freemans32">
