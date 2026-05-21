@@ -479,6 +479,14 @@ Special thanks to translation contributors for making Aerion more accessible:
       <sup><small><em>reviewer</em></small></sup>
     </td>
     <td align="center" valign="top" width="160">
+      <a href="https://github.com/StefanSchroeder">
+        <img src="https://github.com/StefanSchroeder.png" width="80"><br>
+        <sub><b>StefanSchroeder</b></sub>
+      </a><br>
+      <sub>Deutsch (de)</sub><br>
+      <sup><small><em>reviewer</em></small></sup>
+    </td>
+    <td align="center" valign="top" width="160">
       <a href="https://github.com/freemans32">
         <img src="https://github.com/freemans32.png" width="80"><br>
         <sub><b>freemans32</b></sub>
