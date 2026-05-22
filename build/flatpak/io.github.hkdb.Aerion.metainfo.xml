@@ -218,6 +218,7 @@
           <li>Added German translation - PR #194</li>
           <li>Dark content auto bg color and overrides - #195</li>
           <li>Added guard rails to prevent accidental close of dialogs - #201 - #198</li>
+          <li>Fixed message list on folder switch bug - #200</li>
         </ul>
       </description>
     </release>

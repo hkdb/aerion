@@ -54,6 +54,7 @@
   let error = $state<string | null>(null)
   let selectedThreadId = $state<string | null>(null)
   let lastLoadedFolderId = $state<string | null>(null) // Track folder changes
+  let loadGeneration = $state(0) // Invalidates stale async results when folder changes mid-load (#200)
 
   // Derived: check if this folder is currently syncing (from account store's progress tracking)
   const syncing = $derived(
@@ -304,6 +305,7 @@
 
     prevAccountId = currentAccount
     prevFolderId = currentFolder
+    loadGeneration++ // Invalidate any in-flight loads from the previous folder (#200)
     offset = 0
     checkedThreadIds = new Set()
     lastClickedIndex = null
@@ -368,9 +370,10 @@
     loading = true
     error = null
 
-    // Capture offset at start - it may change during async operations
+    // Capture offset and generation at start — both may change during async operations
     const currentOffset = offset
     const limit = customLimit ?? PAGE_SIZE
+    const generation = loadGeneration
 
     try {
       const [convList, count] = isUnifiedView
@@ -382,6 +385,9 @@
           GetConversations(accountId!, folderId!, currentOffset, limit, getMessageListSortOrder(), filterMode),
           GetConversationCount(accountId!, folderId!, filterMode),
         ])
+
+      // Discard stale result — folder was switched while this load was in-flight (#200)
+      if (generation !== loadGeneration) return
 
       if (currentOffset !== 0) {
         conversations = [...conversations, ...(convList || [])]
@@ -415,17 +421,25 @@
       // Auto-select first message on folder navigation or initial load
       if (conversations.length === 0) {
         selectedThreadId = null
-      } else if (folderChanged || !selectedThreadId) {
+        totalCount = count
+        return
+      }
+
+      if (folderChanged || !selectedThreadId) {
         selectedThreadId = conversations[0].threadId
       }
       totalCount = count
     } catch (err) {
+      // Discard stale error — folder was switched while this load was in-flight (#200)
+      if (generation !== loadGeneration) return
       console.error('Failed to load messages:', err)
       error = $_('viewer.failedToLoadMessages')
     } finally {
       loading = false
-      // Flush any deferred reload (from sync event during load or dialog guard)
-      if (pendingReload && !isDialogGuardActive()) {
+      // Flush any deferred reload (from sync event during load or dialog guard).
+      // Only the latest-generation load should drive the flush — otherwise a
+      // stale completion could fire scheduleReload redundantly.
+      if (generation === loadGeneration && pendingReload && !isDialogGuardActive()) {
         pendingReload = false
         scheduleReload()
       }
