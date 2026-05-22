@@ -557,6 +557,12 @@
           </button>
         {/each}
       </div>
+
+      <div class="flex justify-end pt-2">
+        <Button variant="ghost" onclick={() => onCancel?.()}>
+          {$_('common.cancel')}
+        </Button>
+      </div>
     </div>
   {:else}
     <!-- Step 2: Account Details -->

@@ -28,6 +28,7 @@
     isInputElement,
     setComposerOpen
   } from '$lib/stores/keyboard.svelte'
+  import { isDialogGuardActive } from '$lib/stores/dialogGuard'
   import { initLayout, getLayoutMode, getResponsiveView, showViewer, hideViewer, showSidebar, hideSidebar, isResponsive } from '$lib/stores/layout.svelte'
   // @ts-ignore - wailsjs path
   import { PrepareReply, GetPendingMailto, GetDraft, MarkAsRead, MarkAsUnread, Star, Unstar, Archive, MarkAsSpam, MarkAsNotSpam, Undo, GetTermsAccepted, SetTermsAccepted, RefreshWindowConstraints, AcceptCertificate, GetStartHiddenActive, CloseWindow, QuitApp, OpenComposerWindow, GetSystemTheme, NotifyStartupComplete } from '../wailsjs/go/app/App.js'
@@ -714,6 +715,10 @@
     // Don't intercept keyboard events when a context menu or dropdown is open
     // (bits-ui portals mount [role="menu"] only while open)
     if (document.querySelector('[role="menu"]')) return
+
+    // Don't intercept while a modal dialog has the guard active — keystrokes
+    // (especially Ctrl+A) should target dialog inputs, not the background.
+    if (isDialogGuardActive()) return
 
     // When composer is open, only handle Escape (composer handles its own shortcuts)
     if (showComposer) {

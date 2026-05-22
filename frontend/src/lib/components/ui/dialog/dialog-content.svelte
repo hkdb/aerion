@@ -10,9 +10,12 @@
     children?: Snippet
     /** Prevent focus from returning to trigger element on close */
     preventCloseAutoFocus?: boolean
+    /** Handler for clicks/touches outside the dialog. Call e.preventDefault()
+     *  to prevent the dialog from closing on outside interaction. */
+    onInteractOutside?: (e: Event) => void
   }
 
-  let { class: className, children, preventCloseAutoFocus = false }: Props = $props()
+  let { class: className, children, preventCloseAutoFocus = false, onInteractOutside }: Props = $props()
 
   function handleCloseAutoFocus(e: Event) {
     if (preventCloseAutoFocus) {
@@ -26,6 +29,7 @@
   <div class="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
     <DialogPrimitive.Content
       onCloseAutoFocus={handleCloseAutoFocus}
+      onInteractOutside={onInteractOutside}
       class={cn(
         'pointer-events-auto grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg',
         className

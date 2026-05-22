@@ -11,6 +11,7 @@
   import { accountStore } from '$lib/stores/accounts.svelte'
   import { oauthStore } from '$lib/stores/oauth.svelte'
   import { addToast } from '$lib/stores/toast'
+  import { dialogGuardOpen, dialogGuardClose } from '$lib/stores/dialogGuard'
   import { _ } from '$lib/i18n'
   // @ts-ignore - wailsjs path
   import { account } from '../../../../wailsjs/go/models'
@@ -117,6 +118,16 @@
       initialized = false
       errors = {}
       password = ''
+    }
+  })
+
+  // Activate the dialog guard while open: suppresses background refreshes
+  // and routes global keyboard shortcuts (e.g. Ctrl+A) to the dialog inputs
+  // instead of the message list / viewer behind it.
+  $effect(() => {
+    if (open) {
+      dialogGuardOpen()
+      return () => dialogGuardClose()
     }
   })
 
@@ -280,7 +291,7 @@
 </script>
 
 <Dialog.Root bind:open onOpenChange={handleOpenChange}>
-  <Dialog.Content class="max-w-xl max-h-[90vh] overflow-hidden flex flex-col" preventCloseAutoFocus>
+  <Dialog.Content class="max-w-xl max-h-[90vh] overflow-hidden flex flex-col" preventCloseAutoFocus onInteractOutside={(e) => e.preventDefault()}>
     <Dialog.Header>
       <Dialog.Title>
         {editAccount?.sharedMailboxParentId ? $_('account.editSharedMailboxTitle') : editAccount ? $_('account.editTitle') : $_('account.addTitle')}
