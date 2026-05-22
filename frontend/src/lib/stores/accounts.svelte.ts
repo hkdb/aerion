@@ -514,15 +514,6 @@ class AccountStore {
   }
 
   /**
-   * Get sync progress percentage for an account.
-   * Returns the LOWEST percentage among all syncing folders.
-   */
-  getSyncProgressPercentage(accountId: string): number {
-    const progress = this.getSyncProgress(accountId)
-    return progress?.percentage ?? 0
-  }
-
-  /**
    * Get sync error for an account.
    * Returns error info or null if no error.
    */
