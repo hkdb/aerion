@@ -220,6 +220,7 @@
           <li>Dark content auto bg color and overrides - #195</li>
           <li>Added guard rails to prevent accidental close of dialogs - #201 - #198</li>
           <li>Fixed message list on folder switch bug - #200</li>
+          <li>Fixed detached composer cancel orphaned draft edge case</li>
           <li>Code cleanup prior to diving into v0.3.0</li>
         </ul>
       </description>

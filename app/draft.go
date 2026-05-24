@@ -396,6 +396,29 @@ func (ops *draftOps) syncToIMAP(ctx context.Context, localDraft *draft.Draft, ms
 		return nil
 	}
 
+	// Post-APPEND guard (mirrors the pre-APPEND guards above): if the draft was
+	// cancelled or deleted while we were appending, the just-appended message is
+	// an orphan on the server. Clean it up here so deleteDraftCore doesn't need
+	// to know about UIDs the local DB never recorded.
+	if ctx.Err() != nil {
+		log.Debug().Str("draftID", localDraft.ID).Uint32("uid", uint32(uid)).Msg("Draft cancelled during APPEND, cleaning up orphan")
+		if _, selErr := conn.SelectMailbox(ctx, draftsFolder.Path); selErr == nil {
+			if delErr := conn.DeleteMessageByUID(uid); delErr != nil {
+				log.Warn().Err(delErr).Uint32("uid", uint32(uid)).Msg("Failed to clean up orphan after cancel-during-APPEND")
+			}
+		}
+		return nil
+	}
+	if d, _ := ops.draftStore.Get(localDraft.ID); d == nil {
+		log.Debug().Str("draftID", localDraft.ID).Uint32("uid", uint32(uid)).Msg("Draft deleted during APPEND, cleaning up orphan")
+		if _, selErr := conn.SelectMailbox(ctx, draftsFolder.Path); selErr == nil {
+			if delErr := conn.DeleteMessageByUID(uid); delErr != nil {
+				log.Warn().Err(delErr).Uint32("uid", uint32(uid)).Msg("Failed to clean up orphan after delete-during-APPEND")
+			}
+		}
+		return nil
+	}
+
 	// Update local draft with sync status
 	if err := ops.draftStore.UpdateSyncStatus(localDraft.ID, draft.SyncStatusSynced, uint32(uid), draftsFolder.ID, ""); err != nil {
 		log.Warn().Err(err).Msg("Failed to update draft sync status")
@@ -523,17 +546,15 @@ func (ops *draftOps) getIdentityEmail(d *draft.Draft) string {
 func (a *App) cancelDraftSync(draftID string) {
 	a.syncMu.Lock()
 	cancel, hasCancel := a.draftSyncContexts[draftID]
-	done, hasDone := a.draftSyncDone[draftID]
 	a.syncMu.Unlock()
 
 	if !hasCancel {
 		return
 	}
+	// Signal the goroutine to abort and return immediately. The goroutine
+	// self-cleans via the post-APPEND guard in syncToIMAP if it had already
+	// committed an APPEND to the server.
 	cancel()
-	if !hasDone {
-		return
-	}
-	<-done
 }
 
 // SaveDraft saves or updates a draft email to the local database and syncs to IMAP.

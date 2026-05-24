@@ -698,23 +698,19 @@ func (c *ComposerApp) saveToSentFolder(accountID string, acc *account.Account, r
 	return c.composeOps.saveToSentFolder(c.ctx, accountID, acc, rawMsg)
 }
 
-// cancelDraftSync cancels any in-flight syncDraftToIMAP goroutine and waits for
-// it to finish. This prevents the race where DeleteDraft runs while a background
-// goroutine is still uploading the draft to IMAP.
+// cancelDraftSync signals any in-flight syncDraftToIMAP goroutine to abort and
+// returns immediately. The goroutine self-cleans via the post-APPEND guard in
+// syncToIMAP if it had already committed an APPEND to the server, so the caller
+// (DeleteDraft / next SaveDraft) doesn't need to block on the goroutine exiting.
 func (c *ComposerApp) cancelDraftSync() {
 	c.draftSyncMu.Lock()
 	cancel := c.draftSyncCancel
-	done := c.draftSyncDone
 	c.draftSyncMu.Unlock()
 
 	if cancel == nil {
 		return
 	}
 	cancel()
-	if done == nil {
-		return
-	}
-	<-done
 }
 
 // SaveDraft saves the current compose state as a draft.
