@@ -824,6 +824,7 @@
     "enterRecipientEmail": "Per favore inserisci l'indirizzo di posta elettronica del destinatario",
     "keysCount": "{count} chiave(i)",
     "certsCount": "{count} certificato(i)",
+    "certImported": "Certificato importato ({count} certificato(i) nella catena)",
     "certRemoved": "Certificato rimosso",
     "failedToRemoveCert": "Impossibile rimuovere il certificato.",
     "defaultCertUpdated": "Certificato predefinito aggiornato",
