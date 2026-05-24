@@ -6,6 +6,7 @@
 
 - Sync progress indication redesign and shifting folder tree fix - [#204](https://github.com/hkdb/aerion/issues/204)
 - Added German translation - PR [#194](https://github.com/hkdb/aerion/pull/194)
+- Added Italian translation - PR [#208](https://github.com/hkdb/aerion/pull/208)
 - Dark content auto bg color and overrides - [#195](https://github.com/hkdb/aerion/issues/195)
 - Added guard rails to prevent accidental close of dialogs - [#201](https://github.com/hkdb/aerion/issues/201) - [#198](https://github.com/hkdb/aerion/issues/198)
 - Fixed message list on folder switch bug - [#200](https://github.com/hkdb/aerion/issues/200)
