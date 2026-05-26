@@ -243,6 +243,7 @@
           <li>Fixed message list on folder switch bug - #200</li>
           <li>Fixed detached composer cancel orphaned draft edge case</li>
           <li>Fixed send receipt feature</li>
+          <li>Fixed dark themes composer lists - #215</li>
           <li>Code cleanup prior to diving into v0.3.0</li>
         </ul>
       </description>

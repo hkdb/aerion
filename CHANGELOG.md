@@ -12,6 +12,7 @@
 - Fixed message list on folder switch bug - [#200](https://github.com/hkdb/aerion/issues/200)
 - Fixed detached composer cancel orphaned draft edge case
 - Fixed send receipt feature
+- Fixed dark themes composer lists - [#215](https://github.com/hkdb/aerion/issues/215)
 - Code cleanup prior to diving into v0.3.0
 
 
