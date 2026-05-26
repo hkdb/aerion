@@ -13,6 +13,7 @@
 - Fixed detached composer cancel orphaned draft edge case
 - Fixed send receipt feature
 - Fixed dark themes composer lists - [#215](https://github.com/hkdb/aerion/issues/215)
+- Fixed setting dialog layout - [#203](https://github.com/hkdb/aerion/issues/203)
 - Code cleanup prior to diving into v0.3.0
 
 

@@ -276,7 +276,7 @@
           </Tabs.Trigger>
         </Tabs.List>
 
-        <div class="mt-4 h-[350px] overflow-y-auto">
+        <div class="mt-4 h-[350px] overflow-y-auto pl-1 pr-3">
           <Tabs.Content value="general" class="mt-0">
             <GeneralTab
               bind:markAsReadDelaySeconds
