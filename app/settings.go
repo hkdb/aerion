@@ -380,11 +380,16 @@ func (a *App) SendReadReceipt(accountID, messageID string) error {
 	}
 	defer client.Close()
 
+	if err := client.Login(); err != nil {
+		return fmt.Errorf("failed to authenticate to SMTP: %w", err)
+	}
+
 	// Extract recipient email
 	recipientEmail := extractEmailFromHeader(msg.ReadReceiptTo)
 
 	// Send the MDN
 	if err := client.SendMail(fromEmail, []string{recipientEmail}, mdnBytes); err != nil {
+		log.Error().Err(err).Str("from", fromEmail).Str("to", recipientEmail).Msg("Failed to send read receipt MDN")
 		return fmt.Errorf("failed to send read receipt: %w", err)
 	}
 

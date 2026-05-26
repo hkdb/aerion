@@ -11,6 +11,7 @@
 - Added guard rails to prevent accidental close of dialogs - [#201](https://github.com/hkdb/aerion/issues/201) - [#198](https://github.com/hkdb/aerion/issues/198)
 - Fixed message list on folder switch bug - [#200](https://github.com/hkdb/aerion/issues/200)
 - Fixed detached composer cancel orphaned draft edge case
+- Fixed send receipt feature
 - Code cleanup prior to diving into v0.3.0
 
 
