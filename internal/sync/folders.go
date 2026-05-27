@@ -140,7 +140,13 @@ func (e *Engine) SyncFolders(ctx context.Context, accountID string) error {
 			// Update existing folder
 			existing.Name = extractFolderName(mb.Name, mb.Delimiter)
 			existing.Type = folderType
-			existing.Subscribed = isSubscribed
+			// Only update subscription state when the server returned data.
+			// Some servers (Microsoft 365) reject LIST-EXTENDED (SUBSCRIBED);
+			// when subscribedSet is nil, preserve local state set by the user
+			// via SubscribeFolder/UnsubscribeFolder rather than wiping it.
+			if subscribedSet != nil {
+				existing.Subscribed = isSubscribed
+			}
 
 			// Recompute parent (self-healing for broken parent links)
 			if mb.Delimiter != "" {

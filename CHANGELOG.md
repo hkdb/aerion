@@ -14,6 +14,7 @@
 - Fixed send receipt feature
 - Fixed dark themes composer lists - [#215](https://github.com/hkdb/aerion/issues/215)
 - Fixed setting dialog layout - [#203](https://github.com/hkdb/aerion/issues/203)
+- Fixed (workaround) folder subscription for non-compliant providers (Microsoft 365, etc) - [#218](https://github.com/hkdb/aerion/issues/218)
 - Code cleanup prior to diving into v0.3.0
 
 
