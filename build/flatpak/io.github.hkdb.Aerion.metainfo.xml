@@ -232,7 +232,7 @@
   </provides>
 
   <releases>
-    <release version="0.2.5" date="2026-05-26">
+    <release version="0.2.5" date="2026-05-27">
       <description>
         <ul>
           <li>Sync progress indication redesign and shifting folder tree fix - #204</li>

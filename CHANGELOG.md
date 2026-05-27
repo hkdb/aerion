@@ -1,7 +1,7 @@
 # CHANGELOG
 
 
-**v0.2.5 - 05-26-2026**
+**v0.2.5 - 05-27-2026**
 ---
 
 - Sync progress indication redesign and shifting folder tree fix - [#204](https://github.com/hkdb/aerion/issues/204)
