@@ -156,10 +156,10 @@ cd frontend && npm test
 
 ### Prerequisites
 
-- **Go** 1.21 or later
-- **Node.js** 18 or later
-- **Wails** v2 CLI
+- **mise** - multiplatform tool version manager (installs Go and Node.js automatically)
 - **Git**
+
+Install mise: https://mise.jdx.dev
 
 ### Development Setup
 
@@ -169,25 +169,18 @@ cd frontend && npm test
    cd aerion
    ```
 
-2. **Install Go dependencies**
+2. **Install dependencies** (Go, Node.js, Wails, and frontend packages)
    ```bash
-   go mod download
+   make setup
    ```
 
-3. **Install frontend dependencies**
-   ```bash
-   cd frontend
-   npm install
-   cd ..
-   ```
-
-4. **Set up environment variables**
+3. **Set up environment variables**
    ```bash
    cp .env.example .env
    # Edit .env with your OAuth credentials (for Gmail/OAuth testing)
    ```
 
-5. **Run in development mode**
+4. **Run in development mode**
    ```bash
    make dev
    ```

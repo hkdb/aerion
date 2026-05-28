@@ -1,0 +1,13 @@
+# mise is a multiplatform polyglot tool version manager (https://mise.jdx.dev)
+# Run `mise install` to install the required tool versions defined below.
+#
+# IDE plugins automatically activate the correct tool versions for your project,
+# giving you the right Go and Node.js out of the box without any manual setup:
+#   VS Code:    https://marketplace.visualstudio.com/items?itemName=hverlin.mise-vscode
+#   JetBrains:  https://plugins.jetbrains.com/plugin/22631-mise
+#   Neovim:     https://github.com/rcasia/mise.nvim
+#   Zed:        https://github.com/zed-industries/zed/tree/main/extensions/mise
+
+[tools]
+go = "1.26"
+node = "24"

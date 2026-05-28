@@ -10,7 +10,8 @@
 
 .PHONY: all build build-linux dev generate clean test lint help \
         install uninstall install-linux uninstall-linux \
-        install-darwin uninstall-darwin build-windows-installer flatpak flatpak-dev
+        install-darwin uninstall-darwin build-windows-installer flatpak flatpak-dev \
+        setup
 
 # Load environment variables from .env files
 # .env.local takes precedence over .env
@@ -25,6 +26,9 @@ MODULE := github.com/hkdb/aerion
 LDFLAGS := -X '$(MODULE)/internal/oauth2.GoogleClientID=$(GOOGLE_CLIENT_ID)' \
            -X '$(MODULE)/internal/oauth2.GoogleClientSecret=$(GOOGLE_CLIENT_SECRET)' \
            -X '$(MODULE)/internal/oauth2.MicrosoftClientID=$(MICROSOFT_CLIENT_ID)'
+
+# Wails binary (executed via mise to ensure correct Go environment)
+WAILS := mise exec -- wails
 
 # Wails build tags
 BUILD_TAGS := webkit2_41
@@ -52,7 +56,7 @@ build:
 		echo "Warning: No OAuth credentials configured. Gmail/Outlook OAuth will not work."; \
 		echo "See .env.example for required variables."; \
 	fi
-	wails build -ldflags "$(LDFLAGS)" -tags $(BUILD_TAGS)
+	$(WAILS) build -ldflags "$(LDFLAGS)" -tags $(BUILD_TAGS)
 ifeq ($(UNAME_S),Darwin)
 	@echo "Ad-hoc signing Aerion.app (required for macOS notifications)..."
 	codesign --force --deep --sign - build/bin/Aerion.app
@@ -61,7 +65,7 @@ endif
 # Build for Linux specifically
 build-linux:
 	@echo "Building Aerion for Linux..."
-	wails build -ldflags "$(LDFLAGS)" -tags $(BUILD_TAGS),linux,production
+	$(WAILS) build -ldflags "$(LDFLAGS)" -tags $(BUILD_TAGS),linux,production
 
 # Build Flatpak (recommended for Linux distribution)
 flatpak:
@@ -76,12 +80,64 @@ flatpak-dev:
 # Run in development mode with hot reload
 dev:
 	@echo "Starting Aerion in development mode..."
-	wails dev -ldflags "$(LDFLAGS)" -tags $(BUILD_TAGS)
+	$(WAILS) dev -ldflags "$(LDFLAGS)" -tags $(BUILD_TAGS)
 
 # Generate Wails TypeScript bindings
 generate:
 	@echo "Generating Wails bindings..."
-	wails generate module
+	$(WAILS) generate module
+
+## Setup
+
+# Install development dependencies (auto-detects platform via UNAME_S)
+setup:
+ifeq ($(UNAME_S),Linux)
+	@echo "Installing development dependencies for Linux..."
+	@echo "The following system libraries are required to build Aerion:"
+	@echo "  build-essential       - C compiler (gcc) required to build CGo code"
+	@echo "  pkg-config            - needed to locate C libraries at build time"
+	@echo "  libgtk-3-dev          - GTK3 UI toolkit used by the app window"
+	@echo "  libglib2.0-dev        - GLib low-level C utilities required by GTK"
+	@echo "  libwebkit2gtk-4.0-dev - WebKit engine that renders the Svelte frontend"
+	@echo ""
+	@read -p "Install these packages now? (requires sudo) [y/N] " confirm && \
+		[ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ] || (echo "Skipping system library installation."; exit 0)
+	sudo apt-get install -y build-essential pkg-config libgtk-3-dev libglib2.0-dev libwebkit2gtk-4.0-dev
+else ifeq ($(UNAME_S),Darwin)
+	@echo "Installing development dependencies for macOS..."
+else
+	@echo "Unsupported platform: $(UNAME_S)"; exit 1
+endif
+	@echo ""
+	@# Install mise if not present
+	@if ! command -v mise >/dev/null 2>&1; then \
+		echo "mise not found. Installing mise..."; \
+		curl https://mise.run | sh; \
+		export PATH="$$HOME/.local/bin:$$PATH"; \
+	fi
+	@echo "mise: $$(mise --version)"
+	@# Install Go and Node.js via mise (versions defined in mise.toml)
+	@echo ""
+	@echo "Installing Go and Node.js via mise..."
+	mise install
+	@echo "Go: $$(mise exec -- go version)"
+	@echo "Node.js: $$(mise exec -- node --version)"
+	@echo "npm: $$(mise exec -- npm --version)"
+	@# Install Wails CLI if not already installed
+	@echo ""
+	@if [ -f "$$(mise exec -- go env GOPATH)/bin/wails" ]; then \
+		echo "Wails already installed: $$($$(mise exec -- go env GOPATH)/bin/wails version)"; \
+	else \
+		echo "Installing Wails CLI..."; \
+		mise exec -- go install github.com/wailsapp/wails/v2/cmd/wails@latest; \
+		echo "Wails installed to $$(mise exec -- go env GOPATH)/bin/wails"; \
+	fi
+	@# Install frontend dependencies
+	@echo ""
+	@echo "Installing frontend dependencies..."
+	cd frontend && mise exec -- npm install
+	@echo ""
+	@echo "Setup complete! You can now run 'make dev' to start development."
 
 ## Code Quality
 
@@ -211,7 +267,7 @@ uninstall-darwin:
 # Build Windows installer (requires NSIS)
 build-windows-installer:
 	@echo "Building Windows installer..."
-	wails build -ldflags "$(LDFLAGS)" -tags $(BUILD_TAGS) -nsis
+	$(WAILS) build -ldflags "$(LDFLAGS)" -tags $(BUILD_TAGS) -nsis
 	@echo ""
 	@echo "Installer created at build/bin/aerion-amd64-installer.exe"
 
@@ -220,6 +276,9 @@ build-windows-installer:
 # Show available targets
 help:
 	@echo "Aerion Email Client - Build System"
+	@echo ""
+	@echo "Setup:"
+	@echo "  make setup        - Install development dependencies (auto-detects platform)"
 	@echo ""
 	@echo "Build Targets:"
 	@echo "  make build        - Build production binary"
