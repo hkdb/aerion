@@ -389,7 +389,7 @@
       imapHost,
       imapPort,
       imapSecurity,
-      smtpHost,
+      smtpHost: smtpHost.trim(),
       smtpPort,
       smtpSecurity,
       authType: authMethod,
@@ -427,7 +427,6 @@
     }
 
     if (!imapHost.trim()) errors.imapHost = $_('account.imapHostRequired')
-    if (!smtpHost.trim()) errors.smtpHost = $_('account.smtpHostRequired')
     if (imapPort < 1 || imapPort > 65535) errors.imapPort = $_('account.invalidPort')
     if (smtpPort < 1 || smtpPort > 65535) errors.smtpPort = $_('account.invalidPort')
 
@@ -916,11 +915,7 @@
                   type="text"
                   placeholder="smtp.example.com"
                   bind:value={smtpHost}
-                  class={errors.smtpHost ? 'border-destructive' : ''}
                 />
-                {#if errors.smtpHost}
-                  <p class="text-sm text-destructive">{errors.smtpHost}</p>
-                {/if}
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <div class="space-y-2">

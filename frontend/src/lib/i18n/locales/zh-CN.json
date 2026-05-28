@@ -539,7 +539,6 @@
     "invalidEmail": "电子邮件格式无效",
     "passwordRequired": "密码为必填",
     "imapHostRequired": "IMAP 主机为必填",
-    "smtpHostRequired": "SMTP 主机为必填",
     "invalidPort": "端口无效",
     "trustedCertificates": "受信任的证书",
     "trustedCertsHelp": "此账户服务器手动信任的 TLS 证书。",

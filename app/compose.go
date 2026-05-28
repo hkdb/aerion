@@ -301,6 +301,11 @@ func (ops *composeOps) sendMessage(ctx context.Context, accountID string, msg sm
 		return nil, fmt.Errorf("account not found: %s", accountID)
 	}
 
+	// Cannot send from unconfigured SMTP host
+	if acc.SMTPHost == "" {
+		return nil, fmt.Errorf("no smtp host configured for account: %s", accountID)
+	}
+
 	// Build RFC822 message
 	rawMsg, err := msg.ToRFC822()
 	if err != nil {
@@ -844,6 +849,11 @@ func parseDataURL(dataURL string) (contentType, base64Data string) {
 // TestSMTPConnection tests SMTP connection settings
 func (a *App) TestSMTPConnection(host string, port int, security, username, password string) error {
 	log := logging.WithComponent("app")
+
+	// SMTP host is not set
+	if host == "" {
+		return fmt.Errorf("no smtp host configured for username: %s", username)
+	}
 
 	// Map security string to type
 	var securityType smtp.SecurityType

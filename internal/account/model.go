@@ -205,9 +205,6 @@ func (c *AccountConfig) Validate() error {
 	if c.IMAPHost == "" {
 		return ErrIMAPHostRequired
 	}
-	if c.SMTPHost == "" {
-		return ErrSMTPHostRequired
-	}
 	if c.Username == "" {
 		return ErrUsernameRequired
 	}

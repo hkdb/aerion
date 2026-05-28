@@ -539,7 +539,6 @@
     "invalidEmail": "電子郵件格式無效",
     "passwordRequired": "密碼為必填",
     "imapHostRequired": "IMAP 主機為必填",
-    "smtpHostRequired": "SMTP 主機為必填",
     "invalidPort": "連接埠無效",
     "trustedCertificates": "受信任的憑證",
     "trustedCertsHelp": "此帳號伺服器手動信任的 TLS 憑證。",

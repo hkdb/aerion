@@ -149,7 +149,6 @@
     if (!name.trim()) errors.name = $_('account.accountNameRequired')
     if (!displayName.trim()) errors.displayName = $_('account.displayNameRequired')
     if (!imapHost.trim()) errors.imapHost = $_('account.imapHostRequired')
-    if (!smtpHost.trim()) errors.smtpHost = $_('account.smtpHostRequired')
     if (imapPort < 1 || imapPort > 65535) errors.imapPort = $_('account.invalidPort')
     if (smtpPort < 1 || smtpPort > 65535) errors.smtpPort = $_('account.invalidPort')
 
@@ -171,7 +170,7 @@
         imapHost,
         imapPort,
         imapSecurity,
-        smtpHost,
+        smtpHost: smtpHost.trim(),
         smtpPort,
         smtpSecurity,
         authType,

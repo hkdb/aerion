@@ -325,6 +325,10 @@ func (a *App) GetAllAccountIdentities() ([]AccountIdentityGroup, error) {
 		if !acc.Enabled {
 			continue
 		}
+		// cannot send from accounts that do not have SMTP set up
+		if acc.SMTPHost == "" {
+			continue
+		}
 		identities, err := a.accountStore.GetIdentities(acc.ID)
 		if err != nil {
 			return nil, err
