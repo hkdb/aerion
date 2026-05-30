@@ -243,6 +243,7 @@
     "markAsNotSpam": "Označit jako NENÍ spam",
     "moveTo": "Přesunout do",
     "copyTo": "Kopírovat do",
+    "select": "Vybrat",
     "star": "Označit hvězdičkou",
     "removeStar": "Odebrat hvězdičku",
     "markAsRead": "Označit jako přečtené",
@@ -251,6 +252,7 @@
     "markAllAsUnread": "Označit vše jako nepřečtené",
     "noFoldersAvailable": "Žádné dostupné složky",
     "searchFolders": "Hledat složky...",
+    "suggested": "Navrženo",
     "account": "Účet"
   },
   "toast": {

@@ -29,6 +29,7 @@
   import type { Snippet } from 'svelte'
   import { _ } from '$lib/i18n'
   import { dialogGuardOpen, dialogGuardClose } from '$lib/stores/dialogGuard'
+  import { learnMoveSuggestion } from '$lib/stores/moveSuggestions'
 
   interface Props {
     messageIds: string[]
@@ -37,8 +38,10 @@
     folderType: string
     isStarred: boolean
     isRead: boolean
+    senderEmail?: string
     onActionComplete?: (autoSelectNext?: boolean) => void
     onReply?: (mode: 'reply' | 'reply-all' | 'forward', messageId: string) => void
+    onSelectMode?: () => void
     onOpenChange?: (open: boolean) => void
     children?: Snippet
   }
@@ -50,8 +53,10 @@
     folderType,
     isStarred,
     isRead,
+    senderEmail = '',
     onActionComplete,
     onReply,
+    onSelectMode,
     onOpenChange,
     children,
   }: Props = $props()
@@ -247,16 +252,21 @@
     showFolderPicker = true
   }
 
-  function handleFolderSelected(folderId: string, folderName: string, _destAccountId: string) {
+  function handleFolderSelected(folderId: string, folderName: string, destAccountId: string, folderPath?: string) {
     showFolderPicker = false
     switch (folderPickerMode) {
       case 'move':
+        learnMoveSuggestion(senderEmail, { accountId: destAccountId, folderId, folderName, folderPath })
         handleMoveTo(folderId, folderName)
         break
       case 'copy':
         handleCopyTo(folderId, folderName)
         break
     }
+  }
+
+  function handleSelectMode() {
+    onSelectMode?.()
   }
 
   async function handleMoveTo(destFolderId: string, folderName: string) {
@@ -335,6 +345,11 @@
       {$_('contextMenu.copyTo')}
     </ContextMenuItem>
 
+    <ContextMenuItem onSelect={handleSelectMode}>
+      <Icon icon="mdi:checkbox-marked-outline" class="mr-2 h-4 w-4" />
+      {$_('contextMenu.select')}
+    </ContextMenuItem>
+
     <ContextMenuSeparator />
 
     <!-- Flag actions -->
@@ -373,5 +388,6 @@
   initialAccountId={accountId}
   {accounts}
   excludeFolderId={currentFolderId}
+  {senderEmail}
   onSelect={handleFolderSelected}
 />

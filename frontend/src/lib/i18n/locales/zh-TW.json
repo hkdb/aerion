@@ -243,6 +243,7 @@
     "markAsNotSpam": "標記為非垃圾郵件",
     "moveTo": "移動至",
     "copyTo": "複製至",
+    "select": "選取",
     "star": "加星號",
     "removeStar": "移除星號",
     "markAsRead": "標記為已讀",
@@ -251,6 +252,7 @@
     "markAllAsUnread": "全部標記為未讀",
     "noFoldersAvailable": "沒有可用的資料夾",
     "searchFolders": "搜尋資料夾...",
+    "suggested": "建議",
     "account": "帳號"
   },
   "toast": {

@@ -8,6 +8,7 @@
   // @ts-ignore - wailsjs path
   import { GetFolders } from '../../../../wailsjs/go/app/App'
   import { _ } from '$lib/i18n'
+  import { getMoveSuggestions } from '$lib/stores/moveSuggestions'
 
   interface Props {
     open: boolean
@@ -15,7 +16,8 @@
     initialAccountId: string
     accounts: account.Account[]
     excludeFolderId?: string
-    onSelect: (folderId: string, folderName: string, accountId: string) => void
+    senderEmail?: string
+    onSelect: (folderId: string, folderName: string, accountId: string, folderPath?: string) => void
   }
 
   let {
@@ -24,6 +26,7 @@
     initialAccountId,
     accounts,
     excludeFolderId = '',
+    senderEmail = '',
     onSelect,
   }: Props = $props()
 
@@ -86,6 +89,19 @@
     [...specialFolders, ...customFolders].sort((a, b) => a.path.localeCompare(b.path))
   )
 
+  const suggestedFolderIds = $derived(
+    new Set(
+      getMoveSuggestions(senderEmail, allFolders, selectedAccountId)
+        .map((suggestion) => suggestion.folderId)
+    )
+  )
+
+  const suggestedFolders = $derived(
+    getMoveSuggestions(senderEmail, allFolders, selectedAccountId)
+      .map((suggestion) => allFolders.find((f) => f.id === suggestion.folderId))
+      .filter((f): f is folder.Folder => !!f)
+  )
+
   // Detect the IMAP delimiter from folder paths
   const delimiter = $derived(() => {
     for (const f of allFolders) {
@@ -113,7 +129,12 @@
   // Filtered folders when searching
   const isSearching = $derived(searchQuery.trim().length > 0)
   const displayFolders = $derived(() => {
-    if (!isSearching) return allFolders
+    if (!isSearching) {
+      return [
+        ...suggestedFolders,
+        ...allFolders.filter((f) => !suggestedFolderIds.has(f.id)),
+      ]
+    }
     const query = searchQuery.trim().toLowerCase()
     return allFolders.filter(f =>
       f.name.toLowerCase().includes(query) || f.path.toLowerCase().includes(query)
@@ -189,7 +210,7 @@
         e.stopPropagation()
         if (focusedIndex >= 0 && focusedIndex < folders.length) {
           const f = folders[focusedIndex]
-          onSelect(f.id, f.name, selectedAccountId)
+          onSelect(f.id, f.name, selectedAccountId, f.path)
         }
         break
     }
@@ -199,7 +220,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="max-w-sm">
+  <Dialog.Content class="max-w-sm shadow-2xl" showOverlay={false}>
     <Dialog.Header>
       <Dialog.Title>{title}</Dialog.Title>
     </Dialog.Header>
@@ -258,13 +279,16 @@
             aria-selected={i === focusedIndex}
             class="w-full flex items-center gap-2 py-2 pr-3 text-left text-sm hover:bg-muted/50 transition-colors {i === focusedIndex ? 'bg-muted/50' : ''}"
             style="padding-left: {12 + depth * 16}px"
-            onclick={() => onSelect(f.id, f.name, selectedAccountId)}
+            onclick={() => onSelect(f.id, f.name, selectedAccountId, f.path)}
           >
             <Icon icon={getFolderIcon(f.type)} class="h-4 w-4 shrink-0" />
             {#if isSearching}
               <span class="truncate">{formatPath(f.path)}</span>
             {:else}
               <span class="truncate">{f.name}</span>
+            {/if}
+            {#if !isSearching && suggestedFolderIds.has(f.id)}
+              <span class="ml-auto text-[11px] text-primary">{$_('contextMenu.suggested')}</span>
             {/if}
           </button>
         {/each}

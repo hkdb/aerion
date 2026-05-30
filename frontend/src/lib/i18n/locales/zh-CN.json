@@ -243,6 +243,7 @@
     "markAsNotSpam": "标记为非垃圾邮件",
     "moveTo": "移动到",
     "copyTo": "复制到",
+    "select": "选择",
     "star": "加星标",
     "removeStar": "移除星标",
     "markAsRead": "标记为已读",
@@ -251,6 +252,7 @@
     "markAllAsUnread": "全部标记为未读",
     "noFoldersAvailable": "没有可用的文件夹",
     "searchFolders": "搜索文件夹...",
+    "suggested": "建议",
     "account": "账号"
   },
   "toast": {

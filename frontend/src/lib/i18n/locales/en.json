@@ -243,6 +243,7 @@
     "markAsNotSpam": "Mark as NOT Spam",
     "moveTo": "Move to",
     "copyTo": "Copy to",
+    "select": "Select",
     "star": "Star",
     "removeStar": "Remove Star",
     "markAsRead": "Mark as Read",
@@ -251,6 +252,7 @@
     "markAllAsUnread": "Mark All as Unread",
     "noFoldersAvailable": "No folders available",
     "searchFolders": "Search folders...",
+    "suggested": "Suggested",
     "account": "Account"
   },
   "toast": {

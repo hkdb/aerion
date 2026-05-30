@@ -243,6 +243,7 @@
     "markAsNotSpam": "Segna come NON spam",
     "moveTo": "Sposta in",
     "copyTo": "Copia in",
+    "select": "Seleziona",
     "star": "Aggiungi ai preferiti",
     "removeStar": "Rimuovi dai preferiti",
     "markAsRead": "Segna come letta",
@@ -251,6 +252,7 @@
     "markAllAsUnread": "Segna tutte come NON lette",
     "noFoldersAvailable": "Cartelle non disponibili",
     "searchFolders": "Cerca cartelle...",
+    "suggested": "Suggerito",
     "account": "Account"
   },
   "toast": {

@@ -243,6 +243,7 @@
     "markAsNotSpam": "Fjern merking som søppelpost",
     "moveTo": "Flytt til",
     "copyTo": "Kopiér til",
+    "select": "Velg",
     "star": "Stjernemerk",
     "removeStar": "Fjern stjernemerking",
     "markAsRead": "Merk som lest",
@@ -251,6 +252,7 @@
     "markAllAsUnread": "Merk alle som ulest",
     "noFoldersAvailable": "Ingen mapper tilgjengelige",
     "searchFolders": "Søk i mapper…",
+    "suggested": "Foreslått",
     "account": "Konto"
   },
   "toast": {

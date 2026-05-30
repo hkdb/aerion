@@ -21,6 +21,7 @@
     selectedMessageIds: string[]  // All message IDs from checked conversations (for multi-select)
     selectedIsStarred: boolean    // Aggregated star state for multi-select
     selectedIsRead: boolean       // Aggregated read state for multi-select
+    selectionMode?: boolean       // Show checkbox column only while selecting
     showAccountIndicator?: boolean  // Show account color dot in unified inbox view
     accountColor?: string           // Account color for the indicator
     accountName?: string            // Account name for tooltip
@@ -33,6 +34,7 @@
     onSelect: (e?: MouseEvent) => void
     onCheck: (checked: boolean, event?: MouseEvent) => void
     onClearSelection: () => void  // Clear multi-select when right-clicking unchecked row
+    onSelectMode: () => void      // Enter multi-select from the context menu
     onActionComplete?: (autoSelectNext?: boolean) => void
     onReply?: (mode: 'reply' | 'reply-all' | 'forward', messageId: string) => void
   }
@@ -48,6 +50,7 @@
     selectedMessageIds,
     selectedIsStarred,
     selectedIsRead,
+    selectionMode = false,
     showAccountIndicator = false,
     accountColor = '',
     accountName = '',
@@ -60,6 +63,7 @@
     onSelect,
     onCheck,
     onClearSelection,
+    onSelectMode,
     onActionComplete,
     onReply,
   }: Props = $props()
@@ -155,6 +159,10 @@
     }
   }
 
+  function getSenderEmail(): string {
+    return conversation.participants?.[0]?.email || ''
+  }
+
   function getInitials(conv: message.Conversation): string {
     if (!conv.participants || conv.participants.length === 0) {
       return '?'
@@ -230,6 +238,11 @@
     }
   }
 
+  function handleSelectMode() {
+    onCheck(true)
+    onSelectMode()
+  }
+
   // Computed values for context menu based on selection state
   const contextMenuMessageIds = $derived(useMultiSelect ? selectedMessageIds : ownMessageIds)
   const contextMenuIsStarred = $derived(useMultiSelect ? selectedIsStarred : ownIsStarred)
@@ -256,8 +269,10 @@
   {folderType}
   isStarred={contextMenuIsStarred}
   isRead={contextMenuIsRead}
+  senderEmail={getSenderEmail()}
   {onActionComplete}
   onReply={useMultiSelect ? undefined : onReply}
+  onSelectMode={handleSelectMode}
   onOpenChange={(open: boolean) => { if (open) handleContextMenu() }}
 >
   <div
@@ -272,23 +287,22 @@
     role="button"
     tabindex="0"
   >
-    <!-- Checkbox (visible on hover or when checked) -->
-    <div
-      class="{densityClasses.checkbox[density]} flex-shrink-0 flex items-center justify-center self-center {checked
-        ? 'opacity-100'
-        : 'opacity-0 group-hover:opacity-40 hover:!opacity-100 max-[767px]:opacity-40 max-[767px]:active:opacity-100'} transition-opacity duration-200"
-    >
-      <button
-        class="{densityClasses.checkboxInner[density]} rounded border {checked
-          ? 'bg-primary border-primary'
-          : 'border-muted-foreground hover:border-primary'} flex items-center justify-center transition-colors duration-200"
-        onclick={handleCheckboxClick}
+    {#if selectionMode}
+      <div
+        class="{densityClasses.checkbox[density]} flex-shrink-0 flex items-center justify-center self-center"
       >
-        {#if checked}
-          <Icon icon="mdi:check" class="{densityClasses.checkIcon[density]} text-primary-foreground" />
-        {/if}
-      </button>
-    </div>
+        <button
+          class="{densityClasses.checkboxInner[density]} rounded border {checked
+            ? 'bg-primary border-primary'
+            : 'border-muted-foreground hover:border-primary'} flex items-center justify-center transition-colors duration-200"
+          onclick={handleCheckboxClick}
+        >
+          {#if checked}
+            <Icon icon="mdi:check" class="{densityClasses.checkIcon[density]} text-primary-foreground" />
+          {/if}
+        </button>
+      </div>
+    {/if}
 
     <!-- Sender circle (colored, with initials) -->
     {#if getShowMessageListCircles()}

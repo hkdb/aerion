@@ -243,6 +243,7 @@
     "markAsNotSpam": "Als kein Spam markieren",
     "moveTo": "Verschieben nach",
     "copyTo": "Kopieren nach",
+    "select": "Auswählen",
     "star": "Markieren",
     "removeStar": "Markierung entfernen",
     "markAsRead": "Als gelesen markieren",
@@ -251,6 +252,7 @@
     "markAllAsUnread": "Alle als ungelesen markieren",
     "noFoldersAvailable": "Keine Ordner verfügbar",
     "searchFolders": "Ordner suchen...",
+    "suggested": "Vorgeschlagen",
     "account": "Konto"
   },
   "toast": {

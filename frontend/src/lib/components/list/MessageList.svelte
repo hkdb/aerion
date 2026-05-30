@@ -6,7 +6,7 @@
   import { cn } from '$lib/utils'
   import { Button } from '$lib/components/ui/button'
   // @ts-ignore - wailsjs bindings
-  import { GetConversations, GetConversationCount, SyncFolder, ForceSyncFolder, CancelFolderSync, SetMessageListSortOrder, GetUnifiedInboxConversations, GetUnifiedInboxCount, SearchConversations, SearchUnifiedInbox, GetSearchCount, GetSearchCountUnifiedInbox, GetFTSIndexStatus, IsFTSIndexing, Trash, DeletePermanently, EmptyTrash, Undo, IMAPSearchFolder, FetchServerMessage } from '../../../../wailsjs/go/app/App'
+  import { GetConversations, GetConversationCount, SyncFolder, ForceSyncFolder, CancelFolderSync, SetMessageListSortOrder, GetUnifiedInboxConversations, GetUnifiedInboxCount, SearchConversations, SearchUnifiedInbox, GetSearchCount, GetSearchCountUnifiedInbox, GetFTSIndexStatus, IsFTSIndexing, Trash, DeletePermanently, EmptyTrash, Undo, IMAPSearchFolder, FetchServerMessage, MoveToFolder } from '../../../../wailsjs/go/app/App'
   import { toasts } from '$lib/stores/toast'
   import { _ } from '$lib/i18n'
   import { ConfirmDialog } from '$lib/components/ui/confirm-dialog'
@@ -17,7 +17,9 @@
   import { getMessageListDensity, getMessageListSortOrder, setMessageListSortOrder } from '$lib/stores/settings.svelte'
   import { accountStore } from '$lib/stores/accounts.svelte'
   import { getLayoutMode, hideViewer } from '$lib/stores/layout.svelte'
-  import { isDialogGuardActive } from '$lib/stores/dialogGuard'
+  import { dialogGuardClose, dialogGuardOpen, isDialogGuardActive } from '$lib/stores/dialogGuard'
+  import { learnMoveSuggestion } from '$lib/stores/moveSuggestions'
+  import FolderPickerDialog from '$lib/components/common/FolderPickerDialog.svelte'
 
   interface Props {
     accountId?: string | null
@@ -71,6 +73,21 @@
   // Multi-select state
   let checkedThreadIds = $state<Set<string>>(new Set())
   let lastClickedIndex = $state<number | null>(null)
+  const selectionMode = $derived(checkedThreadIds.size > 0)
+
+  // Keyboard Move To dialog state
+  let showMovePicker = $state(false)
+  let movePickerAccountId = $state('')
+  let movePickerCurrentFolderId = $state('')
+  let movePickerSenderEmail = $state('')
+  let pendingMoveMessageIds = $state<string[]>([])
+
+  $effect(() => {
+    if (showMovePicker) {
+      dialogGuardOpen()
+      return () => dialogGuardClose()
+    }
+  })
 
   // Pagination
   const PAGE_SIZE = 50
@@ -781,6 +798,21 @@
     onConversationSelect?.(threadId, realFolderId, realAccountId)
   }
 
+  function openConversationAtIndex(index: number) {
+    const conversation = activeList[index] as any
+    if (!conversation) return
+
+    const realFolderId = (isUnifiedView || isSearchMode) && conversation.folderId ? conversation.folderId : folderId!
+    const realAccountId = (isUnifiedView || isSearchMode) && conversation.accountId ? conversation.accountId : accountId!
+
+    if (serverSearchMode && conversation._isLocal === false && conversation._uid) {
+      fetchAndSelectServerResult(conversation, realFolderId, realAccountId)
+      return
+    }
+
+    onConversationSelect?.(conversation.threadId, realFolderId, realAccountId)
+  }
+
   // Fetch a non-local server result, save locally, update the result, then select
   async function fetchAndSelectServerResult(conversation: any, realFolderId: string, realAccountId: string) {
     try {
@@ -947,7 +979,7 @@
   }
 
   // Select previous message (exposed for keyboard navigation)
-  // Just moves focus, doesn't clear checkboxes or open in viewer
+  // Moves focus and optionally opens in viewer
   export function selectPrevious() {
     if (activeList.length === 0) return
 
@@ -958,22 +990,28 @@
     if (conv) {
       selectedThreadId = conv.threadId
       scrollToIndex(newIndex)
+      openConversationAtIndex(newIndex)
       // Blur any focused element so Enter key triggers openSelected() instead of the button
       ;(document.activeElement as HTMLElement)?.blur?.()
     }
   }
 
   // Select next message (exposed for keyboard navigation)
-  // Just moves focus, doesn't clear checkboxes or open in viewer
-  export function selectNext() {
+  // Moves focus and opens in viewer
+  export async function selectNext() {
     if (activeList.length === 0) return
 
     const currentIndex = getSelectedIndex()
 
-    // If at last message and more are available, focus the "Load more" button
+    // If at the page boundary, load the next page and keep arrow navigation
+    // moving through conversations instead of sending focus to the button.
     if (currentIndex >= activeList.length - 1 && activeList.length < activeCount) {
-      loadMoreButtonRef?.focus()
-      return
+      if (isSearchMode) {
+        await loadMoreSearchResults()
+      } else {
+        offset += PAGE_SIZE
+        await loadConversations()
+      }
     }
 
     const newIndex = currentIndex >= activeList.length - 1 ? activeList.length - 1 : currentIndex + 1
@@ -982,6 +1020,7 @@
     if (conv) {
       selectedThreadId = conv.threadId
       scrollToIndex(newIndex)
+      openConversationAtIndex(newIndex)
       // Blur any focused element so Enter key triggers openSelected() instead of the button
       ;(document.activeElement as HTMLElement)?.blur?.()
     }
@@ -993,10 +1032,7 @@
 
     const index = getSelectedIndex()
     if (index >= 0) {
-      const conv = activeList[index] as any
-      const realFolderId = (isUnifiedView || isSearchMode) && conv.folderId ? conv.folderId : folderId!
-      const realAccountId = (isUnifiedView || isSearchMode) && conv.accountId ? conv.accountId : accountId!
-      onConversationSelect?.(selectedThreadId, realFolderId, realAccountId)
+      openConversationAtIndex(index)
     }
   }
 
@@ -1056,6 +1092,52 @@
     if (!selectedThreadId) return false
     const conv = activeList.find(c => c.threadId === selectedThreadId) as any
     return conv?.isStarred ?? false
+  }
+
+  export function isSelectedRead(): boolean {
+    if (!selectedThreadId) return true
+    const conv = activeList.find(c => c.threadId === selectedThreadId) as any
+    return (conv?.unreadCount || 0) === 0
+  }
+
+  function getConversationSenderEmail(conv: any): string {
+    return conv?.participants?.[0]?.email || ''
+  }
+
+  export function openMoveTo() {
+    const messageIds = hasCheckedMessages() ? getCheckedMessageIds() : getSelectedMessageIds()
+    if (messageIds.length === 0) return
+
+    const index = getSelectedIndex()
+    const conv = index >= 0 ? activeList[index] as any : null
+    const info = getSelectedConversationInfo()
+    const targetAccountId = info?.accountId || accountId
+    const targetFolderId = info?.folderId || folderId
+    if (!targetAccountId || !targetFolderId || targetAccountId === 'unified') return
+
+    pendingMoveMessageIds = messageIds
+    movePickerAccountId = targetAccountId
+    movePickerCurrentFolderId = targetFolderId
+    movePickerSenderEmail = getConversationSenderEmail(conv)
+    showMovePicker = true
+  }
+
+  async function handleMovePickerSelect(destFolderId: string, folderName: string, destAccountId: string, folderPath?: string) {
+    showMovePicker = false
+    if (pendingMoveMessageIds.length === 0) return
+    try {
+      learnMoveSuggestion(movePickerSenderEmail, { accountId: destAccountId, folderId: destFolderId, folderName, folderPath })
+      await MoveToFolder(pendingMoveMessageIds, destFolderId)
+      toasts.success($_('toast.movedTo', { values: { folder: folderName } }), [{ label: $_('common.undo'), onClick: handleUndo }])
+      clearChecked()
+      handleActionComplete(true)
+    } catch (err) {
+      console.error('Move failed:', err)
+      toasts.error($_('toast.failedToMove'))
+    } finally {
+      pendingMoveMessageIds = []
+      movePickerSenderEmail = ''
+    }
   }
 
   // Toggle checkbox for focused message (Space key)
@@ -1535,10 +1617,12 @@
               {selectedMessageIds}
               selectedIsStarred={!selectedHasUnstarred}
               selectedIsRead={!selectedHasUnread}
+              {selectionMode}
               isNonLocal={result._isLocal === false}
               onSelect={(e) => selectConversation(result.threadId, index, e)}
               onCheck={(checked, e) => handleCheck(result.threadId, checked, index, e)}
               onClearSelection={clearSelection}
+              onSelectMode={() => {}}
               onActionComplete={handleActionComplete}
               {onReply}
             />
@@ -1603,6 +1687,7 @@
             {selectedMessageIds}
             selectedIsStarred={!selectedHasUnstarred}
             selectedIsRead={!selectedHasUnread}
+            {selectionMode}
             showAccountIndicator={isUnifiedView}
             accountColor={resultAccountColor}
             accountName={resultAccountName}
@@ -1614,6 +1699,7 @@
             onSelect={(e) => selectConversation(result.threadId, index, e)}
             onCheck={(checked, e) => handleCheck(result.threadId, checked, index, e)}
             onClearSelection={clearSelection}
+            onSelectMode={() => {}}
             onActionComplete={handleActionComplete}
             {onReply}
           />
@@ -1673,12 +1759,14 @@
           {selectedMessageIds}
           selectedIsStarred={!selectedHasUnstarred}
           selectedIsRead={!selectedHasUnread}
+          {selectionMode}
           showAccountIndicator={isUnifiedView}
           accountColor={convAccountColor}
           accountName={convAccountName}
           onSelect={(e) => selectConversation(conv.threadId, index, e)}
           onCheck={(checked, e) => handleCheck(conv.threadId, checked, index, e)}
           onClearSelection={clearSelection}
+          onSelectMode={() => {}}
           onActionComplete={handleActionComplete}
           {onReply}
         />
@@ -1703,6 +1791,16 @@
     {/if}
   </div>
 </div>
+
+<FolderPickerDialog
+  bind:open={showMovePicker}
+  title={$_('contextMenu.moveTo')}
+  initialAccountId={movePickerAccountId}
+  accounts={accountStore.accounts.map((acc) => acc.account)}
+  excludeFolderId={movePickerCurrentFolderId}
+  senderEmail={movePickerSenderEmail}
+  onSelect={handleMovePickerSelect}
+/>
 
 <!-- Permanent Delete Confirmation Dialog -->
 <ConfirmDialog
