@@ -19,7 +19,7 @@
   import ListRow from '$lib/components/kit/ListRow.svelte'
   import Avatar from '$lib/components/kit/Avatar.svelte'
   import ConfirmDialog from '$lib/components/kit/ConfirmDialog.svelte'
-  import { contactsView, reloadContacts, selectContact, setSearchQuery, deleteLocalContact } from '$extensions/contacts/frontend/stores/contactsView.svelte'
+  import { contactsView, reloadContacts, focusContact, activateContact, setSearchQuery, deleteLocalContact } from '$extensions/contacts/frontend/stores/contactsView.svelte'
   import { contactSourcesStore } from '$extensions/contacts/frontend/stores/contactSources.svelte'
   import { toasts } from '$lib/stores/toast'
   // Canonical list toolbar — owns hamburger placement, title styling, count
@@ -247,12 +247,13 @@
     focusSlot="messageList"
     label={$_('contacts.list.label')}
     loading={contactsView.loading}
-    onSelect={(id) => selectContact(id)}
+    onSelect={(id) => focusContact(id)}
+    onActivate={(id) => activateContact(id)}
     onDelete={requestDelete}
     onFocusSearch={toggleSearchFocus}
   >
     {#snippet row(c: v1.Contact, { selected })}
-      <ListRow {selected} onclick={() => selectContact(c.id)}>
+      <ListRow {selected} onclick={() => activateContact(c.id)}>
         <Avatar email={primaryEmail(c)} name={c.name} density="standard" />
         <span class="flex flex-col min-w-0 flex-1">
           <span class="font-medium truncate text-foreground">{c.name || primaryEmail(c) || $_('contacts.common.unnamed')}</span>

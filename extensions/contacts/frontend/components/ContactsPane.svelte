@@ -7,7 +7,7 @@
   import AddContactDialog from './AddContactDialog.svelte'
   import ContactEditDialog from './ContactEditDialog.svelte'
   import PaneLayout from '$lib/components/kit/PaneLayout.svelte'
-  import { contactsView, reloadContacts, selectSource, selectContact } from '$extensions/contacts/frontend/stores/contactsView.svelte'
+  import { contactsView, reloadContacts, selectSource, activateContact } from '$extensions/contacts/frontend/stores/contactsView.svelte'
   import { contactSourcesStore } from '$extensions/contacts/frontend/stores/contactSources.svelte'
   import { toasts } from '$lib/stores/toast'
   import { registerExtensionShortcut } from '$lib/stores/extensionShortcuts.svelte'
@@ -29,7 +29,7 @@
       toasts.error($_('contacts.toast.conflict'))
       await reloadContacts()
       if (payload?.contactId && contactsView.selectedContactId === payload.contactId) {
-        await selectContact(payload.contactId)
+        await activateContact(payload.contactId)
       }
     })
   })
@@ -73,7 +73,7 @@
     const target = isLocal ? 'local:manual' : sourceId
     selectSource(target)
     await reloadContacts()
-    await selectContact(id)
+    await activateContact(id)
   }
 
   // 'e' opens the edit dialog for the currently-selected contact. Wired via

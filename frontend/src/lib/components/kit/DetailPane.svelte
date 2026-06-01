@@ -8,14 +8,13 @@
   import Icon from '@iconify/svelte'
   import { _ } from 'svelte-i18n'
   import { isPaneFlashing, type FocusablePane } from '$lib/stores/keyboard.svelte'
-  // Self-managed responsive (mobile) behavior — read the layout store directly
-  // so consumers (extension panes) never forward responsive props. Below the
-  // medium breakpoint (≤1024px) the detail pane renders as an overlay; on
-  // narrow viewports a back arrow renders at the start of the header that
-  // calls hideViewer to return to the list. Matches mail's ConversationViewer
-  // behavior 1-for-1 via the responsive-viewer-overlay / responsive-viewer-
-  // visible CSS in app.css.
-  import { isResponsive, getResponsiveView, hideViewer, getLayoutMode } from '$lib/stores/layout.svelte'
+  // Self-managed responsive (mobile + tablet) behavior — read the layout
+  // store directly so consumers (extension panes) never forward responsive
+  // props. At medium (≤1024px) and narrow (≤767px) the detail pane renders
+  // as an overlay AND a back-arrow button is injected at the start of the
+  // header (calls hideViewer to return to the list). Matches mail's
+  // ConversationViewer pattern at App.svelte:1488 1-for-1.
+  import { isResponsive, getResponsiveView, hideViewer } from '$lib/stores/layout.svelte'
 
   interface Props {
     /** True when there's nothing to show. Empty snippet renders when true. */
@@ -47,10 +46,40 @@
   const flashing = $derived(isPaneFlashing(focusSlot))
   const overlay = $derived(isResponsive())
   const visible = $derived(getResponsiveView() === 'viewer')
-  const narrow = $derived(getLayoutMode() === 'narrow')
 </script>
 
 <section class="flex-1 min-w-0 flex flex-col bg-background {flashing ? 'pane-focus-flash' : ''} {overlay ? 'responsive-viewer-overlay' : ''} {overlay && visible ? 'responsive-viewer-visible' : ''}">
+  <!--
+    Header rendering rules — matched 1-for-1 with mail's ConversationViewer
+    pattern at App.svelte:1488 (showBackButton={isResponsive()}):
+
+      - Full (>1024px): render header bar ONLY when the consumer provided a
+        `header` snippet AND we're not in the empty state. No back button.
+      - Responsive (medium ≤1024px OR narrow ≤767px): render header bar
+        UNCONDITIONALLY so the back button is always visible. Both medium and
+        narrow render the detail pane as an overlay (per responsive-viewer-
+        overlay CSS) — both need the back affordance. Using `narrow` only
+        would strand users at medium breakpoints (laptop tablet windows) with
+        a visible overlay and no back button.
+  -->
+  {#if overlay || (!empty && header)}
+    <header class="flex items-center gap-3 px-4 py-3 border-b border-border">
+      {#if overlay}
+        <button
+          type="button"
+          class="p-2 rounded-md hover:bg-muted transition-colors flex-shrink-0"
+          onclick={hideViewer}
+          aria-label={$_('common.back')}
+        >
+          <Icon icon="mdi:arrow-left" class="w-5 h-5 text-muted-foreground" />
+        </button>
+      {/if}
+      {#if !empty && header}
+        {@render header()}
+      {/if}
+    </header>
+  {/if}
+
   {#if empty}
     <div class="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3 p-6">
       {#if emptyState}
@@ -61,23 +90,6 @@
       {/if}
     </div>
   {:else}
-    {#if header || narrow}
-      <header class="flex items-center gap-3 px-6 py-4 border-b border-border">
-        {#if narrow}
-          <button
-            type="button"
-            class="flex items-center justify-center w-8 h-8 -ml-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
-            onclick={hideViewer}
-            aria-label={$_('common.back')}
-          >
-            <Icon icon="mdi:arrow-left" class="w-5 h-5" />
-          </button>
-        {/if}
-        {#if header}
-          {@render header()}
-        {/if}
-      </header>
-    {/if}
     <div class="flex-1 min-h-0 overflow-y-auto p-6">
       {#if body}
         {@render body()}
