@@ -14,6 +14,7 @@
   import ExtensionSettingsDialog from './lib/components/settings/ExtensionSettingsDialog.svelte'
   import ExtensionRail from './lib/components/rail/ExtensionRail.svelte'
   import ContactsPane from '$extensions/contacts/frontend/components/ContactsPane.svelte'
+  import CalendarPane from '$extensions/calendar/frontend/components/CalendarPane.svelte'
   import { refreshExtensionRegistry, getRailTabs } from '$lib/stores/extensionRegistry.svelte'
   import { KEY } from '$lib/keyboard/shortcuts'
   import * as AlertDialog from '$lib/components/ui/alert-dialog'
@@ -1371,6 +1372,10 @@
 
     {#if getActiveExtension() === 'contacts'}
       <ContactsPane />
+    {/if}
+
+    {#if getActiveExtension() === 'calendar'}
+      <CalendarPane />
     {/if}
 
     <!-- Mail layout is ALWAYS mounted; only its visibility is toggled when an

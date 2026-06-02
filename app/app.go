@@ -20,6 +20,7 @@ import (
 	"github.com/hkdb/aerion/internal/credentials"
 	"github.com/hkdb/aerion/internal/database"
 	"github.com/hkdb/aerion/internal/draft"
+	extcalendarbe "github.com/hkdb/aerion/extensions/calendar/backend"
 	extcontactsbe "github.com/hkdb/aerion/extensions/contacts/backend"
 	extauth "github.com/hkdb/aerion/internal/extensions/auth"
 	extcompose "github.com/hkdb/aerion/internal/extensions/compose"
@@ -179,7 +180,13 @@ type App struct {
 	// Convention: bridge methods MUST be named with the extension's prefix
 	// (`Contacts_`, `Calendar_`, etc.) so embedded methods can never collide
 	// across extensions. See docs/EXTENSIONS.md.
-	*extcontactsbe.Bridge
+	//
+	// Each extension's bridge struct must use a DISTINCT type name (e.g.,
+	// `Bridge`, `CalendarBridge`) so the anonymous-embed field names are
+	// unique — Go derives the field name from the type's last identifier,
+	// and two fields named `Bridge` would collide.
+	*extcontactsbe.ContactsBridge
+	*extcalendarbe.CalendarBridge
 
 	ctx context.Context
 
@@ -234,6 +241,8 @@ type App struct {
 	composerAPI      *extcompose.API      // coreapi.Composer impl wrapping OpenComposerWindow
 	uiRegistry       *extui.Registry      // coreapi.UI impl: rail tabs, account-setup hooks, ...
 	contactsExt      *extcontactsbe.Extension // Contacts lifecycle handle (manifest + Register only)
+	calendarExt      *extcalendarbe.Extension // Calendar lifecycle handle (manifest + Register only)
+	calendarStore    *extcalendarbe.Store     // per-extension SQLite, opened eagerly so schema stays valid across enable/disable
 	knownExtensions  []coreapi.Extension      // all first-party extensions, iterated by ListExtensions
 	extensionUnregs  []coreapi.Unregister     // teardown funcs returned from each Extension.Register
 
@@ -584,13 +593,15 @@ func (a *App) Startup(ctx context.Context) {
 	// are intentionally tiny (manifest + Register only); the Wails-bound
 	// surface lives on each extension's Bridge struct, embedded into App.
 	a.contactsExt = extcontactsbe.NewExtension()
-	a.knownExtensions = []coreapi.Extension{a.contactsExt}
+	a.calendarExt = extcalendarbe.NewExtension()
+	a.knownExtensions = []coreapi.Extension{a.contactsExt, a.calendarExt}
 
 	// Wire the Contacts extension's Bridge into App (embedded). Bridge
 	// methods become Wails-bindable via Go's method-promotion on the
 	// embedded field, so the frontend can call `Contacts_*` methods
 	// directly. Bridge state is lazy — no stores open here.
 	a.initContactsExtension()
+	a.initCalendarExtension()
 
 	// Construct one Core per known extension. The Core's Auth surface is
 	// scoped to that extension's identity, so HTTPClient calls route via

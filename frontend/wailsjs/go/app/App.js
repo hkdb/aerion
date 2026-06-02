@@ -38,6 +38,10 @@ export function BroadcastThemeChange(arg1) {
   return window['go']['app']['App']['BroadcastThemeChange'](arg1);
 }
 
+export function Calendar_HealthCheck() {
+  return window['go']['app']['App']['Calendar_HealthCheck']();
+}
+
 export function CanUndo() {
   return window['go']['app']['App']['CanUndo']();
 }

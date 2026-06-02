@@ -101,6 +101,8 @@ Full architectural rationale lives in [`context/EXTENSION_ARCHITECTURE.md`](../c
 
 **Method naming — the `<Extension>_` prefix rule (HARD):** every Wails-bound bridge method MUST be named `<ExtensionName>_<MethodName>` (e.g., `Contacts_UpdateContact`, `Calendar_CreateEvent`). Embedded-method promotion happens in a single flat namespace on App; without the prefix, two extensions that both define `UpdateRecord()` would collide silently. The prefix is enforced by code review when accepting 3rd-party extension PRs — see [§ Contributing a new extension](#contributing-a-new-extension).
 
+**Bridge struct type-name rule (HARD):** the Bridge struct itself MUST be named `<Name>Bridge` (e.g., `ContactsBridge`, `CalendarBridge`), not the generic `Bridge`. Go's anonymous-embed field name is derived from the type's last identifier, so two extensions that both name their struct `Bridge` would produce a `duplicate field` compile error when embedded on App. The struct name is enforced by code review alongside the method-prefix rule. Likewise, the constructor and deps-struct follow the same pattern: `NewContactsBridge(deps ContactsBridgeDeps) *ContactsBridge`.
+
 Extensions DO NOT import from other extensions' Go packages. They go through `coreapi.Core.Extension(id)` (see [§ Core interface](#core-interface)).
 
 ---
@@ -228,10 +230,10 @@ func (e *Extension) Register(core coreapi.Core) (coreapi.Unregister, error) {
 }
 ```
 
-**2. `Bridge` — the Wails-bound surface ([`extensions/contacts/backend/bridge.go`](../extensions/contacts/backend/bridge.go))**. Holds host dependencies, all `Contacts_`-prefixed Wails methods, and a `sync.Once`-gated lazy initializer for the extension's `*Store` + `*API`:
+**2. `ContactsBridge` — the Wails-bound surface ([`extensions/contacts/backend/bridge.go`](../extensions/contacts/backend/bridge.go))**. Holds host dependencies, all `Contacts_`-prefixed Wails methods, and a `sync.Once`-gated lazy initializer for the extension's `*Store` + `*API`:
 
 ```go
-type BridgeDeps struct {
+type ContactsBridgeDeps struct {
     SettingsStore SettingsStore        // for the enabled-flag gate
     Paths         *platform.Paths      // for the extension's SQLite dir
     DB            *database.DB         // shared writable DB handle for local contacts
@@ -240,14 +242,19 @@ type BridgeDeps struct {
     Core          coreapi.Core         // host coreapi handle — bridge calls Core.Contacts().ListSources()/LinkAccountSource() for source management
 }
 
-type Bridge struct {
-    deps     BridgeDeps
+// Type-name rule: each extension MUST name its Bridge struct `<Name>Bridge`
+// (here: `ContactsBridge`), not the generic `Bridge` — see the Bridge struct
+// type-name rule above. Same goes for the deps struct and constructor.
+type ContactsBridge struct {
+    deps     ContactsBridgeDeps
     initOnce sync.Once
     initErr  error
     api      *API
 }
 
-func NewBridge(deps BridgeDeps) *Bridge { return &Bridge{deps: deps} }
+func NewContactsBridge(deps ContactsBridgeDeps) *ContactsBridge {
+    return &ContactsBridge{deps: deps}
+}
 
 // Gate every bound method. Disabled = empty results, never errors.
 func (b *Bridge) gateEnabled() bool {
@@ -303,7 +310,7 @@ import (
 )
 
 func (a *App) initContactsExtension() {
-    a.Bridge = extcontactsbe.NewBridge(extcontactsbe.BridgeDeps{
+    a.ContactsBridge = extcontactsbe.NewContactsBridge(extcontactsbe.ContactsBridgeDeps{
         SettingsStore: a.settingsStore,
         Paths:         a.paths,
         DB:            a.db,
@@ -1793,7 +1800,7 @@ extensions/<name>/
   manifest.go                    # embeds manifest.json via //go:embed, exposes Manifest()
   backend/
     register.go                  # Extension struct + NewExtension() + Register()
-    bridge.go                    # Bridge struct + BridgeDeps + NewBridge() + all <Name>_-prefixed methods
+    bridge.go                    # <Name>Bridge struct + <Name>BridgeDeps + New<Name>Bridge() + all <Name>_-prefixed methods
     api.go                       # internal API the bridge methods delegate to
     store.go                     # per-extension SQLite via extensions.OpenStore (opened by ensureInit, not eagerly)
     # ... whatever else the extension needs ...
@@ -1807,7 +1814,7 @@ extensions/<name>/
         en.json                  # English source of truth (mandatory)
         <code>.json              # other locales (added by translators, optional per locale)
 app/
-  extension_<name>.go            # ~28 LOC host wiring: BridgeDeps construction + EventEmitter closure
+  extension_<name>.go            # ~28 LOC host wiring: <Name>BridgeDeps construction + EventEmitter closure
 ```
 
 The host-side delta in `app/app.go` is:

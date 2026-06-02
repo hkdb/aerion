@@ -49,7 +49,7 @@ func (a *App) initContactsExtension() {
 	// extension identity for Auth routing.
 	contactsCore := newCoreForExtension(a, a.contactsExt)
 
-	a.Bridge = extcontactsbe.NewBridge(extcontactsbe.BridgeDeps{
+	a.ContactsBridge = extcontactsbe.NewContactsBridge(extcontactsbe.ContactsBridgeDeps{
 		SettingsStore: a.settingsStore,
 		Paths:         a.paths,
 		DB:            a.db,

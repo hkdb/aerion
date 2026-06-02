@@ -37,6 +37,8 @@ export function Archive(arg1:Array<string>):Promise<void>;
 
 export function BroadcastThemeChange(arg1:string):Promise<void>;
 
+export function Calendar_HealthCheck():Promise<string>;
+
 export function CanUndo():Promise<boolean>;
 
 export function CancelAccountSync(arg1:string):Promise<void>;
