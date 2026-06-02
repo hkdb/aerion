@@ -98,6 +98,10 @@ export function Contacts_DeleteLocalContact(arg1) {
   return window['go']['app']['App']['Contacts_DeleteLocalContact'](arg1);
 }
 
+export function Contacts_EnableWriteAccess(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['Contacts_EnableWriteAccess'](arg1, arg2, arg3, arg4);
+}
+
 export function Contacts_GetContactDetail(arg1) {
   return window['go']['app']['App']['Contacts_GetContactDetail'](arg1);
 }
@@ -124,10 +128,6 @@ export function Contacts_ResizeContactPhoto(arg1) {
 
 export function Contacts_UpdateContact(arg1, arg2) {
   return window['go']['app']['App']['Contacts_UpdateContact'](arg1, arg2);
-}
-
-export function CopyOAuthCreds(arg1, arg2) {
-  return window['go']['app']['App']['CopyOAuthCreds'](arg1, arg2);
 }
 
 export function CopyToFolder(arg1, arg2) {
@@ -598,6 +598,10 @@ export function ListAccountSetupHooksForProvider(arg1) {
   return window['go']['app']['App']['ListAccountSetupHooksForProvider'](arg1);
 }
 
+export function ListAuthContextsForProvider(arg1) {
+  return window['go']['app']['App']['ListAuthContextsForProvider'](arg1);
+}
+
 export function ListContacts(arg1) {
   return window['go']['app']['App']['ListContacts'](arg1);
 }
@@ -732,6 +736,10 @@ export function PickRecipientPGPKeyFile() {
 
 export function PickSMIMECertificateFile() {
   return window['go']['app']['App']['PickSMIMECertificateFile']();
+}
+
+export function Preflight() {
+  return window['go']['app']['App']['Preflight']();
 }
 
 export function PrepareReply(arg1, arg2) {

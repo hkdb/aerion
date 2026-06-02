@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 
@@ -70,16 +69,16 @@ func MonitorGBMErrors() {
 	}()
 }
 
-// showGBMFixDialog displays a zenity warning dialog with the GBM fix command.
+// showGBMFixDialog displays a warning dialog with the GBM fix command.
+// Non-blocking: the user reads the message while the app continues running
+// (or crashes on its own from the underlying GBM failure).
 func showGBMFixDialog() {
-	cmd := exec.Command("zenity", "--warning",
-		"--title=Aerion - Display Issue Detected",
-		"--text="+
-			"A display rendering error was detected that may cause a blank window or crash.\n\n"+
+	ShowDialogAsync(
+		DialogIconWarning,
+		"Aerion - Display Issue Detected",
+		"A display rendering error was detected that may cause a blank window or crash.\n\n"+
 			"To fix this permanently, close Aerion and run:\n\n"+
 			"flatpak override --user --env=WEBKIT_DISABLE_DMABUF_RENDERER=1 io.github.hkdb.Aerion\n\n"+
 			"Then restart Aerion.",
-		"--width=500",
 	)
-	_ = cmd.Start()
 }

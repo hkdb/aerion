@@ -70,4 +70,56 @@ type Auth interface {
 	// SMTPClient returns an authenticated SMTP client. For outbound sends
 	// not handled by the standard Compose API (e.g., delayed-send queues).
 	SMTPClient(accountID string) (SMTPClient, error)
+
+	// StartIncrementalConsent runs an interactive OAuth consent flow that
+	// asks the user to grant additional scopes against an existing identity
+	// (mail account OR standalone contact source), then persists the
+	// resulting tokens. Synchronous: blocks until the flow completes,
+	// returning nil on success or an error if the user cancels or the
+	// callback fails. The host opens the user's browser to the consent URL.
+	//
+	// Existing scopes already granted to this identity under the same
+	// clientConfigID are preserved — the host requests the union of
+	// (existing grants ∪ requested scopes) so the issued token covers both
+	// reads (existing) and the newly-requested writes.
+	//
+	// Exactly ONE of AccountID / SourceID in the request must be set, and
+	// determines where tokens are persisted (account-keyed or
+	// source-keyed). ExpectedEmail enforces an email-match safeguard: the
+	// flow rejects if the user grants from a different account than the
+	// picked identity. LoginHint pre-fills the OAuth account picker (helpful
+	// UX; not a security boundary — it's just a hint to the IdP).
+	//
+	// Used by extensions whose write paths hit ErrAdditionalConsentRequired
+	// from HTTPClient.
+	StartIncrementalConsent(req StartIncrementalConsentRequest) error
+}
+
+// StartIncrementalConsentRequest packages the inputs for an incremental-
+// consent run. Exactly one of AccountID / SourceID must be non-empty; the
+// chosen field determines where tokens are persisted after the OAuth
+// callback completes (account-keyed via SetOAuthTokensForClientConfig vs
+// source-keyed via SetSourceOAuthTokens).
+type StartIncrementalConsentRequest struct {
+	// ClientConfigID is the slot the OAuth flow runs as (e.g.,
+	// "google-contacts"). The host resolves its client_id/secret through
+	// the standard credential chain (user override → shipped).
+	ClientConfigID ClientConfigID
+	// Scopes carries the additional scope(s) the extension needs beyond
+	// what the existing grant covers.
+	Scopes []AuthScope
+	// AccountID is the mail account to incrementally consent against.
+	// Mutually exclusive with SourceID.
+	AccountID string
+	// SourceID is the standalone contact source to incrementally consent
+	// against. Mutually exclusive with AccountID.
+	SourceID string
+	// ExpectedEmail is the email the OAuth callback must report. Empty
+	// disables the check (not recommended). Mismatch → flow returns an
+	// error and discards the granted tokens.
+	ExpectedEmail string
+	// LoginHint is forwarded to the IdP as the `login_hint` parameter so
+	// the account picker pre-fills with this email. Optional; the IdP
+	// may ignore it.
+	LoginHint string
 }

@@ -57,6 +57,7 @@ func (stubContacts) ListSources() ([]ContactSource, error) {
 func (stubContacts) LinkAccountSource(string, string, int) (string, error) {
 	return "", ErrUnimplemented
 }
+func (stubContacts) SetSourceWritable(string, bool) error { return ErrUnimplemented }
 func (stubContacts) CreateContact(ContactCreateInput) (string, error) {
 	return "", ErrUnimplemented
 }
@@ -71,6 +72,9 @@ type stubAuth struct{}
 func (stubAuth) HTTPClient(string, []AuthScope) (*http.Client, error) { return nil, ErrUnimplemented }
 func (stubAuth) IMAPClient(string, []string) (IMAPClient, error)      { return nil, ErrUnimplemented }
 func (stubAuth) SMTPClient(string) (SMTPClient, error)                 { return nil, ErrUnimplemented }
+func (stubAuth) StartIncrementalConsent(StartIncrementalConsentRequest) error {
+	return ErrUnimplemented
+}
 
 type stubNotifications struct{}
 

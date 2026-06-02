@@ -880,5 +880,20 @@
     "noDomains": "Aucun domaine autorisé. Utilisez \"Toujours charger > Pour le domaine\" pour en ajouter.",
     "removeButton": "Retirer de la liste",
     "removed": "Retiré de la liste"
+  },
+  "oauth": {
+    "writeAccessPicker": {
+      "title": "Enable write access",
+      "description": "Choose the {provider} account to authorize for write access on {sourceName}.",
+      "providerGoogle": "Google",
+      "providerMicrosoft": "Microsoft",
+      "loadFailed": "Failed to load accounts: {message}",
+      "emptyHeading": "No {provider} accounts found.",
+      "emptyHint": "Add a {provider} account in Mail (Settings → Accounts) or Contacts (Settings → Contacts → Add source) first, then return here.",
+      "cancel": "Cancel",
+      "continue": "Continue",
+      "successToast": "Write access enabled for {name}",
+      "failureToast": "Failed to enable write access: {message}"
+    }
   }
 }

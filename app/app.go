@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os/exec"
@@ -331,6 +332,124 @@ func NewApp(debugModeFn func() bool, useDirectDBus bool) *App {
 	}
 }
 
+// StartupDialogInfo holds the user-facing dialog content for a startup
+// failure: title, body, and an optional URL the dialog should expose
+// behind an action button. main.go's preflight glue inspects the URL
+// field to decide between ShowDialog and ShowDialogWithLink.
+type StartupDialogInfo struct {
+	Title       string
+	Text        string
+	ActionLabel string // button text; empty means no action button
+	ActionURL   string // URL opened when the action button is clicked
+}
+
+// StartupDialogInfoFor returns the user-facing dialog content for a startup
+// error returned by App.Preflight. Known sentinel types get a tailored
+// message + action URL; everything else falls back to a generic message.
+//
+// URLs in the returned Text are rendered as clickable links by dialog
+// backends that support markup (currently zenity on Linux via Pango).
+// Other backends show the URL as selectable plain text and use the
+// ActionURL field to drive an "Open Docs" button.
+func StartupDialogInfoFor(err error) StartupDialogInfo {
+	const docsRollbackURL = "https://github.com/hkdb/aerion/blob/main/docs/SQL_ROLLBACK.md"
+
+	var schemaTooNew *database.ErrSchemaTooNew
+	if errors.As(err, &schemaTooNew) {
+		text := fmt.Sprintf(
+			"Aerion cannot open your database because its schema (version %d) is newer "+
+				"than this build of Aerion supports (max version %d).\n\n"+
+				"This usually means you downgraded Aerion. To recover, either reinstall "+
+				"the newer version, or follow the rollback instructions to bring your "+
+				"database back to version %d:\n\n"+
+				"%s",
+			schemaTooNew.DBVersion, schemaTooNew.BuildVersion, schemaTooNew.BuildVersion,
+			docsRollbackURL,
+		)
+		return StartupDialogInfo{
+			Title:       "Aerion could not start",
+			Text:        text,
+			ActionLabel: "Open Docs",
+			ActionURL:   docsRollbackURL,
+		}
+	}
+	return StartupDialogInfo{
+		Title: "Aerion could not start",
+		Text:  fmt.Sprintf("Aerion could not start.\n\nDetails: %v", err),
+	}
+}
+
+// Preflight performs the early-startup steps that must succeed BEFORE the
+// Wails window is shown: logging init, platform paths, directory creation,
+// database open + migration, credential store init, and OAuth override
+// wiring. Returns an error on any failure; main.go is responsible for
+// surfacing the failure to the user (via StartupDialogText + a native
+// dialog) and exiting before wails.Run is called.
+//
+// Splitting these steps out of Startup is intentional: Wails calls Startup
+// AFTER it has already created the OS window, so a failure inside Startup
+// would briefly flash a half-rendered app window before the error dialog
+// appears. Preflight runs in main.go before wails.Run so the user only
+// ever sees the error dialog.
+func (a *App) Preflight() error {
+	logLevel := "fatal"
+	if a.debugMode != nil && a.debugMode() {
+		logLevel = "debug"
+	}
+	_ = logging.Init(logging.Config{
+		Level:   logLevel,
+		Console: true,
+	})
+	log := logging.WithComponent("app")
+
+	paths, err := platform.GetPaths()
+	if err != nil {
+		return fmt.Errorf("get platform paths: %w", err)
+	}
+	a.paths = paths
+
+	if err := paths.EnsureDirectories(); err != nil {
+		return fmt.Errorf("create directories: %w", err)
+	}
+	log.Info().
+		Str("config", paths.Config).
+		Str("data", paths.Data).
+		Str("cache", paths.Cache).
+		Msg("Initialized paths")
+
+	db, err := database.Open(paths.DatabasePath())
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	a.db = db
+	log.Info().Str("path", paths.DatabasePath()).Msg("Opened database")
+
+	if err := db.Migrate(); err != nil {
+		return err
+	}
+	log.Info().Msg("Database migrations complete")
+
+	credStore, err := credentials.NewStore(db.DB, paths.Data)
+	if err != nil {
+		return fmt.Errorf("init credential store: %w", err)
+	}
+	a.credStore = credStore
+
+	// Wire user-supplied OAuth client credentials override into the oauth2
+	// resolver chain. When the user has saved their own client_id + secret
+	// for a given config id via Settings → OAuth Credentials, those values
+	// take priority over any shipped (build-time) defaults.
+	oauth2.UserOverrideLookup = func(configID string) (oauth2.ClientCredentials, bool) {
+		clientID, clientSecret, ok, err := credStore.GetUserClientCreds(configID)
+		if err != nil || !ok {
+			return oauth2.ClientCredentials{}, false
+		}
+		return oauth2.ClientCredentials{ClientID: clientID, ClientSecret: clientSecret}, true
+	}
+
+	return nil
+}
+
 // shuttingDown tracks if shutdown has been initiated to prevent multiple triggers
 var shuttingDown bool
 
@@ -351,47 +470,11 @@ func (a *App) Startup(ctx context.Context) {
 		})
 	}
 
-	// Initialize logging - fatal only unless --debug flag is used
-	logLevel := "fatal"
-	if a.debugMode != nil && a.debugMode() {
-		logLevel = "debug"
-	}
-	_ = logging.Init(logging.Config{
-		Level:   logLevel,
-		Console: true,
-	})
+	// Logging, paths, db open, migrations, and credential store are all
+	// initialized in Preflight (called from main.go before wails.Run). By
+	// the time Startup runs, a.paths, a.db, and a.credStore are non-nil.
 	log := logging.WithComponent("app")
-
-	// Get platform paths
-	paths, err := platform.GetPaths()
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to get platform paths")
-	}
-	a.paths = paths
-
-	// Ensure directories exist
-	if err := paths.EnsureDirectories(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to create directories")
-	}
-	log.Info().
-		Str("config", paths.Config).
-		Str("data", paths.Data).
-		Str("cache", paths.Cache).
-		Msg("Initialized paths")
-
-	// Open database
-	db, err := database.Open(paths.DatabasePath())
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to open database")
-	}
-	a.db = db
-	log.Info().Str("path", paths.DatabasePath()).Msg("Opened database")
-
-	// Run migrations
-	if err := db.Migrate(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to run migrations")
-	}
-	log.Info().Msg("Database migrations complete")
+	db := a.db
 
 	// Initialize stores
 	a.accountStore = account.NewStore(db)
@@ -420,25 +503,6 @@ func (a *App) Startup(ctx context.Context) {
 
 	// Initialize CardDAV support (will be fully set up after credStore is initialized)
 	a.carddavStore = carddav.NewStore(db.DB)
-
-	// Initialize credential store (keyring with encrypted DB fallback)
-	credStore, err := credentials.NewStore(db.DB, paths.Data)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize credential store")
-	}
-	a.credStore = credStore
-
-	// Wire user-supplied OAuth client credentials override into the oauth2
-	// resolver chain. When the user has saved their own client_id + secret
-	// for a given config id via Settings → OAuth Credentials, those values
-	// take priority over any shipped (build-time) defaults.
-	oauth2.UserOverrideLookup = func(configID string) (oauth2.ClientCredentials, bool) {
-		clientID, clientSecret, ok, err := credStore.GetUserClientCreds(configID)
-		if err != nil || !ok {
-			return oauth2.ClientCredentials{}, false
-		}
-		return oauth2.ClientCredentials{ClientID: clientID, ClientSecret: clientSecret}, true
-	}
 
 	// Initialize certificate trust store (TOFU)
 	a.certStore = certificate.NewStore(db.DB)

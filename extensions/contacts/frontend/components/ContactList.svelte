@@ -22,6 +22,7 @@
   import { contactsView, reloadContacts, focusContact, activateContact, setSearchQuery, deleteLocalContact } from '$extensions/contacts/frontend/stores/contactsView.svelte'
   import { contactSourcesStore } from '$extensions/contacts/frontend/stores/contactSources.svelte'
   import { toasts } from '$lib/stores/toast'
+  import WriteAccessBanner from './WriteAccessBanner.svelte'
   // Canonical list toolbar — owns hamburger placement, title styling, count
   // badge, search-mode swap. Extension just supplies label/count + per-extension
   // search markup + trailing action buttons.
@@ -70,7 +71,7 @@
     if (!pendingDelete) return
     deleting = true
     try {
-      await deleteLocalContact(pendingDelete.id)
+      await deleteLocalContact(pendingDelete!.id)
       toasts.success($_('contacts.toast.deleted'))
     } catch (err) {
       console.error('Failed to delete contact:', err)
@@ -240,6 +241,8 @@
       {/if}
     {/snippet}
   </ListHeader>
+
+  <WriteAccessBanner />
 
   <ListPane
     items={sortedContacts}

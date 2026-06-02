@@ -12,7 +12,6 @@
   import TermsDialog from './lib/components/TermsDialog.svelte'
   import CertificateDialog from './lib/components/settings/CertificateDialog.svelte'
   import ExtensionSettingsDialog from './lib/components/settings/ExtensionSettingsDialog.svelte'
-  import IncrementalConsentDialog from './lib/components/oauth/IncrementalConsentDialog.svelte'
   import ExtensionRail from './lib/components/rail/ExtensionRail.svelte'
   import ContactsPane from '$extensions/contacts/frontend/components/ContactsPane.svelte'
   import { refreshExtensionRegistry, getRailTabs } from '$lib/stores/extensionRegistry.svelte'
@@ -1508,11 +1507,6 @@
 
 <!-- Per-extension settings dialog dispatcher (Settings → Extensions → Edit) -->
 <ExtensionSettingsDialog />
-
-<!-- Generic OAuth incremental-consent prompt; listens for
-     `oauth:incremental-consent-required` from the host. Scaffolded in 2b.1;
-     wired to real flows in 2b.3 when Google/MS write paths land. -->
-<IncrementalConsentDialog />
 
 <!-- Composer Modal -->
 {#if showComposer && composerAccountId}

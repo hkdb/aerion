@@ -2,26 +2,30 @@
   // OAuthCredsSlotEditor — single-slot OAuth credential editor primitive.
   // Used by Aerion core's "OAuth Credentials (advanced)" section (Settings →
   // Accounts) AND by each extension's settings dialog. Composed from existing
-  // ui/input (type="password" for secret), ui/button, ui/select, and
-  // ConfirmDialog — no new low-level inputs introduced.
+  // ui/input (type="password" for secret), ui/button, and ui/select.
   //
   // Props:
-  //   configID            — the slot identifier (e.g., "google-mail")
+  //   configID            — the slot identifier (e.g., "google-mail",
+  //                         "google-contacts")
   //   label               — display name (e.g., "Google Mail")
   //   secretRequired      — whether the slot needs a client_secret (true for
-  //                          Google; false for Microsoft / PKCE)
-  //   copyFromOptions     — list of { configID, label } that the user can
-  //                          copy creds FROM via the picker. Empty list hides
-  //                          the picker.
-  //   onChanged           — fired after a successful save/clear/copy so the
-  //                          parent can refresh its own state if needed.
+  //                         Google; false for Microsoft / PKCE)
+  //   onChanged           — fired after a successful save/clear so the parent
+  //                         can refresh its own state if needed.
   //
-  // Behavior:
-  //   - Fetches status (GetOAuthCredsStatus) on mount + after every mutation.
-  //   - Shows status badge: "Default" or "Custom" + client_id fingerprint.
-  //   - Edit → modal-style row with inputs + Save/Cancel.
-  //   - Clear → confirm dialog → ClearOAuthCreds (no-op when no override).
-  //   - Copy → picker (Select) of available source slots → CopyOAuthCreds.
+  // UX:
+  //   Single dropdown picks the source of credentials for this slot:
+  //     - "Custom"          — user-pasted client_id/secret. Default. Selecting
+  //                           reveals the edit form.
+  //     - "Aerion - <prov>" — Aerion-shipped build-time client_id/secret.
+  //                           Only appears when shipped creds for this slot's
+  //                           provider exist in the binary. Selecting hides
+  //                           the edit form.
+  //
+  //   Switching Custom → Aerion-X calls ClearOAuthCreds, so the resolver
+  //   falls through to the shipped provider chain naturally.
+  //   Switching Aerion-X → Custom shows an empty form; user pastes + Saves
+  //   → SetOAuthCreds writes the user override.
 
   import { onMount } from 'svelte'
   import Icon from '@iconify/svelte'
@@ -29,49 +33,63 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import * as Select from '$lib/components/ui/select'
-  import ConfirmDialog from '$lib/components/ui/confirm-dialog/ConfirmDialog.svelte'
   import { toasts } from '$lib/stores/toast'
   // @ts-ignore - wailsjs bindings
-  import { GetOAuthCredsStatus, SetOAuthCreds, ClearOAuthCreds, CopyOAuthCreds } from '$wailsjs/go/app/App'
+  import { GetOAuthCredsStatus, SetOAuthCreds, ClearOAuthCreds } from '$wailsjs/go/app/App'
   // @ts-ignore - wailsjs bindings
   import type { app } from '$wailsjs/go/models'
-
-  interface CopyFromOption {
-    configID: string
-    label: string
-  }
 
   interface Props {
     configID: string
     label: string
     secretRequired?: boolean
-    copyFromOptions?: CopyFromOption[]
     onChanged?: () => void
   }
 
-  const {
-    configID,
-    label,
-    secretRequired = true,
-    copyFromOptions = [],
-    onChanged,
-  }: Props = $props()
+  const { configID, label, secretRequired = true, onChanged }: Props = $props()
+
+  type SourceMode = 'custom' | 'aerion-shipped'
 
   let status = $state<app.OAuthCredsStatus | null>(null)
   let loading = $state(true)
-  let editing = $state(false)
+  let mode = $state<SourceMode>('custom')
   let clientID = $state('')
   let clientSecret = $state('')
   let saving = $state(false)
-  let showClearConfirm = $state(false)
+
+  // Derive provider label from the slot's configID prefix. The shipped option
+  // shows as "Aerion - Google" / "Aerion - Microsoft" so the user can tell
+  // exactly which client identity they're picking, independent of the slot
+  // they're configuring (which might be e.g. "google-contacts").
+  const shippedOptionLabel = $derived.by(() => {
+    if (configID.startsWith('google-')) return 'Aerion - Google'
+    if (configID.startsWith('microsoft-')) return 'Aerion - Microsoft'
+    return 'Aerion - Default'
+  })
+
+  // The Aerion-shipped option appears only when the binary actually carries
+  // shipped creds for this slot. Same detection as before — hasShipped is
+  // computed by GetOAuthCredsStatus by probing the provider chain with the
+  // UserOverrideLookup hook disabled.
+  const shippedOptionAvailable = $derived(status?.hasShipped === true)
+
+  // Map the slot's current backend state to one of the two SourceMode values.
+  // Guard-clause style to comply with the no-else rule.
+  function deriveMode(s: app.OAuthCredsStatus | null): SourceMode {
+    if (s?.hasUserOverride) return 'custom'
+    if (s?.hasShipped) return 'aerion-shipped'
+    return 'custom'
+  }
 
   async function refresh() {
     loading = true
     try {
       status = await GetOAuthCredsStatus(configID)
+      mode = deriveMode(status)
     } catch (err) {
       console.error('Failed to load OAuth creds status:', err)
       status = null
+      mode = 'custom'
     } finally {
       loading = false
     }
@@ -79,17 +97,31 @@
 
   onMount(refresh)
 
-  function beginEdit() {
-    // Inputs always start blank — values are never read back into the UI.
-    clientID = ''
-    clientSecret = ''
-    editing = true
-  }
-
-  function cancelEdit() {
-    editing = false
-    clientID = ''
-    clientSecret = ''
+  // Dropdown change handler. Switching to Aerion-shipped clears the user
+  // override so the resolver falls through to the provider chain. Switching
+  // to Custom shows the blank edit form; the slot stays on whatever it was
+  // (shipped or empty) until the user saves explicit creds.
+  async function setMode(value: string | undefined) {
+    if (!value) return
+    const next = value as SourceMode
+    if (next === mode) return
+    mode = next
+    if (next === 'custom') {
+      clientID = ''
+      clientSecret = ''
+      return
+    }
+    // Switching to Aerion-shipped — clear any user override.
+    try {
+      await ClearOAuthCreds(configID)
+      toasts.success(`${label} is now using Aerion's credentials`)
+      await refresh()
+      onChanged?.()
+    } catch (err) {
+      console.error('Failed to switch to Aerion-shipped creds:', err)
+      toasts.error(`Failed to switch credentials: ${(err as Error)?.message ?? err}`)
+      await refresh()
+    }
   }
 
   async function save() {
@@ -105,7 +137,6 @@
     try {
       await SetOAuthCreds(configID, clientID.trim(), clientSecret.trim())
       toasts.success(`${label} credentials saved`)
-      editing = false
       clientID = ''
       clientSecret = ''
       await refresh()
@@ -115,30 +146,6 @@
       toasts.error('Failed to save credentials')
     } finally {
       saving = false
-    }
-  }
-
-  async function clear() {
-    try {
-      await ClearOAuthCreds(configID)
-      toasts.success(`${label} reset to default`)
-      await refresh()
-      onChanged?.()
-    } catch (err) {
-      console.error('Failed to clear OAuth creds:', err)
-      toasts.error('Failed to clear credentials')
-    }
-  }
-
-  async function copyFrom(fromConfigID: string) {
-    try {
-      await CopyOAuthCreds(fromConfigID, configID)
-      toasts.success(`Copied credentials into ${label}`)
-      await refresh()
-      onChanged?.()
-    } catch (err) {
-      console.error('Failed to copy OAuth creds:', err)
-      toasts.error(`Failed to copy credentials: ${(err as Error)?.message ?? err}`)
     }
   }
 </script>
@@ -153,7 +160,7 @@
         {:else if status?.hasUserOverride}
           <span class="text-xs px-2 py-0.5 rounded bg-primary/15 text-primary">Custom</span>
         {:else if status?.hasShipped}
-          <span class="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">Default</span>
+          <span class="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">Aerion</span>
         {:else}
           <span class="text-xs px-2 py-0.5 rounded bg-destructive/15 text-destructive">Not configured</span>
         {/if}
@@ -163,23 +170,26 @@
       </div>
       <p class="text-xs text-muted-foreground mt-1 font-mono">{configID}</p>
     </div>
-    {#if !editing}
-      <div class="flex items-center gap-1 flex-shrink-0">
-        <Button variant="outline" size="sm" onclick={beginEdit}>
-          <Icon icon="mdi:pencil" class="w-4 h-4 mr-1" />
-          Edit
-        </Button>
-        {#if status?.hasUserOverride}
-          <Button variant="ghost" size="sm" onclick={() => { showClearConfirm = true }}>
-            <Icon icon="mdi:close" class="w-4 h-4 mr-1" />
-            Reset
-          </Button>
-        {/if}
-      </div>
-    {/if}
   </div>
 
-  {#if editing}
+  <div class="mt-3 flex items-center gap-2">
+    <Label class="text-xs text-muted-foreground">Client ID/Secret:</Label>
+    <Select.Root value={mode} onValueChange={setMode}>
+      <Select.Trigger class="h-8 w-[220px] text-sm">
+        <Select.Value placeholder="Custom">
+          {mode === 'aerion-shipped' ? shippedOptionLabel : 'Custom'}
+        </Select.Value>
+      </Select.Trigger>
+      <Select.Content>
+        <Select.Item value="custom" label="Custom" />
+        {#if shippedOptionAvailable}
+          <Select.Item value="aerion-shipped" label={shippedOptionLabel} />
+        {/if}
+      </Select.Content>
+    </Select.Root>
+  </div>
+
+  {#if mode === 'custom'}
     <div class="mt-4 space-y-3">
       <div>
         <Label for={`${configID}-client-id`}>Client ID</Label>
@@ -187,7 +197,7 @@
           id={`${configID}-client-id`}
           type="text"
           bind:value={clientID}
-          placeholder="paste client ID"
+          placeholder={status?.hasUserOverride ? 'paste a new Client ID to replace' : 'paste Client ID'}
           disabled={saving}
           autocomplete="off"
         />
@@ -199,14 +209,13 @@
             id={`${configID}-client-secret`}
             type="password"
             bind:value={clientSecret}
-            placeholder="paste client secret"
+            placeholder={status?.hasUserOverride ? 'paste a new Client Secret to replace' : 'paste Client Secret'}
             disabled={saving}
             autocomplete="new-password"
           />
         </div>
       {/if}
       <div class="flex items-center justify-end gap-2 pt-2">
-        <Button variant="ghost" size="sm" onclick={cancelEdit} disabled={saving}>Cancel</Button>
         <Button size="sm" onclick={save} disabled={saving}>
           {#if saving}
             <Icon icon="mdi:loading" class="w-4 h-4 mr-1 animate-spin" />
@@ -215,29 +224,5 @@
         </Button>
       </div>
     </div>
-  {:else if copyFromOptions.length > 0}
-    <div class="mt-3 flex items-center gap-2">
-      <span class="text-xs text-muted-foreground">Copy from:</span>
-      <Select.Root onValueChange={(value: string) => { if (value) copyFrom(value) }}>
-        <Select.Trigger class="h-7 w-[220px] text-xs">
-          <Select.Value placeholder="another slot…" />
-        </Select.Trigger>
-        <Select.Content>
-          {#each copyFromOptions as opt (opt.configID)}
-            <Select.Item value={opt.configID} label={opt.label} />
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
   {/if}
 </div>
-
-<ConfirmDialog
-  bind:open={showClearConfirm}
-  title="Reset {label} to default?"
-  description="Your custom Client ID and Secret will be deleted from this device. The slot will revert to the shipped default (if any)."
-  confirmLabel="Reset"
-  cancelLabel="Cancel"
-  variant="destructive"
-  onConfirm={clear}
-/>

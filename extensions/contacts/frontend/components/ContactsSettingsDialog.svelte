@@ -1,8 +1,8 @@
 <script lang="ts">
   // ContactsSettingsDialog — the Contacts extension's own settings dialog.
   // Holds the extension's OAuth Credentials section (per-extension slots:
-  // google-contacts, microsoft-contacts) and any other contacts-specific
-  // settings as they accumulate.
+  // google-contacts, microsoft-contacts) and the Write Access section
+  // (per-OAuth-source consent buttons) for Phase 2b.3.
   //
   // Opens via:
   //  (1) Settings → Extensions → Edit button on the Contacts row
@@ -12,9 +12,17 @@
   // Both entry paths share this single dialog component.
 
   import { _ } from 'svelte-i18n'
+  import Icon from '@iconify/svelte'
   import * as Dialog from '$lib/components/ui/dialog'
   import { Button } from '$lib/components/ui/button'
   import OAuthCredsSlotEditor from '$lib/components/kit/OAuthCredsSlotEditor.svelte'
+  import WriteAccessAccountPicker from '$lib/components/oauth/WriteAccessAccountPicker.svelte'
+  import { contactSourcesStore } from '$extensions/contacts/frontend/stores/contactSources.svelte'
+  import { toasts } from '$lib/stores/toast'
+  // @ts-ignore - wailsjs bindings
+  import { SetContactSourceWritable } from '$wailsjs/go/app/App'
+  // @ts-ignore - wailsjs bindings
+  import type { v1 } from '$wailsjs/go/models'
 
   interface Props {
     open: boolean
@@ -23,21 +31,98 @@
 
   let { open = $bindable(false), onClose }: Props = $props()
 
+  // Per-source consent-in-flight state. Keyed by source id so multiple buttons
+  // can show spinners independently if the user clicks more than one before
+  // the first finishes.
+  let pendingConsent = $state<Record<string, boolean>>({})
+
+  // Picker state — only one picker open at a time.
+  let pickerOpen = $state(false)
+  let pickerProvider = $state<'google' | 'microsoft'>('google')
+  let pickerSourceID = $state('')
+  let pickerSourceName = $state('')
+
+  // Refresh the source list whenever the dialog opens — the user may have
+  // added/removed sources since last open, or another consent flow may have
+  // flipped writable. Cheap (single Wails call returning a small array).
+  $effect(() => {
+    if (open) {
+      void contactSourcesStore.load()
+    }
+  })
+
+  // Source rows surfaced in the Write Access section. Every external source
+  // type (CardDAV, Google, Microsoft) appears here regardless of state — the
+  // dialog is the canonical on/off lever for write access. Per-row button
+  // text flips: "Enable" when read-only, "Disable" when writable. Local is
+  // always writable so it's excluded.
+  //
+  // The companion WriteAccessBanner in the Contacts pane is the surface for
+  // ENABLE-only (it filters out writable rows so the banner doesn't clutter
+  // the list once everything's set up). Disable lives only here.
+  const writeAccessRows = $derived(
+    contactSourcesStore.sources.filter(
+      (s) => s.type === 'google' || s.type === 'microsoft' || s.type === 'carddav',
+    ),
+  )
+
+  // Disable write access on a source. Pure flag flip via
+  // SetContactSourceWritable(id, false) — works for all three external
+  // source types. Note: for Google/Microsoft this does NOT revoke the OAuth
+  // token at the provider; it just stops Aerion from using it. If the user
+  // re-enables later, the existing token is reused if still valid, so no
+  // second consent flow fires. To fully revoke, the user goes to the
+  // provider's account settings.
+  async function disableWriteAccess(source: v1.ContactSource) {
+    pendingConsent[source.id] = true
+    try {
+      await SetContactSourceWritable(source.id, false)
+      await contactSourcesStore.load()
+      toasts.success($_('contacts.settings.writeAccessDisabled', { values: { name: source.name } }))
+    } catch (err) {
+      console.error('Disable write access failed:', err)
+      toasts.error((err as Error)?.message ?? $_('contacts.settings.writeAccessDisableFailed'))
+    } finally {
+      delete pendingConsent[source.id]
+    }
+  }
+
+  // Single entry point for "enable write access on this source." Same end
+  // state across providers (writable=true); only the precondition differs:
+  // CardDAV is a pure flag flip via SetContactSourceWritable; Google/MS open
+  // the account picker dialog, which dispatches into Contacts_EnableWriteAccess
+  // on confirm.
+  async function enableWriteAccess(source: v1.ContactSource) {
+    if (source.type === 'carddav') {
+      pendingConsent[source.id] = true
+      try {
+        await SetContactSourceWritable(source.id, true)
+        await contactSourcesStore.load()
+        toasts.success($_('contacts.settings.writeAccessEnabled', { values: { name: source.name } }))
+      } catch (err) {
+        console.error('Enable write access failed:', err)
+        toasts.error((err as Error)?.message ?? $_('contacts.settings.writeAccessCanceled'))
+      } finally {
+        delete pendingConsent[source.id]
+      }
+      return
+    }
+
+    if (source.type !== 'google' && source.type !== 'microsoft') return
+    pickerProvider = source.type
+    pickerSourceID = source.id
+    pickerSourceName = source.name
+    pickerOpen = true
+  }
+
+  async function onPickerCompleted() {
+    await contactSourcesStore.load()
+  }
+
   function handleClose() {
     open = false
     onClose?.()
   }
-
-  // Slots the user can copy creds FROM (other slots that might already hold
-  // verified credentials). Pre-populated with mail slots since the common
-  // workflow is "I have a verified Google project for mail; reuse that
-  // verified project's creds for contacts write too" — the user pastes the
-  // same Client ID + Secret into google-contacts. Copy-from shortcut handles
-  // it server-side without exposing values.
-  const copyFromOptions = $derived([
-    { configID: 'google-mail', label: $_('contacts.settings.copyFromGoogle') },
-    { configID: 'microsoft-mail', label: $_('contacts.settings.copyFromMicrosoft') },
-  ])
 </script>
 
 <Dialog.Root bind:open onOpenChange={(v) => { if (!v) handleClose() }}>
@@ -61,16 +146,68 @@
             configID="google-contacts"
             label={$_('contacts.settings.googleLabel')}
             secretRequired={true}
-            {copyFromOptions}
           />
           <OAuthCredsSlotEditor
             configID="microsoft-contacts"
             label={$_('contacts.settings.microsoftLabel')}
             secretRequired={false}
-            {copyFromOptions}
           />
         </div>
       </section>
+
+      {#if writeAccessRows.length > 0}
+        <section>
+          <h3 class="text-sm font-semibold text-foreground mb-2">{$_('contacts.settings.writeAccessHeading')}</h3>
+          <p class="text-xs text-muted-foreground mb-3">
+            {$_('contacts.settings.writeAccessDescription')}
+          </p>
+
+          <div class="space-y-2">
+            {#each writeAccessRows as source (source.id)}
+              <div class="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+                <div class="flex items-center gap-3 min-w-0">
+                  <Icon
+                    icon={source.type === 'google' ? 'mdi:google' : source.type === 'microsoft' ? 'mdi:microsoft' : 'mdi:server'}
+                    class="w-5 h-5 text-muted-foreground flex-shrink-0"
+                  />
+                  <div class="min-w-0">
+                    <div class="text-sm font-medium text-foreground truncate">{source.name}</div>
+                    <div class="text-xs text-muted-foreground">
+                      {source.writable
+                        ? $_('contacts.settings.writeAccessRowSubtitleEnabled')
+                        : $_('contacts.settings.writeAccessRowSubtitle')}
+                    </div>
+                  </div>
+                </div>
+                {#if source.writable}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onclick={() => disableWriteAccess(source)}
+                    disabled={pendingConsent[source.id]}
+                  >
+                    {#if pendingConsent[source.id]}
+                      <Icon icon="mdi:loading" class="w-4 h-4 mr-1 animate-spin" />
+                    {/if}
+                    {$_('contacts.settings.disableWriteAccess')}
+                  </Button>
+                {:else}
+                  <Button
+                    size="sm"
+                    onclick={() => enableWriteAccess(source)}
+                    disabled={pendingConsent[source.id]}
+                  >
+                    {#if pendingConsent[source.id]}
+                      <Icon icon="mdi:loading" class="w-4 h-4 mr-1 animate-spin" />
+                    {/if}
+                    {$_('contacts.settings.enableWriteAccess')}
+                  </Button>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        </section>
+      {/if}
     </div>
 
     <div class="flex items-center justify-end gap-2 pt-4 border-t border-border mt-4">
@@ -78,3 +215,11 @@
     </div>
   </Dialog.Content>
 </Dialog.Root>
+
+<WriteAccessAccountPicker
+  bind:open={pickerOpen}
+  provider={pickerProvider}
+  sourceID={pickerSourceID}
+  sourceName={pickerSourceName}
+  onCompleted={onPickerCompleted}
+/>

@@ -406,6 +406,11 @@ func buildAuthURL(provider ProviderConfig, state, codeChallenge string, port int
 		"access_type":           {"offline"}, // Request refresh token (Google)
 		"prompt":                {"consent"}, // Force consent to get refresh token
 	}
+	if provider.LoginHint != "" {
+		// Pre-fill the account picker — Google and Microsoft both honor
+		// this. Empty = the user picks an account fresh.
+		params.Set("login_hint", provider.LoginHint)
+	}
 
 	authURL := provider.AuthURL + "?" + params.Encode()
 	return authURL

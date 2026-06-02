@@ -3,8 +3,15 @@ package app
 import (
 	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
 	coreapi "github.com/hkdb/aerion/internal/core/api/v1"
+	"github.com/hkdb/aerion/internal/credentials"
+	"github.com/hkdb/aerion/internal/logging"
+	"github.com/hkdb/aerion/internal/oauth2"
+	"github.com/hkdb/aerion/internal/platform"
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // coreImpl is the host-side implementation of coreapi.Core handed to each
@@ -83,14 +90,27 @@ func (c contactsCoreImpl) ListSources() ([]coreapi.ContactSource, error) {
 		if s == nil {
 			continue
 		}
+		accountID := ""
+		if s.AccountID != nil {
+			accountID = *s.AccountID
+		}
 		out = append(out, coreapi.ContactSource{
-			ID:       s.ID,
-			Name:     s.Name,
-			Type:     string(s.Type),
-			Writable: s.Writable,
+			ID:        s.ID,
+			Name:      s.Name,
+			Type:      string(s.Type),
+			Writable:  s.Writable,
+			AccountID: accountID,
 		})
 	}
 	return out, nil
+}
+
+// SetSourceWritable flips the writable flag on a contact source. Pure delegation
+// to the host's existing carddav store — the contacts extension uses this from
+// its incremental-consent flow (Phase 2b.3) to flip Writable after the user
+// grants write scopes.
+func (c contactsCoreImpl) SetSourceWritable(sourceID string, writable bool) error {
+	return c.app.carddavStore.SetSourceWritable(sourceID, writable)
 }
 
 // LinkAccountSource delegates to the host's existing LinkAccountContactSource
@@ -161,6 +181,125 @@ func (a *extensionAuth) IMAPClient(accountID string, requiredCaps []string) (cor
 
 func (a *extensionAuth) SMTPClient(accountID string) (coreapi.SMTPClient, error) {
 	return a.app.authBroker.SMTPClient(accountID)
+}
+
+// StartIncrementalConsent runs an interactive OAuth flow that adds scopes
+// against an existing identity (mail account OR standalone contact source).
+// Synchronous: blocks until success / cancel / error.
+//
+// Phase 2b.3: used by the Contacts extension's write-access picker.
+// Exactly one of req.AccountID / req.SourceID drives where tokens are
+// persisted (account-keyed vs source-keyed). req.ExpectedEmail is enforced
+// on the OAuth callback; req.LoginHint pre-fills the IdP account picker.
+//
+// Errors: cancel from user → "OAuth callback failed: ..."; wrong account →
+// explicit mismatch error; persistence failure → wrapped credentials error.
+func (a *extensionAuth) StartIncrementalConsent(req coreapi.StartIncrementalConsentRequest) error {
+	log := logging.WithComponent("app.incremental-consent")
+
+	if a.app == nil || a.app.ctx == nil {
+		return fmt.Errorf("incremental consent: app not initialized")
+	}
+	if req.ClientConfigID == "" {
+		return fmt.Errorf("incremental consent: clientConfigID is required")
+	}
+	if (req.AccountID == "") == (req.SourceID == "") {
+		return fmt.Errorf("incremental consent: exactly one of accountID / sourceID must be set")
+	}
+
+	// Validate the EXTENSION's own slot has creds via the proper resolver
+	// (user override → registered providers, NOT inherited from mail-side
+	// ldflags via the legacy GetProvider fallback).
+	slotCreds, slotOK := oauth2.ClientConfigForID(string(req.ClientConfigID))
+	if !slotOK || slotCreds.ClientID == "" {
+		return fmt.Errorf("incremental consent: no OAuth credentials configured for %q — set them up in Settings → Extensions → Contacts → OAuth Credentials", req.ClientConfigID)
+	}
+
+	// Pull the provider's URLs + default scope set. We override ClientID/
+	// Secret with the slot creds resolved above so we always run against the
+	// extension's project.
+	baseProvider, err := oauth2.GetProvider(string(req.ClientConfigID))
+	if err != nil {
+		return fmt.Errorf("incremental consent: %w", err)
+	}
+	baseProvider.ClientID = slotCreds.ClientID
+	baseProvider.ClientSecret = slotCreds.ClientSecret
+	baseProvider.LoginHint = req.LoginHint
+
+	have := make(map[string]struct{}, len(baseProvider.Scopes))
+	for _, s := range baseProvider.Scopes {
+		have[s] = struct{}{}
+	}
+	unioned := append([]string(nil), baseProvider.Scopes...)
+	for _, want := range req.Scopes {
+		if want.Resource == "" {
+			continue
+		}
+		if _, ok := have[want.Resource]; ok {
+			continue
+		}
+		have[want.Resource] = struct{}{}
+		unioned = append(unioned, want.Resource)
+	}
+
+	extended := baseProvider
+	extended.Scopes = unioned
+
+	log.Info().
+		Str("account_id", req.AccountID).
+		Str("source_id", req.SourceID).
+		Str("client_config_id", string(req.ClientConfigID)).
+		Int("scope_count", len(unioned)).
+		Bool("login_hint_set", req.LoginHint != "").
+		Msg("Starting incremental consent flow")
+
+	authURL, err := a.app.oauth2Manager.StartAuthFlowWithProvider(a.app.ctx, &extended)
+	if err != nil {
+		return fmt.Errorf("incremental consent: start flow: %w", err)
+	}
+
+	if perr := platform.PortalOpenURI(authURL); perr != nil {
+		log.Debug().Err(perr).Msg("Portal OpenURI failed, falling back to BrowserOpenURL")
+		wailsRuntime.BrowserOpenURL(a.app.ctx, authURL)
+	}
+
+	tokens, email, err := a.app.oauth2Manager.WaitForCallback(a.app.ctx)
+	if err != nil {
+		return fmt.Errorf("incremental consent: callback: %w", err)
+	}
+	if tokens == nil {
+		return fmt.Errorf("incremental consent: no tokens returned")
+	}
+
+	if req.ExpectedEmail != "" && email != "" && !strings.EqualFold(email, req.ExpectedEmail) {
+		return fmt.Errorf("incremental consent: granted account %q does not match expected account %q", email, req.ExpectedEmail)
+	}
+
+	storeTokens := &credentials.OAuthTokens{
+		Provider:     baseProvider.Name,
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		ExpiresAt:    time.Now().Add(time.Duration(tokens.ExpiresIn) * time.Second),
+		Scopes:       unioned,
+	}
+
+	if req.AccountID != "" {
+		if err := a.app.credStore.SetOAuthTokensForClientConfig(req.AccountID, string(req.ClientConfigID), storeTokens); err != nil {
+			return fmt.Errorf("incremental consent: persist account tokens: %w", err)
+		}
+	}
+	if req.SourceID != "" {
+		if err := a.app.credStore.SetContactSourceOAuthTokens(req.SourceID, storeTokens); err != nil {
+			return fmt.Errorf("incremental consent: persist source tokens: %w", err)
+		}
+	}
+
+	log.Info().
+		Str("account_id", req.AccountID).
+		Str("source_id", req.SourceID).
+		Str("client_config_id", string(req.ClientConfigID)).
+		Msg("Incremental consent completed")
+	return nil
 }
 
 // --- Phase 1 stubs for unimplemented surfaces -------------------------------

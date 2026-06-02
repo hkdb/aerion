@@ -138,11 +138,11 @@
 
           <!-- Error display -->
           {#if source.last_error}
-            <div class="flex items-start gap-2 p-2 bg-destructive/10 rounded text-sm">
+            <div class="flex items-start gap-2 p-2 bg-destructive/10 rounded text-sm min-w-0">
               <Icon icon="mdi:alert-circle" class="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-              <div class="flex-1">
+              <div class="flex-1 min-w-0">
                 <div class="text-destructive font-medium">{$_('contactSource.syncFailed')}</div>
-                <div class="text-xs text-muted-foreground">{source.last_error}</div>
+                <div class="text-xs text-muted-foreground break-all max-h-24 overflow-y-auto">{source.last_error}</div>
               </div>
             </div>
           {/if}

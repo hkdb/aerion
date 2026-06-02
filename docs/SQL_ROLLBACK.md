@@ -24,34 +24,6 @@ Each rollback section lists the **data lost on rollback** for that migration. Th
 
 ---
 
-## Rollback: v34 → v30 (Aerion 0.3.0 → 0.2.5)
-
-**Introduced in**: Aerion 0.3.0 (cumulative effect of migrations 31 + 32 + 33 + 34 — see notes below).
-
-**What 0.3.0 changed since 0.2.5**:
-
-- **Migration 31** (Phase 2b.2.a): Replaced the legacy denormalized `contacts` (autocomplete-by-email) and `carddav_contacts` (per-email fan-out) tables with a unified `contact_records` schema covering both local and CardDAV contacts. Added multi-field support (phones, addresses, URLs, IMPPs, organization, title, notes, birthday, nickname, categories) and the `vcard_raw` round-trip column.
-- **Migration 32**: Switched local-record IDs from the synthetic `"local-<email>"` shape (a leftover from the v30 email-as-PK schema) to UUIDs. Brings local records in line with CardDAV's vCard-UID identity semantics — emails become fully editable sub-rows in `contact_emails` rather than encoded into the record id.
-- **Migration 33** (Phase 2b.2.b.1 follow-up): Added a missing `FOREIGN KEY ... ON DELETE CASCADE` from `carddav_record_state.addressbook_id` to `contact_source_addressbooks(id)`. Closes the privacy gap where deleting a contacts provider left record + state zombies in the local DB. Pre-step cleans any pre-existing orphans so the FK rebuild succeeds.
-- **Migration 34** (Phase 2b.2.b.2): First-class PHOTO field support — adds `photo_data`, `photo_media_type`, `photo_url` columns to `contact_records` so the vCard parser/builder can extract and emit PHOTO natively. Before v34, photos round-tripped opaquely via `vcard_raw` but were never displayed.
-
-Migrations 31, 32, 33, and 34 ship together in 0.3.0 — no real-world DB will ever stop between them. The rollback script below handles the cumulative v34 state, which is what your DB will be in after upgrading from 0.2.5.
-
-**Data lost on rollback to v30**:
-
-- All multi-field contact data — phone numbers, addresses, URLs, instant-messaging handles, organization, job title, notes, birthday, nickname, categories. The v30 schema has no columns for these, so they're dropped.
-- The `vcard_raw` round-trip preservation column. Means that the next time CardDAV sync runs under the older Aerion, it will re-fetch and re-parse vCards from the server — only the fields the older parser knows about (email + display name) survive.
-- CardDAV contacts' synthetic local IDs are reshaped. Older Aerion identifies CardDAV contacts during sync by `href` (server-side URL path), not by local ID, so this doesn't affect sync correctness — only the row IDs change.
-- Local-record UUIDs are dropped — v30 keys local contacts by email, which is the natural identity for the legacy schema.
-
-**What round-trips losslessly**:
-
-- All emails and display names.
-- Send-count and last-used autocomplete metadata (per-email).
-- The `name_overridden` flag that prevents auto-collection from overwriting user-edited names.
-- The local-contact `kind` (`manual` vs. `collected`).
-- CardDAV addressbook membership, href, and ETag (for re-sync identity).
-
 ### Procedure
 
 1. **Quit Aerion completely** (use the menu Quit, or kill the process — make sure nothing is using `aerion.db`).
@@ -105,4 +77,31 @@ If the issue persists, open a GitHub issue with the SQL error output and the ver
 
 ---
 
-## (Future migrations append their own section here)
+## Rollback: v34 → v30 (Aerion 0.3.0 → 0.2.5)
+
+**Introduced in**: Aerion 0.3.0 (cumulative effect of migrations 31 + 32 + 33 + 34 — see notes below).
+
+**What 0.3.0 changed since 0.2.5**:
+
+- **Migration 31** (Phase 2b.2.a): Replaced the legacy denormalized `contacts` (autocomplete-by-email) and `carddav_contacts` (per-email fan-out) tables with a unified `contact_records` schema covering both local and CardDAV contacts. Added multi-field support (phones, addresses, URLs, IMPPs, organization, title, notes, birthday, nickname, categories) and the `vcard_raw` round-trip column.
+- **Migration 32**: Switched local-record IDs from the synthetic `"local-<email>"` shape (a leftover from the v30 email-as-PK schema) to UUIDs. Brings local records in line with CardDAV's vCard-UID identity semantics — emails become fully editable sub-rows in `contact_emails` rather than encoded into the record id.
+- **Migration 33** (Phase 2b.2.b.1 follow-up): Added a missing `FOREIGN KEY ... ON DELETE CASCADE` from `carddav_record_state.addressbook_id` to `contact_source_addressbooks(id)`. Closes the privacy gap where deleting a contacts provider left record + state zombies in the local DB. Pre-step cleans any pre-existing orphans so the FK rebuild succeeds.
+- **Migration 34** (Phase 2b.2.b.2): First-class PHOTO field support — adds `photo_data`, `photo_media_type`, `photo_url` columns to `contact_records` so the vCard parser/builder can extract and emit PHOTO natively. Before v34, photos round-tripped opaquely via `vcard_raw` but were never displayed.
+
+Migrations 31, 32, 33, and 34 ship together in 0.3.0 — no real-world DB will ever stop between them. The rollback script below handles the cumulative v34 state, which is what your DB will be in after upgrading from 0.2.5.
+
+**Data lost on rollback to v30**:
+
+- All multi-field contact data — phone numbers, addresses, URLs, instant-messaging handles, organization, job title, notes, birthday, nickname, categories. The v30 schema has no columns for these, so they're dropped.
+- The `vcard_raw` round-trip preservation column. Means that the next time CardDAV sync runs under the older Aerion, it will re-fetch and re-parse vCards from the server — only the fields the older parser knows about (email + display name) survive.
+- CardDAV contacts' synthetic local IDs are reshaped. Older Aerion identifies CardDAV contacts during sync by `href` (server-side URL path), not by local ID, so this doesn't affect sync correctness — only the row IDs change.
+- Local-record UUIDs are dropped — v30 keys local contacts by email, which is the natural identity for the legacy schema.
+
+**What round-trips losslessly**:
+
+- All emails and display names.
+- Send-count and last-used autocomplete metadata (per-email).
+- The `name_overridden` flag that prevents auto-collection from overwriting user-edited names.
+- The local-contact `kind` (`manual` vs. `collected`).
+- CardDAV addressbook membership, href, and ETag (for re-sync identity).
+

@@ -31,6 +31,13 @@
       "emptySearch": "No contacts match your search.",
       "empty": "No contacts."
     },
+    "writeAccessBanner": {
+      "title": "Read-only sources — write access not enabled",
+      "enableButton": "Enable write access",
+      "providerGoogle": "Google",
+      "providerMicrosoft": "Microsoft",
+      "providerCardDAV": "CardDAV"
+    },
     "detail": {
       "emptyState": "Select a contact to view details.",
       "edit": "Edit",
@@ -125,6 +132,19 @@
       "microsoftLabel": "Microsoft Contacts",
       "copyFromGoogle": "Google Mail",
       "copyFromMicrosoft": "Microsoft Mail",
+      "writeAccessHeading": "Write Access",
+      "writeAccessDescription": "Enable or disable write permission on a contact source. CardDAV sources only need the toggle. Google and Microsoft also need a one-time OAuth consent to enable.",
+      "writeAccessRowSubtitle": "Read-only — write access not enabled",
+      "writeAccessRowSubtitleEnabled": "Write access enabled",
+      "enableWriteAccess": "Enable write access",
+      "disableWriteAccess": "Disable write access",
+      "writeAccessEnabled": "Write access enabled for {name}",
+      "writeAccessDisabled": "Write access disabled for {name}",
+      "writeAccessDisableFailed": "Failed to disable write access",
+      "writeAccessCanceled": "Write access not enabled",
+      "writeAccessNoAccount": "Cannot enable write access — source has no linked account",
+      "googleScopeReason": "Create, edit, and delete contacts in your Google account",
+      "microsoftScopeReason": "Create, edit, and delete contacts in your Microsoft account",
       "close": "Close"
     },
     "hook": {

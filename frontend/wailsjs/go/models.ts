@@ -299,6 +299,24 @@ export namespace app {
 	        this.license = source["license"];
 	    }
 	}
+	export class AuthContextInfo {
+	    kind: string;
+	    identifier: string;
+	    email: string;
+	    label: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AuthContextInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.identifier = source["identifier"];
+	        this.email = source["email"];
+	        this.label = source["label"];
+	    }
+	}
 	export class ComposeMode {
 	    accountId: string;
 	    mode: string;
@@ -2347,6 +2365,7 @@ export namespace v1 {
 	    name: string;
 	    type: string;
 	    writable: boolean;
+	    accountId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ContactSource(source);
@@ -2358,6 +2377,7 @@ export namespace v1 {
 	        this.name = source["name"];
 	        this.type = source["type"];
 	        this.writable = source["writable"];
+	        this.accountId = source["accountId"];
 	    }
 	}
 	

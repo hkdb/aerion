@@ -2,6 +2,7 @@ package backend
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/hkdb/aerion/internal/carddav"
@@ -148,12 +149,7 @@ func (b *Bridge) ensureInit() error {
 			b.initErr = err
 			return
 		}
-		b.api = NewAPI(contactStore, carddavStore, b.deps.GetCardDAVPassword)
-		// extStore is the per-extension SQLite; held for future use by
-		// the extension. The current API doesn't read it (per-extension
-		// data is empty for Contacts at this phase), but the schema is
-		// kept open across enable/disable cycles per the Phase 1 design.
-		_ = extStore
+		b.api = NewAPI(contactStore, carddavStore, extStore, b.deps.Core, b.deps.DB.DB, b.deps.GetCardDAVPassword)
 	})
 	return b.initErr
 }
@@ -351,6 +347,95 @@ func (b *Bridge) Contacts_DeleteLocalContact(idOrEmail string) error {
 type ResizedContactPhoto struct {
 	Data      string `json:"data"`
 	MediaType string `json:"mediaType"`
+}
+
+// Contacts_EnableWriteAccess runs the interactive OAuth flow to grant write
+// access on a contact source, attaching the grant to a user-picked existing
+// auth context (either a mail account or a standalone contact source).
+//
+// Synchronous: blocks until OAuth completes (success / cancel / error). On
+// success: tokens are persisted under the picked identity, and the contact
+// source's Writable flag flips. The frontend's WriteAccessAccountPicker
+// dialog `await`s this.
+//
+// Inputs:
+//   sourceID              — the contact source being granted write access
+//   authContextKind       — "mail" or "standalone-contacts"
+//   authContextIdentifier — account_id (for "mail") or source_id (for
+//                           "standalone-contacts"); identifies the
+//                           OAuth identity the new tokens attach to
+//   expectedEmail         — the picked identity's email; enforced on
+//                           OAuth callback (mismatch = reject)
+//
+// Aerion's design forbids creating new accounts from inside the contacts
+// extension; all auth contexts MUST be one the user already set up in core
+// (Mail account add OR standalone contacts source add).
+func (b *Bridge) Contacts_EnableWriteAccess(sourceID, authContextKind, authContextIdentifier, expectedEmail string) error {
+	if !b.gateEnabled() {
+		return nil
+	}
+	if b.deps.Core == nil {
+		return errors.New("contacts: write-access flow unavailable (core not wired)")
+	}
+	if sourceID == "" {
+		return errors.New("contacts: sourceID is required")
+	}
+	if authContextIdentifier == "" {
+		return errors.New("contacts: authContextIdentifier is required")
+	}
+	if expectedEmail == "" {
+		return errors.New("contacts: expectedEmail is required")
+	}
+
+	// Resolve the source's provider → clientConfigID + write scope.
+	sources, err := b.deps.Core.Contacts().ListSources()
+	if err != nil {
+		return err
+	}
+	var providerType string
+	for _, s := range sources {
+		if s.ID == sourceID {
+			providerType = s.Type
+			break
+		}
+	}
+	if providerType == "" {
+		return fmt.Errorf("contacts: source %q not found", sourceID)
+	}
+
+	var clientConfigID coreapi.ClientConfigID
+	var writeScope string
+	switch providerType {
+	case "google":
+		clientConfigID = "google-contacts"
+		writeScope = "https://www.googleapis.com/auth/contacts"
+	case "microsoft":
+		clientConfigID = "microsoft-contacts"
+		writeScope = "https://graph.microsoft.com/Contacts.ReadWrite"
+	default:
+		return fmt.Errorf("contacts: source provider %q does not support write access", providerType)
+	}
+
+	req := coreapi.StartIncrementalConsentRequest{
+		ClientConfigID: clientConfigID,
+		Scopes:         []coreapi.AuthScope{{Resource: writeScope}},
+		ExpectedEmail:  expectedEmail,
+		LoginHint:      expectedEmail,
+	}
+	switch authContextKind {
+	case "mail":
+		req.AccountID = authContextIdentifier
+	case "standalone-contacts":
+		req.SourceID = authContextIdentifier
+	default:
+		return fmt.Errorf("contacts: unknown authContextKind %q", authContextKind)
+	}
+
+	if err := b.deps.Core.Auth().StartIncrementalConsent(req); err != nil {
+		return err
+	}
+
+	return b.deps.Core.Contacts().SetSourceWritable(sourceID, true)
 }
 
 // Contacts_ResizeContactPhoto takes a base64-encoded image, decodes it,

@@ -67,6 +67,8 @@ export function Contacts_CreateContact(arg1:v1.ContactCreateInput):Promise<strin
 
 export function Contacts_DeleteLocalContact(arg1:string):Promise<void>;
 
+export function Contacts_EnableWriteAccess(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
+
 export function Contacts_GetContactDetail(arg1:string):Promise<v1.Contact>;
 
 export function Contacts_LinkAccountSource(arg1:string,arg2:string,arg3:number):Promise<string>;
@@ -80,8 +82,6 @@ export function Contacts_ListSources():Promise<Array<v1.ContactSource>>;
 export function Contacts_ResizeContactPhoto(arg1:string):Promise<backend.ResizedContactPhoto>;
 
 export function Contacts_UpdateContact(arg1:string,arg2:v1.ContactPatch):Promise<void>;
-
-export function CopyOAuthCreds(arg1:string,arg2:string):Promise<void>;
 
 export function CopyToFolder(arg1:Array<string>,arg2:string):Promise<void>;
 
@@ -317,6 +317,8 @@ export function LinkAccountContactSource(arg1:string,arg2:string,arg3:number):Pr
 
 export function ListAccountSetupHooksForProvider(arg1:string):Promise<Array<v1.AccountSetupHookRequest>>;
 
+export function ListAuthContextsForProvider(arg1:string):Promise<Array<app.AuthContextInfo>>;
+
 export function ListContacts(arg1:number):Promise<Array<contact.Contact>>;
 
 export function ListDrafts(arg1:string):Promise<Array<draft.Draft>>;
@@ -384,6 +386,8 @@ export function PickRecipientCertFile():Promise<string>;
 export function PickRecipientPGPKeyFile():Promise<string>;
 
 export function PickSMIMECertificateFile():Promise<string>;
+
+export function Preflight():Promise<void>;
 
 export function PrepareReply(arg1:string,arg2:string):Promise<smtp.ComposeMessage>;
 

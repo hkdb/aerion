@@ -880,5 +880,20 @@
     "noDomains": "允許清單中沒有任何網域。在郵件檢視器中使用「一律載入 > 針對網域」來新增網域。",
     "removeButton": "從允許清單中移除",
     "removed": "已從允許清單中移除"
+  },
+  "oauth": {
+    "writeAccessPicker": {
+      "title": "Enable write access",
+      "description": "Choose the {provider} account to authorize for write access on {sourceName}.",
+      "providerGoogle": "Google",
+      "providerMicrosoft": "Microsoft",
+      "loadFailed": "Failed to load accounts: {message}",
+      "emptyHeading": "No {provider} accounts found.",
+      "emptyHint": "Add a {provider} account in Mail (Settings → Accounts) or Contacts (Settings → Contacts → Add source) first, then return here.",
+      "cancel": "Cancel",
+      "continue": "Continue",
+      "successToast": "Write access enabled for {name}",
+      "failureToast": "Failed to enable write access: {message}"
+    }
   }
 }

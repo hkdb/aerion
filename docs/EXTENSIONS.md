@@ -120,14 +120,23 @@ This shape is **subprocess-ready**: if community-extension demand emerges and a 
   "id": "contacts",
   "name": "Contacts",
   "version": "0.1.0",
-  "description": "Browse contacts from your accounts (CardDAV, Google, Microsoft). Two-way edit/write capability lands in a future release.",
+  "description": "Browse and edit contacts from your accounts (CardDAV, Google, Microsoft). Local-contact editing in v0.3.x; provider write capability rolling out incrementally.",
   "author": "Aerion",
   "minAerionVersion": "0.3.0",
   "capabilities": [
     "contacts.read",
+    "contacts.write",
     "ui.rail-tab",
-    "ui.account-setup-hook"
-  ]
+    "ui.account-setup-hook",
+    "ui.settings-tab"
+  ],
+  "oauth": {
+    "first_party_uses_core_for_scopes": [
+      "https://www.googleapis.com/auth/contacts.readonly",
+      "Contacts.Read",
+      "Contacts.ReadBasic"
+    ]
+  }
 }
 ```
 
@@ -139,7 +148,8 @@ This shape is **subprocess-ready**: if community-extension demand emerges and a 
 | `description` | 1–2 sentence summary shown in the Settings listing. |
 | `author` | Display name only. No URL. |
 | `minAerionVersion` | Semver. Future host versions will refuse to load an extension whose minAerionVersion is higher than the running build. |
-| `capabilities` | Coarse capability strings the extension declares. See [coreapi.Capability](../internal/core/api/v1/manifest.go) for the known set (e.g., `contacts.read`, `ui.rail-tab`). Unknown strings are treated as opaque so the set can grow without breaking older hosts. |
+| `capabilities` | Coarse capability strings the extension declares. See [coreapi.Capability](../internal/core/api/v1/manifest.go) for the known set (e.g., `contacts.read`, `contacts.write`, `ui.rail-tab`, `ui.settings-tab`). Unknown strings are treated as opaque so the set can grow without breaking older hosts. |
+| `oauth.first_party_uses_core_for_scopes` | Optional. Lists OAuth scopes that should route through Aerion core's mail OAuth (reusing the user's existing consent) instead of the extension's own client config. See [§ Manifest OAuth routing](#manifest-oauth-routing--first_party_uses_core_for_scopes). First-party only. |
 
 ### Loading the manifest into Go
 
@@ -324,8 +334,8 @@ This is the complete list of APIs your extension is allowed to consume. Anything
 |---|---|---|---|
 | `core.Mail()` | ⚠️ | `ListMessages`, `GetMessage`, `ListFolders`, `GetSpecialFolder` | Mutators (`MoveMessage`, `Archive`, `Trash`, `SetFlags`, `AppendMessage`) and `SubscribeToMailEvents` return `ErrUnimplemented`. |
 | `core.Composer()` | ⚠️ | `OpenComposer` (mailto URL form) | `Attachments` and `ReplyTo` in `ComposeRequest` return `ErrUnimplemented`. |
-| `core.Contacts()` | ⚠️ | `ListSources`, `LinkAccountSource`, `ListAddressbooks` | Source-management surface used by the Contacts extension itself (and available to future cross-extension consumers like Calendar). Contact CRUD methods (`Search`/`Get`/`List`/`Create`/`Update`/`Delete`) still return `ErrUnimplemented` at this surface — they're owned by the Contacts extension's Bridge and routing them through coreImpl would force the extension to initialize even when disabled. |
-| `core.Auth()` | ⚠️ | `HTTPClient(accountID, scopes)` — bearer + transparent refresh | `IMAPClient` and `SMTPClient` return `ErrUnimplemented`. |
+| `core.Contacts()` | ✅ | `ListSources`, `LinkAccountSource`, `ListAddressbooks`, `SetSourceWritable`; `ContactSource.AccountID` field surfaced | Source-management surface used by the Contacts extension itself (and available to future cross-extension consumers like Calendar). Contact CRUD methods (`Search`/`Get`/`List`/`Create`/`Update`/`Delete`) still return `ErrUnimplemented` at this surface — they're owned by the Contacts extension's Bridge (CRUD lives behind the `Contacts_*` Wails methods, not on `coreapi.Contacts`). Phase 2b.3 added `SetSourceWritable` so the incremental-consent flow can flip a source's writable flag after the user grants OAuth write scope. |
+| `core.Auth()` | ✅ | `HTTPClient(accountID, scopes)` — bearer + transparent refresh; `StartIncrementalConsent(req StartIncrementalConsentRequest)` — synchronous OAuth consent flow that persists tokens against either an account or a standalone contacts source (see [§ Write-access grant flow](#write-access-grant-flow-account-picker-model)) | `IMAPClient` and `SMTPClient` return `ErrUnimplemented`. |
 | `core.UI()` | ⚠️ | `RegisterRailTab`, `RegisterAccountSetupHook` | `RegisterSettingsTab`, `RegisterContextMenuItem`, `RegisterInboxView` accept registrations but no consumer reads them yet. |
 | `core.Storage()` | ✅ | `KV(extensionID)` backed by per-extension `ext_kv` table | Per-extension SQLite (your own `*sql.DB`) is the parallel persistence path — see [§ Per-extension storage](#per-extension-storage). |
 | `core.Notifications()` | 🚧 | — | `Show` interface only; no consumer wired. |
@@ -334,9 +344,11 @@ This is the complete list of APIs your extension is allowed to consume. Anything
 
 Each subsection below documents the interface signatures + behavior in detail.
 
-### Stability promise
+### Stability
 
-`v1` is the stable API for Aerion v0.3.0+. **Non-breaking additions** (new methods on existing interfaces with sensible defaults, new event types, new fields on request structs with zero values) may land between minor releases. **Breaking changes** require introducing `v2` and keeping `v1` as a compatibility shim. For solo-dev scale this stays at `v1` indefinitely.
+The current `coreapi` surface is the one extensions should code against. **Non-breaking additions** (new methods on existing interfaces with sensible defaults, new event types, new fields on request structs with zero values) may land between minor releases. **Breaking changes** are avoided wherever possible; when they're truly necessary, they ship with migration notes and a deprecation period rather than a silent rename.
+
+Aerion is still pre-1.0 — the surface may continue to evolve as more first-party extensions surface their needs.
 
 ### `Core` interface
 
@@ -422,8 +434,26 @@ type Contacts interface {
     ListSources() ([]ContactSource, error)
     LinkAccountSource(accountID, name string, syncInterval int) (string, error)
 
+    // SetSourceWritable flips a contact source's writable flag. Used by the
+    // Phase 2b.3 incremental-consent flow to enable write access after a
+    // user grants the OAuth write scope; CardDAV sources also use it as a
+    // pure flag flip via the extension settings UI.
+    SetSourceWritable(sourceID string, writable bool) error
+
     // Events (Phase 3+, when a core event bus exists)
     SubscribeToContactEvents(types []ContactEventType) (<-chan ContactEvent, Unsubscribe, error)
+}
+
+// ContactSource is the API-surface descriptor for a configured contact
+// source. AccountID (added in Phase 2b.3) carries the linked email account
+// id, when the source was created via LinkAccountSource. Standalone CardDAV
+// / contacts-only OAuth sources have AccountID == "".
+type ContactSource struct {
+    ID        string `json:"id"`
+    Name      string `json:"name"`
+    Type      string `json:"type"`              // "carddav" | "google" | "microsoft"
+    Writable  bool   `json:"writable"`
+    AccountID string `json:"accountId,omitempty"`
 }
 
 // Full multi-field patch shape (2b.2.b.2). Pointer fields distinguish
@@ -448,9 +478,28 @@ type ContactPatch struct {
 
 **Split implementation** — two backends sit behind this interface depending on the method:
 
-- **Contact CRUD** (`Search`/`Get`/`List`/`ListAddressbooks`/`Create`/`Update`/`Delete`): implemented in [`extensions/contacts/backend/api.go`](../extensions/contacts/backend/api.go) and exposed via the Contacts extension's Bridge. `Search`/`Get`/`List` wrap `contact.Store` + `carddav.Store`. `Create` source-dispatches: local manual → `contact.Store.UpsertRecord`; CardDAV → `carddav.Store.CreateRecord` (server PUT with `If-None-Match: *`). `Update`/`Delete` dispatch the same way (see [§ Local-contact edit/delete](#local-contact-editdelete) below). `SubscribeToContactEvents` returns `ErrUnimplemented` until a core event bus exists.
-- **Source management** (`ListSources`/`LinkAccountSource`): implemented in [`app/coreimpl.go`](../app/coreimpl.go) `contactsCoreImpl`, wrapping `app.carddavStore.ListSources()` + the existing `App.LinkAccountContactSource`. These live host-side because `contact_sources` is a host-owned table (mail's autocomplete also reads it). The Contacts extension's bridge proxies through `b.deps.Core.Contacts().*`.
+- **Contact CRUD** (`Search`/`Get`/`List`/`ListAddressbooks`/`Create`/`Update`/`Delete`): implemented in [`extensions/contacts/backend/api.go`](../extensions/contacts/backend/api.go) and exposed via the Contacts extension's Bridge. `Search`/`Get`/`List` wrap `contact.Store` + `carddav.Store`. `Create`/`Update`/`Delete` source-dispatch by `carddav.Source.Type`:
+  - **Local** (`SourceID == "local"` / `"local:manual"`) → `contact.Store` directly.
+  - **CardDAV** → `extensions/contacts/backend/api.go writeCardDAVRecord` / `deleteCardDAVRecord` (server PUT/DELETE with basic-auth + `If-None-Match: *` on create).
+  - **Google** → [`extensions/contacts/backend/google_api.go`](../extensions/contacts/backend/google_api.go) (Phase 2b.3 Track B). Uses the People API via [`extensions/contacts/backend/google_write.go`](../extensions/contacts/backend/google_write.go); `recordToGooglePerson` mapping in [`extensions/contacts/backend/google_convert.go`](../extensions/contacts/backend/google_convert.go). ETag stored per-record in the extension's SQLite (`oauth_record_state` table) and stamped at `metadata.sources[0].etag` on PATCH. 412/`failedPrecondition` becomes `*coreapi.ErrConflict` → `contacts:conflict` Wails event.
+  - **Microsoft** → [`extensions/contacts/backend/microsoft_api.go`](../extensions/contacts/backend/microsoft_api.go) (Phase 2b.3 Track C). Uses Graph via [`extensions/contacts/backend/microsoft_write.go`](../extensions/contacts/backend/microsoft_write.go); `recordToMicrosoftContact` in [`extensions/contacts/backend/microsoft_convert.go`](../extensions/contacts/backend/microsoft_convert.go). Effectively last-writer-wins (Graph contacts don't strictly enforce `If-Match`); etag stored for telemetry only. Multi-URL records collapse to `businessHomePage` (single field on Graph) with a log warn — documented lossy mapping.
+  - `SubscribeToContactEvents` returns `ErrUnimplemented` until a core event bus exists.
+- **Source management** (`ListSources`/`LinkAccountSource`/`SetSourceWritable`): implemented in [`app/coreimpl.go`](../app/coreimpl.go) `contactsCoreImpl`, wrapping `app.carddavStore.ListSources()` + the existing `App.LinkAccountContactSource` + `carddavStore.SetSourceWritable`. These live host-side because `contact_sources` is a host-owned table (mail's autocomplete also reads it). The Contacts extension's bridge proxies through `b.deps.Core.Contacts().*`.
 - The `Search`/`Get`/`List`/`Create`/`Update`/`Delete` methods on `app/coreimpl.go contactsCoreImpl` are intentionally `ErrUnimplemented`: routing them through coreImpl would force the Contacts extension's stores to initialize even when disabled, breaking the lightweight invariant. They get filled in when a cross-extension consumer actually needs them.
+
+**Addressbook synthetic IDs (Phase 2b.3)**:
+
+`ListAddressbooks` returns synthetic IDs for OAuth sources so the Add Contact dialog can target a specific group/folder without exposing remote ids directly to the UI:
+
+| Source type | Addressbook ID format | Maps to |
+|---|---|---|
+| CardDAV | `<addressbook UUID>` | Row in `carddav_source_addressbooks` (local mirror table). |
+| Google — My Contacts | `google-mycontacts:<sourceID>` | Default destination; no `ModifyGroupMembership` call. |
+| Google — specific group | `google-group:<contactGroupResourceName>` | POST + then `POST .../{groupResourceName}/members:modify` to add the new contact. |
+| Microsoft — default folder | `ms-default:<sourceID>` | POST `/me/contacts`. |
+| Microsoft — specific folder | `ms-folder:<folderID>` | POST `/me/contactFolders/{folderID}/contacts`. |
+
+`parseAddressbookGroupID` / `parseAddressbookFolderID` (in `google_convert.go` / `microsoft_convert.go`) parse these back to remote IDs at write time.
 
 **`ContactFilter.SourceID` conventions:**
 
@@ -462,7 +511,7 @@ type ContactPatch struct {
 | `"local:collected"` | Auto-collected from sent-mail recipients. Read-only as a *create target* (the `collected` kind is reserved for the email-collection process to assign); `UpdateContact`/`DeleteContact` work fine. |
 | `<carddav source UUID>` | Contacts from a specific CardDAV source. Reads use `carddav.Store.ListRecordIDsForSource`; writes PUT/DELETE the source's WebDAV. |
 
-**`GetContact` / `UpdateContact` / `DeleteContact` argument:** if the id contains `@`, treated as an email and routed to the local store; otherwise treated as a record UUID (works for both local and CardDAV records). `GetContact` calls `enrichCardDAVSourceID` to rewrite the literal `"carddav"` string from `fromRecord` into the actual sidebar source UUID, so the frontend's writability gate finds the source row. Write methods on Google/Microsoft sources still return `ErrUnimplemented` (Phase 2b.3); CardDAV is fully wired since 2b.2. `GetContact` returns `(nil, nil)` when not found — never an error for missing. `ContactPatch` with all-nil pointers is a no-op success.
+**`GetContact` / `UpdateContact` / `DeleteContact` argument:** if the id contains `@`, treated as an email and routed to the local store; otherwise treated as a record UUID (works for both local and CardDAV records). `GetContact` calls `enrichCardDAVSourceID` to rewrite the literal `"carddav"` string from `fromRecord` into the actual sidebar source UUID, so the frontend's writability gate finds the source row. As of Phase 2b.3, Write methods on Google AND Microsoft sources are fully wired (CardDAV since 2b.2). `GetContact` returns `(nil, nil)` when not found — never an error for missing. `ContactPatch` with all-nil pointers is a no-op success.
 
 ### `Auth`
 
@@ -473,10 +522,34 @@ type Auth interface {
     HTTPClient(accountID string, scopes []AuthScope) (*http.Client, error)
     IMAPClient(accountID string, requiredCaps []string) (IMAPClient, error)
     SMTPClient(accountID string) (SMTPClient, error)
+
+    // StartIncrementalConsent runs an interactive OAuth consent flow
+    // (synchronous; opens browser, blocks on callback, persists tokens
+    // against either an account or a standalone contacts source).
+    // Returns nil on grant or a wrapped error on user-cancel / callback
+    // failure / wrong-account mismatch. Used by extensions whose write
+    // paths hit ErrAdditionalConsentRequired from HTTPClient — they call
+    // this to upgrade the user's grant before retrying the write.
+    //
+    // Exactly one of req.AccountID or req.SourceID must be set:
+    //   - AccountID: tokens persist via SetOAuthTokensForClientConfig.
+    //   - SourceID:  tokens persist via SetContactSourceOAuthTokens.
+    // req.ExpectedEmail enforces a post-callback email match (also
+    // forwarded as login_hint so the IdP pre-selects the right account).
+    StartIncrementalConsent(req StartIncrementalConsentRequest) error
+}
+
+type StartIncrementalConsentRequest struct {
+    ClientConfigID ClientConfigID
+    Scopes         []AuthScope
+    AccountID      string // mutually exclusive with SourceID
+    SourceID       string
+    ExpectedEmail  string
+    LoginHint      string
 }
 ```
 
-Extensions get pre-configured HTTP clients with bearer token injection and transparent refresh-on-401. They never see access tokens, refresh tokens, or passwords. Full details in [§ Auth Broker](#auth-broker).
+Extensions get pre-configured HTTP clients with bearer token injection and transparent refresh-on-401. They never see access tokens, refresh tokens, or passwords. Full details in [§ Auth Broker](#auth-broker). Write-grant details in [§ Write-access grant flow](#write-access-grant-flow-account-picker-model).
 
 ### `Notifications`
 
@@ -639,15 +712,16 @@ resp, err := client.Get("https://www.googleapis.com/calendar/v3/users/me/calenda
 
 ### Routing logic
 
-When you call `HTTPClient(accountID, scopes)`:
+`core.Auth().HTTPClient(...)` calls into [`internal/extensions/auth/broker.go HTTPClientForExtension`](../internal/extensions/auth/broker.go), which reads the calling extension's manifest to decide where each scope routes:
 
-1. Broker reads the account's existing Mail tokens to discover its provider (`google`, `microsoft`)
-2. Broker picks a `ClientConfigID` for the requested scopes via [`internal/extensions/auth/scope.go resolveClientConfigID`](../internal/extensions/auth/scope.go):
-   - If the extensions-OAuth client config is provisioned (`google-extensions` / `microsoft-extensions`), route there
-   - Otherwise fall back to the mail config (graceful local-dev mode when the second OAuth project isn't set up yet)
-3. Broker checks whether the account has tokens under that ClientConfigID covering the requested scopes
-4. **Covered**: returns `*http.Client` whose Transport injects bearer + refreshes on 401
-5. **Not covered**: returns `*coreapi.ErrAdditionalConsentRequired{ ... }` with the missing scopes
+1. Broker reads the account's existing Mail tokens to discover its provider (`google`, `microsoft`).
+2. Broker classifies each requested scope using the extension's manifest:
+   - Scopes listed in `manifest.oauth.first_party_uses_core_for_scopes` route to Aerion core's **mail** client config (`<provider>-mail`) — reuses existing mail consent; no new prompt.
+   - Scopes NOT listed route to the **extension's own** client config (`<provider>-<extensionID>`, e.g., `google-contacts`).
+3. **Mixed-scope calls are rejected.** Some-to-core + some-to-own in a single call returns an error; the extension must split into two HTTPClient calls.
+4. Broker checks whether the account has tokens under the resolved `ClientConfigID` covering the requested scopes.
+5. **Covered**: returns `*http.Client` whose Transport injects bearer + refreshes on 401.
+6. **Not covered**: returns `*coreapi.ErrAdditionalConsentRequired{ AccountID, ClientConfigID, MissingScopes }`. The host runs the incremental-consent flow ([§ Incremental consent flow](#incremental-consent-flow)) and the extension retries.
 
 ### Token refresh
 
@@ -679,32 +753,43 @@ type ClientCredentials struct {
 }
 
 // Known ids:
-//   "google-mail"          — current verified Mail-scoped Google project
-//   "google-extensions"    — extension-scoped Google project (Calendar/Contacts/...)
-//   "microsoft-mail"       — current Mail-scoped Azure AD registration
-//   "microsoft-extensions" — extension-scoped Azure AD registration
+//   "google-mail"          — Aerion core's Mail-scoped Google project
+//   "microsoft-mail"       — Aerion core's Mail-scoped Azure AD registration
+//   "google-<extensionID>" — per-extension Google project (e.g., "google-contacts")
+//   "microsoft-<extensionID>" — per-extension Azure AD registration (e.g., "microsoft-contacts")
 func ClientConfigForID(id string) (ClientCredentials, bool)
 ```
 
-`ClientConfigForID` returns `(zero, false)` for configs that aren't yet provisioned (e.g., `"google-extensions"` before the second Google project is set up in the `aerion-creds` shim). The Auth Broker treats this as "fall back to the mail config" so local development works without provisioning a second project.
+Resolution order:
+
+1. User override from `credentials.Store` (Settings UI override) via `oauth2.UserOverrideLookup`
+2. Registered `CredentialsProvider` chain — Aerion core's mail slots, then each extension's own slots (registered at startup from each extension's `OAuthClients()` return value)
+3. `(zero, false)` → the consent flow surfaces "no creds configured" pointing the user at the extension's settings dialog
+
+> **Don't use `oauth2.GetProvider(clientConfigID)` to test "is this slot configured?"** It silently inherits the mail-side ldflag creds when the extension slot is empty, producing a misleading "configured" answer. Use `oauth2.ClientConfigForID(clientConfigID)` — that's the canonical resolver and only returns truthy when there are real per-slot creds. See [§ Incremental consent flow](#incremental-consent-flow) for the correctness rule.
 
 ### Provider lookup
 
 ```go
-provider, err := oauth2.GetProviderForClientConfig("google-extensions")
-// provider.ClientID, provider.ClientSecret are populated from the extension's project
-// provider.Scopes are the default Google scopes (override per-extension as needed)
+provider, err := oauth2.GetProviderForClientConfig("google-contacts")
+// provider.ClientID, provider.ClientSecret are populated from the extension's slot
+// (via ClientConfigForID's resolution chain).
+// provider.Scopes are the default Google scopes (override per-extension as needed).
 ```
 
 ### Provisioning a new client config
 
-When you ship a real extension that needs its own OAuth project:
+When you ship a new first-party extension that needs its own OAuth project:
 
-1. Create a new Google Cloud project (or Azure AD app registration) with the scopes your extension needs
-2. Add the client_id/secret to the `aerion-creds` shim binary's JSON output (keys: `google_ext_client_id`, `google_ext_client_secret`, `microsoft_ext_client_id`). See [`internal/oauth2/config.go`](../internal/oauth2/config.go) loadFromShim function.
-3. Optionally pass via ldflags at build time: `-X 'github.com/hkdb/aerion/internal/oauth2.GoogleExtClientID=...'`
+1. Create a Google Cloud project (or Azure AD app registration) with the scopes your extension needs.
+2. Define ldflag-injected vars in `extensions/<name>/creds.go` (e.g., `GoogleClientID`, `GoogleClientSecret`, `MicrosoftClientID`). See [`extensions/contacts/creds.go`](../extensions/contacts/creds.go) for the canonical pattern.
+3. Return them from the extension's `OAuthClients()` as `[]coreapi.OAuthProviderRegistration` keyed by `<provider>-<extensionID>`. The host iterates this list at startup and registers each entry into the global `ClientConfigForID` resolver chain.
+4. Inject the actual values at build time: typically a per-extension `.env` file (`extensions/<name>/.env`) consumed by the Makefile via `-ldflags '-X github.com/hkdb/aerion/extensions/<name>.GoogleClientID=...'`.
+5. Optionally also expose an "Aerion - {Google,Microsoft}" option in the extension slot's dropdown (see [§ User-supplied OAuth credentials](#user-supplied-oauth-credentials-override-ui)) so users on builds with shipped credentials can opt into them without pasting anything. The option only appears when the corresponding shipped creds were injected at build time. Choosing it clears any user-typed creds on the slot; the resolver then falls through to the shipped values via the provider chain.
 
-Once the shim publishes the new keys, `ClientConfigForID("google-extensions")` starts returning configured credentials and the Auth Broker routes extension scope requests to that client.
+Once the extension's slot is populated, `ClientConfigForID("<provider>-<extensionID>")` returns configured credentials and the Auth Broker routes the extension's scope requests to that client. Empty entries are safe — extensions can declare all their slots unconditionally and rely on build-time injection to fill in only the ones with credentials.
+
+Aerion core's mail credentials follow a separate path: they're loaded from the `aerion-creds` shim binary (or build-time ldflags) at startup. See [`internal/oauth2/config.go`](../internal/oauth2/config.go). Extension credentials do NOT use the shim — they live in their own extension package.
 
 ### Mapping legacy provider names
 
@@ -865,6 +950,8 @@ The frontend calls these via the generated Wails bindings at `frontend/wailsjs/g
 
 ### Host methods (`App` package, no prefix)
 
+Extension-relevant subset. Many other `App.*` methods exist for mail-side concerns that extensions don't touch.
+
 | Method | Purpose |
 |---|---|
 | `App.IsExtensionEnabled(name string) (bool, error)` | Read the extension's enabled flag |
@@ -874,6 +961,12 @@ The frontend calls these via the generated Wails bindings at `frontend/wailsjs/g
 | `App.ListExtensionRailTabs() ([]v1.RailTabRequest, error)` | Rail tabs for currently-enabled extensions only. Source: [`app/extension_ui.go`](../app/extension_ui.go). |
 | `App.ListAccountSetupHooksForProvider(provider string) ([]v1.AccountSetupHookRequest, error)` | Hooks matching a provider, returned regardless of enable state (hooks are the discovery surface that enables an extension). Called by `AccountDialog.svelte` after a new account is created. |
 | `App.ListExtensions() ([]app.ExtensionInfo, error)` | Full extension listing for Settings → Extensions tab. Returns manifest fields + current `enabled` state per extension. Iterates `a.knownExtensions`. Source: [`app/extension_ui.go`](../app/extension_ui.go). |
+| `App.SetContactSourceWritable(sourceID string, writable bool) error` | Flip a contact source's writable flag. Used by the Contacts extension's settings UI to enable/disable write access on CardDAV sources (a pure flag flip) and to disable previously-enabled OAuth sources. Enabling OAuth sources goes through `<Extension>_StartIncrementalConsent` (which calls `SetSourceWritable` server-side after consent). |
+| `App.GetOAuthCredsStatus(configID string) (app.OAuthCredsStatus, error)` | Reports per-slot config presence (`hasUserOverride`, `hasShipped`, last-4-char fingerprint of the active client_id). Never returns secret values. Used by the OAuth Credentials editor in each extension's settings dialog. |
+| `App.SetOAuthCreds(configID, clientID, clientSecret string) error` | Persist user-supplied client_id + secret for a slot (overrides any shipped defaults). |
+| `App.ClearOAuthCreds(configID string) error` | Remove a user override for a slot (reverts to shipped values, if any). Used both by the editor's "Clear" action and when the slot dropdown switches from Custom back to the Aerion-shipped option. |
+| `App.ListAuthContextsForProvider(provider string) ([]app.AuthContextInfo, error)` | Enumerates existing matching-provider auth identities: mail accounts (from `accountStore`) + standalone contact sources (`carddavStore.ListSources()` where `AccountID IS NULL` and `Type == provider`). Drives the `WriteAccessAccountPicker` dialog's radio list. Result entries carry `kind` (`"mail"` or `"standalone-contacts"`), `identifier` (account_id or source_id), `email`, and a pre-built display `label`. |
+| `App.CancelOAuthFlow()` | Cancel any in-progress OAuth flow (account add, write-access grant, etc.). Stops the OAuth manager's callback server; in-flight backend code returns with a cancellation error. |
 
 ### Extension bridge methods (`<Extension>_` prefix, defined on the embedded `*Bridge`)
 
@@ -895,13 +988,14 @@ Currently bound by the Contacts extension's bridge (all gate on `extension_conta
 |---|---|
 | `App.Contacts_ListContactsForBrowse(query, sourceID string, limit, offset int) ([]v1.Contact, error)` | Browse listing — wraps `extcontacts.API.ListContacts`. Returns `nil` when Contacts is disabled. |
 | `App.Contacts_GetContactDetail(emailOrID string) (*v1.Contact, error)` | Single-contact detail load. |
-| `App.Contacts_CreateContact(input v1.ContactCreateInput) (string, error)` | Create new contact. Dispatches by `input.SourceID`: `local:manual` → local store; CardDAV UUID → server PUT to the source's addressbook. Track B (2b.2.c). |
-| `App.Contacts_UpdateContact(id string, patch v1.ContactPatch) error` | Multi-field patch update (local or CardDAV; backend dispatches by source). |
-| `App.Contacts_DeleteLocalContact(email string) error` | Delete contact (local cascade or CardDAV server DELETE). |
-| `App.Contacts_ResizeContactPhoto(b64 string, maxSide int) (string, error)` | Backend image resize for the Edit dialog's photo picker (decodes base64 → CatmullRom rescale → JPEG re-encode). |
-| `App.Contacts_ListAddressbooks(sourceID string) ([]v1.Addressbook, error)` | Enabled addressbooks for a CardDAV source. Backs the Add Contact dialog's addressbook sub-picker. Track B. |
-| `App.Contacts_ListSources() ([]v1.ContactSource, error)` | All configured contact sources. Routes through `coreapi.Contacts.ListSources` (host-owned, not bridge-API). Track D. |
-| `App.Contacts_LinkAccountSource(accountID, name string, syncInterval int) (string, error)` | Creates a CardDAV-like source backed by an existing OAuth account. Routes through `coreapi.Contacts.LinkAccountSource`. Used by `AccountContactsHookPanel`. Track D. |
+| `App.Contacts_CreateContact(input v1.ContactCreateInput) (string, error)` | Create new contact. Dispatches by `input.SourceID`: `local:manual` → local store; CardDAV UUID → server PUT to the addressbook; Google source → People API; Microsoft source → Graph API. |
+| `App.Contacts_UpdateContact(id string, patch v1.ContactPatch) error` | Multi-field patch update. Backend dispatches by source type (local / CardDAV / Google / Microsoft). |
+| `App.Contacts_DeleteLocalContact(idOrEmail string) error` | Delete contact. Method name is historical — handles all source types (local cascade + CardDAV / Google / Microsoft server DELETE), not just local. |
+| `App.Contacts_ResizeContactPhoto(b64In string) (backend.ResizedContactPhoto, error)` | Backend image resize for the Edit dialog's photo picker (decodes base64 → CatmullRom rescale to 256px max edge → JPEG re-encode at quality 85). Returns `{data, mediaType}`. |
+| `App.Contacts_ListAddressbooks(sourceID string) ([]v1.Addressbook, error)` | Addressbooks for a source — CardDAV addressbooks; Google contactGroups (as `google-group:*` synthetic IDs) + a `google-mycontacts:*` default; Microsoft contactFolders (as `ms-folder:*`) + a `ms-default:*` default. See [§ Contacts](#contacts) for the synthetic-ID table. |
+| `App.Contacts_ListSources() ([]v1.ContactSource, error)` | All configured contact sources. Routes through `coreapi.Contacts.ListSources` (host-owned, not bridge-API). |
+| `App.Contacts_LinkAccountSource(accountID, name string, syncInterval int) (string, error)` | Creates a contact source backed by an existing OAuth account. Routes through `coreapi.Contacts.LinkAccountSource`. Used by `AccountContactsHookPanel`. |
+| `App.Contacts_EnableWriteAccess(sourceID, authContextKind, authContextIdentifier, expectedEmail string) error` | Single entry point for granting write access on a Google or Microsoft contacts source. The frontend `WriteAccessAccountPicker` calls this after the user picks an existing auth identity (mail account or standalone contacts source). Backend derives `clientConfigID` and write-scope from the source's provider, then dispatches into `coreapi.Auth.StartIncrementalConsent` with either `AccountID` (for `"mail"` contexts) or `SourceID` (for `"standalone-contacts"` contexts) populated. `expectedEmail` is enforced post-callback — if the granted identity's email doesn't match, the tokens are discarded and the call returns an error. Flips the source's writable flag on success. Cancellable mid-flow via `App.CancelOAuthFlow`. |
 
 ### Frontend logger
 
@@ -1519,9 +1613,9 @@ Users can paste their own Client ID + Secret per slot via Aerion's settings:
 
 Both UIs use the same shared primitive [`kit/OAuthCredsSlotEditor.svelte`](../frontend/src/lib/components/kit/OAuthCredsSlotEditor.svelte) (composed from existing `ui/input`, `ui/button`, `ui/select`, `ui/confirm-dialog` — no new low-level inputs). Each slot supports:
 
-- Edit (paste Client ID + Secret; values are password-masked and never read back to the frontend)
+- A mode dropdown — **Custom** (default; user-supplied Client ID + Secret) and, when the build embeds shipped credentials for the slot's provider, **Aerion - Google** / **Aerion - Microsoft**. The Aerion option only appears in matching `google-*` / `microsoft-*` slots. Switching to it calls `ClearOAuthCreds` so the resolver falls through to shipped values via the provider chain; switching back to Custom reveals a blank edit form.
+- Edit (paste Client ID + Secret in Custom mode; values are password-masked and never read back to the frontend)
 - Reset (clear the override and revert to shipped defaults)
-- "Copy from another slot…" — server-side copy through the credentials store; secret never crosses the Wails boundary
 
 Resolution order in `oauth2.ClientConfigForID(configID)`:
 1. User override from `credentials.Store` (Settings UI override) via `oauth2.UserOverrideLookup`
@@ -1538,13 +1632,41 @@ Two entry paths:
 1. **Explicit Edit button** in Settings → Extensions → row (when the extension is enabled)
 2. **Extension-driven auto-open** via `openExtensionSettings(extensionId)` — the extension's frontend code can open its own settings dialog when needed (e.g., on pane mount when the extension detects it's missing OAuth creds for write capability)
 
-### Incremental consent flow
+### Write-access grant flow (account-picker model)
 
-When an extension's HTTPClient call hits `ErrAdditionalConsentRequired`, the host emits an `oauth:incremental-consent-required` Wails event. The globally-mounted [`IncrementalConsentDialog.svelte`](../frontend/src/lib/components/oauth/IncrementalConsentDialog.svelte) listens for that event, displays a prompt showing the missing scopes, and (in Phase 2b.3) triggers an OAuth flow targeted at the extension's specific client config + missing scopes.
+When the user wants to enable writes on a Google or Microsoft contacts source, the UI is explicit: a dialog asks which existing Aerion auth identity to attach the new write grant to. No silent retries on access-denied; no inline "consent required" dialogs popping up mid-write.
 
-The dialog is GENERIC — all extension-specific text comes from manifest data + the missing-scope resource strings. Calendar will reuse this same dialog when its write paths land.
+**Frontend.** [`WriteAccessAccountPicker.svelte`](../frontend/src/lib/components/oauth/WriteAccessAccountPicker.svelte) is the canonical UI. It's a generic dialog that takes `provider` (`'google'` or `'microsoft'`), `sourceID`, and `sourceName`. On open it fetches `App.ListAuthContextsForProvider(provider)` to populate the radio list. The list is the union of:
 
-Phase 2b.1 SCAFFOLDS this flow but the Connect button doesn't yet kick a real OAuth handshake — that lands in 2b.3 alongside the Google People / MS Graph write paths.
+- Mail accounts of that provider (from the host's account store)
+- Standalone contacts sources of that provider (from `carddavStore.ListSources()` where `AccountID IS NULL`)
+
+There is **no "Add another account"** entry. All identities must come from Aerion's core setup paths (Mail → add account, OR Contacts → add source). If the list is empty, the dialog shows a hint pointing the user to those paths.
+
+On Continue, the dialog calls the extension's `<Extension>_EnableWriteAccess(sourceID, authContextKind, authContextIdentifier, expectedEmail)` bridge method.
+
+**Backend.** The extension's bridge method ([`Contacts_EnableWriteAccess`](../extensions/contacts/backend/bridge.go) is the reference) does:
+
+1. Derive the slot's `clientConfigID` and the write scope from the source's provider (e.g. `google-contacts` + `https://www.googleapis.com/auth/contacts`).
+2. Build a `coreapi.StartIncrementalConsentRequest`. Set exactly one of `AccountID` (when `authContextKind == "mail"`) or `SourceID` (when `"standalone-contacts"`). Set `ExpectedEmail` to the picked identity's email. Pass through to `core.Auth().StartIncrementalConsent(req)`.
+3. On `nil` return, call `core.Contacts().SetSourceWritable(sourceID, true)`.
+
+The host's `StartIncrementalConsent` implementation:
+- Opens the browser, blocks until callback fires (or `App.CancelOAuthFlow` is called).
+- Passes `login_hint=<ExpectedEmail>` so the IdP account picker pre-selects the right account.
+- Validates the granted email matches `ExpectedEmail`. Mismatch → discard tokens, return error.
+- Persists tokens via `SetOAuthTokensForClientConfig(AccountID, slot, …)` (for mail contexts) or `SetContactSourceOAuthTokens(SourceID, …)` (for standalone contexts).
+
+**Slot-creds detection.** Before calling `EnableWriteAccess`, the picker doesn't probe slot state — the extension does that inside its bridge method. Use `oauth2.ClientConfigForID(clientConfigID)`; it walks the user-override + registered-provider chain and returns truthy only when there are real per-slot creds. Do NOT use `oauth2.GetProvider(clientConfigID)` for this check: it silently inherits the mail-side ldflag-injected creds when the extension's slot is empty, which produces a misleading "configured" answer.
+
+```go
+slotCreds, slotOK := oauth2.ClientConfigForID(string(clientConfigID))
+if !slotOK || slotCreds.ClientID == "" {
+    return fmt.Errorf("no OAuth credentials configured for %q — set them up in Settings → Extensions → … → OAuth Credentials", clientConfigID)
+}
+```
+
+**Why not retry-on-write?** Retry-with-consent worked for the prototype but conflated *which* identity owned the write with *whether* scopes were missing. Users with multiple Google accounts ended up granting writes to the wrong one. The picker model surfaces the identity decision up front and verifies it on the callback.
 
 ### Local-contact edit/delete
 
@@ -1557,12 +1679,10 @@ For sent-recipient (local) contacts and CardDAV contacts alike, the Contacts ext
 | Frontend (`ContactEditDialog.svelte`) | Collects multi-field form state; calls `contactsView.updateContact(id, patch)` |
 | Frontend store ([`contactsView.svelte.ts`](../extensions/contacts/frontend/stores/contactsView.svelte.ts)) | Calls Wails-bound `App.Contacts_UpdateContact(id, patch)` (imported with alias `UpdateContact`) |
 | Bridge method ([`extensions/contacts/backend/bridge.go`](../extensions/contacts/backend/bridge.go)) | `Contacts_UpdateContact` gates on `gateEnabled()`, calls `ensureInit()`, then delegates to the lazy-initialized `b.api.UpdateContact(id, patch)` |
-| Extension API ([`extensions/contacts/backend/api.go`](../extensions/contacts/backend/api.go)) | `UpdateContact` calls `applyContactPatchToRecord(rec, patch)` to apply every non-nil patch field, then source-dispatches by id: local id → `contact.Store.UpsertRecord(rec)`; CardDAV UUID → `writeCardDAVRecord(rec)` (PUT the full vCard); Google/MS UUID → `ErrUnimplemented` (filled in by 2b.3) |
+| Extension API ([`extensions/contacts/backend/api.go`](../extensions/contacts/backend/api.go)) | `UpdateContact` calls `applyContactPatchToRecord(rec, patch)` to apply every non-nil patch field, then source-dispatches by source type: local → `contact.Store.UpsertRecord(rec)`; CardDAV → `writeCardDAVRecord(rec)` (PUT the full vCard); Google → `updateGoogleContact` in `google_api.go`; Microsoft → `updateMicrosoftContact` in `microsoft_api.go`. |
 | Core store ([`internal/contact/store.go`](../internal/contact/store.go)) | `UpsertRecord` / `UpsertRecordTx` writes the record + all sub-tables (emails, phones, addresses, urls, impps, categories, photo). Sets `name_overridden=1` on every email when the Name field is patched, so auto-collection never clobbers a user edit. |
 
-**Why route through the extension API instead of calling the core store directly:** writes follow the same SDK pattern as reads. CardDAV writes shipped in 2b.2 (PUT/DELETE) and 2b.2.c (POST-new); Google/MS writes land in 2b.3 by filling in the corresponding source branches inside `extcontactsbe.API.UpdateContact`/`DeleteContact`/`CreateContact` — NO new Wails methods, NO new direct-store call sites. Future extensions (Calendar) declare their CRUD on their own `coreapi` interface and follow the same pattern.
-
-Google / Microsoft contact edits remain the one source branch still returning `ErrUnimplemented` today; Phase 2b.3 fills those in alongside incremental-consent OAuth for write scopes.
+**Why route through the extension API instead of calling the core store directly:** writes follow the same SDK pattern as reads. CardDAV writes shipped in 2b.2 (PUT/DELETE) and 2b.2.c (POST-new). Phase 2b.3 added Google + Microsoft branches inside `extcontactsbe.API.CreateContact` / `UpdateContact` / `DeleteContact` — the per-provider logic lives in [`extensions/contacts/backend/google_api.go`](../extensions/contacts/backend/google_api.go) and [`extensions/contacts/backend/microsoft_api.go`](../extensions/contacts/backend/microsoft_api.go). NO new Wails methods, NO new direct-store call sites. Future extensions (Calendar) declare their CRUD on their own `coreapi` interface and follow the same pattern.
 
 ### Source-dispatch pattern (transferable to Calendar / future extensions)
 
@@ -1574,21 +1694,25 @@ func (a *API) UpdateThing(id string, patch coreapi.ThingPatch) error {
     if id == "" {
         return fmt.Errorf("…: id is required")
     }
-    if isLocalID(id) {        // e.g., email format, or a "local:" prefix
+    sourceType, err := a.resolveSourceType(id) // local | carddav | google | microsoft
+    if err != nil {
+        return err
+    }
+    switch sourceType {
+    case "local":
         return a.localPath(id, patch)
-    }
-    if isCardDAVID(id) {      // e.g., UUID + lookup in carddav store
-        return a.carddavPath(id, patch) // returns ErrUnimplemented until ready
-    }
-    if isGoogleID(id) {
+    case "carddav":
+        return a.carddavPath(id, patch)
+    case "google":
         return a.googlePath(id, patch)
-    }
-    if isMicrosoftID(id) {
+    case "microsoft":
         return a.microsoftPath(id, patch)
     }
     return coreapi.ErrUnimplemented
 }
 ```
+
+Aerion's house style avoids `if/else` chains. Use guard clauses for early returns and `switch` for branch dispatch — both for readability and because the no-else convention is enforced project-wide (see [§ The two hard rules](#the-two-hard-rules-for-any-new-extension)).
 
 Rules that hold across this pattern:
 
@@ -1602,7 +1726,13 @@ When Calendar lands, its `coreapi.Calendar` interface gains `CreateEvent`/`Updat
 
 ### Source `writable` flag
 
-`contact_sources.writable` is a boolean tracking whether the user has write capability enabled on a given source. **New CardDAV sources default to `writable = true`** as of 2b.2.b.2 — adding a CardDAV source signals intent to use it; forcing users to dig into a hidden toggle was the previous discoverability bug. The user can opt out by un-checking "Enable write access" in the source dialog. OAuth-linked sources (Google/Microsoft) keep `writable = false` by default until 2b.3 ships the incremental-consent flow that grants write-scoped tokens under the extension's client config; the dialog's writable toggle is disabled for those source rows in the meantime.
+`contact_sources.writable` is a boolean tracking whether the user has write capability enabled on a given source. **New CardDAV sources default to `writable = true`** at creation time — adding a CardDAV source signals intent to use it. New OAuth-linked sources (Google/Microsoft) default to `writable = false`; the user opts in via the incremental-consent flow.
+
+**The canonical Enable/Disable lever lives in the extension's own settings dialog**, NOT in the core source-edit dialog. For Contacts that's Settings → Extensions → Contacts → "Write Access" section (see [`ContactsSettingsDialog.svelte`](../extensions/contacts/frontend/components/ContactsSettingsDialog.svelte)). The section lists every external source (CardDAV + OAuth) regardless of state; per-row button flips between Enable / Disable based on `source.writable`. CardDAV is a pure flag flip via `App.SetContactSourceWritable`; Google / Microsoft route through the incremental-consent flow (which itself flips writable on success via `coreapi.Contacts.SetSourceWritable`).
+
+**Optional contextual surface** — extensions can also surface a banner in their main pane for the discoverable enable case (see [`WriteAccessBanner.svelte`](../extensions/contacts/frontend/components/WriteAccessBanner.svelte)). The banner shows enable-only rows and auto-hides once a source is writable; its visibility tracks the sidebar selection so it stays contextual. The canonical Disable lever stays in the settings dialog.
+
+**Phase 2b.3 cleanup**: the writable toggle was REMOVED from the core source-edit dialog ([`ContactSourceDialog.svelte`](../frontend/src/lib/components/settings/ContactSourceDialog.svelte)) so the extension owns this UX. New extensions with writable external sources should follow the same pattern: own the Enable/Disable lever in your own settings dialog, don't add a toggle to host-side source-edit UIs.
 
 ---
 
@@ -1787,11 +1917,8 @@ Things extensions CANNOT do in v0.3.0. Items marked with a phase have a planned 
 
 ### Frontend
 
-- The extension rail (first ship: Phase 2a, when Contacts becomes the second extension)
-- Slot pattern for swapping main pane between Mail and other extensions (Phase 2a)
-- Account-setup hook UI in `AccountDialog` (Phase 2a)
-- Per-extension settings tab in the Settings dialog (Phase 3+)
-- Per-extension context menu items (Phase 3+)
+- Per-extension context menu items (`UI.RegisterContextMenuItem` accepts registrations but no consumer reads them yet)
+- Per-extension inbox views (`UI.RegisterInboxView` — same as above)
 
 ### System
 

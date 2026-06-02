@@ -113,6 +113,14 @@ type ContactSource struct {
 	Name     string `json:"name"`
 	Type     string `json:"type"` // "carddav" | "google" | "microsoft"
 	Writable bool   `json:"writable"`
+	// AccountID is the email account this source is linked to, when the source
+	// was created via LinkAccountSource. Standalone CardDAV / contacts-only
+	// OAuth sources have AccountID == "" (no linked email account).
+	//
+	// Surfaced so consent flows (Phase 2b.3) can find the source corresponding
+	// to a given account after running incremental consent, without exposing
+	// the host's full Source struct.
+	AccountID string `json:"accountId,omitempty"`
 }
 
 // Contacts is the read/write/subscribe surface for contacts.
@@ -140,6 +148,14 @@ type Contacts interface {
 	// source's id. syncInterval is in minutes; 60 is the conventional
 	// default. Errors with ErrAccountNotFound when the account doesn't exist.
 	LinkAccountSource(accountID, name string, syncInterval int) (string, error)
+
+	// SetSourceWritable flips the writable flag on a contact source. Used
+	// by the incremental-consent flow (Phase 2b.3) after the user grants
+	// write scopes for an OAuth source. CardDAV sources also use it via
+	// the "Enable write access" toggle in the source-settings dialog (where
+	// it's a pure flag flip — no consent needed because basic-auth grants
+	// full access).
+	SetSourceWritable(sourceID string, writable bool) error
 
 	CreateContact(input ContactCreateInput) (id string, err error)
 	UpdateContact(id string, patch ContactPatch) error

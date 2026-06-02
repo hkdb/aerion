@@ -11,6 +11,10 @@ type ProviderConfig struct {
 	Scopes       []string // Required OAuth scopes
 	ClientID     string   // OAuth client ID
 	ClientSecret string   // OAuth client secret (may be empty for public clients)
+	LoginHint    string   // Optional: pre-fill the account picker (`login_hint`).
+	//                       Used by the Contacts extension's write-access flow
+	//                       to constrain the user to a specific email address
+	//                       matching an existing read account. Empty = no hint.
 }
 
 // GoogleProvider returns the OAuth2 configuration for Google/Gmail
