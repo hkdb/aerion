@@ -12,12 +12,14 @@
   // refetch of the current window without changing view state.
 
   import { onMount, onDestroy } from 'svelte'
-  import { _ } from 'svelte-i18n'
   import PaneLayout from '$lib/components/kit/PaneLayout.svelte'
   import DetailOverlay from '$lib/components/kit/DetailOverlay.svelte'
   import CalendarSidebar from './CalendarSidebar.svelte'
   import ViewSwitcher from './ViewSwitcher.svelte'
   import MonthView from './views/MonthView.svelte'
+  import WeekView from './views/WeekView.svelte'
+  import DayView from './views/DayView.svelte'
+  import AgendaView from './views/AgendaView.svelte'
   import EventDetail from './EventDetail.svelte'
   import AddCalDAVSourceDialog from './AddCalDAVSourceDialog.svelte'
   import { calendarSources } from '$extensions/calendar/frontend/stores/calendarSources.svelte'
@@ -97,14 +99,10 @@
   <CalendarSidebar onAddSource={() => { showAddSource = true }} onOpenSettings={openSettings} />
   <div class="flex-1 flex flex-col min-w-0 bg-background">
     <ViewSwitcher />
-    {#if calendarView.viewKind === 'month'}
-      <MonthView />
-    {/if}
-    {#if calendarView.viewKind !== 'month'}
-      <div class="flex-1 flex items-center justify-center text-muted-foreground text-sm px-6 text-center">
-        {$_('calendar.viewSwitcher.comingSoon', { values: { view: calendarView.viewKind } })}
-      </div>
-    {/if}
+    {#if calendarView.viewKind === 'month'}<MonthView />{/if}
+    {#if calendarView.viewKind === 'week'}<WeekView />{/if}
+    {#if calendarView.viewKind === 'day'}<DayView />{/if}
+    {#if calendarView.viewKind === 'agenda'}<AgendaView />{/if}
   </div>
 </PaneLayout>
 

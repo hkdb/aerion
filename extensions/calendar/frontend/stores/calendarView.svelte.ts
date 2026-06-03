@@ -40,6 +40,15 @@ const visibleRange = $derived.by<{ fromUnix: number; toUnix: number }>(() => {
 })
 
 function setViewKind(k: ViewKind) {
+  // Anchor-snap when leaving Month: jump to today if the visible month
+  // contains today, else the 1st of the visible month (already anchorDate).
+  // Predictable land-position when switching out of Month.
+  if (viewKind === 'month' && k !== 'month') {
+    const today = startOfDay(new Date())
+    const sameMonth = anchorDate.getFullYear() === today.getFullYear()
+      && anchorDate.getMonth() === today.getMonth()
+    if (sameMonth) anchorDate = today
+  }
   viewKind = k
   selectedEventId = null
   eventFocusMode = 'off'

@@ -3,9 +3,7 @@
   // selector (Month/Week/Day/Agenda), date navigation (<, Today, >),
   // tz indicator, and the Sync button.
   //
-  // Phase 1D wires up Month only. Week/Day/Agenda buttons render but show
-  // a "coming soon" hint on hover; switching to them puts the active view
-  // body in a placeholder state. 1F lights up the other three.
+  // All four view kinds are wired as of 1F.
 
   import { _ } from 'svelte-i18n'
   import Icon from '@iconify/svelte'
@@ -16,14 +14,13 @@
   interface ViewOption {
     kind: ViewKind
     label: string
-    enabled: boolean
   }
 
   const viewOptions = $derived<ViewOption[]>([
-    { kind: 'month', label: $_('calendar.viewSwitcher.month'), enabled: true },
-    { kind: 'week', label: $_('calendar.viewSwitcher.week'), enabled: false },
-    { kind: 'day', label: $_('calendar.viewSwitcher.day'), enabled: false },
-    { kind: 'agenda', label: $_('calendar.viewSwitcher.agenda'), enabled: false },
+    { kind: 'month', label: $_('calendar.viewSwitcher.month') },
+    { kind: 'week', label: $_('calendar.viewSwitcher.week') },
+    { kind: 'day', label: $_('calendar.viewSwitcher.day') },
+    { kind: 'agenda', label: $_('calendar.viewSwitcher.agenda') },
   ])
 
   // Browser's resolved IANA timezone, for the tz indicator.
@@ -60,10 +57,8 @@
         <button
           type="button"
           class="px-2.5 py-1 text-xs font-medium transition-colors
-                 {calendarView.viewKind === opt.kind ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted/40 text-foreground'}
-                 {!opt.enabled ? 'opacity-50' : ''}"
-          title={opt.enabled ? '' : $_('calendar.viewSwitcher.comingSoon', { values: { view: opt.label } })}
-          onclick={() => { if (opt.enabled) calendarView.setViewKind(opt.kind) }}
+                 {calendarView.viewKind === opt.kind ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted/40 text-foreground'}"
+          onclick={() => calendarView.setViewKind(opt.kind)}
         >
           {opt.label}
         </button>

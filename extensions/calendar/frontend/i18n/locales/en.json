@@ -95,6 +95,15 @@
       "yearly": "Yearly",
       "until": "until {date}",
       "count": "({count} occurrences)"
+    },
+    "agenda": {
+      "empty": "No events in the next 14 days.",
+      "allDayPrefix": "all day",
+      "rangeLabel": "{from} – {to}"
+    },
+    "timeline": {
+      "allDay": "all day",
+      "nowLabel": "Now"
     }
   }
 }
