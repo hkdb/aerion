@@ -284,6 +284,49 @@ func (e *Engine) fetchMessageBodiesBatch(ctx context.Context, client *imapclient
 	return results, nil
 }
 
+// recordBodyFetchAttempts charges a persistent parse attempt to every requested
+// message that did not come back with a usable body this round — either the
+// server returned nothing for it, or it parsed to an empty body. Encrypted
+// messages (which legitimately have an empty plaintext body until decrypted on
+// view) count as resolved. Once a message reaches MaxBodyParseAttempts it is
+// excluded from future body-fetch queries (see needsBodyPredicate), so a
+// permanently-unparseable message is fetched at most MaxBodyParseAttempts times
+// total instead of on every sync forever.
+func (e *Engine) recordBodyFetchAttempts(requestedIDs []string, updates []message.BodyUpdate) {
+	if len(requestedIDs) == 0 {
+		return
+	}
+
+	resolved := make(map[string]bool, len(updates))
+	for _, u := range updates {
+		if u.BodyHTML != "" || u.BodyText != "" || u.SMIMEEncrypted || u.PGPEncrypted {
+			resolved[u.MessageID] = true
+		}
+	}
+
+	var unresolved []string
+	for _, id := range requestedIDs {
+		if !resolved[id] {
+			unresolved = append(unresolved, id)
+		}
+	}
+	if len(unresolved) == 0 {
+		return
+	}
+
+	exhausted, err := e.messageStore.IncrementBodyAttempts(unresolved)
+	if err != nil {
+		e.log.Warn().Err(err).Int("count", len(unresolved)).Msg("Failed to record body fetch attempts")
+		return
+	}
+	for _, id := range exhausted {
+		e.log.Warn().
+			Str("messageID", id).
+			Int("maxAttempts", message.MaxBodyParseAttempts).
+			Msg("Giving up on message body after max attempts — will not retry in future syncs")
+	}
+}
+
 // FetchBodiesInBackground fetches bodies for messages that don't have them yet.
 // This is called after headers sync to fetch bodies in the background.
 // syncPeriodDays limits body fetching to messages within the sync period (0 = all messages).
@@ -374,14 +417,12 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 	fetched := 0
 	failed := 0
 
-	// Track parse failures per message in this sync session
-	// Messages that fail parsing (empty body) 3 times will be skipped for the rest of this session
-	// This prevents infinite loops on messages that legitimately have no parseable body
-	failedParseAttempts := make(map[string]int) // messageID -> attempt count
-	const maxParseAttempts = 3
-
-	// Processing result from goroutine - contains parsed data ready for DB
+	// Processing result from goroutine - contains parsed data ready for DB.
+	// requestedIDs is every message the batch asked the server for, so we can tell
+	// which ones came back unusable (empty parse or not returned) and charge them a
+	// persistent parse attempt — see recordBodyFetchAttempts.
 	type processingResult struct {
+		requestedIDs []string
 		bodyUpdates  []message.BodyUpdate
 		attachments  []*message.Attachment
 		fetchedCount int
@@ -424,20 +465,6 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 				Int("fetchedCount", result.fetchedCount).
 				Msg("Received result from processing goroutine")
 
-			// Track messages that parsed to empty body (potential parse failures)
-			// These will be skipped after maxParseAttempts to prevent infinite loops
-			for _, update := range result.bodyUpdates {
-				if update.BodyHTML == "" && update.BodyText == "" {
-					failedParseAttempts[update.MessageID]++
-					if failedParseAttempts[update.MessageID] >= maxParseAttempts {
-						e.log.Warn().
-							Str("messageID", update.MessageID).
-							Int("attempts", failedParseAttempts[update.MessageID]).
-							Msg("Message body parsing failed after max attempts, skipping for this session")
-					}
-				}
-			}
-
 			// Apply database updates - MUST complete before querying next batch
 			if len(result.bodyUpdates) > 0 {
 				e.log.Debug().Int("count", len(result.bodyUpdates)).Msg("Applying batch DB update")
@@ -457,6 +484,10 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 					// Attachments failed but bodies were saved, don't count as failed
 				}
 			}
+
+			// Charge a persistent parse attempt to any requested message that came
+			// back unusable, so it is not re-fetched forever across future syncs.
+			e.recordBodyFetchAttempts(result.requestedIDs, result.bodyUpdates)
 
 			// Emit progress after DB update completes
 			e.log.Debug().Int("fetched", fetched).Int("total", totalWithoutBody).Msg("Emitting progress")
@@ -490,23 +521,10 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 			break // All done
 		}
 
-		// Filter out messages that have already failed parsing too many times this session
-		var filteredCandidates []message.MessageWithSize
-		for _, msg := range candidates {
-			if failedParseAttempts[msg.ID] >= maxParseAttempts {
-				continue // Skip - already failed too many times this session
-			}
-			filteredCandidates = append(filteredCandidates, msg)
-		}
-
-		// If all candidates have been filtered out, we're done
-		if len(filteredCandidates) == 0 {
-			e.log.Debug().
-				Int("totalCandidates", len(candidates)).
-				Int("skippedDueToRetries", len(candidates)).
-				Msg("All remaining candidates have exceeded parse retry limit, finishing sync")
-			break
-		}
+		// Messages that have exhausted their parse-attempt budget are already
+		// excluded by GetMessagesWithoutBodyAndSize (body_attempts < max), so the
+		// candidate list needs no further in-memory filtering.
+		filteredCandidates := candidates
 
 		// Adaptive batch sizing: use smaller batches for large mailboxes
 		// This provides faster recovery if one batch fails and more frequent progress updates
@@ -634,15 +652,12 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 		// Reset failure counters on success
 		failedBatches = 0
 
-		// If we got no bodies back, mark all messages in this batch as failed
-		// to prevent infinite loop (same messages being queried over and over)
+		// If we got no bodies back, charge a parse attempt to every requested
+		// message so they are eventually given up on (persistently) instead of
+		// being re-queried forever.
 		if len(bodies) == 0 {
 			e.log.Warn().Int("requested", len(uidToMessageID)).Msg("IMAP returned no bodies for batch")
-			// Mark all messages in this batch as having failed parse attempts
-			// This prevents them from being selected again in this sync session
-			for _, msgID := range batchIDs {
-				failedParseAttempts[msgID] = maxParseAttempts // Mark as max failures to skip
-			}
+			e.recordBodyFetchAttempts(batchIDs, nil)
 			failed += len(uidToMessageID)
 			continue
 		}
@@ -687,6 +702,7 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 				Msg("Built body updates and attachments for batch")
 
 			resultChan <- processingResult{
+				requestedIDs: batchIDs,
 				bodyUpdates:  bodyUpdates,
 				attachments:  allAttachments,
 				fetchedCount: len(currentBodies),
@@ -701,19 +717,6 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 	if pendingResultChan != nil {
 		result := <-pendingResultChan
 
-		// Track messages that parsed to empty body (for logging purposes on final batch)
-		for _, update := range result.bodyUpdates {
-			if update.BodyHTML == "" && update.BodyText == "" {
-				failedParseAttempts[update.MessageID]++
-				if failedParseAttempts[update.MessageID] >= maxParseAttempts {
-					e.log.Warn().
-						Str("messageID", update.MessageID).
-						Int("attempts", failedParseAttempts[update.MessageID]).
-						Msg("Message body parsing failed after max attempts, skipping for this session")
-				}
-			}
-		}
-
 		if len(result.bodyUpdates) > 0 {
 			if err := e.messageStore.UpdateBodiesBatch(result.bodyUpdates); err != nil {
 				e.log.Warn().Err(err).Msg("Failed to batch update bodies (final)")
@@ -727,6 +730,9 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 				e.log.Warn().Err(err).Msg("Failed to batch create attachments (final)")
 			}
 		}
+
+		// Charge a persistent parse attempt to any unusable message in the final batch.
+		e.recordBodyFetchAttempts(result.requestedIDs, result.bodyUpdates)
 
 		e.emitProgress(accountID, folderID, fetched, totalWithoutBody, "bodies")
 	}

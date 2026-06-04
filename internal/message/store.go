@@ -15,6 +15,28 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// MaxBodyParseAttempts is the number of times a message body fetch/parse may be
+// attempted before the message is permanently skipped. The counter is persisted
+// in messages.body_attempts so the decision survives across sync sessions —
+// otherwise an unparseable message is re-fetched from IMAP on every sync forever.
+const MaxBodyParseAttempts = 3
+
+// needsBodyPredicate is the SQL boolean (over the `messages` table aliased as the
+// row itself) that matches messages still requiring a body fetch:
+//   - never fetched (body_fetched = 0), or
+//   - fetched but the parsed body is empty (failed parse / no usable text part),
+//     excluding encrypted messages which are intentionally empty until decrypted
+//     on view,
+//
+// AND that have not yet exhausted the parse-attempt budget. Centralised here so
+// the list/size/count queries can never drift apart.
+var needsBodyPredicate = fmt.Sprintf(`(
+		(body_fetched = 0
+		 OR (body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0
+		     AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = '')))
+		AND body_attempts < %d
+	)`, MaxBodyParseAttempts)
+
 // Store provides message persistence operations
 type Store struct {
 	db  *database.DB
@@ -225,50 +247,26 @@ func (s *Store) CountConversationsUnifiedInbox(filter string) (int, error) {
 	return count, nil
 }
 
-// GetUnifiedInboxUnreadCount returns the total unread message count across all inbox folders
-// Uses the cached folder.unread_count values to stay consistent with sidebar folder counts
+// GetUnifiedInboxUnreadCount returns the total unread message count across all inbox folders.
+// Counts unread messages live from the messages table (rather than summing the cached
+// folder.unread_count values, which can drift stale) so it always matches the message
+// list header, which also counts live.
 func (s *Store) GetUnifiedInboxUnreadCount() (int, error) {
-	// First, log individual inbox folders for debugging
-	debugQuery := `
-		SELECT f.id, f.name, f.folder_type, f.unread_count, a.name as account_name, a.enabled
-		FROM folders f
-		INNER JOIN accounts a ON f.account_id = a.id
-		WHERE f.folder_type = 'inbox'
-	`
-	rows, err := s.db.Query(debugQuery)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var folderID, folderName, folderType, accountName string
-			var unreadCount int
-			var enabled bool
-			if err := rows.Scan(&folderID, &folderName, &folderType, &unreadCount, &accountName, &enabled); err == nil {
-				s.log.Debug().
-					Str("folderID", folderID).
-					Str("folderName", folderName).
-					Str("folderType", folderType).
-					Int("unreadCount", unreadCount).
-					Str("accountName", accountName).
-					Bool("enabled", enabled).
-					Msg("Inbox folder for unified count")
-			}
-		}
-	}
-
 	query := `
-		SELECT COALESCE(SUM(f.unread_count), 0)
-		FROM folders f
+		SELECT COUNT(*)
+		FROM messages m
+		INNER JOIN folders f ON m.folder_id = f.id AND f.folder_type = 'inbox'
 		INNER JOIN accounts a ON f.account_id = a.id AND a.enabled = 1
-		WHERE f.folder_type = 'inbox'
+		WHERE m.is_read = 0
 	`
 
 	var count int
-	err = s.db.QueryRow(query).Scan(&count)
+	err := s.db.QueryRow(query).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count unified inbox unread: %w", err)
 	}
 
-	s.log.Debug().Int("unreadCount", count).Msg("GetUnifiedInboxUnreadCount (sum of folder counts)")
+	s.log.Debug().Int("unreadCount", count).Msg("GetUnifiedInboxUnreadCount (live)")
 	return count, nil
 }
 
@@ -881,39 +879,98 @@ func (s *Store) UpdateBody(messageID, bodyHTML, bodyText, snippet string, hasAtt
 	return nil
 }
 
-// GetMessagesWithoutBody returns message IDs that don't have their body fetched yet
-// GetMessagesWithoutBody returns message IDs that don't have their body fetched yet,
-// or have body_fetched=1 but empty body content (self-healing for failed parses).
-// If sinceDate is not zero, only returns messages dated on or after that date.
+// IncrementBodyAttempts records a failed body fetch/parse attempt for the given
+// messages (the parsed body came back empty, or the server did not return the
+// message). It returns the subset of messageIDs that have now reached
+// MaxBodyParseAttempts — i.e. messages we are giving up on permanently — so the
+// caller can log them once. Runs in a single transaction.
+func (s *Store) IncrementBodyAttempts(messageIDs []string) ([]string, error) {
+	if len(messageIDs) == 0 {
+		return nil, nil
+	}
+
+	placeholders := make([]string, len(messageIDs))
+	args := make([]interface{}, len(messageIDs))
+	for i, id := range messageIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	inClause := strings.Join(placeholders, ",")
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.Exec(
+		`UPDATE messages SET body_attempts = body_attempts + 1 WHERE id IN (`+inClause+`)`,
+		args...,
+	); err != nil {
+		return nil, fmt.Errorf("failed to increment body attempts: %w", err)
+	}
+
+	// Identify messages that have now exhausted their attempt budget.
+	exhaustedArgs := append(args, MaxBodyParseAttempts)
+	rows, err := tx.Query(
+		`SELECT id FROM messages WHERE id IN (`+inClause+`) AND body_attempts >= ?`,
+		exhaustedArgs...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query exhausted messages: %w", err)
+	}
+	var exhausted []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			_ = rows.Close()
+			return nil, fmt.Errorf("failed to scan exhausted message id: %w", err)
+		}
+		exhausted = append(exhausted, id)
+	}
+	_ = rows.Close()
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit body attempts: %w", err)
+	}
+	return exhausted, nil
+}
+
+// ResetBodyAttempts clears the body-parse attempt counter for all messages so
+// previously-skipped messages are retried once more. Intended to be called when
+// the body parser is improved (e.g. from a migration), so messages that were
+// unparseable under an old parser get another chance under the new one.
+func (s *Store) ResetBodyAttempts() error {
+	_, err := s.db.Exec(`UPDATE messages SET body_attempts = 0 WHERE body_attempts > 0`)
+	if err != nil {
+		return fmt.Errorf("failed to reset body attempts: %w", err)
+	}
+	return nil
+}
+
+// GetMessagesWithoutBody returns message IDs that still need their body fetched
+// (never fetched, or fetched-but-empty and under the parse-attempt budget — see
+// needsBodyPredicate). If sinceDate is not zero, only returns messages dated on
+// or after that date.
 func (s *Store) GetMessagesWithoutBody(folderID string, limit int, sinceDate time.Time) ([]string, error) {
-	var query string
 	var rows *sql.Rows
 	var err error
 
-	// Include messages where body_fetched=0 OR body was fetched but is empty (needs re-fetch)
-	// Exclude encrypted messages which intentionally have empty body (decrypted on-view)
 	if sinceDate.IsZero() {
-		query = `
+		rows, err = s.db.Query(`
 			SELECT id FROM messages
-			WHERE folder_id = ? AND (
-				body_fetched = 0 OR
-				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			)
+			WHERE folder_id = ? AND `+needsBodyPredicate+`
 			ORDER BY date DESC
 			LIMIT ?
-		`
-		rows, err = s.db.Query(query, folderID, limit)
+		`, folderID, limit)
 	} else {
-		query = `
+		rows, err = s.db.Query(`
 			SELECT id FROM messages
-			WHERE folder_id = ? AND (
-				body_fetched = 0 OR
-				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			) AND (date >= ? OR date < '1970-01-01')
+			WHERE folder_id = ? AND `+needsBodyPredicate+`
+			AND (date >= ? OR date < '1970-01-01')
 			ORDER BY date DESC
 			LIMIT ?
-		`
-		rows, err = s.db.Query(query, folderID, sinceDate, limit)
+		`, folderID, sinceDate, limit)
 	}
 
 	if err != nil {
@@ -938,38 +995,29 @@ type MessageWithSize struct {
 	Size int
 }
 
-// GetMessagesWithoutBodyAndSize returns message IDs and sizes that don't have their body fetched yet,
-// ordered by date descending (newest first). Used for byte-aware batch planning.
-// If sinceDate is not zero, only returns messages dated on or after that date.
+// GetMessagesWithoutBodyAndSize returns message IDs and sizes that still need their
+// body fetched (see needsBodyPredicate), ordered by date descending (newest first).
+// Used for byte-aware batch planning. If sinceDate is not zero, only returns
+// messages dated on or after that date.
 func (s *Store) GetMessagesWithoutBodyAndSize(folderID string, limit int, sinceDate time.Time) ([]MessageWithSize, error) {
-	var query string
 	var rows *sql.Rows
 	var err error
 
-	// Include messages where body_fetched=0 OR body was fetched but is empty (needs re-fetch)
-	// Exclude encrypted messages which intentionally have empty body (decrypted on-view)
 	if sinceDate.IsZero() {
-		query = `
+		rows, err = s.db.Query(`
 			SELECT id, size FROM messages
-			WHERE folder_id = ? AND (
-				body_fetched = 0 OR
-				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			)
+			WHERE folder_id = ? AND `+needsBodyPredicate+`
 			ORDER BY date DESC
 			LIMIT ?
-		`
-		rows, err = s.db.Query(query, folderID, limit)
+		`, folderID, limit)
 	} else {
-		query = `
+		rows, err = s.db.Query(`
 			SELECT id, size FROM messages
-			WHERE folder_id = ? AND (
-				body_fetched = 0 OR
-				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			) AND (date >= ? OR date < '1970-01-01')
+			WHERE folder_id = ? AND `+needsBodyPredicate+`
+			AND (date >= ? OR date < '1970-01-01')
 			ORDER BY date DESC
 			LIMIT ?
-		`
-		rows, err = s.db.Query(query, folderID, sinceDate, limit)
+		`, folderID, sinceDate, limit)
 	}
 
 	if err != nil {
@@ -988,29 +1036,22 @@ func (s *Store) GetMessagesWithoutBodyAndSize(folderID string, limit int, sinceD
 	return messages, nil
 }
 
-// CountMessagesWithoutBody returns the count of messages that don't have their body fetched,
-// or have body_fetched=1 but empty body content (self-healing for failed parses).
-// If sinceDate is not zero, only counts messages dated on or after that date.
+// CountMessagesWithoutBody returns the count of messages that still need their body
+// fetched (see needsBodyPredicate). If sinceDate is not zero, only counts messages
+// dated on or after that date.
 func (s *Store) CountMessagesWithoutBody(folderID string, sinceDate time.Time) (int, error) {
 	var count int
 	var err error
 
-	// Include messages where body_fetched=0 OR body was fetched but is empty (needs re-fetch)
-	// Exclude encrypted messages which intentionally have empty body (decrypted on-view)
 	if sinceDate.IsZero() {
 		err = s.db.QueryRow(
-			`SELECT COUNT(*) FROM messages WHERE folder_id = ? AND (
-				body_fetched = 0 OR
-				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			)`,
+			`SELECT COUNT(*) FROM messages WHERE folder_id = ? AND `+needsBodyPredicate,
 			folderID,
 		).Scan(&count)
 	} else {
 		err = s.db.QueryRow(
-			`SELECT COUNT(*) FROM messages WHERE folder_id = ? AND (
-				body_fetched = 0 OR
-				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			) AND (date >= ? OR date < '1970-01-01')`,
+			`SELECT COUNT(*) FROM messages WHERE folder_id = ? AND `+needsBodyPredicate+`
+			AND (date >= ? OR date < '1970-01-01')`,
 			folderID, sinceDate,
 		).Scan(&count)
 	}

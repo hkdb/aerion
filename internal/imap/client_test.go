@@ -97,8 +97,8 @@ func TestDefaultConfig(t *testing.T) {
 func TestDefaultPoolConfig(t *testing.T) {
 	cfg := DefaultPoolConfig()
 
-	if cfg.MaxConnections != 3 {
-		t.Errorf("DefaultPoolConfig().MaxConnections = %d, want 3", cfg.MaxConnections)
+	if cfg.MaxConnections != 5 {
+		t.Errorf("DefaultPoolConfig().MaxConnections = %d, want 5", cfg.MaxConnections)
 	}
 	if cfg.IdleTimeout != 5*time.Minute {
 		t.Errorf("DefaultPoolConfig().IdleTimeout = %v, want %v", cfg.IdleTimeout, 5*time.Minute)
@@ -106,8 +106,8 @@ func TestDefaultPoolConfig(t *testing.T) {
 	if cfg.ConnectTimeout != 30*time.Second {
 		t.Errorf("DefaultPoolConfig().ConnectTimeout = %v, want %v", cfg.ConnectTimeout, 30*time.Second)
 	}
-	if cfg.WaiterTimeout != 2*time.Minute {
-		t.Errorf("DefaultPoolConfig().WaiterTimeout = %v, want %v", cfg.WaiterTimeout, 2*time.Minute)
+	if cfg.WaiterTimeout != 25*time.Second {
+		t.Errorf("DefaultPoolConfig().WaiterTimeout = %v, want %v", cfg.WaiterTimeout, 25*time.Second)
 	}
 }
 

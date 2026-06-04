@@ -606,9 +606,17 @@ func (c *Client) SelectMailbox(ctx context.Context, name string) (*Mailbox, erro
 		data *imap.SelectData
 		err  error
 	}
+	// Enable CONDSTORE on SELECT when the server supports it. This makes the server
+	// report HIGHESTMODSEQ and allows subsequent incremental flag sync via
+	// FETCH ... (CHANGEDSINCE <modseq>). It is cheap and persists for the session.
+	var selectOpts *imap.SelectOptions
+	if c.SupportsCondStore() {
+		selectOpts = &imap.SelectOptions{CondStore: true}
+	}
+
 	resultCh := make(chan selectResult, 1)
 	go func() {
-		data, err := c.client.Select(name, nil).Wait()
+		data, err := c.client.Select(name, selectOpts).Wait()
 		resultCh <- selectResult{data, err}
 	}()
 

@@ -54,10 +54,18 @@ type PoolConfig struct {
 // DefaultPoolConfig returns sensible defaults for the pool
 func DefaultPoolConfig() PoolConfig {
 	return PoolConfig{
-		MaxConnections: 3,
+		// 5 per account: a background body fetch can hold one connection for a
+		// while, so 3 was too tight — concurrent folder/flag syncs and UI actions
+		// (move, flag) would block waiting for a free slot. 5 stays comfortably
+		// under common server limits (Gmail allows 15 IMAP connections/account).
+		// Note: IMAP IDLE uses its own dedicated connection outside this pool.
+		MaxConnections: 5,
 		IdleTimeout:    5 * time.Minute,
 		ConnectTimeout: 30 * time.Second,
-		WaiterTimeout:  2 * time.Minute, // Don't wait forever for a connection
+		// Fail fast when the pool is genuinely saturated. 2 minutes meant a stuck
+		// or slow operation froze every other operation for two whole minutes;
+		// 25s lets the caller log and retry on the next sync cycle instead.
+		WaiterTimeout: 25 * time.Second,
 	}
 }
 

@@ -705,4 +705,16 @@ var migrations = []Migration{
 		Version: 28,
 		SQL:     `ALTER TABLE accounts ADD COLUMN shared_mailbox_parent_id TEXT DEFAULT NULL;`,
 	},
+	{
+		Version: 29,
+		SQL: `
+			-- Persistent body-parse attempt counter.
+			-- Previously, messages whose body parsed to empty were retried every sync
+			-- session forever (the in-memory attempt cap reset each run), causing the
+			-- same unparseable messages to be re-fetched from IMAP on every cycle.
+			-- This column makes the "give up after N attempts" decision durable so a
+			-- permanently-unparseable message is fetched at most N times total.
+			ALTER TABLE messages ADD COLUMN body_attempts INTEGER NOT NULL DEFAULT 0;
+		`,
+	},
 }

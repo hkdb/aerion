@@ -68,6 +68,11 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		// Continue with sync, will fall back to local count
 	}
 
+	// Remember the modseq we last fully synced at; it is the baseline for an
+	// incremental (CONDSTORE) flag sync below. Captured before any mutation.
+	prevModSeq := f.HighestModSeq
+	uidValidityChanged := false
+
 	// Check for UIDValidity change (mailbox recreated)
 	if f.UIDValidity != 0 && f.UIDValidity != mailbox.UIDValidity {
 		e.log.Warn().
@@ -81,6 +86,9 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 			return fmt.Errorf("failed to delete messages: %w", err)
 		}
 		f.UIDValidity = mailbox.UIDValidity
+		// The old modseq is meaningless against a recreated mailbox.
+		uidValidityChanged = true
+		prevModSeq = 0
 	}
 
 	// Calculate sync date cutoff
@@ -225,11 +233,42 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		}
 	}
 
+	// flagSyncOK gates whether we may advance the persisted HighestModSeq. We only
+	// advance after a flag sync that definitely covered all changes — otherwise a
+	// future incremental sync would skip the changes this cycle missed.
+	flagSyncOK := true
 	if len(existingUIDs) > 0 {
-		e.log.Debug().Int("count", len(existingUIDs)).Msg("Syncing flags for existing messages")
-		if err := e.syncMessageFlags(ctx, conn.Client().RawClient(), folderID, existingUIDs); err != nil {
-			e.log.Warn().Err(err).Msg("Failed to sync message flags")
-			// Continue with sync even if flag sync fails
+		// Use CONDSTORE incremental flag sync when we have a valid prior baseline:
+		// FETCH 1:* (FLAGS) (CHANGEDSINCE <prevModSeq>) returns only messages whose
+		// metadata changed, instead of re-fetching flags for every message every cycle.
+		useCondStore := !uidValidityChanged &&
+			prevModSeq != 0 &&
+			mailbox.HighestModSeq != 0 &&
+			conn.Client().SupportsCondStore()
+
+		if useCondStore {
+			changed, err := e.syncMessageFlagsChangedSince(ctx, conn.Client().RawClient(), folderID, prevModSeq)
+			if err != nil {
+				// Fall back to a full flag sync this cycle so nothing is missed.
+				e.log.Warn().Err(err).Uint64("sinceModSeq", prevModSeq).
+					Msg("Incremental (CONDSTORE) flag sync failed, falling back to full flag sync")
+				if ferr := e.syncMessageFlags(ctx, conn.Client().RawClient(), folderID, existingUIDs); ferr != nil {
+					e.log.Warn().Err(ferr).Msg("Fallback full flag sync also failed")
+					flagSyncOK = false
+				}
+			} else {
+				e.log.Debug().
+					Int("changed", changed).
+					Int("existing", len(existingUIDs)).
+					Uint64("sinceModSeq", prevModSeq).
+					Msg("Incremental flag sync (CONDSTORE)")
+			}
+		} else {
+			e.log.Debug().Int("count", len(existingUIDs)).Msg("Syncing flags for existing messages (full)")
+			if err := e.syncMessageFlags(ctx, conn.Client().RawClient(), folderID, existingUIDs); err != nil {
+				e.log.Warn().Err(err).Msg("Failed to sync message flags")
+				flagSyncOK = false
+			}
 		}
 	}
 
@@ -335,9 +374,17 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 	now := time.Now()
 	f.UIDValidity = mailbox.UIDValidity
 	f.UIDNext = mailbox.UIDNext
-	f.HighestModSeq = mailbox.HighestModSeq
 	f.TotalCount = int(mailbox.Messages)
 	f.LastSync = &now
+
+	// Only advance the modseq baseline if the flag sync covered all changes up to
+	// the server's current HighestModSeq. If it failed, keep the previous baseline
+	// so the next sync re-checks from there instead of silently skipping changes.
+	if flagSyncOK {
+		f.HighestModSeq = mailbox.HighestModSeq
+	} else {
+		f.HighestModSeq = prevModSeq
+	}
 
 	// Use IMAP server's authoritative unread count if available
 	if mailboxStatus != nil {
@@ -467,6 +514,98 @@ func (e *Engine) syncMessageFlags(ctx context.Context, client *imapclient.Client
 
 	e.log.Debug().Int("count", len(uids)).Msg("Synced message flags")
 	return nil
+}
+
+// syncMessageFlagsChangedSince performs an incremental flag sync using CONDSTORE
+// (RFC 7162): a single FETCH 1:* (FLAGS) (CHANGEDSINCE <sinceModSeq>) asks the
+// server to return only the messages whose metadata changed since the last sync,
+// rather than re-fetching flags for the entire mailbox every cycle. Returns the
+// number of changed messages applied. The caller must only advance the persisted
+// HighestModSeq when this returns without error.
+func (e *Engine) syncMessageFlagsChangedSince(ctx context.Context, client *imapclient.Client, folderID string, sinceModSeq uint64) (int, error) {
+	if sinceModSeq == 0 {
+		return 0, fmt.Errorf("invalid zero modseq baseline")
+	}
+	if ctx.Err() != nil {
+		return 0, ctx.Err()
+	}
+
+	// UID range 1:* — Stop=0 encodes "*" (the whole mailbox). CHANGEDSINCE filters
+	// it down to only messages modified after sinceModSeq, so the result set is
+	// normally tiny regardless of mailbox size.
+	uidSet := imap.UIDSet{}
+	uidSet.AddRange(imap.UID(1), imap.UID(0))
+
+	fetchOptions := &imap.FetchOptions{
+		UID:          true,
+		Flags:        true,
+		ChangedSince: sinceModSeq,
+	}
+
+	fetchCmd := client.Fetch(uidSet, fetchOptions)
+
+	var flagUpdates []message.FlagUpdate
+	for {
+		msg := fetchCmd.Next()
+		if msg == nil {
+			break
+		}
+
+		var fetchedUID uint32
+		var isRead, isStarred, isAnswered, isForwarded, isDraft, isDeleted bool
+
+		for {
+			item := msg.Next()
+			if item == nil {
+				break
+			}
+			switch data := item.(type) {
+			case imapclient.FetchItemDataUID:
+				fetchedUID = uint32(data.UID)
+			case imapclient.FetchItemDataFlags:
+				for _, flag := range data.Flags {
+					switch flag {
+					case imap.FlagSeen:
+						isRead = true
+					case imap.FlagFlagged:
+						isStarred = true
+					case imap.FlagAnswered:
+						isAnswered = true
+					case imap.FlagDraft:
+						isDraft = true
+					case imap.FlagDeleted:
+						isDeleted = true
+					case "$Forwarded", "\\Forwarded":
+						isForwarded = true
+					}
+				}
+			}
+		}
+
+		if fetchedUID > 0 {
+			flagUpdates = append(flagUpdates, message.FlagUpdate{
+				UID:         fetchedUID,
+				IsRead:      isRead,
+				IsStarred:   isStarred,
+				IsAnswered:  isAnswered,
+				IsForwarded: isForwarded,
+				IsDraft:     isDraft,
+				IsDeleted:   isDeleted,
+			})
+		}
+	}
+
+	if err := fetchCmd.Close(); err != nil {
+		return 0, fmt.Errorf("failed to fetch changed flags: %w", err)
+	}
+
+	if len(flagUpdates) > 0 {
+		if err := e.messageStore.UpdateFlagsByUIDBatch(folderID, flagUpdates); err != nil {
+			return 0, fmt.Errorf("failed to batch update changed flags: %w", err)
+		}
+	}
+
+	return len(flagUpdates), nil
 }
 
 // fetchUIDsSince fetches UIDs of messages since the given date.
