@@ -16,6 +16,7 @@ import (
 const (
 	KeyReadReceiptResponsePolicy = "read_receipt_response_policy"
 	KeyMarkAsReadDelay           = "mark_as_read_delay"
+	KeyUnsendTimer               = "unsend_timer"
 	KeyMessageListDensity        = "message_list_density"
 	KeyMessageListSortOrder      = "message_list_sort_order"
 	KeyThemeMode                 = "theme_mode"
@@ -119,6 +120,8 @@ const (
 
 // Default mark as read delay in milliseconds (1 second)
 const DefaultMarkAsReadDelay = 1000
+
+const DefaultUnsendTimer = 5
 
 // Store provides settings persistence operations
 type Store struct {
@@ -580,4 +583,30 @@ func ReadNativeTitleBar(dbPath string) bool {
 		return false
 	}
 	return value == "true"
+}
+
+// GetUnsendTimer returns the undo-send window in seconds (0 = immediate, no undo).
+func (s *Store) GetUnsendTimer() (int, error) {
+	value, err := s.Get(KeyUnsendTimer)
+	if err != nil {
+		return DefaultUnsendTimer, err
+	}
+	if value == "" {
+		return DefaultUnsendTimer, nil
+	}
+	secs, err := strconv.Atoi(value)
+	if err != nil {
+		return DefaultUnsendTimer, nil
+	}
+	return secs, nil
+}
+
+// SetUnsendTimer sets the undo-send window in seconds. Valid: 0, 5, 10, 30.
+func (s *Store) SetUnsendTimer(seconds int) error {
+	switch seconds {
+	case 0, 5, 10, 30:
+		return s.Set(KeyUnsendTimer, strconv.Itoa(seconds))
+	default:
+		return fmt.Errorf("invalid unsend timer: %d (must be 0, 5, 10, or 30)", seconds)
+	}
 }

@@ -13,8 +13,9 @@
   import CertificateDialog from './lib/components/settings/CertificateDialog.svelte'
   import * as AlertDialog from '$lib/components/ui/alert-dialog'
   import { accountStore } from '$lib/stores/accounts.svelte'
-  import { addToast } from '$lib/stores/toast'
-  import { loadSettings, getThemeMode, getShowTitleBar, getNativeTitleBar, getComposerMode, getMailtoMode } from '$lib/stores/settings.svelte'
+  import { addToast, toasts } from '$lib/stores/toast'
+  import { sendStarted, sendFinished } from '$lib/stores/outbox.svelte'
+  import { loadSettings, getThemeMode, getShowTitleBar, getNativeTitleBar, getComposerMode, getMailtoMode, getUnsendTimer } from '$lib/stores/settings.svelte'
   import { loadImageAllowlist } from '$lib/stores/imageAllowlist.svelte'
   import { initTheme, applyThemeFromMode, handleSystemThemeEvent, handleMediaQueryChange } from '$lib/stores/theme.svelte'
   import { loadUIState, saveUIState, paneConstraints } from '$lib/stores/uiState.svelte'
@@ -31,7 +32,7 @@
   import { isDialogGuardActive } from '$lib/stores/dialogGuard'
   import { initLayout, getLayoutMode, getResponsiveView, showViewer, hideViewer, showSidebar, hideSidebar, isResponsive } from '$lib/stores/layout.svelte'
   // @ts-ignore - wailsjs path
-  import { PrepareReply, GetPendingMailto, GetDraft, MarkAsRead, MarkAsUnread, Star, Unstar, Archive, MarkAsSpam, MarkAsNotSpam, Undo, GetTermsAccepted, SetTermsAccepted, RefreshWindowConstraints, AcceptCertificate, GetStartHiddenActive, CloseWindow, QuitApp, OpenComposerWindow, GetSystemTheme, NotifyStartupComplete } from '../wailsjs/go/app/App.js'
+  import { PrepareReply, GetPendingMailto, GetDraft, MarkAsRead, MarkAsUnread, Star, Unstar, Archive, MarkAsSpam, MarkAsNotSpam, Undo, GetTermsAccepted, SetTermsAccepted, RefreshWindowConstraints, AcceptCertificate, GetStartHiddenActive, CloseWindow, QuitApp, OpenComposerWindow, GetSystemTheme, NotifyStartupComplete, SendMessage, DeleteDraft } from '../wailsjs/go/app/App.js'
   // @ts-ignore - wailsjs path
   import { smtp, folder, certificate } from '../wailsjs/go/models'
   // @ts-ignore - wailsjs runtime
@@ -644,6 +645,87 @@
     showComposer = false
     composerAccountId = null
     composerInitialMessage = null
+  }
+
+  // --- Deferred (undo-able, background) send ---------------------------------
+  // The inline composer hands the built message here on Send, then closes. We
+  // show a "Sending… (Undo)" toast counting down the unsend window; when it
+  // elapses we perform the real network send in the background so the user can
+  // keep working.
+  let pendingSendCancel: (() => void) | null = null
+
+  function reopenComposerWith(accountId: string, message: smtp.ComposeMessage) {
+    composerAccountId = accountId
+    composerInitialMessage = message
+    composerDraftId = null
+    composerImagesLoaded = true
+    showComposer = true
+  }
+
+  async function finalizeSend(accountId: string, message: smtp.ComposeMessage, draftId: string | null) {
+    try {
+      await SendMessage(accountId, message)
+      if (draftId) DeleteDraft(draftId).catch((e) => console.error('Failed to delete draft after send:', e))
+      addToast({ type: 'success', message: $_('composer.messageSent') })
+    } catch (err) {
+      console.error('Failed to send message:', err)
+      addToast({ type: 'error', message: $_('composer.failedToSend') })
+      // Don't lose the user's message — reopen it so they can retry.
+      if (draftId) { void handleEditDraft(draftId) } else { reopenComposerWith(accountId, message) }
+    } finally {
+      sendFinished()
+    }
+  }
+
+  function handleQueueSend(payload: { accountId: string; message: smtp.ComposeMessage; draftId: string | null }) {
+    const { accountId, message, draftId } = payload
+    const delay = getUnsendTimer()
+    sendStarted()
+
+    // Immediate mode: still send in the background (non-blocking), no undo window.
+    if (delay <= 0) {
+      void finalizeSend(accountId, message, draftId)
+      return
+    }
+
+    let remaining = delay
+    let timer: ReturnType<typeof setInterval> | null = null
+    let done = false
+
+    const cleanup = () => {
+      if (timer) { clearInterval(timer); timer = null }
+      if (pendingSendCancel === cancel) pendingSendCancel = null
+    }
+    const cancel = () => {
+      if (done) return
+      done = true
+      cleanup()
+      toasts.remove(toastId)
+      sendFinished()
+      // Reopen so the user can keep editing / discard.
+      if (draftId) { void handleEditDraft(draftId) } else { reopenComposerWith(accountId, message) }
+      addToast({ type: 'info', message: $_('composer.sendCanceled') })
+    }
+    const fire = () => {
+      if (done) return
+      done = true
+      cleanup()
+      toasts.remove(toastId)
+      void finalizeSend(accountId, message, draftId)
+    }
+
+    const toastId = addToast({
+      type: 'info',
+      message: $_('composer.sendingIn', { values: { seconds: remaining } }),
+      duration: delay * 1000 + 1500,
+      actions: [{ label: $_('common.undo'), onClick: cancel }],
+    })
+    pendingSendCancel = cancel
+    timer = setInterval(() => {
+      remaining -= 1
+      if (remaining <= 0) { fire(); return }
+      toasts.update(toastId, { message: $_('composer.sendingIn', { values: { seconds: remaining } }) })
+    }, 1000)
   }
 
   // Pane sizing state
@@ -1380,6 +1462,7 @@
         imagesLoaded={composerImagesLoaded}
         onClose={closeComposer}
         onSent={closeComposer}
+        onQueueSend={handleQueueSend}
       />
     </div>
   </div>

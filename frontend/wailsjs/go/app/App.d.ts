@@ -179,6 +179,10 @@ export function GetMailtoMode():Promise<string>;
 
 export function GetMarkAsReadDelay():Promise<number>;
 
+export function GetUnsendTimer():Promise<number>;
+
+export function SetUnsendTimer(arg1:number):Promise<void>;
+
 export function GetMessage(arg1:string):Promise<message.Message>;
 
 export function GetMessageCount(arg1:string,arg2:string):Promise<number>;

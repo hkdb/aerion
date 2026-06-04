@@ -78,9 +78,13 @@
     onTitleChange?: (to: string, subject: string) => void
     /** Whether remote images were loaded in the viewer before reply/forward */
     imagesLoaded?: boolean
+    /** Deferred-send hand-off (inline composer): host performs the actual network
+     *  send after the undo window so the user can keep working. When provided and
+     *  not detached, Send closes immediately and the host owns sending. */
+    onQueueSend?: (payload: { accountId: string; message: smtp.ComposeMessage; draftId: string | null }) => void
   }
 
-  let { accountId, initialMessage = null, draftId = null, messageId = null, onClose, onSent, api: propApi, isDetached = false, closeRequested = false, onCloseHandled, onTitleChange, imagesLoaded = false }: Props = $props()
+  let { accountId, initialMessage = null, draftId = null, messageId = null, onClose, onSent, api: propApi, isDetached = false, closeRequested = false, onCloseHandled, onTitleChange, imagesLoaded = false, onQueueSend }: Props = $props()
 
   // Get API from context, props, or create default main window API
   const contextApi = getContext<ComposerApi | undefined>(COMPOSER_API_KEY)
@@ -1130,6 +1134,16 @@
 
     // Wait for any in-flight draft save to complete before sending
     await savingComplete
+
+    // Deferred send (inline composer): hand the built message to the host, which
+    // performs the actual network send after the undo window. Close immediately so
+    // the user can keep working. The host owns the draft cleanup + "sent" toast.
+    if (onQueueSend && !isDetached) {
+      const queued = buildMessage()
+      onQueueSend({ accountId: activeAccountId, message: queued, draftId: currentDraftId })
+      onClose?.()
+      return
+    }
 
     sending = true
 

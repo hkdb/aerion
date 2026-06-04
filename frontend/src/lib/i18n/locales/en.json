@@ -184,6 +184,8 @@
     "discardDraft": "Discard",
     "keepEditing": "Keep Editing",
     "messageSent": "Message sent",
+    "sendingIn": "Sending… {seconds}s",
+    "sendCanceled": "Sending canceled",
     "failedToSend": "Failed to send.",
     "noRecipients": "Please add at least one recipient",
     "failedToLoadDraft": "Failed to load draft",

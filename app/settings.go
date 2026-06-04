@@ -39,6 +39,16 @@ func (a *App) SetMarkAsReadDelay(delayMs int) error {
 	return a.settingsStore.SetMarkAsReadDelay(delayMs)
 }
 
+// GetUnsendTimer returns the undo-send window in seconds (0 = immediate)
+func (a *App) GetUnsendTimer() (int, error) {
+	return a.settingsStore.GetUnsendTimer()
+}
+
+// SetUnsendTimer sets the undo-send window in seconds (0, 5, 10, or 30)
+func (a *App) SetUnsendTimer(seconds int) error {
+	return a.settingsStore.SetUnsendTimer(seconds)
+}
+
 // GetMessageListDensity returns the message list density setting
 func (a *App) GetMessageListDensity() (string, error) {
 	return a.settingsStore.GetMessageListDensity()

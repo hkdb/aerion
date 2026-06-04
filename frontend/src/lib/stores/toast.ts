@@ -35,6 +35,11 @@ function createToastStore() {
     update(toasts => toasts.filter(t => t.id !== id))
   }
 
+  // Patch fields of an existing toast (e.g. live countdown text). No-op if gone.
+  function updateToast(id: string, partial: Partial<Omit<Toast, 'id'>>) {
+    update(toasts => toasts.map(t => (t.id === id ? { ...t, ...partial } : t)))
+  }
+
   function success(message: string, actions?: ToastAction[]) {
     return add({ message, type: 'success', actions })
   }
@@ -55,6 +60,7 @@ function createToastStore() {
     subscribe,
     add,
     remove,
+    update: updateToast,
     success,
     error,
     info,

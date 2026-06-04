@@ -326,6 +326,14 @@ export function GetMarkAsReadDelay() {
   return window['go']['app']['App']['GetMarkAsReadDelay']();
 }
 
+export function GetUnsendTimer() {
+  return window['go']['app']['App']['GetUnsendTimer']();
+}
+
+export function SetUnsendTimer(arg1) {
+  return window['go']['app']['App']['SetUnsendTimer'](arg1);
+}
+
 export function GetMessage(arg1) {
   return window['go']['app']['App']['GetMessage'](arg1);
 }
