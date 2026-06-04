@@ -228,47 +228,24 @@ func (s *Store) CountConversationsUnifiedInbox(filter string) (int, error) {
 // GetUnifiedInboxUnreadCount returns the total unread message count across all inbox folders
 // Uses the cached folder.unread_count values to stay consistent with sidebar folder counts
 func (s *Store) GetUnifiedInboxUnreadCount() (int, error) {
-	// First, log individual inbox folders for debugging
-	debugQuery := `
-		SELECT f.id, f.name, f.folder_type, f.unread_count, a.name as account_name, a.enabled
-		FROM folders f
-		INNER JOIN accounts a ON f.account_id = a.id
-		WHERE f.folder_type = 'inbox'
-	`
-	rows, err := s.db.Query(debugQuery)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var folderID, folderName, folderType, accountName string
-			var unreadCount int
-			var enabled bool
-			if err := rows.Scan(&folderID, &folderName, &folderType, &unreadCount, &accountName, &enabled); err == nil {
-				s.log.Debug().
-					Str("folderID", folderID).
-					Str("folderName", folderName).
-					Str("folderType", folderType).
-					Int("unreadCount", unreadCount).
-					Str("accountName", accountName).
-					Bool("enabled", enabled).
-					Msg("Inbox folder for unified count")
-			}
-		}
-	}
-
+	// Count unread messages live from the messages table rather than summing the
+	// cached folder.unread_count values, which can drift stale. This keeps the
+	// unified count consistent with the message-list header, which also counts live.
 	query := `
-		SELECT COALESCE(SUM(f.unread_count), 0)
-		FROM folders f
+		SELECT COUNT(*)
+		FROM messages m
+		INNER JOIN folders f ON m.folder_id = f.id AND f.folder_type = 'inbox'
 		INNER JOIN accounts a ON f.account_id = a.id AND a.enabled = 1
-		WHERE f.folder_type = 'inbox'
+		WHERE m.is_read = 0
 	`
 
 	var count int
-	err = s.db.QueryRow(query).Scan(&count)
+	err := s.db.QueryRow(query).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count unified inbox unread: %w", err)
 	}
 
-	s.log.Debug().Int("unreadCount", count).Msg("GetUnifiedInboxUnreadCount (sum of folder counts)")
+	s.log.Debug().Int("unreadCount", count).Msg("GetUnifiedInboxUnreadCount (live)")
 	return count, nil
 }
 
