@@ -1,6 +1,12 @@
 package app
 
-import "github.com/hkdb/aerion/internal/logging"
+import (
+	"fmt"
+	"os/exec"
+	"runtime"
+
+	"github.com/hkdb/aerion/internal/logging"
+)
 
 // LogFrontend emits a log message from the frontend through the Go-side
 // zerolog logger so frontend diagnostics appear in the same log stream as
@@ -19,6 +25,26 @@ func (a *App) LogFrontend(level, message string) {
 	default:
 		log.Info().Msg(message)
 	}
+}
+
+// OpenLogFile opens the application log file with the OS default handler so the
+// user can inspect sync activity (sync start/complete, fetch counts, errors).
+func (a *App) OpenLogFile() error {
+	if a.paths == nil {
+		return fmt.Errorf("paths not initialized")
+	}
+	path := a.paths.LogPath()
+
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", path)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "", path)
+	default:
+		cmd = exec.Command("xdg-open", path)
+	}
+	return cmd.Start()
 }
 
 // LogFrontend mirrors App.LogFrontend for the detached composer process so

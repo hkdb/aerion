@@ -418,6 +418,7 @@
     "github": "GitHub",
     "privacyPolicy": "Privacy Policy",
     "termsOfUse": "Terms of Use",
+    "openLog": "Open log file",
     "failedToLoad": "Failed to load app information"
   },
   "account": {

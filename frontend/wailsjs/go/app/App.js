@@ -566,6 +566,10 @@ export function LogFrontend(arg1, arg2) {
   return window['go']['app']['App']['LogFrontend'](arg1, arg2);
 }
 
+export function OpenLogFile() {
+  return window['go']['app']['App']['OpenLogFile']();
+}
+
 export function LookupHKP(arg1) {
   return window['go']['app']['App']['LookupHKP'](arg1);
 }

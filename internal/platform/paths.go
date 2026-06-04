@@ -140,6 +140,11 @@ func (p *Paths) DatabasePath() string {
 	return filepath.Join(p.Data, "aerion.db")
 }
 
+// LogPath returns the path to the primary application log file.
+func (p *Paths) LogPath() string {
+	return filepath.Join(p.Cache, "aerion.log")
+}
+
 // ContactsDatabasePath returns the path to the contacts database
 func (p *Paths) ContactsDatabasePath() string {
 	return filepath.Join(p.Data, "contacts.db")
