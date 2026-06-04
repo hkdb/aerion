@@ -72,7 +72,7 @@
   }
 </script>
 
-<div class="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-background">
+<div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-border bg-background">
   <!-- Left: view selector + date nav. -->
   <div class="flex items-center gap-2 min-w-0">
     <ResponsiveSidebarToggle />
@@ -80,7 +80,7 @@
       {#each viewOptions as opt (opt.kind)}
         <button
           type="button"
-          class="px-2.5 py-1 text-xs font-medium transition-colors
+          class="h-9 px-3 text-xs font-medium transition-colors
                  {calendarView.viewKind === opt.kind ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted/40 text-foreground'}"
           onclick={() => calendarView.setViewKind(opt.kind)}
         >
@@ -92,29 +92,28 @@
     <div class="inline-flex items-center gap-1 ml-2">
       <button
         type="button"
-        class="p-1 rounded hover:bg-muted/40"
+        class="p-2 rounded-md hover:bg-muted transition-colors"
         title={$_('calendar.viewSwitcher.prev')}
         aria-label={$_('calendar.viewSwitcher.prev')}
         onclick={() => calendarView.goPrev()}
       >
-        <Icon icon="mdi:chevron-left" class="w-4 h-4" />
+        <Icon icon="mdi:chevron-left" class="w-5 h-5 text-muted-foreground" />
       </button>
       <Button
         size="sm"
         variant="outline"
-        class="h-7 px-2 text-xs"
         onclick={() => calendarView.goToday()}
       >
         {$_('calendar.viewSwitcher.today')}
       </Button>
       <button
         type="button"
-        class="p-1 rounded hover:bg-muted/40"
+        class="p-2 rounded-md hover:bg-muted transition-colors"
         title={$_('calendar.viewSwitcher.next')}
         aria-label={$_('calendar.viewSwitcher.next')}
         onclick={() => calendarView.goNext()}
       >
-        <Icon icon="mdi:chevron-right" class="w-4 h-4" />
+        <Icon icon="mdi:chevron-right" class="w-5 h-5 text-muted-foreground" />
       </button>
     </div>
 
@@ -130,24 +129,22 @@
       <Button
         size="sm"
         variant="outline"
-        class="h-7 px-2 text-xs"
         onclick={() => { showComposer = true }}
       >
-        <Icon icon="mdi:plus" class="w-3.5 h-3.5 mr-1" />
+        <Icon icon="mdi:plus" class="w-4 h-4 mr-1" />
         {$_('calendar.viewSwitcher.newEvent')}
       </Button>
     {/if}
     <Button
       size="sm"
       variant="outline"
-      class="h-7 px-2 text-xs"
       onclick={handleSync}
       disabled={syncing}
     >
       {#if syncing}
-        <Icon icon="mdi:loading" class="w-3.5 h-3.5 mr-1 animate-spin" />
+        <Icon icon="mdi:loading" class="w-4 h-4 mr-1 animate-spin" />
       {:else}
-        <Icon icon="mdi:sync" class="w-3.5 h-3.5 mr-1" />
+        <Icon icon="mdi:sync" class="w-4 h-4 mr-1" />
       {/if}
       {$_('calendar.viewSwitcher.sync')}
     </Button>
