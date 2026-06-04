@@ -313,6 +313,8 @@ export function MarkAsNotSpam(arg1:Array<string>):Promise<void>;
 
 export function MarkAsRead(arg1:Array<string>):Promise<void>;
 
+export function MarkAsReadSilent(arg1:Array<string>):Promise<void>;
+
 export function MarkAsSpam(arg1:Array<string>):Promise<boolean>;
 
 export function MarkAsUnread(arg1:Array<string>):Promise<void>;

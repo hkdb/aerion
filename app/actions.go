@@ -55,7 +55,14 @@ func (a *App) withIMAPRetry(accountID string, op func(conn *imap.Client) error) 
 
 // MarkAsRead marks messages as read
 func (a *App) MarkAsRead(messageIDs []string) error {
-	return a.setReadStatus(messageIDs, true)
+	return a.setReadStatus(messageIDs, true, true)
+}
+
+// MarkAsReadSilent marks messages as read WITHOUT pushing an undo command.
+// Used for automatic mark-as-read when opening a message, so Cmd+Z doesn't
+// get flooded with "Mark as read" entries that bury the user's real action.
+func (a *App) MarkAsReadSilent(messageIDs []string) error {
+	return a.setReadStatus(messageIDs, true, false)
 }
 
 // MarkAllFolderMessagesAsRead marks all unread messages in a folder as read
@@ -84,10 +91,10 @@ func (a *App) MarkAllFolderMessagesAsUnread(folderID string) error {
 
 // MarkAsUnread marks messages as unread
 func (a *App) MarkAsUnread(messageIDs []string) error {
-	return a.setReadStatus(messageIDs, false)
+	return a.setReadStatus(messageIDs, false, true)
 }
 
-func (a *App) setReadStatus(messageIDs []string, isRead bool) error {
+func (a *App) setReadStatus(messageIDs []string, isRead bool, recordUndo bool) error {
 	log := logging.WithComponent("app")
 
 	if len(messageIDs) == 0 {
@@ -166,10 +173,10 @@ func (a *App) setReadStatus(messageIDs []string, isRead bool) error {
 		}
 	}()
 
-	// Create undo command
+	// Create undo command (skipped for automatic mark-as-read)
 	firstMsg := messages[0]
 	folderObj, _ := a.folderStore.Get(firstMsg.FolderID)
-	if folderObj != nil {
+	if recordUndo && folderObj != nil {
 		uids := make([]uint32, len(messages))
 		for i, m := range messages {
 			uids[i] = m.UID

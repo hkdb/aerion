@@ -594,6 +594,10 @@ export function MarkAsRead(arg1) {
   return window['go']['app']['App']['MarkAsRead'](arg1);
 }
 
+export function MarkAsReadSilent(arg1) {
+  return window['go']['app']['App']['MarkAsReadSilent'](arg1);
+}
+
 export function MarkAsSpam(arg1) {
   return window['go']['app']['App']['MarkAsSpam'](arg1);
 }

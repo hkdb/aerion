@@ -4,7 +4,7 @@
   // @ts-ignore - wailsjs bindings
   import { GetConversation, GetReadReceiptResponsePolicy, SendReadReceipt, IgnoreReadReceipt, GetMarkAsReadDelay, GetMessageSource, ProcessSMIMEMessage, ProcessPGPMessage, FetchMessageBody } from '../../../../wailsjs/go/app/App'
   // @ts-ignore - wailsjs bindings
-  import { MarkAsRead, MarkAsUnread, Star, Unstar, Archive, Trash, MarkAsSpam, MarkAsNotSpam, DeletePermanently, Undo } from '../../../../wailsjs/go/app/App'
+  import { MarkAsRead, MarkAsReadSilent, MarkAsUnread, Star, Unstar, Archive, Trash, MarkAsSpam, MarkAsNotSpam, DeletePermanently, Undo } from '../../../../wailsjs/go/app/App'
   // @ts-ignore - wailsjs path
   import { EventsOn } from '../../../../wailsjs/runtime/runtime'
   // @ts-ignore - wailsjs path
@@ -625,7 +625,7 @@
 
     if (markAsReadDelay === 0) {
       // Immediate
-      MarkAsRead(unreadIds).catch(err => {
+      MarkAsReadSilent(unreadIds).catch(err => {
         console.error('Failed to mark messages as read:', err)
         pendingMarkAsReadIds = new Set() // Clear on error
       })
@@ -634,7 +634,7 @@
       markAsReadTimer = setTimeout(() => {
         // Verify we're still viewing the same conversation
         if (threadId === capturedThreadId) {
-          MarkAsRead(unreadIds).catch(err => {
+          MarkAsReadSilent(unreadIds).catch(err => {
             console.error('Failed to mark messages as read:', err)
             pendingMarkAsReadIds = new Set() // Clear on error
           })
