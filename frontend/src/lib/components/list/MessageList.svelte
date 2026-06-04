@@ -1657,7 +1657,7 @@
         </button>
       </div>
     {:else}
-      {#each conversations as conv, index (conv.threadId)}
+      {#each conversations as conv, index (conv.threadId + '-' + ((conv as any).accountId || accountId || ''))}
         {@const convAccountId = (conv as any).accountId || accountId}
         {@const convFolderId = (conv as any).folderId || folderId}
         {@const convAccountColor = (conv as any).accountColor || ''}
