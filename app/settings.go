@@ -39,6 +39,16 @@ func (a *App) SetMarkAsReadDelay(delayMs int) error {
 	return a.settingsStore.SetMarkAsReadDelay(delayMs)
 }
 
+// GetShowAccountIndicators returns whether account indicators show in the unified inbox
+func (a *App) GetShowAccountIndicators() (bool, error) {
+	return a.settingsStore.GetShowAccountIndicators()
+}
+
+// SetShowAccountIndicators toggles account indicators in the unified inbox
+func (a *App) SetShowAccountIndicators(enabled bool) error {
+	return a.settingsStore.SetShowAccountIndicators(enabled)
+}
+
 // GetMessageListDensity returns the message list density setting
 func (a *App) GetMessageListDensity() (string, error) {
 	return a.settingsStore.GetMessageListDensity()

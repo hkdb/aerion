@@ -14,7 +14,7 @@
   import { message } from '../../../../wailsjs/go/models'
   // @ts-ignore - wailsjs runtime
   import { EventsOn, EventsOff } from '../../../../wailsjs/runtime/runtime'
-  import { getMessageListDensity, getMessageListSortOrder, setMessageListSortOrder } from '$lib/stores/settings.svelte'
+  import { getMessageListDensity, getMessageListSortOrder, setMessageListSortOrder, getShowAccountIndicators } from '$lib/stores/settings.svelte'
   import { accountStore } from '$lib/stores/accounts.svelte'
   import { getLayoutMode, hideViewer } from '$lib/stores/layout.svelte'
   import { isDialogGuardActive } from '$lib/stores/dialogGuard'
@@ -1603,7 +1603,7 @@
             {selectedMessageIds}
             selectedIsStarred={!selectedHasUnstarred}
             selectedIsRead={!selectedHasUnread}
-            showAccountIndicator={isUnifiedView}
+            showAccountIndicator={isUnifiedView && getShowAccountIndicators()}
             accountColor={resultAccountColor}
             accountName={resultAccountName}
             highlightedSubject={result.highlightedSubject}
@@ -1673,7 +1673,7 @@
           {selectedMessageIds}
           selectedIsStarred={!selectedHasUnstarred}
           selectedIsRead={!selectedHasUnread}
-          showAccountIndicator={isUnifiedView}
+          showAccountIndicator={isUnifiedView && getShowAccountIndicators()}
           accountColor={convAccountColor}
           accountName={convAccountName}
           onSelect={(e) => selectConversation(conv.threadId, index, e)}

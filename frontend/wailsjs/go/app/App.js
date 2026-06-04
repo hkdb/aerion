@@ -170,6 +170,14 @@ export function GetAccentBarUnread() {
   return window['go']['app']['App']['GetAccentBarUnread']();
 }
 
+export function GetShowAccountIndicators() {
+  return window['go']['app']['App']['GetShowAccountIndicators']();
+}
+
+export function SetShowAccountIndicators(arg1) {
+  return window['go']['app']['App']['SetShowAccountIndicators'](arg1);
+}
+
 export function GetAccount(arg1) {
   return window['go']['app']['App']['GetAccount'](arg1);
 }

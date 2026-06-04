@@ -34,6 +34,7 @@ const (
 	KeyAccentBarUnread           = "accent_bar_unread"
 	KeyShowMessageListCircles    = "show_message_list_circles"
 	KeyShowViewerCircles         = "show_viewer_circles"
+	KeyShowAccountIndicators     = "show_account_indicators"
 )
 
 // Density values for message list
@@ -580,4 +581,25 @@ func ReadNativeTitleBar(dbPath string) bool {
 		return false
 	}
 	return value == "true"
+}
+
+// GetShowAccountIndicators returns whether account indicator tags are shown in unified inbox.
+func (s *Store) GetShowAccountIndicators() (bool, error) {
+	value, err := s.Get(KeyShowAccountIndicators)
+	if err != nil {
+		return true, err
+	}
+	if value == "" {
+		return true, nil
+	}
+	return value == "true", nil
+}
+
+// SetShowAccountIndicators enables or disables account indicator tags in unified inbox.
+func (s *Store) SetShowAccountIndicators(enabled bool) error {
+	v := "false"
+	if enabled {
+		v = "true"
+	}
+	return s.Set(KeyShowAccountIndicators, v)
 }

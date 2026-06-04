@@ -101,6 +101,10 @@ export function ForceSyncFolder(arg1:string,arg2:string):Promise<void>;
 
 export function GetAccentBarUnread():Promise<boolean>;
 
+export function GetShowAccountIndicators():Promise<boolean>;
+
+export function SetShowAccountIndicators(arg1:boolean):Promise<void>;
+
 export function GetAccount(arg1:string):Promise<account.Account>;
 
 export function GetAccountFoldersForMapping(arg1:string):Promise<Array<folder.Folder>>;

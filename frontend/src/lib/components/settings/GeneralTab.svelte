@@ -30,6 +30,7 @@
     showMessageListCircles: boolean
     showViewerCircles: boolean
     darkMailContent: boolean
+    showAccountIndicators: boolean
   }
 
   let {
@@ -54,6 +55,7 @@
     showMessageListCircles = $bindable(),
     showViewerCircles = $bindable(),
     darkMailContent = $bindable(),
+    showAccountIndicators = $bindable(),
   }: Props = $props()
 
   // Message list density options
@@ -284,6 +286,22 @@
         <Switch
           id="show-message-list-circles"
           bind:checked={showMessageListCircles}
+        />
+      </div>
+    </div>
+
+    <!-- Show account indicators in unified inbox -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <Label for="show-account-indicators">Show account indicators</Label>
+          <p class="text-xs text-muted-foreground">
+            Show colored account tags on messages in unified inbox
+          </p>
+        </div>
+        <Switch
+          id="show-account-indicators"
+          bind:checked={showAccountIndicators}
         />
       </div>
     </div>
