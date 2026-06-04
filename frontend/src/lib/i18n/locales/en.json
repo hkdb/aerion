@@ -47,6 +47,21 @@
     "loadingFolders": "Loading folders...",
     "noFoldersSynced": "No folders synced"
   },
+  "commandPalette": {
+    "placeholder": "Type a command or search…",
+    "noResults": "No matching commands",
+    "newMessage": "New message",
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
+    "toggleStar": "Star / unstar",
+    "archive": "Archive",
+    "moveTo": "Move to folder…",
+    "markSpam": "Mark as spam",
+    "delete": "Delete",
+    "undo": "Undo last action",
+    "refresh": "Refresh / sync all",
+    "shortcuts": "Keyboard shortcuts"
+  },
   "messageList": {
     "searchMessages": "Search messages...",
     "noMessages": "No messages in this folder",

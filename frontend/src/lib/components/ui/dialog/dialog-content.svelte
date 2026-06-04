@@ -9,6 +9,8 @@
     class?: string
     overlayClass?: string
     showOverlay?: boolean
+    /** Show the top-right close (X) button */
+    showClose?: boolean
     children?: Snippet
     /** Prevent focus from returning to trigger element on close */
     preventCloseAutoFocus?: boolean
@@ -21,6 +23,7 @@
     class: className,
     overlayClass = '',
     showOverlay = true,
+    showClose = true,
     children,
     preventCloseAutoFocus = false,
     onInteractOutside,
@@ -49,12 +52,14 @@
       {#if children}
         {@render children()}
       {/if}
-      <DialogPrimitive.Close
-        class="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-      >
-        <Icon icon="mdi:close" class="h-4 w-4" />
-        <span class="sr-only">Close</span>
-      </DialogPrimitive.Close>
+      {#if showClose}
+        <DialogPrimitive.Close
+          class="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+        >
+          <Icon icon="feather:x" class="h-4 w-4" />
+          <span class="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      {/if}
     </DialogPrimitive.Content>
   </div>
 </DialogPrimitive.Portal>

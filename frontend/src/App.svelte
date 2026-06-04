@@ -11,6 +11,8 @@
   import ToastContainer from './lib/components/ui/toast/ToastContainer.svelte'
   import TermsDialog from './lib/components/TermsDialog.svelte'
   import CertificateDialog from './lib/components/settings/CertificateDialog.svelte'
+  import CommandPalette, { type Command } from './lib/components/common/CommandPalette.svelte'
+  import ShortcutsDialog from './lib/components/common/ShortcutsDialog.svelte'
   import * as AlertDialog from '$lib/components/ui/alert-dialog'
   import { accountStore } from '$lib/stores/accounts.svelte'
   import { addToast } from '$lib/stores/toast'
@@ -65,6 +67,8 @@
 
   // Composer state
   let showComposer = $state(false)
+  let showCommandPalette = $state(false)
+  let showShortcuts = $state(false)
   let composerAccountId = $state<string | null>(null)
   let composerInitialMessage = $state<smtp.ComposeMessage | null>(null)
   let composerDraftId = $state<string | null>(null)
@@ -749,6 +753,14 @@
           e.preventDefault()
           handleCompose()
           return
+        case 'p':
+          // Cmd/Ctrl+Shift+P opens the command palette (search + run message actions)
+          if (e.shiftKey) {
+            e.preventDefault()
+            showCommandPalette = true
+            return
+          }
+          break
         case 'r': {
           if (!hasConversation) return
           e.preventDefault()
@@ -1232,6 +1244,67 @@
       addToast({ type: 'error', message: $_('toast.undoFailed') })
     }
   }
+
+  // Resolve the messages a command should act on: checked set if any, else the
+  // keyboard-focused conversation.
+  function paletteTargetIds(): string[] {
+    if (!messageListRef) return []
+    return messageListRef.hasCheckedMessages()
+      ? messageListRef.getCheckedMessageIds()
+      : messageListRef.getSelectedMessageIds()
+  }
+
+  const cmdMod = (typeof navigator !== 'undefined' && /mac/i.test(navigator.platform)) ? '⌘' : 'Ctrl'
+
+  // Command palette entries. Message actions are enabled only when something is selected.
+  const paletteCommands = $derived<Command[]>([
+    { id: 'compose', label: $_('commandPalette.newMessage'), icon: 'feather:edit', hint: `${cmdMod}N`, run: handleCompose },
+    {
+      id: 'markRead', label: $_('commandPalette.markRead'), icon: 'feather:check-circle',
+      enabled: selectedThreadId !== null,
+      run: () => { const ids = paletteTargetIds(); if (ids.length) handleBulkMarkRead(ids) },
+    },
+    {
+      id: 'markUnread', label: $_('commandPalette.markUnread'), icon: 'feather:mail',
+      enabled: selectedThreadId !== null,
+      run: () => { const ids = paletteTargetIds(); if (ids.length) handleBulkMarkUnread(ids) },
+    },
+    {
+      id: 'star', label: $_('commandPalette.toggleStar'), icon: 'feather:star', keywords: 'favorite flag',
+      enabled: selectedThreadId !== null,
+      run: () => {
+        const ids = paletteTargetIds()
+        if (!ids.length) return
+        const shouldStar = messageListRef?.hasCheckedMessages()
+          ? messageListRef.getCheckedHasUnstarred()
+          : !(messageListRef?.isSelectedStarred() ?? false)
+        handleBulkToggleStar(ids, shouldStar)
+      },
+    },
+    {
+      id: 'archive', label: $_('commandPalette.archive'), icon: 'feather:archive',
+      enabled: selectedThreadId !== null,
+      run: () => { const ids = paletteTargetIds(); if (ids.length) handleBulkArchive(ids) },
+    },
+    {
+      id: 'move', label: $_('commandPalette.moveTo'), icon: 'feather:folder', hint: 'm', keywords: 'folder',
+      enabled: selectedThreadId !== null,
+      run: () => messageListRef?.openMoveTo(),
+    },
+    {
+      id: 'spam', label: $_('commandPalette.markSpam'), icon: 'feather:alert-octagon', keywords: 'junk',
+      enabled: selectedThreadId !== null,
+      run: () => { const ids = paletteTargetIds(); if (ids.length) handleBulkSpam(ids) },
+    },
+    {
+      id: 'delete', label: $_('commandPalette.delete'), icon: 'feather:trash-2', keywords: 'trash remove',
+      enabled: selectedThreadId !== null,
+      run: () => { const ids = paletteTargetIds(); if (ids.length) messageListRef?.requestDelete(ids) },
+    },
+    { id: 'undo', label: $_('commandPalette.undo'), icon: 'feather:rotate-ccw', hint: `${cmdMod}Z`, run: handleUndo },
+    { id: 'refresh', label: $_('commandPalette.refresh'), icon: 'feather:refresh-cw', hint: `${cmdMod}R`, run: () => sidebarRef?.syncAllAccounts() },
+    { id: 'shortcuts', label: $_('commandPalette.shortcuts'), icon: 'feather:command', keywords: 'keyboard help', run: () => { showShortcuts = true } },
+  ])
 </script>
 
 <svelte:window onmousemove={handleMouseMove} onmouseup={handleMouseUp} onkeydown={handleGlobalKeyDown} onkeyup={handleGlobalKeyUp} />
@@ -1368,6 +1441,10 @@
 
 <!-- Toast notifications -->
 <ToastContainer />
+
+<CommandPalette bind:open={showCommandPalette} commands={paletteCommands} />
+
+<ShortcutsDialog bind:open={showShortcuts} />
 
 <!-- Composer Modal -->
 {#if showComposer && composerAccountId}
