@@ -39,6 +39,16 @@ func (a *App) SetMarkAsReadDelay(delayMs int) error {
 	return a.settingsStore.SetMarkAsReadDelay(delayMs)
 }
 
+// GetAccentColor returns the custom accent color (hex), or "" for the theme default
+func (a *App) GetAccentColor() (string, error) {
+	return a.settingsStore.GetAccentColor()
+}
+
+// SetAccentColor stores the custom accent color (hex, or "" to use the theme default)
+func (a *App) SetAccentColor(hex string) error {
+	return a.settingsStore.SetAccentColor(hex)
+}
+
 // GetMessageListDensity returns the message list density setting
 func (a *App) GetMessageListDensity() (string, error) {
 	return a.settingsStore.GetMessageListDensity()

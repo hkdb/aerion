@@ -170,6 +170,14 @@ export function GetAccentBarUnread() {
   return window['go']['app']['App']['GetAccentBarUnread']();
 }
 
+export function GetAccentColor() {
+  return window['go']['app']['App']['GetAccentColor']();
+}
+
+export function SetAccentColor(arg1) {
+  return window['go']['app']['App']['SetAccentColor'](arg1);
+}
+
 export function GetAccount(arg1) {
   return window['go']['app']['App']['GetAccount'](arg1);
 }

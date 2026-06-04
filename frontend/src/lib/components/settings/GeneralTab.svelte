@@ -4,9 +4,10 @@
   import { Label } from '$lib/components/ui/label'
   import { Input } from '$lib/components/ui/input'
   import Switch from '$lib/components/ui/switch/Switch.svelte'
+  import ColorPicker from '$lib/components/ui/color-picker/ColorPicker.svelte'
   import { _, setLocale } from '$lib/i18n'
   import { supportedLocales } from '$lib/i18n'
-  import { getIsDarkActive } from '$lib/stores/theme.svelte'
+  import { getIsDarkActive, currentAccentHex } from '$lib/stores/theme.svelte'
 
   interface Props {
     markAsReadDelaySeconds: number
@@ -30,6 +31,8 @@
     showMessageListCircles: boolean
     showViewerCircles: boolean
     darkMailContent: boolean
+    accentColor: string
+    onAccentColorChange: (hex: string) => void
   }
 
   let {
@@ -54,7 +57,12 @@
     showMessageListCircles = $bindable(),
     showViewerCircles = $bindable(),
     darkMailContent = $bindable(),
+    accentColor,
+    onAccentColorChange,
   }: Props = $props()
+
+  // Seed the picker with the effective accent (custom override, or theme default).
+  const accentSwatch = $derived(accentColor || currentAccentHex())
 
   // Message list density options
   const densityOptions = $derived([
@@ -251,6 +259,28 @@
       </Select.Root>
       <p class="text-xs text-muted-foreground">
         {$_('settingsGeneral.themeHelp')}
+      </p>
+    </div>
+
+    <!-- Accent color -->
+    <div class="space-y-2">
+      <Label>{$_('settingsGeneral.accentColor')}</Label>
+      <div class="flex items-center gap-3">
+        <ColorPicker value={accentSwatch} onchange={onAccentColorChange} />
+        <span class="text-sm text-muted-foreground">
+          {accentColor ? accentColor.toUpperCase() : $_('settingsGeneral.accentColorDefault')}
+        </span>
+        {#if accentColor}
+          <button
+            class="text-sm text-primary hover:underline"
+            onclick={() => onAccentColorChange('')}
+          >
+            {$_('settingsGeneral.accentColorReset')}
+          </button>
+        {/if}
+      </div>
+      <p class="text-xs text-muted-foreground">
+        {$_('settingsGeneral.accentColorHelp')}
       </p>
     </div>
 

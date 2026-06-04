@@ -5,10 +5,10 @@
   import * as Tabs from '$lib/components/ui/tabs'
   import { Button } from '$lib/components/ui/button'
   // @ts-ignore - wailsjs path
-  import { GetReadReceiptResponsePolicy, SetReadReceiptResponsePolicy, GetMarkAsReadDelay, SetMarkAsReadDelay, GetMessageListDensity, SetMessageListDensity, GetThemeMode, SetThemeMode, GetShowTitleBar, SetShowTitleBar, GetRunBackground, SetRunBackground, GetStartHidden, SetStartHidden, GetAutostart, SetAutostart, GetLanguage, SetLanguage, GetComposerMode, SetComposerMode, GetMailtoMode, SetMailtoMode, GetComposerFormat, SetComposerFormat, GetNativeTitleBar, SetNativeTitleBar, GetAlwaysLoadImages, SetAlwaysLoadImages, GetDarkMailContent, SetDarkMailContent, GetAccentBarUnread, SetAccentBarUnread, GetShowMessageListCircles, SetShowMessageListCircles, GetShowViewerCircles, SetShowViewerCircles, QuitApp } from '../../../../wailsjs/go/app/App.js'
+  import { GetReadReceiptResponsePolicy, SetReadReceiptResponsePolicy, GetMarkAsReadDelay, SetMarkAsReadDelay, GetMessageListDensity, SetMessageListDensity, GetThemeMode, SetThemeMode, GetShowTitleBar, SetShowTitleBar, GetRunBackground, SetRunBackground, GetStartHidden, SetStartHidden, GetAutostart, SetAutostart, GetLanguage, SetLanguage, GetComposerMode, SetComposerMode, GetMailtoMode, SetMailtoMode, GetComposerFormat, SetComposerFormat, GetNativeTitleBar, SetNativeTitleBar, GetAlwaysLoadImages, SetAlwaysLoadImages, GetDarkMailContent, SetDarkMailContent, GetAccentBarUnread, SetAccentBarUnread, GetShowMessageListCircles, SetShowMessageListCircles, GetShowViewerCircles, SetShowViewerCircles, GetAccentColor, SetAccentColor, QuitApp } from '../../../../wailsjs/go/app/App.js'
   import { addToast } from '$lib/stores/toast'
-  import { setMessageListDensity as updateDensityStore, setThemeMode as updateThemeStore, setShowTitleBar as updateShowTitleBarStore, setRunBackground as updateRunBackgroundStore, setStartHidden as updateStartHiddenStore, setAutostart as updateAutostartStore, setLanguage as updateLanguageStore, setComposerMode as updateComposerModeStore, setMailtoMode as updateMailtoModeStore, setComposerFormat as updateComposerFormatStore, setNativeTitleBar as updateNativeTitleBarStore, setAlwaysLoadImages as updateAlwaysLoadImagesStore, setDarkMailContent as updateDarkMailContentStore, setAccentBarUnread as updateAccentBarUnreadStore, setShowMessageListCircles as updateShowMessageListCirclesStore, setShowViewerCircles as updateShowViewerCirclesStore, type MessageListDensity, type ThemeMode, type ComposerMode, type ComposerFormat } from '$lib/stores/settings.svelte'
-  import { applyThemeFromMode } from '$lib/stores/theme.svelte'
+  import { setMessageListDensity as updateDensityStore, setThemeMode as updateThemeStore, setShowTitleBar as updateShowTitleBarStore, setRunBackground as updateRunBackgroundStore, setStartHidden as updateStartHiddenStore, setAutostart as updateAutostartStore, setLanguage as updateLanguageStore, setComposerMode as updateComposerModeStore, setMailtoMode as updateMailtoModeStore, setComposerFormat as updateComposerFormatStore, setNativeTitleBar as updateNativeTitleBarStore, setAlwaysLoadImages as updateAlwaysLoadImagesStore, setDarkMailContent as updateDarkMailContentStore, setAccentBarUnread as updateAccentBarUnreadStore, setShowMessageListCircles as updateShowMessageListCirclesStore, setShowViewerCircles as updateShowViewerCirclesStore, setAccentColor as updateAccentColorStore, type MessageListDensity, type ThemeMode, type ComposerMode, type ComposerFormat } from '$lib/stores/settings.svelte'
+  import { applyThemeFromMode, applyAccentColor } from '$lib/stores/theme.svelte'
   import { dialogGuardOpen, dialogGuardClose } from '$lib/stores/dialogGuard'
   import { _ } from '$lib/i18n'
   import ConfirmDialog from '$lib/components/ui/confirm-dialog/ConfirmDialog.svelte'
@@ -54,6 +54,9 @@
   // Snapshot of the saved theme at dialog open time. Used to revert live preview
   // if the dialog closes without Save (Cancel / ESC / click-outside).
   let originalThemeMode = ''
+  let accentColor = $state<string>('')
+  // Snapshot of saved accent at open time, to revert live preview on Cancel.
+  let originalAccentColor = ''
   let hasSaved = $state(false)
   let showRestartDialog = $state(false)
   let loading = $state(true)
@@ -94,7 +97,7 @@
     loading = true
     hasSaved = false
     try {
-      const [policy, delayMs, density, theme, titleBar, runBg, startHid, autoSt, lang, comp, mail, compFmt, nativeTB, alwaysImages, darkMail, accentBar, listCircles, viewerCircles] = await Promise.all([
+      const [policy, delayMs, density, theme, titleBar, runBg, startHid, autoSt, lang, comp, mail, compFmt, nativeTB, alwaysImages, darkMail, accentBar, listCircles, viewerCircles, accent] = await Promise.all([
         GetReadReceiptResponsePolicy(),
         GetMarkAsReadDelay(),
         GetMessageListDensity(),
@@ -113,6 +116,7 @@
         GetAccentBarUnread(),
         GetShowMessageListCircles(),
         GetShowViewerCircles(),
+        GetAccentColor(),
       ])
       readReceiptResponsePolicy = policy
       // Convert ms to seconds for display
@@ -120,6 +124,8 @@
       messageListDensity = density
       themeMode = theme
       originalThemeMode = theme
+      accentColor = accent ?? ''
+      originalAccentColor = accentColor
       showTitleBar = titleBar
       runBackground = runBg
       startHidden = startHid
@@ -169,6 +175,7 @@
       await SetAccentBarUnread(accentBarUnread)
       await SetShowMessageListCircles(showMessageListCircles)
       await SetShowViewerCircles(showViewerCircles)
+      await SetAccentColor(accentColor)
       // Update the reactive stores so UI updates immediately
       updateDensityStore(messageListDensity as MessageListDensity)
       updateThemeStore(themeMode as ThemeMode)
@@ -188,12 +195,14 @@
       updateAccentBarUnreadStore(accentBarUnread)
       updateShowMessageListCirclesStore(showMessageListCircles)
       updateShowViewerCirclesStore(showViewerCircles)
+      updateAccentColorStore(accentColor)
       addToast({
         type: 'success',
         message: $_('toast.settingsSaved'),
       })
       hasSaved = true
       originalThemeMode = themeMode
+      originalAccentColor = accentColor
       // Show restart dialog if native title bar setting changed
       if (nativeTitleBar !== originalNativeTitleBar) {
         originalNativeTitleBar = nativeTitleBar
@@ -217,6 +226,15 @@
     if (!hasSaved && originalThemeMode && themeMode !== originalThemeMode) {
       applyThemeFromMode(originalThemeMode as ThemeMode)
     }
+    if (!hasSaved && accentColor !== originalAccentColor) {
+      applyAccentColor(originalAccentColor)
+    }
+  }
+
+  // Live preview the accent as the user picks (persisted only on Save).
+  function handleAccentColorChange(hex: string) {
+    accentColor = hex
+    applyAccentColor(hex)
   }
 
   function handleCancel() {
@@ -300,6 +318,8 @@
               bind:showMessageListCircles
               bind:showViewerCircles
               bind:darkMailContent
+              {accentColor}
+              onAccentColorChange={handleAccentColorChange}
             />
           </Tabs.Content>
 

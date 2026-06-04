@@ -34,6 +34,7 @@ const (
 	KeyAccentBarUnread           = "accent_bar_unread"
 	KeyShowMessageListCircles    = "show_message_list_circles"
 	KeyShowViewerCircles         = "show_viewer_circles"
+	KeyAccentColor               = "accent_color"
 )
 
 // Density values for message list
@@ -580,4 +581,20 @@ func ReadNativeTitleBar(dbPath string) bool {
 		return false
 	}
 	return value == "true"
+}
+
+// GetAccentColor returns the custom accent color as a hex string (e.g. "#7C3AED").
+// Empty string means "use the active theme's default accent".
+func (s *Store) GetAccentColor() (string, error) {
+	value, err := s.Get(KeyAccentColor)
+	if err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+// SetAccentColor stores the custom accent color (hex string, or "" to clear and
+// revert to the active theme's default accent).
+func (s *Store) SetAccentColor(hex string) error {
+	return s.Set(KeyAccentColor, hex)
 }
