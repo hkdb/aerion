@@ -48,22 +48,17 @@ func localKindFromSourceID(id string) string {
 }
 
 // API implements coreapi.Contacts by wrapping the existing core contact.Store
-// and carddav.Store. getCardDAVPassword is a host-provided closure that
-// resolves per-source basic-auth passwords for CardDAV writes (Phase
-// 2b.2.b.1); it may be nil in test fixtures that never exercise CardDAV
-// writes. The closure pattern (rather than a direct *credentials.Store)
-// keeps this package free of `internal/credentials` so the extension
-// conforms to the docs/EXTENSIONS.md "no internal imports" rule.
+// and carddav.Store. CardDAV passwords are read via core.Storage().HostSecrets()
+// (Pattern B — core owns the credential lifecycle; the extension just reads).
 type API struct {
-	localStore         *contact.Store
-	carddavStore       *carddav.Store
-	extStore           *Store       // per-extension SQLite; backs oauth_record_state for Phase 2b.3 write paths
-	core               coreapi.Core // Phase 2b.3: handle on coreapi.Auth for OAuth provider write paths; nil disables Google/MS writes
+	localStore   *contact.Store
+	carddavStore *carddav.Store
+	extStore     *Store       // per-extension SQLite; backs oauth_record_state for Phase 2b.3 write paths
+	core         coreapi.Core // host handle: OAuth via core.Auth().HTTPClient, CardDAV passwords via core.Storage().HostSecrets(). Nil disables CardDAV + OAuth writes.
 	// db is the shared application DB. Phase 2b.3 OAuth write paths use this
 	// to compose contact.UpsertRecordTx + carddav_record_state writes inside
 	// a single transaction. Nil disables OAuth provider writes (tests).
-	db                 *sql.DB
-	getCardDAVPassword CardDAVPasswordFunc
+	db *sql.DB
 }
 
 // NewAPI constructs the Contacts API wrapper. Any store may be nil — the
@@ -73,22 +68,22 @@ type API struct {
 // wrapper; nil means OAuth ETag tracking is disabled (tests typically pass
 // nil since they don't exercise Google/MS write paths).
 //
-// core is the coreapi.Core handle used by the OAuth write paths (Phase 2b.3) to
-// reach the auth broker via core.Auth().HTTPClient. Nil means OAuth provider
-// writes return a clear "core not wired" error rather than panicking — tests
-// that don't exercise those paths pass nil.
+// core is the coreapi.Core handle used by both the OAuth write paths
+// (core.Auth().HTTPClient) and the CardDAV write paths
+// (core.Storage().HostSecrets() for the basic-auth password). Nil means
+// neither CardDAV nor OAuth writes work — tests that don't exercise them
+// pass nil; tests that do need them must inject a minimal Core fake.
 //
 // db is the shared application DB; used by OAuth provider write paths to
 // compose contact.UpsertRecordTx + carddav_record_state inserts in a single
 // transaction. Nil-safe in the same way as core.
-func NewAPI(localStore *contact.Store, carddavStore *carddav.Store, extStore *Store, core coreapi.Core, db *sql.DB, getCardDAVPassword CardDAVPasswordFunc) *API {
+func NewAPI(localStore *contact.Store, carddavStore *carddav.Store, extStore *Store, core coreapi.Core, db *sql.DB) *API {
 	return &API{
-		localStore:         localStore,
-		carddavStore:       carddavStore,
-		extStore:           extStore,
-		core:               core,
-		db:                 db,
-		getCardDAVPassword: getCardDAVPassword,
+		localStore:   localStore,
+		carddavStore: carddavStore,
+		extStore:     extStore,
+		core:         core,
+		db:           db,
 	}
 }
 
@@ -693,10 +688,10 @@ func (a *API) cardDAVClientForAddressbook(addressbookID string) (*carddav.Client
 	if !source.Writable {
 		return nil, source.ID, fmt.Errorf("this source is not writable; enable write access in its settings")
 	}
-	if a.getCardDAVPassword == nil {
+	if a.core == nil {
 		return nil, source.ID, fmt.Errorf("credentials lookup unavailable")
 	}
-	password, err := a.getCardDAVPassword(source.ID)
+	password, err := a.core.Storage().HostSecrets().Get("carddav:" + source.ID)
 	if err != nil {
 		return nil, source.ID, fmt.Errorf("get password for source %s: %w", source.ID, err)
 	}

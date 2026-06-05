@@ -56,17 +56,15 @@ func (a *App) initContactsExtension() {
 		Emitter: func(eventName string, payload any) {
 			wailsRuntime.EventsEmit(a.ctx, eventName, payload)
 		},
-		// Closure adapter — keeps the extension's bridge.go free of
-		// internal/credentials. The host owns credStore (a fully
-		// initialized *credentials.Store); the extension just calls
-		// this function to fetch per-source passwords for CardDAV writes.
-		GetCardDAVPassword: func(sourceID string) (string, error) {
-			return a.credStore.GetCardDAVPassword(sourceID)
-		},
+		// CardDAV passwords flow through Core.Storage().HostSecrets()
+		// (Pattern B — core owns the lifecycle; extension reads). No
+		// per-credential closure injection needed; the bridge constructs
+		// the right key prefix when reading.
+		//
 		// Core gives the bridge access to host-owned cross-extension
-		// surfaces — specifically Contacts().ListSources() and
-		// Contacts().LinkAccountSource() that back the extension's sidebar
-		// + account-setup hook flows.
+		// surfaces — Contacts().ListSources() and LinkAccountSource()
+		// back the sidebar + account-setup hook flows; Storage().HostSecrets()
+		// backs CardDAV writes.
 		Core: contactsCore,
 	})
 

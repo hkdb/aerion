@@ -352,6 +352,29 @@ func (s storageCoreImpl) Secrets(extensionID string) coreapi.Secrets {
 	return secretsCoreImpl{app: s.app, extensionID: extensionID}
 }
 
+func (s storageCoreImpl) HostSecrets() coreapi.HostSecrets {
+	return hostSecretsCoreImpl(s)
+}
+
+// hostSecretsCoreImpl is the host implementation of coreapi.HostSecrets.
+// Read-only access to credentials whose lifecycle the host owns. Routes by
+// the key's class prefix to the matching credStore helper; add new prefixes
+// as new Pattern B consumers emerge.
+type hostSecretsCoreImpl struct {
+	app *App
+}
+
+func (h hostSecretsCoreImpl) Get(key string) (string, error) {
+	if h.app.credStore == nil {
+		return "", fmt.Errorf("storage.HostSecrets: credentials store not initialized")
+	}
+	switch {
+	case strings.HasPrefix(key, "carddav:"):
+		return h.app.credStore.GetCardDAVPassword(strings.TrimPrefix(key, "carddav:"))
+	}
+	return "", fmt.Errorf("storage.HostSecrets: unsupported key prefix in %q", key)
+}
+
 // secretsCoreImpl is the per-extension Secrets handle. The extension ID is
 // captured here so the extension's bridge code only types `core.Storage().
 // Secrets(extensionID).Set(key, value)` once — the handle remembers the

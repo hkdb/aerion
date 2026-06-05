@@ -1,4 +1,14 @@
-package backend
+// Package davutil holds shared WebDAV / HTTP utilities that both host and
+// extension code can import.
+//
+// This is the FIRST member of the backend `internal/kit/*` namespace — the
+// Go-side analog of the frontend `lib/components/kit/` UI kit. Modules under
+// `internal/kit/*` are generic, extension-facing building blocks (no
+// extension-specific naming, no per-extension behavior). Extensions are
+// allowed to import them; the rule is the same as the frontend kit's.
+//
+// See docs/EXTENSIONS.md and docs/EXT_RULES.md.
+package davutil
 
 import (
 	"bytes"
@@ -10,7 +20,7 @@ import (
 	"time"
 )
 
-// xmlFixTransport normalizes WebDAV XML responses to work around server
+// XMLFixTransport normalizes WebDAV XML responses to work around server
 // quirks the underlying go-webdav library trips on:
 //
 //  1. DAV:getlastmodified — converts numeric timezone offsets (e.g., +0000)
@@ -20,15 +30,31 @@ import (
 //     (mailbox.org) return unquoted ETags which go-webdav's strconv.Unquote()
 //     rejects.
 //
-// Inline-duplicated from internal/carddav/client.go because extensions can't
-// import internal/* packages (see docs/EXT_RULES.md R1). When a second
-// extension needs this same fix, factor it out — likely as a host-internal
-// package exposed via a coreapi surface like Network or DAV.
-//
-// Used by the calendar extension's sync engine; the 1B discovery path does
-// NOT need it (PROPFIND for calendar metadata doesn't touch ETag/lastmodified).
-type xmlFixTransport struct {
-	base http.RoundTripper
+// Wrap any http.RoundTripper (typically http.DefaultTransport). Use the
+// NewHTTPClient helper if you don't need a custom base transport.
+type XMLFixTransport struct {
+	Base http.RoundTripper
+}
+
+// NewXMLFixTransport wraps base in an XMLFixTransport. If base is nil,
+// http.DefaultTransport is used.
+func NewXMLFixTransport(base http.RoundTripper) *XMLFixTransport {
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	return &XMLFixTransport{Base: base}
+}
+
+// NewHTTPClient returns an *http.Client wrapping http.DefaultTransport in
+// XMLFixTransport, with the given request timeout. Used by both
+// internal/carddav and the calendar extension for any WebDAV operation
+// whose responses may carry ETag / lastmodified headers — i.e., sync and
+// per-resource PUT/DELETE.
+func NewHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: NewXMLFixTransport(http.DefaultTransport),
+	}
 }
 
 var getlastmodifiedRe = regexp.MustCompile(
@@ -39,8 +65,11 @@ var getetagRe = regexp.MustCompile(
 	`(<[^>]*getetag[^>]*>)\s*([^<]+?)\s*(</[^>]*getetag[^>]*>)`,
 )
 
-func (t *xmlFixTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	resp, err := t.base.RoundTrip(req)
+// RoundTrip implements http.RoundTripper. Reads the response body for XML
+// content types, applies both fixups, and returns a new body the caller
+// can consume normally.
+func (t *XMLFixTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.Base.RoundTrip(req)
 	if err != nil {
 		return resp, err
 	}
@@ -53,10 +82,10 @@ func (t *xmlFixTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
-		return nil, fmt.Errorf("xmlFixTransport: failed to read body: %w", err)
+		return nil, fmt.Errorf("davutil.XMLFixTransport: read body: %w", err)
 	}
 
-	// Fix 1: Normalize getlastmodified date formats.
+	// Fix 1: normalize getlastmodified date formats.
 	fixed := getlastmodifiedRe.ReplaceAllFunc(body, func(match []byte) []byte {
 		sub := getlastmodifiedRe.FindSubmatch(match)
 		if len(sub) < 4 {
@@ -66,7 +95,7 @@ func (t *xmlFixTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return fixDateValue(sub[1], dateStr, sub[3])
 	})
 
-	// Fix 2: Quote unquoted getetag values.
+	// Fix 2: quote unquoted getetag values.
 	fixed = getetagRe.ReplaceAllFunc(fixed, func(match []byte) []byte {
 		sub := getetagRe.FindSubmatch(match)
 		if len(sub) < 4 {
@@ -103,7 +132,7 @@ func fixETagValue(prefix []byte, etagStr string, suffix []byte) []byte {
 	}
 
 	// Quoted with XML-entity-encoded quotes (&quot;...&quot;) — leave as-is.
-	// The XML parser will resolve these to literal quotes before go-webdav sees them.
+	// The XML parser resolves them to literal quotes before go-webdav sees them.
 	if strings.HasPrefix(cleaned, "&quot;") && strings.HasSuffix(cleaned, "&quot;") {
 		buf.WriteString(cleaned)
 		buf.Write(suffix)
@@ -135,15 +164,4 @@ func fixDateValue(prefix []byte, dateStr string, suffix []byte) []byte {
 	buf.WriteString(t.UTC().Format(http.TimeFormat))
 	buf.Write(suffix)
 	return buf.Bytes()
-}
-
-// newCalDAVSyncHTTPClient returns an HTTP client with the xmlFixTransport
-// applied. Used by sync.go's CalDAV client construction. The discovery path
-// in caldav.go does NOT use this — discovery PROPFIND doesn't touch the
-// affected XML elements.
-func newCalDAVSyncHTTPClient(timeout time.Duration) *http.Client {
-	return &http.Client{
-		Timeout:   timeout,
-		Transport: &xmlFixTransport{base: http.DefaultTransport},
-	}
 }

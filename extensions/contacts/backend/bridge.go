@@ -65,25 +65,16 @@ type ContactsBridgeDeps struct {
 	// every time it needs to publish a conflict event.
 	Emitter EventEmitter
 
-	// GetCardDAVPassword resolves the basic-auth password for a CardDAV
-	// source by id. Provided by the host so the bridge doesn't have to
-	// import internal/credentials (per the EXTENSIONS.md "no internal
-	// imports" rule). Closure pattern mirrors Emitter.
-	GetCardDAVPassword CardDAVPasswordFunc
-
 	// Core is the coreapi.Core handle the bridge uses to call host-owned
-	// cross-extension surfaces — specifically the source-management methods
-	// (ListSources, LinkAccountSource) that back the extension's sidebar
-	// + account-setup hook. Source management lives in host code because
-	// contact_sources is a host-owned table; the extension goes through
-	// coreapi for read + link, not direct internal access.
+	// cross-extension surfaces:
+	//   - Source-management methods (ListSources, LinkAccountSource) that
+	//     back the extension's sidebar + account-setup hook.
+	//   - Storage().HostSecrets() — read-only access to core-managed
+	//     CardDAV passwords, since the contacts extension's writes need
+	//     the password but core owns the credential lifecycle (Pattern B
+	//     per docs/EXTENSIONS.md).
 	Core coreapi.Core
 }
-
-// CardDAVPasswordFunc is the host-provided closure for fetching a CardDAV
-// source's basic-auth password. Returns the password string or an error
-// describing why the lookup failed (no source, no creds, keyring locked, ...).
-type CardDAVPasswordFunc func(sourceID string) (string, error)
 
 // SettingsStore is the narrow interface the bridge needs from the host's
 // settings store. Defined here (rather than importing the concrete type)
@@ -149,7 +140,7 @@ func (b *ContactsBridge) ensureInit() error {
 			b.initErr = err
 			return
 		}
-		b.api = NewAPI(contactStore, carddavStore, extStore, b.deps.Core, b.deps.DB.DB, b.deps.GetCardDAVPassword)
+		b.api = NewAPI(contactStore, carddavStore, extStore, b.deps.Core, b.deps.DB.DB)
 	})
 	return b.initErr
 }

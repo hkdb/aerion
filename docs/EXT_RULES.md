@@ -12,8 +12,11 @@ Companion docs:
 
 ## 1 · The boundary (hardest rules)
 
-- **R1.** Extensions consume `coreapi.Core` and NOTHING else. They do NOT
-  import `internal/*` packages. Ever. No exceptions.
+- **R1.** Extensions consume `coreapi.Core` and the shared backend kit
+  (`internal/kit/*`) — nothing else. They do NOT import any other
+  `internal/*` packages. The `internal/kit/*` carve-out covers generic,
+  extension-agnostic utilities (no extension-specific naming or behavior);
+  see R26.
 - **R2.** The host MUST NOT pass closures wrapping `internal/*` calls into
   extension code (e.g., `Func` fields on `BridgeDeps`). That's hidden
   coupling — still violates R1 in spirit. If an extension needs it, add it
@@ -113,14 +116,17 @@ Companion docs:
 
 ## 7 · Frontend (extension SDK pattern)
 
-- **R25.** Kit primitives (`frontend/src/lib/components/kit/*`) are
-  greenfield SDK — designed cleanly for extensions to consume. The mail
-  UI (`ConversationViewer`, `MessageList`, etc.) is NOT refactored to
-  share with kit. If a kit primitive solves a mail problem, mail can opt
-  in at its own pace — but the kit isn't a retrofit target.
+- **R25.** Kit primitives (`frontend/src/lib/components/kit/*` on the
+  frontend, `internal/kit/<area>/` on the backend) are greenfield SDK —
+  generic, extension-agnostic building blocks designed for extensions to
+  consume. The mail UI (`ConversationViewer`, `MessageList`, etc.) is NOT
+  refactored to share with kit. If a kit primitive solves a mail problem,
+  mail can opt in at its own pace — but the kit isn't a retrofit target.
 - **R26.** Calendar/Contacts-domain components stay in their respective
-  `extensions/<name>/frontend/components/`. They only get promoted to kit
-  when a SECOND extension actually consumes the same shape.
+  `extensions/<name>/frontend/components/` (or `extensions/<name>/backend/`
+  for Go). They only get promoted to kit when a SECOND extension (or core
+  + an extension) actually consumes the same shape, and the promoted code
+  has no extension-specific naming.
 - **R27.** Extension component file structure mirrors the contacts
   precedent: `components/`, `stores/`, `hooks/` (optional), `i18n/`.
 - **R28.** `App.svelte` dispatches the active extension's root pane via

@@ -27,6 +27,8 @@ import (
 	"github.com/emersion/go-ical"
 	"github.com/emersion/go-webdav"
 	"github.com/google/uuid"
+
+	"github.com/hkdb/aerion/internal/kit/davutil"
 )
 
 // composedVCalendar is the output of composeVCalendar. NewSeries is
@@ -398,8 +400,11 @@ func (p caldavProvider) PushInstance(ctx context.Context, src Source, cal Calend
 	if password == "" {
 		return PushInstanceResult{}, fmt.Errorf("no password stored for source — re-add it in settings")
 	}
+	// xmlfix-wrapped client — PUT responses may carry unquoted ETags on
+	// some servers; without the fix the new ETag fails to parse and the
+	// next conditional update breaks. Same builder as sync.
 	httpClient := webdav.HTTPClientWithBasicAuth(
-		newCalDAVHTTPClient(30*time.Second),
+		davutil.NewHTTPClient(30*time.Second),
 		src.Username, password,
 	)
 

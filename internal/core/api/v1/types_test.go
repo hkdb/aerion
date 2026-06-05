@@ -103,6 +103,11 @@ type stubStorage struct{}
 
 func (stubStorage) KV(string) KVStore         { return stubKV{} }
 func (stubStorage) Secrets(string) Secrets    { return stubSecrets{} }
+func (stubStorage) HostSecrets() HostSecrets  { return stubHostSecrets{} }
+
+type stubHostSecrets struct{}
+
+func (stubHostSecrets) Get(string) (string, error) { return "", nil }
 
 type stubKV struct{}
 

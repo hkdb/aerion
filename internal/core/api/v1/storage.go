@@ -38,11 +38,39 @@ type Secrets interface {
 	DeleteAll() error
 }
 
+// HostSecrets exposes read-only access to credentials whose lifecycle the
+// host manages — i.e., credentials that the host (not the extension)
+// sets and updates. Use when an extension needs to read a password to
+// perform its domain operation but does NOT own the add/update/delete
+// flow for that credential.
+//
+// Concrete example: the contacts extension reads a CardDAV password that
+// core's account-settings UI set, so it can PUT a vCard to the server.
+// Core owns the credential lifecycle; the extension just consumes the
+// password at request time.
+//
+// Extensions that own their credentials end-to-end (e.g., calendar's
+// CalDAV passwords) use Secrets — which is read+write and scoped to the
+// extension's own namespace. HostSecrets is read-only and routes by key
+// prefix to the matching host-side credStore helper.
+//
+// Key format: "<class>:<id>" — e.g., "carddav:<sourceID>". The host
+// implementation routes by the class prefix to the right credStore
+// method. New prefixes are added as future Pattern B consumers emerge.
+type HostSecrets interface {
+	// Get returns the stored password for key, or "" if no entry exists.
+	// Empty string is the "not found" signal; non-nil error indicates
+	// something else went wrong (unknown prefix, keyring unreachable).
+	Get(key string) (string, error)
+}
+
 // Storage provides per-extension data services. KV is small string config
 // (non-sensitive). Secrets is sensitive credential storage (keyring + AES
-// fallback transparently). Per-extension SQLite is implicit (each extension
-// opens its own DB via internal/extensions.OpenStore for richer data).
+// fallback transparently). HostSecrets is read-only access to host-managed
+// credentials. Per-extension SQLite is implicit (each extension opens its
+// own DB via internal/extensions.OpenStore for richer data).
 type Storage interface {
 	KV(extensionID string) KVStore
 	Secrets(extensionID string) Secrets
+	HostSecrets() HostSecrets
 }

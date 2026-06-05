@@ -66,8 +66,8 @@ Full architectural rationale lives in [`context/EXTENSION_ARCHITECTURE.md`](../c
 │  │  internal/oauth2/      │    │   (future: calendar/)        │    │
 │  │  internal/credentials/ │    │                              │    │
 │  │  internal/settings/    │    │  internal/extensions/        │    │
-│  │  ...                   │    │   ui/, auth/, mail/, ...     │    │
-│  │                        │    │   (host scaffolding)         │    │
+│  │  internal/kit/davutil  │    │   ui/, auth/, mail/, ...     │    │
+│  │  ...                   │    │   (host scaffolding)         │    │
 │  └──────────┬─────────────┘    └──────────┬───────────────────┘    │
 │             │                              │                        │
 │             ▼                              ▼                        │
@@ -95,7 +95,10 @@ Full architectural rationale lives in [`context/EXTENSION_ARCHITECTURE.md`](../c
 | Extension's host-side wiring (one embed field + one constructor call) | `app/extension_<name>.go` — see below |
 | A type or interface ALL extensions might consume | `internal/core/api/v1/` |
 | Shared host-side scaffolding (registry, broker, wrappers) | `internal/extensions/` |
+| **Generic backend utility extensions are allowed to import** | `internal/kit/<area>/` |
 | Host-owned UI used by the rail/dialog (not extension-specific) | `frontend/src/lib/components/rail/`, etc. |
+
+**`internal/kit/` — shared extension-facing building blocks.** Backend analog of the frontend `lib/components/kit/`. Modules under `internal/kit/*` are generic, extension-agnostic (no extension-specific naming or behavior) and may be imported directly from extension code — they're carved out from the otherwise blanket "extensions can't import `internal/*`" rule. Today's only member is [`internal/kit/davutil`](../internal/kit/davutil), which holds the `XMLFixTransport` and the `NewHTTPClient(timeout)` builder both `internal/carddav` and the calendar extension use to normalize WebDAV ETag / lastmodified server quirks. Add a new `internal/kit/<area>/` when two consumers need the same primitive and one of them is an extension.
 
 **The Bridge pattern + the `app/` minimum**: Wails v2 binds methods on structs in the `Bind` list at `wails.Run` time, generating frontend bindings via Go reflection. Because Go's reflection enumerates methods on **embedded** types via standard method promotion, the host (App) can embed a `*Bridge` struct from each extension's package; the Bridge's methods then appear in the generated `App.d.ts` as if they were on App. The actual method definitions live in `extensions/<name>/backend/bridge.go`. The only host-side file (`app/extension_<name>.go`) is reduced to about 10 lines: importing the extension's package, declaring the embedded field on App, and one constructor call that wires the bridge's host-provided dependencies during Startup.
 
@@ -238,8 +241,7 @@ type ContactsBridgeDeps struct {
     Paths         *platform.Paths      // for the extension's SQLite dir
     DB            *database.DB         // shared writable DB handle for local contacts
     Emitter       EventEmitter         // for runtime.EventsEmit (kept generic — no Wails import in extensions/)
-    GetCardDAVPassword CardDAVPasswordFunc // closure for per-source basic-auth lookup — replaces direct internal/credentials import
-    Core          coreapi.Core         // host coreapi handle — bridge calls Core.Contacts().ListSources()/LinkAccountSource() for source management
+    Core          coreapi.Core         // host coreapi handle — used for Contacts().ListSources()/LinkAccountSource() (source management) AND Storage().HostSecrets() (read-only access to core-managed CardDAV passwords, per Pattern B in the Storage section below)
 }
 
 // Type-name rule: each extension MUST name its Bridge struct `<Name>Bridge`
@@ -738,6 +740,7 @@ Gated per R16; `ensureInit()` is intentionally NOT called because `OpenURL` touc
 type Storage interface {
     KV(extensionID string) KVStore
     Secrets(extensionID string) Secrets
+    HostSecrets() HostSecrets
 }
 
 type KVStore interface {
@@ -753,19 +756,42 @@ type Secrets interface {
     Delete(key string) error        // idempotent
     DeleteAll() error               // uninstall cleanup
 }
+
+type HostSecrets interface {
+    Get(key string) (string, error) // key uses "<class>:<id>" prefix
+}
 ```
 
-Two scoped surfaces, each extension-isolated by the `extensionID` parameter so two extensions can use the same key string without colliding.
+Three scoped surfaces. `KV` and `Secrets` are extension-isolated by `extensionID`; `HostSecrets` is a single host-wide read-only façade routed by key prefix.
 
-**`KV` — Phase 1 stub.** `storageCoreImpl.KV(extensionID)` returns a `stubKV` whose four methods return `ErrUnimplemented`. The interface is stable, but no consumer needs it today: every first-party extension that has settled storage needs either uses its own per-extension SQLite (Calendar's `meta` table for the display tz; Contacts via its existing schema) or uses `Secrets` for credential material. KV gets wired (likely via a shared `ext_kv` table indexed on extensionID) when a real consumer arrives.
+**Two credential-ownership patterns extensions can use:**
 
-**`Secrets` — wired.** `storageCoreImpl.Secrets(extensionID)` returns a `secretsCoreImpl` that delegates to `internal/credentials.Store`'s extension-scoped helpers, which run keyring-first with an AES-encrypted DB-table fallback when the OS keyring is unavailable. Extensions never import `internal/credentials` directly — the four methods cover the whole credential lifecycle:
+| Pattern | API | Owner | Example |
+|---|---|---|---|
+| **A — extension-owned** | `Secrets(extensionID)` | extension reads + writes | Calendar's CalDAV passwords (only the calendar extension can add/edit/delete them) |
+| **B — core-owned, extension-readable** | `HostSecrets()` | core writes; extension reads | Contacts' CardDAV passwords (core's account-settings UI manages them; contacts reads to PUT vCards) |
+
+Pick Pattern A when only your extension has any business with the credential. Pick Pattern B when the credential's lifecycle is tied to a host-level concept (an account, a shared resource) and your extension is just a consumer.
+
+**`KV` — Phase 1 stub.** `storageCoreImpl.KV(extensionID)` returns a `stubKV` whose four methods return `ErrUnimplemented`. The interface is stable, but no consumer needs it today: every first-party extension that has settled storage needs either uses its own per-extension SQLite (Calendar's `meta` table for the display tz; Contacts via its existing schema) or uses `Secrets`/`HostSecrets` for credential material. KV gets wired (likely via a shared `ext_kv` table indexed on extensionID) when a real consumer arrives.
+
+**`Secrets` (Pattern A) — wired.** `storageCoreImpl.Secrets(extensionID)` returns a `secretsCoreImpl` that delegates to `internal/credentials.Store`'s extension-scoped helpers, which run keyring-first with an AES-encrypted DB-table fallback when the OS keyring is unavailable. Extensions never import `internal/credentials` directly — the four methods cover the whole credential lifecycle:
 - `Set` — empty value short-circuits to `Delete`.
 - `Get` — `("", nil)` for missing; callers distinguish from errors by checking the string.
 - `Delete` — idempotent.
 - `DeleteAll` — used during uninstall to clean up all of an extension's secrets at once.
 
-Used today by the Calendar extension for CalDAV passwords (`extensions/calendar/backend/bridge.go`'s `b.deps.Core.Storage().Secrets("calendar")`). Per-extension SQLite is the parallel persistence path for domain data — see [§ Per-extension storage](#per-extension-storage).
+Used today by the Calendar extension for CalDAV passwords (`extensions/calendar/backend/bridge.go`'s `b.deps.Core.Storage().Secrets("calendar")`).
+
+**`HostSecrets` (Pattern B) — wired.** `storageCoreImpl.HostSecrets()` returns a `hostSecretsCoreImpl` that routes by the key's class prefix to the matching host-side `credentials.Store` helper. Read-only by design: the host owns add/update/delete; the extension just consumes the value at request time. Add new prefixes in `app/coreimpl.go::hostSecretsCoreImpl.Get` when a future Pattern B consumer emerges.
+
+Key format: `"<class>:<id>"`. Today only `"carddav:<sourceID>"` is supported; the contacts extension uses it like:
+
+```go
+password, err := a.core.Storage().HostSecrets().Get("carddav:" + source.ID)
+```
+
+Per-extension SQLite is the parallel persistence path for domain data — see [§ Per-extension storage](#per-extension-storage).
 
 ### `EventBus`
 
@@ -865,7 +891,9 @@ kv := store.KV()           // coreapi.KVStore backed by ext_kv table
 
 Package: [`internal/extensions/auth/`](../internal/extensions/auth/) (files [`broker.go`](../internal/extensions/auth/broker.go), [`transport.go`](../internal/extensions/auth/transport.go), [`scope.go`](../internal/extensions/auth/scope.go)).
 
-The Auth Broker is the ONLY way an extension reaches external services. Extensions never see access tokens, refresh tokens, or passwords. Token refresh is transparent. Multi-client-config routing handles the "Mail uses project A, Calendar/Contacts use project B" reality without forcing users to re-authenticate the unrelated service.
+The Auth Broker is the ONLY way an extension reaches external services that use OAuth. Extensions never see OAuth access tokens or refresh tokens — token refresh is transparent. Multi-client-config routing handles the "Mail uses project A, Calendar/Contacts use project B" reality without forcing users to re-authenticate the unrelated service.
+
+For host-managed *basic-auth passwords* (today: CardDAV passwords whose lifecycle lives in core's account settings), extensions consume the documented Pattern B surface — `core.Storage().HostSecrets().Get("carddav:<sourceID>")` — rather than the Auth Broker. That's the *only* mechanism by which an extension may read a host-managed password, and it's read-only.
 
 ### `HTTPClient`
 

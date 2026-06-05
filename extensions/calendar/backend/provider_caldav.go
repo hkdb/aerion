@@ -17,6 +17,7 @@ import (
 	extcaldav "github.com/emersion/go-webdav/caldav"
 
 	coreapi "github.com/hkdb/aerion/internal/core/api/v1"
+	"github.com/hkdb/aerion/internal/kit/davutil"
 )
 
 // caldavProvider — Provider impl for SourceTypeCalDAV.
@@ -53,7 +54,7 @@ func (p caldavProvider) SyncCalendar(ctx context.Context, src Source, cal Calend
 	}
 
 	httpClient := webdav.HTTPClientWithBasicAuth(
-		newCalDAVSyncHTTPClient(60*time.Second),
+		davutil.NewHTTPClient(60*time.Second),
 		src.Username, password,
 	)
 	client, err := extcaldav.NewClient(httpClient, src.URL)
@@ -220,8 +221,11 @@ func (p caldavProvider) PushEvent(ctx context.Context, src Source, cal Calendar,
 		return PushResult{}, fmt.Errorf("no password stored for source — re-add it in settings")
 	}
 
+	// xmlfix-wrapped client: PUT responses on some servers (mailbox.org)
+	// carry unquoted ETags; without the fix the new ETag fails to parse
+	// and the retry-on-412 path breaks. Same builder as sync.
 	httpClient := webdav.HTTPClientWithBasicAuth(
-		newCalDAVHTTPClient(30*time.Second),
+		davutil.NewHTTPClient(30*time.Second),
 		src.Username, password,
 	)
 
@@ -349,8 +353,9 @@ func (p caldavProvider) DeleteRemote(ctx context.Context, src Source, cal Calend
 		return fmt.Errorf("no password stored for source — re-add it in settings")
 	}
 
+	// xmlfix-wrapped client — see PushEvent above for the rationale.
 	httpClient := webdav.HTTPClientWithBasicAuth(
-		newCalDAVHTTPClient(30*time.Second),
+		davutil.NewHTTPClient(30*time.Second),
 		src.Username, password,
 	)
 
