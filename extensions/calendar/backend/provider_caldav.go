@@ -382,11 +382,49 @@ func (p caldavProvider) DeleteRemote(ctx context.Context, src Source, cal Calend
 	case http.StatusOK, http.StatusNoContent, http.StatusNotFound:
 		return nil
 	case http.StatusPreconditionFailed:
+		// 412 on a conditional DELETE almost always means our local ETag
+		// is stale — Nextcloud (and others) don't return ETag on PUT
+		// responses, so any earlier update left our local copy without
+		// the new ETag. The user just clicked Delete; they have clear
+		// intent. Mirror PushEvent's retry-unconditional pattern: drop
+		// If-Match and try again. A genuine concurrent edit will show up
+		// on next sync; we just unblock the delete in the common case.
+		if ev.ETag != "" {
+			return p.retryDeleteUnconditional(ctx, httpClient, href)
+		}
 		return ErrConflict
 	}
 
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	return fmt.Errorf("caldav DELETE %d %s: %s",
+		resp.StatusCode, resp.Status, strings.TrimSpace(string(body)))
+}
+
+// retryDeleteUnconditional re-sends a DELETE without If-Match so a stale
+// local ETag (most common 412 cause on delete) doesn't block the user's
+// intent. Mirror of retryPutUnconditional.
+func (p caldavProvider) retryDeleteUnconditional(ctx context.Context, httpClient webdav.HTTPClient, href string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, href, nil)
+	if err != nil {
+		return fmt.Errorf("build retry DELETE request: %w", err)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("caldav retry DELETE: %w: %v", ErrTransport, err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusNoContent, http.StatusNotFound:
+		return nil
+	case http.StatusPreconditionFailed:
+		// Unconditional DELETE still rejected — server-side lock or ACL
+		// constraint. Surface as conflict.
+		return ErrConflict
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	return fmt.Errorf("caldav retry DELETE %d %s: %s",
 		resp.StatusCode, resp.Status, strings.TrimSpace(string(body)))
 }
 

@@ -135,6 +135,16 @@
     isAllDay = !!ev.isAllDay
     const startInTz = toZonedTime(new Date(ev.dtstartUnix * 1000), tz)
     const endInTz = toZonedTime(new Date(ev.dtendUnix * 1000), tz)
+    // Wire DTEND is exclusive (next-day midnight) for all-day events per
+    // RFC 5545 §3.6.1 — subtract a day so the picker shows the inclusive
+    // last day. If a legacy/zero-duration record snuck in (DTEND == DTSTART),
+    // the subtract would render endDate before startDate; clamp to start.
+    if (isAllDay) {
+      endInTz.setDate(endInTz.getDate() - 1)
+      if (endInTz.getTime() < startInTz.getTime()) {
+        endInTz.setTime(startInTz.getTime())
+      }
+    }
     startDate = formatYMD(startInTz)
     startTime = formatHM(startInTz)
     endDate = formatYMD(endInTz)
@@ -235,6 +245,15 @@
     return Math.floor(utc.getTime() / 1000)
   }
 
+  // nextDayYMD bumps a YYYY-MM-DD string by one calendar day, with Date
+  // doing the month/year-rollover arithmetic. Used by handleSave to write
+  // RFC 5545 §3.6.1-correct DTEND for all-day events (exclusive next-day
+  // midnight). Calendar-date math only — no seconds, no DST involvement.
+  function nextDayYMD(ymd: string): string {
+    const [y, m, d] = ymd.split('-').map(Number)
+    return formatYMD(new Date(y, (m || 1) - 1, (d || 1) + 1))
+  }
+
   function reminderMinutes(): number {
     if (reminderChoice === 'custom') return reminderCustomMinutes
     if (reminderChoice === 'none') return -1
@@ -259,7 +278,15 @@
     }
 
     const dtstartUnix = buildUnix(startDate, startTime, isAllDay)
-    const dtendUnix = buildUnix(endDate || startDate, endTime || startTime, isAllDay)
+    // For all-day events, DTEND is exclusive (next-day midnight) per
+    // RFC 5545 §3.6.1 — so a single-day event on June 5 has DTSTART:20260605
+    // DTEND:20260606. The picker shows the *inclusive* last day; convert by
+    // bumping by one calendar day at write time. Without this, single-day
+    // all-day events were stored zero-duration, which several views (Month,
+    // Day) silently filtered out via the strict-greater overlap check.
+    const dtendUnix = isAllDay
+      ? buildUnix(nextDayYMD(endDate || startDate), '', true)
+      : buildUnix(endDate || startDate, endTime || startTime, false)
     if (dtendUnix < dtstartUnix) {
       errorMessage = $_('calendar.composer.errorEndBeforeStart')
       return
