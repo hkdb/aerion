@@ -12,6 +12,10 @@
       "queued": "Saved — will sync when you're back online.",
       "conflict": "This event was changed on the server. Please open it and re-apply your edit."
     },
+    "drag": {
+      "errorSave": "Failed to save event: {message}",
+      "recurringHint": "Drag is not available for recurring events. Use the detail view to edit."
+    },
     "hooks": {
       "loading": "Loading your calendars…",
       "consentNeeded": "This account hasn't granted calendar access yet. Open Settings → Accounts → Manage access on this account to grant Calendar scope, then re-open the account dialog.",

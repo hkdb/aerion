@@ -225,9 +225,17 @@ func (p caldavProvider) PushEvent(ctx context.Context, src Source, cal Calendar,
 		src.Username, password,
 	)
 
+	// Discriminate create vs update by whether the caller passed an Href.
+	// event_crud.go sets ev.Href ONLY after a successful create, so a
+	// caller with empty Href is asking us to create a new resource;
+	// non-empty Href is asking us to update an existing one. Using ETag
+	// emptiness as the discriminator (the previous approach) breaks when
+	// a CalDAV server doesn't return an ETag in its PUT response — the
+	// local ETag stays empty after create, and a subsequent update would
+	// incorrectly send `If-None-Match: *` and get 412 from the server.
+	isCreate := ev.Href == ""
 	href := ev.Href
-	if href == "" {
-		// New event — synthesize from calendar URL + UID.
+	if isCreate {
 		href = joinHref(cal.URL, ev.UID+".ics")
 	}
 	// Resolve relative paths against the source's base URL. CalDAV servers
@@ -246,11 +254,15 @@ func (p caldavProvider) PushEvent(ctx context.Context, src Source, cal Calendar,
 		return PushResult{}, fmt.Errorf("build PUT request: %w", err)
 	}
 	req.Header.Set("Content-Type", "text/calendar; charset=utf-8")
-	if ev.ETag != "" {
-		req.Header.Set("If-Match", ev.ETag)
-	}
-	if ev.ETag == "" {
+	// Conditional headers — three cases:
+	//   - create (Href empty)                 → If-None-Match: * (reject if exists)
+	//   - update with known ETag              → If-Match: ETag    (optimistic concurrency)
+	//   - update with no known local ETag     → no conditional    (unconditional PUT)
+	if isCreate {
 		req.Header.Set("If-None-Match", "*")
+	}
+	if !isCreate && ev.ETag != "" {
+		req.Header.Set("If-Match", ev.ETag)
 	}
 
 	resp, err := httpClient.Do(req)
@@ -266,11 +278,54 @@ func (p caldavProvider) PushEvent(ctx context.Context, src Source, cal Calendar,
 		// up on the next sync. Empty ETag is non-fatal.
 		return PushResult{ETag: resp.Header.Get("ETag")}, nil
 	case http.StatusPreconditionFailed:
+		// 412 paths split by what we sent:
+		//   - Update with If-Match (stale local ETag — most common cause):
+		//     server-side state advanced since our last sync. The user
+		//     just clicked Save / dragged the event — they have clear
+		//     intent to update. Retry once unconditionally so the write
+		//     lands; if there was a genuine concurrent edit we'll see it
+		//     on the next sync.
+		//   - Create with If-None-Match: * (resource already exists):
+		//     genuine conflict, surface ErrConflict so the queue / UI can
+		//     handle it.
+		if !isCreate && ev.ETag != "" {
+			return p.retryPutUnconditional(ctx, httpClient, href, ev.ICSBlob)
+		}
 		return PushResult{}, ErrConflict
 	}
 
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	return PushResult{}, fmt.Errorf("caldav PUT %d %s: %s",
+		resp.StatusCode, resp.Status, strings.TrimSpace(string(body)))
+}
+
+// retryPutUnconditional re-sends a PUT without any If-Match / If-None-Match
+// header so a stale local ETag (most common 412 cause on update) doesn't
+// block the user's intent. Called only from the update path; creates
+// surface their 412 as ErrConflict.
+func (p caldavProvider) retryPutUnconditional(ctx context.Context, httpClient webdav.HTTPClient, href, blob string) (PushResult, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, href, strings.NewReader(blob))
+	if err != nil {
+		return PushResult{}, fmt.Errorf("build retry PUT request: %w", err)
+	}
+	req.Header.Set("Content-Type", "text/calendar; charset=utf-8")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return PushResult{}, fmt.Errorf("caldav retry PUT: %w: %v", ErrTransport, err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusCreated, http.StatusNoContent:
+		return PushResult{ETag: resp.Header.Get("ETag")}, nil
+	case http.StatusPreconditionFailed:
+		// Unconditional PUT still rejected — something else is wrong
+		// (rare; possibly server-side resource lock). Surface as conflict.
+		return PushResult{}, ErrConflict
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	return PushResult{}, fmt.Errorf("caldav retry PUT %d %s: %s",
 		resp.StatusCode, resp.Status, strings.TrimSpace(string(body)))
 }
 
