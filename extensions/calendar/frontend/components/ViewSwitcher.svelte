@@ -10,11 +10,9 @@
   import { Button } from '$lib/components/ui/button'
   import ResponsiveSidebarToggle from '$lib/components/kit/ResponsiveSidebarToggle.svelte'
   import TimezonePicker from './TimezonePicker.svelte'
-  import EventComposerDialog from './EventComposerDialog.svelte'
   import { calendarView, type ViewKind } from '$extensions/calendar/frontend/stores/calendarView.svelte'
   import { calendarSources } from '$extensions/calendar/frontend/stores/calendarSources.svelte'
   import { calendarSettings } from '$extensions/calendar/frontend/stores/calendarSettings.svelte'
-  import { events } from '$extensions/calendar/frontend/stores/events.svelte'
 
   interface ViewOption {
     kind: ViewKind
@@ -45,7 +43,6 @@
   // `syncing` flag still gates button-disable so users can't double-click
   // — we only spread the spinner trigger.
   const animateSpin = $derived(syncing || calendarSources.isAnySyncing)
-  let showComposer = $state(false)
 
   // "+ Event" button is visible when at least one writable calendar exists.
   // Local + CalDAV (post-Chunk 2) both qualify; Google + Microsoft join in
@@ -70,13 +67,6 @@
     }
   }
 
-  function refreshEvents() {
-    void events.fetchRange(
-      calendarSources.visibleCalendarIDs,
-      calendarView.visibleRange.fromUnix,
-      calendarView.visibleRange.toUnix,
-    )
-  }
 </script>
 
 <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-border bg-background">
@@ -136,7 +126,7 @@
       <Button
         size="sm"
         variant="outline"
-        onclick={() => { showComposer = true }}
+        onclick={() => calendarView.requestNewEvent()}
       >
         <Icon icon="mdi:plus" class="w-4 h-4 mr-1" />
         {$_('calendar.viewSwitcher.newEvent')}
@@ -158,8 +148,3 @@
   </div>
 </div>
 
-<EventComposerDialog
-  bind:open={showComposer}
-  mode="create"
-  onSaved={refreshEvents}
-/>

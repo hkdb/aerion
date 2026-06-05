@@ -813,10 +813,6 @@
           e.preventDefault()
           handleQuit()
           return
-        case 'n':
-          e.preventDefault()
-          handleCompose()
-          return
         case 'tab':
         case '`': {
           // Cycle through rail items: Mail + enabled extensions.
@@ -860,6 +856,14 @@
 
       // MAIL-DOMAIN Ctrl/Cmd cases (guarded above).
       switch (e.key.toLowerCase()) {
+        case 'n':
+          // Ctrl/Cmd+N — new mail composer. Mail-domain only: when an
+          // extension rail is active (e.g., calendar), that extension's
+          // shortcut registry handles Ctrl+N before we reach the global
+          // switch, opening its own "new X" dialog.
+          e.preventDefault()
+          handleCompose()
+          return
         case 'r': {
           if (!hasConversation) return
           e.preventDefault()

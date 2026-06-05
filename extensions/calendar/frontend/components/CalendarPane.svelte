@@ -22,6 +22,7 @@
   import DayView from './views/DayView.svelte'
   import AgendaView from './views/AgendaView.svelte'
   import EventDetail from './EventDetail.svelte'
+  import EventComposerDialog from './EventComposerDialog.svelte'
   import { calendarSources } from '$extensions/calendar/frontend/stores/calendarSources.svelte'
   import { calendarView } from '$extensions/calendar/frontend/stores/calendarView.svelte'
   import { events } from '$extensions/calendar/frontend/stores/events.svelte'
@@ -91,6 +92,9 @@
   const unregSyncAll = registerExtensionShortcut('calendar', KEY.CALENDAR_SYNC_ALL, () => {
     void calendarSources.syncAll()
   })
+  const unregNewEvent = registerExtensionShortcut('calendar', KEY.CALENDAR_NEW_EVENT, () => {
+    calendarView.requestNewEvent()
+  })
   const unregFocus = registerExtensionShortcut('calendar', KEY.CALENDAR_FOCUS_TOGGLE, () => {
     calendarView.toggleEventFocus()
   })
@@ -112,12 +116,26 @@
     unregNext()
     unregSync()
     unregSyncAll()
+    unregNewEvent()
     unregFocus()
     unregViewMonth()
     unregViewWeek()
     unregViewDay()
     unregViewAgenda()
   })
+
+  // Centralized create-mode composer mount. Single source of truth for
+  // the "+ Event" button, empty-slot click, and Ctrl/Cmd+N — all three
+  // route through calendarView.requestNewEvent(). Save refetches the
+  // currently-visible event window so the new event renders without a
+  // separate sync-complete cycle.
+  function refreshAfterSave() {
+    void events.fetchRange(
+      calendarSources.visibleCalendarIDs,
+      calendarView.visibleRange.fromUnix,
+      calendarView.visibleRange.toUnix,
+    )
+  }
 
   function openSettings() {
     openExtensionSettings('calendar')
@@ -158,4 +176,15 @@
     <EventDetail eventId={calendarView.selectedEventId} />
   {/snippet}
 </DetailOverlay>
+
+<!-- Single create-mode composer mount. All three triggers (toolbar +
+     Event button, empty-slot click in TimelineView, Ctrl/Cmd+N) flow
+     through calendarView.requestNewEvent(); EventDetail's edit-mode
+     mount is independent and stays local to that component. -->
+<EventComposerDialog
+  bind:open={calendarView.composerOpen}
+  mode="create"
+  defaultStart={calendarView.composerDefaultStart}
+  onSaved={refreshAfterSave}
+/>
 

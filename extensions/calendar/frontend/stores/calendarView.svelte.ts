@@ -18,6 +18,20 @@ let anchorDate = $state<Date>(startOfMonth(new Date()))
 let selectedEventId = $state<string | null>(null)
 let eventFocusMode = $state<'off' | 'event'>('off')
 
+// Centralized create-mode composer state. Trigger sites (the "+ Event"
+// button in ViewSwitcher, empty-slot click in TimelineView, and the
+// Ctrl/Cmd+N shortcut in CalendarPane) all call requestNewEvent() — only
+// CalendarPane mounts the dialog, so there's one source of truth instead
+// of three independent local mounts. Edit-mode composer (from EventDetail)
+// is a different shape (existing event + scope) and keeps its local mount.
+let composerOpen = $state(false)
+let composerDefaultStart = $state<Date | null>(null)
+
+function requestNewEvent(opts?: { defaultStart?: Date | null }) {
+  composerDefaultStart = opts?.defaultStart ?? null
+  composerOpen = true
+}
+
 // The visible UTC window for the active view + anchor. Derived so the
 // events store can re-fetch whenever the view or anchor changes.
 //
@@ -171,6 +185,12 @@ export const calendarView = {
   get selectedEventId() { return selectedEventId },
   get eventFocusMode() { return eventFocusMode },
   get visibleRange() { return visibleRange },
+  // Getter+setter so consumers can `bind:open={calendarView.composerOpen}`.
+  // The dialog (EventComposerDialog) drives both directions: requestNewEvent
+  // flips it true; the dialog's internal close path flips it back via bind.
+  get composerOpen() { return composerOpen },
+  set composerOpen(v: boolean) { composerOpen = v },
+  get composerDefaultStart() { return composerDefaultStart },
 
   setViewKind,
   setAnchorDate,
@@ -179,6 +199,7 @@ export const calendarView = {
   goToday,
   selectEvent,
   toggleEventFocus,
+  requestNewEvent,
 
   // Re-export helpers — MonthView uses them to compute per-cell dates;
   // WeekView uses weekStart for its 7-day window.

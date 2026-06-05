@@ -17,7 +17,6 @@
   import { onMount, onDestroy } from 'svelte'
   import { _ } from 'svelte-i18n'
   import EventCard from '$extensions/calendar/frontend/components/EventCard.svelte'
-  import EventComposerDialog from '$extensions/calendar/frontend/components/EventComposerDialog.svelte'
   import { events } from '$extensions/calendar/frontend/stores/events.svelte'
   import { calendarSources } from '$extensions/calendar/frontend/stores/calendarSources.svelte'
   import { calendarView } from '$extensions/calendar/frontend/stores/calendarView.svelte'
@@ -314,9 +313,12 @@
   }
 
   // --- Click empty timeslot → open composer at 15-min snapped slot ------------
+  //
+  // The composer dialog itself is now mounted centrally in CalendarPane.
+  // We keep the per-cell highlight state local because it's a TimelineView
+  // visual artifact (the colored band on the clicked slot); it tears down
+  // via a $effect that watches the global composer's open state.
 
-  let composerOpen = $state(false)
-  let composerDefaultStart = $state<Date | null>(null)
   let highlightedSlot = $state<{ colIdx: number; startMinute: number } | null>(null)
 
   function onColumnClick(colIdx: number, e: MouseEvent) {
@@ -338,22 +340,18 @@
     const startUtc = fromTzDate(wall)
 
     highlightedSlot = { colIdx, startMinute: snapped }
-    composerDefaultStart = startUtc
-    composerOpen = true
+    calendarView.requestNewEvent({ defaultStart: startUtc })
   }
 
   function clearHighlight() {
     highlightedSlot = null
-    composerDefaultStart = null
   }
 
-  function refreshEvents() {
-    void events.fetchRange(
-      calendarSources.visibleCalendarIDs,
-      calendarView.visibleRange.fromUnix,
-      calendarView.visibleRange.toUnix,
-    )
-  }
+  // Composer closed (save or cancel) → drop the highlight. Initial pass
+  // with composerOpen=false is a harmless no-op clear.
+  $effect(() => {
+    if (!calendarView.composerOpen) clearHighlight()
+  })
 
   async function refreshEventsAsync() {
     await events.fetchRange(
@@ -818,11 +816,3 @@
     </div>
   </div>
 </div>
-
-<EventComposerDialog
-  bind:open={composerOpen}
-  mode="create"
-  defaultStart={composerDefaultStart}
-  onClose={clearHighlight}
-  onSaved={refreshEvents}
-/>

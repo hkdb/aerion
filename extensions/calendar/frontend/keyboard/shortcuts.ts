@@ -23,6 +23,13 @@ export const CALENDAR_NEXT = (e: KeyboardEvent): boolean =>
 export const CALENDAR_SYNC = (e: KeyboardEvent): boolean =>
   e.key === 'r' && ctrlOrMeta(e) && !e.shiftKey && !e.altKey
 
+/** `Ctrl/Cmd+N` — open the new-event composer. Routed by the extension
+ *  shortcut registry before App.svelte's mail-domain switch, so this only
+ *  fires when the calendar rail is active. Mail's Ctrl+N (handleCompose)
+ *  is now mail-domain-guarded and stays out of the way. */
+export const CALENDAR_NEW_EVENT = (e: KeyboardEvent): boolean =>
+  e.key.toLowerCase() === 'n' && ctrlOrMeta(e) && !e.shiftKey && !e.altKey
+
 /** `f` — toggle focus mode for the selected event (no-op if no event selected). */
 export const CALENDAR_FOCUS_TOGGLE = (e: KeyboardEvent): boolean =>
   e.key === 'f' && noMods(e)
@@ -56,6 +63,7 @@ export const KEY = {
   CALENDAR_NEXT,
   CALENDAR_SYNC,
   CALENDAR_SYNC_ALL,
+  CALENDAR_NEW_EVENT,
   CALENDAR_FOCUS_TOGGLE,
   CALENDAR_VIEW_MONTH,
   CALENDAR_VIEW_WEEK,
