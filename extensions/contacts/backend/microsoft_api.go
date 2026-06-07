@@ -85,13 +85,7 @@ func (a *API) createMicrosoftContact(input coreapi.ContactCreateInput, email str
 	if name == "" {
 		name = email
 	}
-	rec := &contact.Record{
-		Fn: name,
-		Emails: []contact.RecordEmail{{
-			Email:     email,
-			IsPrimary: true,
-		}},
-	}
+	rec := recordFromCreateInput(input, email, name)
 	contactReq := recordToMicrosoftContact(rec, log)
 	folderID := parseAddressbookFolderID(input.AddressbookID)
 
@@ -113,6 +107,13 @@ func (a *API) createMicrosoftContact(input coreapi.ContactCreateInput, email str
 	if persisted == nil {
 		persisted = rec
 	}
+	// Graph can't store email TYPES (no schema field) or extra URLs beyond
+	// businessHomePage. The convert layer strips them on the response side;
+	// re-apply them here from `rec` (the user's original intent) so the local
+	// row carries the full state. The persistence companion is the sidecar
+	// written below (Bug M-C step 2) — defends against later restoration
+	// paths that don't have `rec` in hand.
+	applyMSExtrasToRecord(persisted, rec)
 	persisted.ID = recordID
 	persisted.Source = "carddav"
 	persisted.SourceRef = addressbookID
@@ -141,6 +142,24 @@ func (a *API) createMicrosoftContact(input coreapi.ContactCreateInput, email str
 	if created.ETag != "" {
 		if err := a.extStore.SetETag(recordID, created.ETag); err != nil {
 			log.Warn().Err(err).Str("record_id", recordID).Msg("Failed to persist initial Microsoft etag")
+		}
+	}
+
+	// Sidecar — persists email types + full URL list. Non-fatal: the
+	// contact is already saved and the local Record carries the same state
+	// (defense in depth for restore-from-Graph scenarios). (Bug M-C step 2)
+	if err := a.extStore.SetMSSidecar(recordID, sidecarFromRecord(rec)); err != nil {
+		log.Warn().Err(err).Str("record_id", recordID).Msg("Failed to persist Microsoft sidecar on create")
+	}
+
+	// Photo upload — mirrors updateMicrosoftContact's tail. Photo step is
+	// non-fatal: the contact is already created. (Bug M-B)
+	if rec.PhotoData != "" {
+		photoBytes, derr := base64.StdEncoding.DecodeString(rec.PhotoData)
+		if derr != nil {
+			log.Warn().Err(derr).Msg("Failed to decode photo bytes on create; skipping photo upload")
+		} else if perr := writer.UpdatePhoto(ctx, created.ID, photoBytes); perr != nil {
+			log.Warn().Err(perr).Str("contact_id", created.ID).Msg("Failed to upload Microsoft contact photo on create; contact saved without photo")
 		}
 	}
 
@@ -197,6 +216,8 @@ func (a *API) updateMicrosoftContact(rec *contact.Record) error {
 	if persisted == nil {
 		persisted = rec
 	}
+	// Re-apply email types + full URL list lost by Graph's schema gap (Bug M-C step 2).
+	applyMSExtrasToRecord(persisted, rec)
 	persisted.ID = rec.ID
 	persisted.Source = "carddav"
 	persisted.SourceRef = rec.SourceRef
@@ -221,6 +242,11 @@ func (a *API) updateMicrosoftContact(rec *contact.Record) error {
 		if err := a.extStore.SetETag(rec.ID, updated.ETag); err != nil {
 			log.Warn().Err(err).Str("record_id", rec.ID).Msg("Failed to refresh stored Microsoft etag after update")
 		}
+	}
+
+	// Refresh the sidecar to mirror the new state. Non-fatal. (Bug M-C step 2)
+	if err := a.extStore.SetMSSidecar(rec.ID, sidecarFromRecord(rec)); err != nil {
+		log.Warn().Err(err).Str("record_id", rec.ID).Msg("Failed to persist Microsoft sidecar on update")
 	}
 
 	if rec.PhotoData != "" {
@@ -281,6 +307,9 @@ func (a *API) deleteMicrosoftContact(rec *contact.Record) error {
 	if a.extStore != nil {
 		if err := a.extStore.DeleteETag(rec.ID); err != nil {
 			log.Warn().Err(err).Str("record_id", rec.ID).Msg("Failed to delete stored Microsoft etag")
+		}
+		if err := a.extStore.DeleteMSSidecar(rec.ID); err != nil {
+			log.Warn().Err(err).Str("record_id", rec.ID).Msg("Failed to delete stored Microsoft sidecar")
 		}
 	}
 

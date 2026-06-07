@@ -105,19 +105,36 @@ type googlePersonSource struct {
 }
 
 type googleName struct {
-	GivenName   string `json:"givenName,omitempty"`
-	FamilyName  string `json:"familyName,omitempty"`
+	GivenName  string `json:"givenName,omitempty"`
+	FamilyName string `json:"familyName,omitempty"`
+	// UnstructuredName is the writable single-string name field. Google parses
+	// it server-side into displayName/givenName/familyName. We route rec.Fn
+	// here on write because DisplayName is OUTPUT_ONLY in the People API and
+	// gets silently dropped on PATCH/POST.
+	UnstructuredName string `json:"unstructuredName,omitempty"`
+	// DisplayName is OUTPUT_ONLY — populated by Google on responses, ignored
+	// on writes. Kept on the struct so googlePersonToRecord can read it back.
 	DisplayName string `json:"displayName,omitempty"`
 }
 
+// googleFieldMetadata carries per-field metadata Google attaches to each
+// emailAddresses/phoneNumbers entry. The only field we exercise today is
+// `primary` — see Bug G-C in docs/plans. Pointer-encoded on the parent so
+// the entire metadata sub-object is omitted when nothing is set.
+type googleFieldMetadata struct {
+	Primary bool `json:"primary,omitempty"`
+}
+
 type googleEmail struct {
-	Value string `json:"value,omitempty"`
-	Type  string `json:"type,omitempty"`
+	Value    string               `json:"value,omitempty"`
+	Type     string               `json:"type,omitempty"`
+	Metadata *googleFieldMetadata `json:"metadata,omitempty"`
 }
 
 type googlePhone struct {
-	Value string `json:"value,omitempty"`
-	Type  string `json:"type,omitempty"`
+	Value    string               `json:"value,omitempty"`
+	Type     string               `json:"type,omitempty"`
+	Metadata *googleFieldMetadata `json:"metadata,omitempty"`
 }
 
 type googleAddress struct {
@@ -398,41 +415,47 @@ func (w *GoogleContactsWriter) CreateContact(ctx context.Context, person *google
 //
 // On etag mismatch the doJSON layer returns *ErrGoogleEtagMismatch — leave it
 // to the API layer to translate into *coreapi.ErrConflict.
-func (w *GoogleContactsWriter) UpdateContact(ctx context.Context, resourceName, etag string, person *googlePerson, fieldMask string) (*googlePerson, error) {
+// UpdateContact PATCHes the contact. The caller-supplied `etag` parameter is
+// IGNORED — see the GET-before-PATCH block below. Kept on the signature for
+// backward compatibility; pass "" to make the intent obvious.
+func (w *GoogleContactsWriter) UpdateContact(ctx context.Context, resourceName, _ string, person *googlePerson, fieldMask string) (*googlePerson, error) {
 	if resourceName == "" {
 		return nil, errors.New("google people: UpdateContact: resourceName is required")
 	}
 	if fieldMask == "" {
 		return nil, errors.New("google people: UpdateContact: updatePersonFields mask is required")
 	}
-	if etag == "" {
-		return nil, errors.New("google people: UpdateContact: etag is required")
-	}
 
-	// Google identifies "the source that is being updated" by matching
-	// metadata.sources[].id, which is server-assigned — the format is not
-	// derivable from resourceName. Fetch the current Person to inherit the
-	// canonical source.id, then stamp it alongside the caller-supplied etag
-	// (the optimistic-lock token; mismatch triggers FAILED_PRECONDITION at
-	// PATCH time). Without source.id matching, the API rejects with
-	// "Request must set person.etag or person.metadata.sources.etag for the
-	// source that is being updated." Do NOT also set the top-level
-	// person.ETag — that's a different (person-wide) etag.
+	// GET-before-PATCH to learn both the server-assigned source.id AND the
+	// CURRENT source-level etag. We use the FRESH etag (not anything the
+	// caller supplied) because Google sometimes mutates a contact's etag
+	// out from under us (background indexing, sync from another client,
+	// etc.), and any cached value then poisons every subsequent write with
+	// FAILED_PRECONDITION.
+	// Using the etag we literally just fetched eliminates that class of failure.
+	//
+	// Trade-off: optimistic locking is now scoped to the GET→PATCH roundtrip
+	// (~ms), not the user's Edit-dialog-open→Save window. Matches contacts-app
+	// last-writer-wins semantics (Outlook, Apple Contacts) and is the only way
+	// to make writes reliable given Google's etag mutability.
 	current, err := w.GetContact(ctx, resourceName)
 	if err != nil {
 		return nil, fmt.Errorf("google people: UpdateContact: read source.id: %w", err)
 	}
-	var sourceID string
+	var sourceID, freshETag string
 	if current != nil && current.Metadata != nil {
 		for _, s := range current.Metadata.Sources {
-			if s.Type == "CONTACT" {
+			if s.Type == "CONTACT" && sourceID == "" {
 				sourceID = s.ID
-				break
+				freshETag = s.ETag
 			}
 		}
 	}
 	if sourceID == "" {
 		return nil, errors.New("google people: UpdateContact: server returned no CONTACT source.id")
+	}
+	if freshETag == "" {
+		return nil, errors.New("google people: UpdateContact: server returned no CONTACT source etag")
 	}
 
 	clean := *person
@@ -442,7 +465,7 @@ func (w *GoogleContactsWriter) UpdateContact(ctx context.Context, resourceName, 
 		Sources: []googlePersonSource{{
 			Type: "CONTACT",
 			ID:   sourceID,
-			ETag: etag,
+			ETag: freshETag,
 		}},
 	}
 

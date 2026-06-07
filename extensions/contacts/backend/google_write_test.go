@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -71,6 +72,45 @@ func TestGoogleWriter_CreateContact_Happy(t *testing.T) {
 	}
 }
 
+// Bug G-B: lock UpdatePhoto's HTTP shape. The endpoint must be
+// "{resourceName}:updateContactPhoto", the method PATCH, and the body must
+// carry photoBytes as standard base64 (Google's docs). Test fails loudly if
+// any of these drift.
+func TestGoogleWriter_UpdatePhoto_BodyShape(t *testing.T) {
+	var gotMethod, gotPath string
+	var gotBody googleUpdatePhotoRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(googleUpdatePhotoResponse{Person: &googlePerson{ResourceName: "people/c123"}})
+	}))
+	defer srv.Close()
+
+	writer := newTestWriter(srv)
+	rawPhoto := []byte{0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10} // first bytes of a JPEG
+	if _, err := writer.UpdatePhoto(context.Background(), "people/c123", rawPhoto); err != nil {
+		t.Fatalf("UpdatePhoto: %v", err)
+	}
+	if gotMethod != http.MethodPatch {
+		t.Errorf("method: got %q, want PATCH", gotMethod)
+	}
+	if gotPath != "/v1/people/c123:updateContactPhoto" {
+		t.Errorf("path: got %q, want /v1/people/c123:updateContactPhoto", gotPath)
+	}
+	if gotBody.PhotoBytes == "" {
+		t.Errorf("photoBytes empty in request body")
+	}
+	decoded, err := base64.StdEncoding.DecodeString(gotBody.PhotoBytes)
+	if err != nil {
+		t.Fatalf("photoBytes is not valid standard base64: %v", err)
+	}
+	if len(decoded) != len(rawPhoto) {
+		t.Errorf("photoBytes round-trip length: got %d, want %d", len(decoded), len(rawPhoto))
+	}
+}
+
 func TestGoogleWriter_UpdateContact_StampsEtagAndMask(t *testing.T) {
 	var patchMethod, patchPath, patchMask string
 	var patchBody googlePerson
@@ -101,7 +141,9 @@ func TestGoogleWriter_UpdateContact_StampsEtagAndMask(t *testing.T) {
 	defer srv.Close()
 
 	writer := newTestWriter(srv)
-	_, err := writer.UpdateContact(context.Background(), "people/c123", "ETAG-1", &googlePerson{
+	// Pass a stale caller etag deliberately — writer must IGNORE it and use
+	// the fresh etag from its own GET ("server-current-etag" per the mock).
+	_, err := writer.UpdateContact(context.Background(), "people/c123", "STALE-CALLER-ETAG", &googlePerson{
 		Names: []googleName{{DisplayName: "Alice"}},
 	}, "names,emailAddresses")
 	if err != nil {
@@ -119,8 +161,11 @@ func TestGoogleWriter_UpdateContact_StampsEtagAndMask(t *testing.T) {
 	if patchBody.Metadata == nil || len(patchBody.Metadata.Sources) == 0 {
 		t.Fatalf("metadata.sources missing in request body")
 	}
-	if patchBody.Metadata.Sources[0].ETag != "ETAG-1" {
-		t.Errorf("etag in body: got %q, want ETAG-1", patchBody.Metadata.Sources[0].ETag)
+	// Stale-cache fix: the writer uses the etag from its own pre-PATCH GET,
+	// never the caller's. This eliminates the stale-extStore class of
+	// FAILED_PRECONDITION rejections.
+	if patchBody.Metadata.Sources[0].ETag != "server-current-etag" {
+		t.Errorf("etag in body: got %q, want \"server-current-etag\" (the fresh etag from GET, not the caller's stale value)", patchBody.Metadata.Sources[0].ETag)
 	}
 	if patchBody.Metadata.Sources[0].ID != serverSourceID {
 		t.Errorf("source.id in body: got %q, want %q (inherited from GET response, not derived)", patchBody.Metadata.Sources[0].ID, serverSourceID)

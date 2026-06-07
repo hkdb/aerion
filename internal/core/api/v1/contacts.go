@@ -77,14 +77,41 @@ type ContactPhoto struct {
 //     2b.3 (Google People / MS Graph).
 //
 // AddressbookID applies only when SourceID is a CardDAV source UUID. Empty
-// AddressbookID means "the source's first writable addressbook." Future
-// fields (Emails []string, Phone, Address, Notes) get added when multi-field
-// Add lands.
+// AddressbookID means "the source's first writable addressbook."
+//
+// Rich-field support: when any of the optional rich fields below is set,
+// the create dispatchers route through recordFromCreateInput which mirrors
+// ContactPatch's shape onto a new contact.Record. Email + Name remain the
+// legacy minimum; when only those are set the create paths take a thin
+// "single primary email" shortcut for backward compatibility with the
+// sent-mail collection path that still uses email+name.
+//
+// Slice semantics differ from ContactPatch on purpose: Patch uses *[]T to
+// distinguish "unchanged" (nil) from "empty/cleared" ([]); Create has no
+// such ambiguity (omitting means empty, providing means set), so plain
+// slices are used.
 type ContactCreateInput struct {
 	SourceID      string `json:"sourceId,omitempty"`
 	AddressbookID string `json:"addressbookId,omitempty"`
 	Email         string `json:"email"`
 	Name          string `json:"name,omitempty"`
+
+	// Optional rich fields, mirroring ContactPatch's field set. When
+	// Emails is supplied (non-empty), it REPLACES the implicit single
+	// primary email built from the legacy Email field; otherwise the
+	// legacy single-email shortcut applies.
+	Nickname   string           `json:"nickname,omitempty"`
+	Org        string           `json:"org,omitempty"`
+	Title      string           `json:"title,omitempty"`
+	Note       string           `json:"note,omitempty"`
+	Bday       string           `json:"bday,omitempty"`
+	Categories []string         `json:"categories,omitempty"`
+	Emails     []ContactEmail   `json:"emails,omitempty"`
+	Phones     []ContactPhone   `json:"phones,omitempty"`
+	Addresses  []ContactAddress `json:"addresses,omitempty"`
+	URLs       []ContactURL     `json:"urls,omitempty"`
+	IMPPs      []ContactIMPP    `json:"impps,omitempty"`
+	Photo      *ContactPhoto    `json:"photo,omitempty"`
 }
 
 // Addressbook is the API-surface descriptor for a CardDAV addressbook hosted

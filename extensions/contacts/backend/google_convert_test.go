@@ -37,8 +37,13 @@ func TestRecordToGooglePerson_BasicFields(t *testing.T) {
 	}
 
 	p := recordToGooglePerson(rec, zerolog.Nop())
-	if len(p.Names) != 1 || p.Names[0].DisplayName != "Alice Wonder" {
-		t.Errorf("names: got %+v", p.Names)
+	// Bug G-A: rec.Fn must route to UnstructuredName (writable). DisplayName
+	// is OUTPUT_ONLY on Google's API and must be left empty on write.
+	if len(p.Names) != 1 || p.Names[0].UnstructuredName != "Alice Wonder" || p.Names[0].DisplayName != "" {
+		t.Errorf("names: got %+v (want UnstructuredName=\"Alice Wonder\" and DisplayName=\"\")", p.Names)
+	}
+	if p.Names[0].GivenName != "Alice" || p.Names[0].FamilyName != "Wonder" {
+		t.Errorf("names structured: got %+v", p.Names)
 	}
 	if len(p.Nicknames) != 1 || p.Nicknames[0].Value != "Ali" {
 		t.Errorf("nicknames: got %+v", p.Nicknames)
@@ -54,6 +59,13 @@ func TestRecordToGooglePerson_BasicFields(t *testing.T) {
 	}
 	if len(p.EmailAddresses) != 2 {
 		t.Errorf("emails: got %+v", p.EmailAddresses)
+	}
+	// Bug G-C: primary email carries metadata.primary=true; non-primary does not.
+	if p.EmailAddresses[0].Metadata == nil || !p.EmailAddresses[0].Metadata.Primary {
+		t.Errorf("primary email metadata.primary missing: got %+v", p.EmailAddresses[0])
+	}
+	if p.EmailAddresses[1].Metadata != nil && p.EmailAddresses[1].Metadata.Primary {
+		t.Errorf("non-primary email should not carry metadata.primary: got %+v", p.EmailAddresses[1])
 	}
 	if len(p.PhoneNumbers) != 1 || p.PhoneNumbers[0].Value != "+1-555-0100" {
 		t.Errorf("phones: got %+v", p.PhoneNumbers)
@@ -89,10 +101,19 @@ func TestGooglePersonToRecord_RoundTrip(t *testing.T) {
 		Fn:      "Alice",
 		NGiven:  "Alice",
 		NFamily: "Wonder",
-		Emails:  []contact.RecordEmail{{Email: "ALICE@EXAMPLE.COM"}},
-		Phones:  []contact.RecordPhone{{Number: "+1 555 0100", PhoneType: "mobile"}},
+		Emails:  []contact.RecordEmail{{Email: "ALICE@EXAMPLE.COM", IsPrimary: true}},
+		Phones:  []contact.RecordPhone{{Number: "+1 555 0100", PhoneType: "mobile", IsPrimary: true}},
 	}
 	p := recordToGooglePerson(original, zerolog.Nop())
+	// Simulate Google's server-side parsing of unstructuredName into
+	// displayName (the API never returns the unstructuredName field on
+	// responses — it returns the parsed displayName/given/family). Without
+	// this simulation the round-trip would see DisplayName="" since we
+	// stop writing to that OUTPUT_ONLY field (Bug G-A).
+	if len(p.Names) > 0 {
+		p.Names[0].DisplayName = p.Names[0].UnstructuredName
+		p.Names[0].UnstructuredName = ""
+	}
 	back := googlePersonToRecord(p)
 	if back.Fn != "Alice" {
 		t.Errorf("Fn: got %q", back.Fn)
@@ -101,8 +122,15 @@ func TestGooglePersonToRecord_RoundTrip(t *testing.T) {
 	if len(back.Emails) != 1 || back.Emails[0].Email != "alice@example.com" {
 		t.Errorf("emails: got %+v", back.Emails)
 	}
+	// Bug G-C: IsPrimary round-trips via metadata.primary.
+	if len(back.Emails) != 1 || !back.Emails[0].IsPrimary {
+		t.Errorf("primary email IsPrimary did not round-trip: got %+v", back.Emails)
+	}
 	if len(back.Phones) != 1 || back.Phones[0].Number != "+1 555 0100" {
 		t.Errorf("phones: got %+v", back.Phones)
+	}
+	if len(back.Phones) != 1 || !back.Phones[0].IsPrimary {
+		t.Errorf("primary phone IsPrimary did not round-trip: got %+v", back.Phones)
 	}
 }
 

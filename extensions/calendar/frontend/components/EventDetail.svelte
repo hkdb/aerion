@@ -255,12 +255,25 @@
   }
 
   function onComposerSaved() {
-    // Refresh the visible window so the edit is reflected.
+    // Refresh the visible window so the edit is reflected in the list view.
     void events.fetchRange(
       calendarSources.visibleCalendarIDs,
       calendarView.visibleRange.fromUnix,
       calendarView.visibleRange.toUnix,
     )
+    // Refresh THIS pane too. The load $effect above only re-fetches when
+    // eventId changes — editing the same event keeps eventId constant, so
+    // the displayed `event` state would stay pre-edit unless we explicitly
+    // re-query here.
+    if (eventId) {
+      Calendar_GetEvent(eventId)
+        .then((ev: backend.Event) => {
+          event = ev ?? null
+        })
+        .catch((err: unknown) => {
+          loadError = err instanceof Error ? err.message : String(err)
+        })
+    }
   }
 </script>
 

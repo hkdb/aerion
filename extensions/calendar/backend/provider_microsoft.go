@@ -319,6 +319,36 @@ func locationDisplayName(l *graphLocation) string {
 // PushEvent POSTs a new event or PATCHes an existing one. PATCH operates
 // on /me/events/{id} (NOT nested under the calendar — Graph's model
 // differs from Google's).
+// fetchMicrosoftEventETag does a minimal `$select=id` GET on a Graph event
+// and returns its current ETag, or "" on any error / non-200 response.
+// Used right before a PATCH so the If-Match header reflects the server's
+// current etag (Graph mutates event etags out-of-band; the locally-cached
+// etag from a prior sync becomes stale and poisons subsequent PATCHes
+// with FAILED_PRECONDITION 412s).
+func fetchMicrosoftEventETag(ctx context.Context, client *http.Client, providerEventID string) string {
+	if providerEventID == "" {
+		return ""
+	}
+	u := microsoftGraphBase + "/me/events/" + url.PathEscape(providerEventID) + "?$select=id"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return ""
+	}
+	resp, err := doGraphRequest(ctx, client, req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	var probe graphEvent
+	if err := json.NewDecoder(resp.Body).Decode(&probe); err != nil {
+		return ""
+	}
+	return probe.ETag
+}
+
 func (p microsoftProvider) PushEvent(ctx context.Context, src Source, cal Calendar, ev Event) (PushResult, error) {
 	client, err := p.httpClient(src)
 	if err != nil {
@@ -340,6 +370,19 @@ func (p microsoftProvider) PushEvent(ctx context.Context, src Source, cal Calend
 	if ev.ProviderEventID != "" {
 		method = http.MethodPatch
 		endpoint = microsoftGraphBase + "/me/events/" + url.PathEscape(ev.ProviderEventID)
+		// Refresh the etag from a single-event GET right before PATCH.
+		// Graph mutates event etags out-of-band (background indexing,
+		// category propagation, etc.) — the locally-cached etag from a
+		// prior sync becomes stale and the next PATCH gets 412
+		// FAILED_PRECONDITION. Using the freshly-fetched etag eliminates
+		// that class of conflict-on-first-edit failures.
+		//
+		// Trade-off: optimistic locking is now scoped to the GET→PATCH
+		// roundtrip (~ms), not the user's Edit-dialog-open→Save window.
+		// Matches the behavior of Outlook's own client.
+		if freshETag := fetchMicrosoftEventETag(ctx, client, ev.ProviderEventID); freshETag != "" {
+			ev.ETag = freshETag
+		}
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, bytes.NewReader(payload))
@@ -388,6 +431,11 @@ func (p microsoftProvider) DeleteRemote(ctx context.Context, src Source, cal Cal
 
 	endpoint := microsoftGraphBase + "/me/events/" + url.PathEscape(ev.ProviderEventID)
 
+	// Refresh etag before DELETE to avoid stale-cache 412 (see
+	// fetchMicrosoftEventETag comment in PushEvent).
+	if freshETag := fetchMicrosoftEventETag(ctx, client, ev.ProviderEventID); freshETag != "" {
+		ev.ETag = freshETag
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("build DELETE request: %w", err)
@@ -514,6 +562,11 @@ func (p microsoftProvider) pushThisAndFuture(ctx context.Context, client *http.C
 		},
 	}
 	masterURL := microsoftGraphBase + "/me/events/" + url.PathEscape(payload.Master.ProviderEventID)
+	// Refresh master's etag before PATCH to avoid stale-cache 412 (see
+	// fetchMicrosoftEventETag comment in PushEvent).
+	if freshETag := fetchMicrosoftEventETag(ctx, client, payload.Master.ProviderEventID); freshETag != "" {
+		payload.Master.ETag = freshETag
+	}
 	masterPayload, _ := json.Marshal(masterPatch)
 	mreq, _ := http.NewRequestWithContext(ctx, http.MethodPatch, masterURL, bytes.NewReader(masterPayload))
 	mreq.Header.Set("Content-Type", "application/json")

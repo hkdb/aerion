@@ -32,9 +32,9 @@ func recordToGooglePerson(rec *contact.Record, log zerolog.Logger) *googlePerson
 	// Names — singleton. Take the first non-empty FN.
 	if rec.Fn != "" || rec.NGiven != "" || rec.NFamily != "" {
 		n := googleName{
-			GivenName:   rec.NGiven,
-			FamilyName:  rec.NFamily,
-			DisplayName: rec.Fn,
+			GivenName:        rec.NGiven,
+			FamilyName:       rec.NFamily,
+			UnstructuredName: rec.Fn,
 		}
 		p.Names = []googleName{n}
 	}
@@ -66,20 +66,28 @@ func recordToGooglePerson(rec *contact.Record, log zerolog.Logger) *googlePerson
 		if e.Email == "" {
 			continue
 		}
-		p.EmailAddresses = append(p.EmailAddresses, googleEmail{
+		ge := googleEmail{
 			Value: e.Email,
 			Type:  mapTypeToGoogle(e.EmailType),
-		})
+		}
+		if e.IsPrimary {
+			ge.Metadata = &googleFieldMetadata{Primary: true}
+		}
+		p.EmailAddresses = append(p.EmailAddresses, ge)
 	}
 
 	for _, ph := range rec.Phones {
 		if ph.Number == "" {
 			continue
 		}
-		p.PhoneNumbers = append(p.PhoneNumbers, googlePhone{
+		gp := googlePhone{
 			Value: ph.Number,
 			Type:  mapTypeToGoogle(ph.PhoneType),
-		})
+		}
+		if ph.IsPrimary {
+			gp.Metadata = &googleFieldMetadata{Primary: true}
+		}
+		p.PhoneNumbers = append(p.PhoneNumbers, gp)
 	}
 
 	for _, a := range rec.Addresses {
@@ -161,6 +169,7 @@ func googlePersonToRecord(p *googlePerson) *contact.Record {
 		rec.Emails = append(rec.Emails, contact.RecordEmail{
 			Email:     strings.ToLower(strings.TrimSpace(e.Value)),
 			EmailType: mapTypeFromGoogle(e.Type),
+			IsPrimary: e.Metadata != nil && e.Metadata.Primary,
 		})
 	}
 	for _, ph := range p.PhoneNumbers {
@@ -170,6 +179,7 @@ func googlePersonToRecord(p *googlePerson) *contact.Record {
 		rec.Phones = append(rec.Phones, contact.RecordPhone{
 			Number:    ph.Value,
 			PhoneType: mapTypeFromGoogle(ph.Type),
+			IsPrimary: ph.Metadata != nil && ph.Metadata.Primary,
 		})
 	}
 	for _, a := range p.Addresses {

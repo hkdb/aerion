@@ -93,13 +93,7 @@ func (a *API) createGoogleContact(input coreapi.ContactCreateInput, email string
 	if name == "" {
 		name = email
 	}
-	rec := &contact.Record{
-		Fn: name,
-		Emails: []contact.RecordEmail{{
-			Email:     email,
-			IsPrimary: true,
-		}},
-	}
+	rec := recordFromCreateInput(input, email, name)
 	person := recordToGooglePerson(rec, log)
 
 	created, err := writer.CreateContact(ctx, person)
@@ -132,6 +126,13 @@ func (a *API) createGoogleContact(input coreapi.ContactCreateInput, email string
 	persisted.ID = recordID
 	persisted.Source = "carddav"
 	persisted.SourceRef = addressbookID
+	// Google doesn't return photo bytes in the createContact response.
+	// Inherit them from `rec` (the user's input) so the local DB shows the
+	// avatar straight after create. The follow-up writer.UpdatePhoto call
+	// below pushes them to Google.
+	persisted.PhotoData = rec.PhotoData
+	persisted.PhotoMediaType = rec.PhotoMediaType
+	persisted.PhotoURL = rec.PhotoURL
 
 	tx, err := a.db.Begin()
 	if err != nil {
@@ -156,6 +157,18 @@ func (a *API) createGoogleContact(input coreapi.ContactCreateInput, email string
 		if err := a.extStore.SetETag(recordID, etag); err != nil {
 			// Non-fatal — next update will GET-to-refresh.
 			log.Warn().Err(err).Str("record_id", recordID).Msg("Failed to persist initial Google etag")
+		}
+	}
+
+	// Photo upload — mirrors updateGoogleContact's tail. Only push if the
+	// record carries inline photo bytes; out-of-band PHOTO URLs aren't pushed
+	// (Google rejects URL-only photos). Non-fatal: contact is already saved.
+	if rec.PhotoData != "" {
+		photoBytes, derr := base64.StdEncoding.DecodeString(rec.PhotoData)
+		if derr != nil {
+			log.Warn().Err(derr).Msg("Failed to decode photo bytes on create; skipping photo upload")
+		} else if _, perr := writer.UpdatePhoto(ctx, created.ResourceName, photoBytes); perr != nil {
+			log.Warn().Err(perr).Str("resourceName", created.ResourceName).Msg("Failed to upload Google contact photo on create; contact saved without photo")
 		}
 	}
 
@@ -203,25 +216,17 @@ func (a *API) updateGoogleContact(rec *contact.Record) error {
 	log := logging.WithComponent("google-contacts-write")
 	writer := NewGoogleContactsWriter(httpClient)
 
-	etag, err := a.extStore.GetETag(rec.ID)
-	if err != nil {
-		return fmt.Errorf("contacts.updateGoogleContact: load etag: %w", err)
-	}
-	if etag == "" {
-		current, gerr := writer.GetContact(ctx, resourceName)
-		if gerr != nil {
-			return fmt.Errorf("contacts.updateGoogleContact: refresh etag: %w", gerr)
-		}
-		etag = etagFromPerson(current)
-		if etag == "" {
-			return fmt.Errorf("contacts.updateGoogleContact: server returned no etag for %s", resourceName)
-		}
-	}
-
+	// The writer's UpdateContact does its own GET-then-PATCH and uses the
+	// freshly-fetched etag from that GET — the caller's etag parameter is
+	// ignored (we pass "" here). Reading + persisting an etag at the API
+	// layer was a stale-cache trap: Google can mutate a contact's etag
+	// out-of-band (background indexing, cross-client sync, etc.) and the
+	// cached value then poisons every subsequent write with
+	// FAILED_PRECONDITION. See the writer for the trade-off.
 	person := recordToGooglePerson(rec, log)
 	mask := fieldMaskForRecord(rec)
 
-	updated, err := writer.UpdateContact(ctx, resourceName, etag, person, mask)
+	updated, err := writer.UpdateContact(ctx, resourceName, "", person, mask)
 	if err != nil {
 		var etagErr *ErrGoogleEtagMismatch
 		if errors.As(err, &etagErr) {
@@ -239,6 +244,14 @@ func (a *API) updateGoogleContact(rec *contact.Record) error {
 	persisted.ID = rec.ID
 	persisted.Source = "carddav"
 	persisted.SourceRef = rec.SourceRef
+	// Photo bytes never come back in Google's PATCH response (only a URL on
+	// the photos[] array, and that URL isn't directly fetchable without
+	// extra auth). Inherit the user's uploaded bytes from `rec` so the
+	// local DB carries them — otherwise UpsertRecordTx would clear the
+	// photo we just uploaded, and the UI would show no avatar.
+	persisted.PhotoData = rec.PhotoData
+	persisted.PhotoMediaType = rec.PhotoMediaType
+	persisted.PhotoURL = rec.PhotoURL
 
 	tx, err := a.db.Begin()
 	if err != nil {

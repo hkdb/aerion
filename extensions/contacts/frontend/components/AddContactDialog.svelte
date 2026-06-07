@@ -1,16 +1,16 @@
 <script lang="ts">
-  // AddContactDialog — creates a new contact in the user-picked source. Track B
-  // (2b.2.c) added the source picker; pre-B this dialog only created into
-  // the local manual store. Source dispatch happens in the backend via
-  // ContactCreateInput.SourceID — local:manual for "Local", or the CardDAV
-  // source UUID for CardDAV-backed sources. The local option's underlying
-  // value is ALWAYS 'local:manual' regardless of which local sub-view the
-  // sidebar is showing (the 'collected' kind is reserved for the sent-mail
-  // collection process).
+  // AddContactDialog — creates a new contact in the user-picked source.
   //
-  // Multi-field Add (mirroring the Edit dialog's rich shape) is out of scope
-  // for B; this dialog stays at email + name. Later expansion is a separate
-  // track.
+  // v0.3.0-dev expansion: previously email + name only; now hosts the
+  // shared ContactFieldsForm so users can add a contact with phones,
+  // addresses, URLs, IMPPs, photo, and the rest of the rich fields in
+  // a single step. Backend dispatch by SourceID:
+  //   - local sentinel       → CreateContact's local-manual path
+  //   - CardDAV source UUID  → CreateContact's CardDAV path
+  //   - Google/MS source ID  → CreateContact's Google/MS provider paths
+  // (local sentinel is ALWAYS 'local:manual' regardless of which local
+  // sub-view the sidebar is showing; the 'collected' kind is reserved for
+  // sent-mail collection).
 
   import { untrack } from 'svelte'
   import { _ } from 'svelte-i18n'
@@ -24,8 +24,18 @@
   import { contactSourcesStore } from '$extensions/contacts/frontend/stores/contactSources.svelte'
   import { toasts } from '$lib/stores/toast'
   import { dialogGuardOpen, dialogGuardClose } from '$lib/stores/dialogGuard'
+  import ContactFieldsForm, { slotConstraintsFor } from './fields/ContactFieldsForm.svelte'
+  import type {
+    EmailRow,
+    PhoneRow,
+    AddressRow,
+    URLRow,
+    IMPPRow,
+    PhotoState,
+    SourceTypeID,
+  } from './fields/types'
   // @ts-ignore - wailsjs bindings
-  import type { v1 } from '$wailsjs/go/models'
+  import { v1 } from '$wailsjs/go/models'
 
   interface Props {
     open: boolean
@@ -43,19 +53,32 @@
   // Form state.
   let sourceValue = $state<string>(LOCAL_VALUE)
   let addressbookValue = $state<string>('')
-  let emailInput = $state('')
-  let nameInput = $state('')
   let saving = $state(false)
-  let errors = $state<{ email?: string }>({})
+  let errors = $state<Record<string, string>>({})
 
-  // Addressbook cache for the currently-picked CardDAV source. Refreshed on
-  // source change; null until first fetch completes.
+  // Field-form state — scalar + repeating, mirrors ContactEditDialog.
+  let nameInput = $state('')
+  let nicknameInput = $state('')
+  let orgInput = $state('')
+  let titleInput = $state('')
+  let noteInput = $state('')
+  let bdayInput = $state('')
+  let categoriesInput = $state('')
+  let emails = $state<EmailRow[]>([{ email: '', type: '', isPrimary: true }])
+  let phones = $state<PhoneRow[]>([])
+  let addresses = $state<AddressRow[]>([])
+  let urls = $state<URLRow[]>([])
+  let impps = $state<IMPPRow[]>([])
+  let photo = $state<PhotoState>({ data: '', mediaType: '', url: '' })
+
+  // Addressbook cache for the currently-picked external source. Refreshed
+  // on source change; null until first fetch completes.
   let addressbooks = $state<v1.Addressbook[]>([])
   let loadingAddressbooks = $state<boolean>(false)
 
   // Picker options. Any writable external source qualifies — CardDAV,
-  // Google (People API), or Microsoft (Graph). The backend's CreateContact
-  // dispatches by source.Type to the matching provider create handler.
+  // Google, or Microsoft. The backend's CreateContact dispatches by
+  // source.Type to the matching provider create handler.
   type PickerOption = { value: string; label: string }
   const sourceOptions: PickerOption[] = $derived.by(() => {
     const opts: PickerOption[] = [
@@ -74,11 +97,22 @@
     return sourceOptions.find(o => o.value === value)
   }
 
-  // Auto-fill from the sidebar's current source when the dialog opens. Rules:
-  // - "" / "local" / "local:*" → Local picker (LOCAL_VALUE, dispatches as
-  //   'local:manual' regardless of which local sub-view sourced it).
-  // - CardDAV UUID present in the picker → that source.
-  // - CardDAV UUID NOT in the picker (non-writable / unknown) → Local fallback.
+  // Derive the SourceTypeID for ContactFieldsForm constraint gating. Local
+  // sentinel → 'local'; external source UUID → look up its type. Empty
+  // string when the source isn't (yet) in contactSourcesStore.
+  const sourceType: SourceTypeID = $derived.by(() => {
+    if (!sourceValue || sourceValue === LOCAL_VALUE || sourceValue.startsWith('local')) {
+      return 'local'
+    }
+    const s = contactSourcesStore.sources.find(s => s.id === sourceValue)
+    if (!s) return ''
+    if (s.type === 'carddav' || s.type === 'google' || s.type === 'microsoft') {
+      return s.type
+    }
+    return ''
+  })
+
+  // Auto-fill from the sidebar's current source when the dialog opens.
   function autoFillFromSidebar(): string {
     const sel = contactsView.selectedSourceId
     if (!sel || sel === 'local' || sel.startsWith('local:')) return LOCAL_VALUE
@@ -86,33 +120,38 @@
     return match ? sel : LOCAL_VALUE
   }
 
-  // Reset state each time the dialog opens. The reset body MUST run inside
-  // untrack: load() reassigns contactSourcesStore.sources, autoFillFromSidebar
-  // reads sourceOptions (which depends on sources), and writing emailInput /
-  // nameInput / sourceValue feeds back into the picker. Without untrack the
-  // effect re-runs on every load() and on every keystroke into the inputs,
-  // clearing the fields faster than the user can type ("can't type" symptom
-  // observed when picking a Google/Microsoft source).
+  // Reset state each time the dialog opens. Wrapped in untrack so it
+  // depends only on `open` — otherwise contactSourcesStore.load() (which
+  // reassigns sources) re-triggers the effect and resets all inputs
+  // mid-typing.
   $effect(() => {
     if (!open) return
     untrack(() => {
       contactSourcesStore.load()
       sourceValue = autoFillFromSidebar()
       addressbookValue = ''
-      emailInput = ''
       nameInput = ''
+      nicknameInput = ''
+      orgInput = ''
+      titleInput = ''
+      noteInput = ''
+      bdayInput = ''
+      categoriesInput = ''
+      emails = [{ email: '', type: '', isPrimary: true }]
+      phones = []
+      addresses = []
+      urls = []
+      impps = []
+      photo = { data: '', mediaType: '', url: '' }
       errors = {}
       saving = false
     })
   })
 
-  // Fetch addressbooks whenever the user picks an external source (CardDAV,
-  // Google, Microsoft). Local doesn't need an addressbook fetch.
-  //
-  // .catch is required: without it, a rejected promise from listAddressbooks
-  // becomes an unhandled rejection, which can break Svelte reactivity on the
-  // current effect run and leave the dialog in a state where input handlers
-  // stop firing (e.g., Microsoft picker → backend errors → typing blocked).
+  // Fetch addressbooks whenever the user picks an external source. Local
+  // doesn't need it. .catch is critical: an unhandled rejection on this
+  // effect's promise has been observed to break Svelte reactivity and
+  // freeze the dialog inputs.
   $effect(() => {
     if (!open) return
     if (sourceValue === LOCAL_VALUE) {
@@ -124,9 +163,6 @@
     listAddressbooks(sourceValue)
       .then(abs => {
         addressbooks = abs
-        // Pre-select the first addressbook. Single-addressbook sources still
-        // get a value here so the form-state is always coherent; the dropdown
-        // just isn't rendered when count === 1.
         addressbookValue = abs.length > 0 ? abs[0].id : ''
       })
       .catch(err => {
@@ -140,11 +176,6 @@
       })
   })
 
-  // Register with the host's dialogGuard while open. Without this, mail's
-  // global Enter/Space handler in App.svelte calls e.preventDefault() on the
-  // dialog buttons (they're in a bits-ui portal, outside any pane). Same
-  // pattern mail's SettingsDialog and AccountDialog use for their dialogs —
-  // the convention is "consumer registers."
   $effect(() => {
     if (open) {
       dialogGuardOpen()
@@ -152,18 +183,44 @@
     }
   })
 
-  function validate(): boolean {
-    const e = emailInput.trim().toLowerCase()
-    if (e === '') {
-      errors = { email: $_('contacts.add.errorEmailRequired') }
-      return false
-    }
-    if (!e.includes('@') || e.indexOf('@') === e.length - 1 || e.startsWith('@')) {
-      errors = { email: $_('contacts.add.errorEmailInvalid') }
-      return false
-    }
-    errors = {}
+  function isValidEmail(s: string): boolean {
+    const t = s.trim().toLowerCase()
+    if (t === '') return false
+    if (!t.includes('@') || t.indexOf('@') === t.length - 1 || t.startsWith('@')) return false
     return true
+  }
+
+  function validate(): boolean {
+    const next: Record<string, string> = {}
+
+    // Need at least one valid email — that's the contact's identity.
+    const nonEmpty = emails.filter(e => e.email.trim() !== '')
+    if (nonEmpty.length === 0) {
+      next.email = $_('contacts.add.errorEmailRequired')
+    } else {
+      emails.forEach((e, i) => {
+        if (e.email.trim() !== '' && !isValidEmail(e.email)) {
+          next[`email-${i}`] = $_('contacts.add.errorEmailInvalid')
+        }
+      })
+    }
+
+    // Per-source slot guards. The repeater UI gates Add buttons, but
+    // type-based caps (Microsoft: 1 mobile phone) can be triggered by
+    // changing an existing row's type after adding it — surface here.
+    const constraints = slotConstraintsFor(sourceType)
+    if (constraints.phones.kind === 'maxByType') {
+      const c = constraints.phones
+      const target = c.type.toLowerCase()
+      const count = phones.filter(p => p.type.toLowerCase() === target).length
+      if (count > c.max) {
+        toasts.error(c.reason)
+        return false
+      }
+    }
+
+    errors = next
+    return Object.keys(next).length === 0
   }
 
   function close() {
@@ -174,25 +231,70 @@
   function handleSaveError(err: unknown) {
     const msg = (err as Error)?.message ?? String(err)
     if (/already exists/i.test(msg) || /UNIQUE constraint/i.test(msg)) {
-      errors = { email: $_('contacts.add.errorEmailExists') }
+      errors = { ...errors, email: $_('contacts.add.errorEmailExists') }
       return
     }
     console.error('Failed to create contact:', err)
-    // Surface the backend message so the user can see *why* (additional
-    // consent required, network error, provider write not enabled, etc.).
     toasts.error(`${$_('contacts.toast.failedAdd')}: ${msg}`)
+  }
+
+  // Build the rich ContactCreateInput from form state. Empty repeater rows
+  // are filtered before send. The first non-empty email is treated as the
+  // legacy primary if no row carries IsPrimary explicitly.
+  function buildCreateInput(): v1.ContactCreateInput {
+    const filteredEmails = emails
+      .filter(e => e.email.trim() !== '')
+      .map(e => ({ email: e.email.trim().toLowerCase(), type: e.type, isPrimary: e.isPrimary }))
+    if (!filteredEmails.some(e => e.isPrimary) && filteredEmails.length > 0) {
+      filteredEmails[0].isPrimary = true
+    }
+    const primaryEmail = filteredEmails.find(e => e.isPrimary)?.email ?? filteredEmails[0]?.email ?? ''
+    const photoForApi = photo.data ? { data: photo.data, mediaType: photo.mediaType, url: '' } : undefined
+    const categories = categoriesInput
+      .split(',')
+      .map(c => c.trim())
+      .filter(c => c.length > 0)
+
+    return v1.ContactCreateInput.createFrom({
+      sourceId: sourceValue,
+      addressbookId: sourceValue === LOCAL_VALUE ? '' : addressbookValue,
+      email: primaryEmail,
+      name: nameInput.trim(),
+      nickname: nicknameInput.trim(),
+      org: orgInput.trim(),
+      title: titleInput.trim(),
+      note: noteInput.trim(),
+      bday: bdayInput.trim(),
+      categories: categories.length > 0 ? categories : undefined,
+      emails: filteredEmails.length > 0 ? filteredEmails : undefined,
+      phones: phones
+        .filter(p => p.number.trim() !== '')
+        .map(p => ({ number: p.number.trim(), type: p.type, isPrimary: p.isPrimary })),
+      addresses: addresses
+        .filter(a => a.street || a.city || a.region || a.postcode || a.country)
+        .map(a => ({
+          type: a.type,
+          street: a.street.trim(),
+          city: a.city.trim(),
+          region: a.region.trim(),
+          postcode: a.postcode.trim(),
+          country: a.country.trim(),
+        })),
+      urls: urls
+        .filter(u => u.url.trim() !== '')
+        .map(u => ({ url: u.url.trim(), type: u.type })),
+      impps: impps
+        .filter(i => i.handle.trim() !== '')
+        .map(i => ({ handle: i.handle.trim(), type: i.type })),
+      photo: photoForApi,
+    })
   }
 
   async function save() {
     if (!validate()) return
     saving = true
     try {
-      const input: v1.ContactCreateInput = {
-        sourceId: sourceValue,
-        addressbookId: sourceValue === LOCAL_VALUE ? '' : addressbookValue,
-        email: emailInput.trim().toLowerCase(),
-        name: nameInput.trim(),
-      }
+      const input = buildCreateInput()
       const id = await createContact(input)
       toasts.success($_('contacts.toast.added'))
       onCreated?.(id, sourceValue)
@@ -204,24 +306,13 @@
     }
   }
 
-  function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter' && !saving) {
-      e.preventDefault()
-      save()
-    }
-  }
-
-  // Derived: addressbook dropdown is hidden when the source has 0 or 1
-  // addressbooks (nothing meaningful to pick). 0 case typically means the
-  // sources haven't loaded yet or the source genuinely has none; backend
-  // surfaces a clear error on save.
   let showAddressbookPicker = $derived(
     sourceValue !== LOCAL_VALUE && addressbooks.length > 1,
   )
 </script>
 
 <Dialog.Root bind:open onOpenChange={(v) => { if (!v) close() }}>
-  <Dialog.Content class="max-w-md">
+  <Dialog.Content class="max-w-xl max-h-[85vh] overflow-y-auto">
     <Dialog.Header>
       <Dialog.Title>{$_('contacts.add.title')}</Dialog.Title>
       <Dialog.Description>
@@ -229,7 +320,7 @@
       </Dialog.Description>
     </Dialog.Header>
 
-    <div class="space-y-3 mt-2">
+    <div class="space-y-5 mt-2">
       <!-- Source picker -->
       <div>
         <Label>{$_('contacts.add.sourceLabel')}</Label>
@@ -247,7 +338,7 @@
         </Select.Root>
       </div>
 
-      <!-- Addressbook sub-picker (CardDAV multi-addressbook only) -->
+      <!-- Addressbook sub-picker -->
       {#if showAddressbookPicker}
         <div>
           <Label>{$_('contacts.add.addressbookLabel')}</Label>
@@ -266,34 +357,32 @@
         </div>
       {/if}
 
-      <div>
-        <Label for="contact-add-email">{$_('contacts.add.emailLabel')}</Label>
-        <Input
-          id="contact-add-email"
-          type="email"
-          placeholder={$_('contacts.add.emailPlaceholder')}
-          bind:value={emailInput}
-          disabled={saving}
-          onkeydown={onKeydown}
-        />
-        {#if errors.email}
-          <p class="text-xs text-destructive mt-1">{errors.email}</p>
-        {/if}
-      </div>
-      <div>
-        <Label for="contact-add-name">{$_('contacts.add.nameLabel')} <span class="text-muted-foreground">{$_('contacts.add.nameOptional')}</span></Label>
-        <Input
-          id="contact-add-name"
-          type="text"
-          placeholder={$_('contacts.add.namePlaceholder')}
-          bind:value={nameInput}
-          disabled={saving}
-          onkeydown={onKeydown}
-        />
-      </div>
+      {#if errors.email}
+        <p class="text-xs text-destructive">{errors.email}</p>
+      {/if}
+
+      <!-- Rich field form -->
+      <ContactFieldsForm
+        bind:nameInput
+        bind:nicknameInput
+        bind:orgInput
+        bind:titleInput
+        bind:noteInput
+        bind:bdayInput
+        bind:categoriesInput
+        bind:emails
+        bind:phones
+        bind:addresses
+        bind:urls
+        bind:impps
+        bind:photo
+        errors={errors}
+        saving={saving}
+        sourceType={sourceType}
+      />
     </div>
 
-    <div class="flex items-center justify-end gap-2 pt-4 border-t border-border mt-4">
+    <div class="flex items-center justify-end gap-2 pt-4 border-t border-border mt-4 sticky bottom-0 bg-background">
       <Button variant="ghost" onclick={close} disabled={saving}>{$_('contacts.common.cancel')}</Button>
       <Button onclick={save} disabled={saving}>
         {#if saving}

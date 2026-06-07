@@ -2672,26 +2672,6 @@ export namespace v1 {
 		}
 	}
 	
-	export class ContactCreateInput {
-	    sourceId?: string;
-	    addressbookId?: string;
-	    email: string;
-	    name?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ContactCreateInput(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.sourceId = source["sourceId"];
-	        this.addressbookId = source["addressbookId"];
-	        this.email = source["email"];
-	        this.name = source["name"];
-	    }
-	}
-	
-	
 	export class ContactPhoto {
 	    data?: string;
 	    mediaType?: string;
@@ -2708,6 +2688,68 @@ export namespace v1 {
 	        this.url = source["url"];
 	    }
 	}
+	export class ContactCreateInput {
+	    sourceId?: string;
+	    addressbookId?: string;
+	    email: string;
+	    name?: string;
+	    nickname?: string;
+	    org?: string;
+	    title?: string;
+	    note?: string;
+	    bday?: string;
+	    categories?: string[];
+	    emails?: ContactEmail[];
+	    phones?: ContactPhone[];
+	    addresses?: ContactAddress[];
+	    urls?: ContactURL[];
+	    impps?: ContactIMPP[];
+	    photo?: ContactPhoto;
+	
+	    static createFrom(source: any = {}) {
+	        return new ContactCreateInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sourceId = source["sourceId"];
+	        this.addressbookId = source["addressbookId"];
+	        this.email = source["email"];
+	        this.name = source["name"];
+	        this.nickname = source["nickname"];
+	        this.org = source["org"];
+	        this.title = source["title"];
+	        this.note = source["note"];
+	        this.bday = source["bday"];
+	        this.categories = source["categories"];
+	        this.emails = this.convertValues(source["emails"], ContactEmail);
+	        this.phones = this.convertValues(source["phones"], ContactPhone);
+	        this.addresses = this.convertValues(source["addresses"], ContactAddress);
+	        this.urls = this.convertValues(source["urls"], ContactURL);
+	        this.impps = this.convertValues(source["impps"], ContactIMPP);
+	        this.photo = this.convertValues(source["photo"], ContactPhoto);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
 	export class ContactPatch {
 	    name?: string;
 	    nickname?: string;

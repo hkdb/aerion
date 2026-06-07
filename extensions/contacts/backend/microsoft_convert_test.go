@@ -40,8 +40,11 @@ func TestRecordToMicrosoftContact_BasicFields(t *testing.T) {
 	if c.Birthday != "1990-04-15T00:00:00Z" {
 		t.Errorf("birthday: got %q", c.Birthday)
 	}
-	if len(c.EmailAddresses) != 1 || c.EmailAddresses[0].Address != "alice@example.com" || c.EmailAddresses[0].Name != "work" {
-		t.Errorf("emails: got %+v", c.EmailAddresses)
+	// Bug M-C step 1: EmailType is NOT stuffed into Graph's `name` field —
+	// `name` is a freeform display label, not a type tag. Email type round-
+	// trips via the ms_field_sidecar instead.
+	if len(c.EmailAddresses) != 1 || c.EmailAddresses[0].Address != "alice@example.com" || c.EmailAddresses[0].Name != "" {
+		t.Errorf("emails: got %+v (want Address=alice@example.com, Name=\"\")", c.EmailAddresses)
 	}
 	if len(c.Categories) != 2 || c.Categories[0] != "VIP" {
 		t.Errorf("categories: got %+v", c.Categories)
@@ -161,19 +164,19 @@ func TestMicrosoftContactToRecord_RoundTripPhonesByBucket(t *testing.T) {
 	if rec == nil {
 		t.Fatal("nil record")
 	}
-	// Order: business, home, mobile (helpers' append order). Type metadata
-	// derived from bucket.
+	// Bug M-A: emit order is mobile → home → business, so the first phone
+	// overall (mobile) is the primary. Type metadata is derived from bucket.
 	if len(rec.Phones) != 4 {
 		t.Fatalf("expected 4 phones, got %d", len(rec.Phones))
 	}
-	if rec.Phones[0].PhoneType != "work" || rec.Phones[1].PhoneType != "work" {
-		t.Errorf("business should map to type=work: %+v", rec.Phones[:2])
+	if rec.Phones[0].PhoneType != "mobile" || rec.Phones[0].Number != "+1-555-0100" || !rec.Phones[0].IsPrimary {
+		t.Errorf("mobile should lead and be primary: %+v", rec.Phones[0])
 	}
-	if rec.Phones[2].PhoneType != "home" {
-		t.Errorf("home: %+v", rec.Phones[2])
+	if rec.Phones[1].PhoneType != "home" {
+		t.Errorf("home: %+v", rec.Phones[1])
 	}
-	if rec.Phones[3].PhoneType != "mobile" || rec.Phones[3].Number != "+1-555-0100" {
-		t.Errorf("mobile: %+v", rec.Phones[3])
+	if rec.Phones[2].PhoneType != "work" || rec.Phones[3].PhoneType != "work" {
+		t.Errorf("business should map to type=work: %+v", rec.Phones[2:])
 	}
 }
 
@@ -291,5 +294,58 @@ func TestMicrosoftConvertRoundTrip(t *testing.T) {
 	}
 	if len(back.Emails) != 1 || !strings.EqualFold(back.Emails[0].Email, "alice@example.com") {
 		t.Errorf("email round-trip lowercased: got %+v", back.Emails)
+	}
+}
+
+// Bug M-A: on write, the primary email leads even when source order places
+// it second. Microsoft Graph has no per-field primary marker, so the
+// convention is "first in array is primary."
+func TestRecordToMicrosoftContact_PrimaryEmailLeads(t *testing.T) {
+	rec := &contact.Record{
+		Fn: "X",
+		Emails: []contact.RecordEmail{
+			{Email: "second@example.com", EmailType: "home"},
+			{Email: "first@example.com", EmailType: "work", IsPrimary: true},
+		},
+	}
+	c := recordToMicrosoftContact(rec, zerolog.Nop())
+	if len(c.EmailAddresses) != 2 || c.EmailAddresses[0].Address != "first@example.com" {
+		t.Errorf("primary email did not lead: %+v", c.EmailAddresses)
+	}
+}
+
+// Bug M-A: on read, the first email is marked IsPrimary=true.
+func TestMicrosoftContactToRecord_PrimaryFromArrayOrder(t *testing.T) {
+	c := &msContact{
+		DisplayName: "X",
+		EmailAddresses: []msEmailAddress{
+			{Address: "first@example.com"},
+			{Address: "second@example.com"},
+		},
+	}
+	rec := microsoftContactToRecord(c)
+	if len(rec.Emails) != 2 {
+		t.Fatalf("expected 2 emails, got %d", len(rec.Emails))
+	}
+	if !rec.Emails[0].IsPrimary {
+		t.Errorf("Emails[0] should be primary: %+v", rec.Emails[0])
+	}
+	if rec.Emails[1].IsPrimary {
+		t.Errorf("Emails[1] should NOT be primary: %+v", rec.Emails[1])
+	}
+}
+
+// Bug M-A: primary-first ordering for phones within a bucket.
+func TestRecordToMicrosoftContact_PrimaryPhoneLeadsBucket(t *testing.T) {
+	rec := &contact.Record{
+		Fn: "X",
+		Phones: []contact.RecordPhone{
+			{Number: "+1-555-0100", PhoneType: "home"},                  // second
+			{Number: "+1-555-0200", PhoneType: "home", IsPrimary: true}, // leads
+		},
+	}
+	c := recordToMicrosoftContact(rec, zerolog.Nop())
+	if len(c.HomePhones) != 2 || c.HomePhones[0] != "+1-555-0200" {
+		t.Errorf("primary home phone did not lead: %+v", c.HomePhones)
 	}
 }

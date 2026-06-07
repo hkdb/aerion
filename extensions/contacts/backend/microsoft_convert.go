@@ -51,27 +51,33 @@ func recordToMicrosoftContact(rec *contact.Record, log zerolog.Logger) *msContac
 		c.Birthday = microsoftBirthdayFromString(rec.Bday)
 	}
 
-	// Emails — Graph's emailAddresses[].name slot rounds-trip the type label.
-	for _, e := range rec.Emails {
+	// Emails — emit the IsPrimary entry first (Bug M-A: Graph has no per-field
+	// primary marker; first-in-array is the convention used on read). Do NOT
+	// stuff EmailType into Graph's `name` field — `name` is a freeform display
+	// label, not a type tag (Bug M-C step 1). Email types are persisted in the
+	// extension-side ms_field_sidecar (handled by the API layer); the convert
+	// layer just sends address-only here.
+	for _, e := range primaryFirst(rec.Emails) {
 		if e.Email == "" {
 			continue
 		}
 		c.EmailAddresses = append(c.EmailAddresses, msEmailAddress{
 			Address: e.Email,
-			Name:    e.EmailType,
 		})
 	}
 
-	// Phone distribution. We bucket by EmailType-equivalent on the phone.
-	// Unknown types go to businessPhones (the Graph default), so we never
-	// drop a phone.
-	for _, p := range rec.Phones {
+	// Phone distribution + primary-first ordering within each bucket. We bucket
+	// by type; unknown types go to businessPhones (catch-all). For each bucket
+	// the IsPrimary entry leads so on read-back element 0 of the bucket can be
+	// reconstructed as the primary phone (Bug M-A).
+	for _, p := range primaryFirstPhones(rec.Phones) {
 		if p.Number == "" {
 			continue
 		}
 		switch strings.ToLower(strings.TrimSpace(p.PhoneType)) {
 		case "mobile", "cell":
-			// mobilePhone is a single string. Last one wins if multiple.
+			// mobilePhone is a single string. Last one wins if multiple — and
+			// the primary-first ordering ensures the primary mobile wins.
 			c.MobilePhone = p.Number
 		case "home":
 			c.HomePhones = append(c.HomePhones, p.Number)
@@ -177,24 +183,28 @@ func microsoftContactToRecord(c *msContact) *contact.Record {
 		rec.Bday = microsoftBirthdayToString(c.Birthday)
 	}
 
+	// Emails: Graph stores no type field on emailAddresses[]; EmailType is
+	// hydrated by the API layer from the ms_field_sidecar after this returns.
+	// IsPrimary is reconstructed from array order (Bug M-A): element 0 is
+	// considered primary on Microsoft contacts.
 	for _, e := range c.EmailAddresses {
 		if e.Address == "" {
 			continue
 		}
 		rec.Emails = append(rec.Emails, contact.RecordEmail{
-			Email:     strings.ToLower(strings.TrimSpace(e.Address)),
-			EmailType: e.Name,
+			Email: strings.ToLower(strings.TrimSpace(e.Address)),
 		})
+	}
+	if len(rec.Emails) > 0 {
+		rec.Emails[0].IsPrimary = true
 	}
 
 	// Rebuild phones from the three buckets. Type metadata comes from which
-	// bucket the number came from — preserves user intent across the round
-	// trip (a "home" phone written as homePhones[] reads back as PhoneType="home").
-	for _, p := range c.BusinessPhones {
-		if p == "" {
-			continue
-		}
-		rec.Phones = append(rec.Phones, contact.RecordPhone{Number: p, PhoneType: "work"})
+	// bucket the number came from. Emit in mobile → home → business order so
+	// the first phone overall is set as primary (Bug M-A) — matches the
+	// convention used on write (recordToMicrosoftContact).
+	if c.MobilePhone != "" {
+		rec.Phones = append(rec.Phones, contact.RecordPhone{Number: c.MobilePhone, PhoneType: "mobile"})
 	}
 	for _, p := range c.HomePhones {
 		if p == "" {
@@ -202,8 +212,14 @@ func microsoftContactToRecord(c *msContact) *contact.Record {
 		}
 		rec.Phones = append(rec.Phones, contact.RecordPhone{Number: p, PhoneType: "home"})
 	}
-	if c.MobilePhone != "" {
-		rec.Phones = append(rec.Phones, contact.RecordPhone{Number: c.MobilePhone, PhoneType: "mobile"})
+	for _, p := range c.BusinessPhones {
+		if p == "" {
+			continue
+		}
+		rec.Phones = append(rec.Phones, contact.RecordPhone{Number: p, PhoneType: "work"})
+	}
+	if len(rec.Phones) > 0 {
+		rec.Phones[0].IsPrimary = true
 	}
 
 	if c.HomeAddress != nil {
@@ -298,4 +314,50 @@ func microsoftBirthdayToString(s string) string {
 	}
 	// 1604 sentinel → no year known.
 	return "--" + date[5:]
+}
+
+// primaryFirst returns emails with the IsPrimary entry leading (others keep
+// source order). Used on write so element 0 of Graph's emailAddresses[] is
+// the primary email — the convention non-Aerion clients use when there's no
+// per-field primary marker (Bug M-A).
+func primaryFirst(in []contact.RecordEmail) []contact.RecordEmail {
+	if len(in) < 2 {
+		return in
+	}
+	var primary *contact.RecordEmail
+	out := make([]contact.RecordEmail, 0, len(in))
+	for i := range in {
+		if primary == nil && in[i].IsPrimary {
+			primary = &in[i]
+			continue
+		}
+		out = append(out, in[i])
+	}
+	if primary != nil {
+		return append([]contact.RecordEmail{*primary}, out...)
+	}
+	return in
+}
+
+// primaryFirstPhones is the phone analogue of primaryFirst. The IsPrimary
+// phone (if any) leads; remaining phones keep source order. Within a single
+// Graph bucket (homePhones, businessPhones), this means the primary entry
+// lands at index 0 of the bucket on write.
+func primaryFirstPhones(in []contact.RecordPhone) []contact.RecordPhone {
+	if len(in) < 2 {
+		return in
+	}
+	var primary *contact.RecordPhone
+	out := make([]contact.RecordPhone, 0, len(in))
+	for i := range in {
+		if primary == nil && in[i].IsPrimary {
+			primary = &in[i]
+			continue
+		}
+		out = append(out, in[i])
+	}
+	if primary != nil {
+		return append([]contact.RecordPhone{*primary}, out...)
+	}
+	return in
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/hkdb/aerion/extensions/contacts/backend/imaging"
 	"github.com/hkdb/aerion/internal/carddav"
 	"github.com/hkdb/aerion/internal/contact"
@@ -234,10 +235,36 @@ func (a *API) CreateContact(input coreapi.ContactCreateInput) (string, error) {
 		if a.localStore == nil {
 			return "", fmt.Errorf("contacts.CreateContact: local store unavailable")
 		}
-		if err := a.localStore.Create(email, strings.TrimSpace(input.Name)); err != nil {
-			return "", err
+		// Legacy minimal-create shortcut: keep email+name path intact so the
+		// sent-mail collection path (which only has email+name) is undisturbed.
+		if !hasRichFields(input) {
+			if err := a.localStore.Create(email, strings.TrimSpace(input.Name)); err != nil {
+				return "", err
+			}
+			return email, nil
 		}
-		return email, nil
+		// Rich-create path: build a full Record and UpsertRecord into the
+		// local store. ID is a fresh UUID; source=local, kind=manual mirror
+		// what Create() sets. NameOverridden=true on every email so future
+		// sent-mail auto-collection doesn't clobber the user's chosen FN.
+		name := strings.TrimSpace(input.Name)
+		if name == "" {
+			name = email
+		}
+		rec := recordFromCreateInput(input, email, name)
+		rec.ID = uuid.New().String()
+		rec.Source = "local"
+		rec.Kind = "manual"
+		for i := range rec.Emails {
+			rec.Emails[i].NameOverridden = true
+		}
+		if err := a.localStore.UpsertRecord(rec); err != nil {
+			if errors.Is(err, contact.ErrContactExists) {
+				return "", err
+			}
+			return "", fmt.Errorf("contacts.CreateContact: upsert local record: %w", err)
+		}
+		return rec.ID, nil
 	case input.SourceID == SourceIDLocalCollected:
 		return "", fmt.Errorf("contacts.CreateContact: cannot manually create a Collected contact (auto-derived from sent mail)")
 	}
@@ -307,21 +334,13 @@ func (a *API) createCardDAVContact(input coreapi.ContactCreateInput, email strin
 	}
 
 	// Build the record. FN is required by vCard 3.0 — fall back to email
-	// when Name is blank.
+	// when Name is blank. Rich fields from input.* land here too via the
+	// shared helper.
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
 		name = email
 	}
-	rec := &contact.Record{
-		Fn: name,
-		Emails: []contact.RecordEmail{
-			{
-				Email:     email,
-				EmailType: "",
-				IsPrimary: true,
-			},
-		},
-	}
+	rec := recordFromCreateInput(input, email, name)
 
 	client, _, err := a.cardDAVClientForAddressbook(addressbookID)
 	if err != nil {
@@ -529,6 +548,102 @@ func applyContactPatchToRecord(rec *contact.Record, patch coreapi.ContactPatch) 
 		applied = true
 	}
 	return applied
+}
+
+// recordFromCreateInput builds a contact.Record from a (rich) ContactCreateInput.
+// `email` is the resolved primary email address (already lowercased+trimmed by
+// the caller); `name` is the resolved display name (caller may default it to
+// the email's local part when not supplied).
+//
+// When input.Emails is non-empty it REPLACES the implicit single-primary
+// email constructed from `email` — callers supplying rich emails take full
+// control of the email list. Same for the other repeating slices: anything
+// non-empty replaces the legacy minimal default.
+//
+// Mirrors applyContactPatchToRecord's field copy logic so the create path
+// and patch path build records identically.
+func recordFromCreateInput(input coreapi.ContactCreateInput, email, name string) *contact.Record {
+	rec := &contact.Record{
+		Fn:       strings.TrimSpace(name),
+		Nickname: strings.TrimSpace(input.Nickname),
+		Org:      strings.TrimSpace(input.Org),
+		Title:    strings.TrimSpace(input.Title),
+		Note:     strings.TrimSpace(input.Note),
+		Bday:     strings.TrimSpace(input.Bday),
+	}
+
+	if len(input.Emails) > 0 {
+		for _, e := range input.Emails {
+			rec.Emails = append(rec.Emails, contact.RecordEmail{
+				Email:     strings.ToLower(strings.TrimSpace(e.Email)),
+				EmailType: e.Type,
+				IsPrimary: e.IsPrimary,
+			})
+		}
+	} else if email != "" {
+		rec.Emails = []contact.RecordEmail{{
+			Email:     email,
+			IsPrimary: true,
+		}}
+	}
+
+	for _, p := range input.Phones {
+		rec.Phones = append(rec.Phones, contact.RecordPhone{
+			Number:    strings.TrimSpace(p.Number),
+			PhoneType: p.Type,
+			IsPrimary: p.IsPrimary,
+		})
+	}
+	for _, a := range input.Addresses {
+		rec.Addresses = append(rec.Addresses, contact.RecordAddress{
+			AddrType: a.Type,
+			Street:   strings.TrimSpace(a.Street),
+			City:     strings.TrimSpace(a.City),
+			Region:   strings.TrimSpace(a.Region),
+			Postcode: strings.TrimSpace(a.Postcode),
+			Country:  strings.TrimSpace(a.Country),
+		})
+	}
+	for _, u := range input.URLs {
+		rec.URLs = append(rec.URLs, contact.RecordURL{
+			URL:     strings.TrimSpace(u.URL),
+			URLType: u.Type,
+		})
+	}
+	for _, i := range input.IMPPs {
+		rec.IMPPs = append(rec.IMPPs, contact.RecordIMPP{
+			Handle:   strings.TrimSpace(i.Handle),
+			IMPPType: i.Type,
+		})
+	}
+	if len(input.Categories) > 0 {
+		rec.Categories = append([]string{}, input.Categories...)
+	}
+	if input.Photo != nil {
+		rec.PhotoData = strings.TrimSpace(input.Photo.Data)
+		rec.PhotoMediaType = strings.TrimSpace(input.Photo.MediaType)
+		rec.PhotoURL = strings.TrimSpace(input.Photo.URL)
+	}
+	return rec
+}
+
+// hasRichFields reports whether any non-legacy field on the input is set.
+// Used by CreateContact to pick between the legacy minimal-create shortcut
+// (email + name only) and the full recordFromCreateInput path.
+func hasRichFields(input coreapi.ContactCreateInput) bool {
+	if input.Nickname != "" || input.Org != "" || input.Title != "" || input.Note != "" || input.Bday != "" {
+		return true
+	}
+	if len(input.Categories) > 0 || len(input.Emails) > 0 || len(input.Phones) > 0 {
+		return true
+	}
+	if len(input.Addresses) > 0 || len(input.URLs) > 0 || len(input.IMPPs) > 0 {
+		return true
+	}
+	if input.Photo != nil && (input.Photo.Data != "" || input.Photo.URL != "") {
+		return true
+	}
+	return false
 }
 
 // DeleteContact removes a contact by id. Source dispatch:

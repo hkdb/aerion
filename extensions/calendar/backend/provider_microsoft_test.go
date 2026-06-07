@@ -407,13 +407,27 @@ func TestMicrosoftProvider_PushEvent_CreateSuccess(t *testing.T) {
 }
 
 func TestMicrosoftProvider_PushEvent_UpdatePATCHWithIfMatch(t *testing.T) {
-	var got msCapturedReq
+	// PushEvent now does a GET right before the PATCH to learn the FRESH
+	// etag from the server, then sends that as If-Match. The caller's
+	// cached etag is ignored — this eliminates stale-cache 412s that
+	// otherwise poison every first edit (Graph mutates etags out-of-band
+	// for background indexing).
+	var patchReq msCapturedReq
+	const freshServerETag = `W/"server-etag-2"`
 	srv := newMSTestServer(t, func(req msCapturedReq, w http.ResponseWriter) {
-		got = req
+		// Distinguish the etag-refresh GET from the PATCH.
+		if req.method == http.MethodGet {
+			_ = json.NewEncoder(w).Encode(graphEvent{
+				ID:   "existing-id",
+				ETag: freshServerETag,
+			})
+			return
+		}
+		patchReq = req
 		_ = json.NewEncoder(w).Encode(graphEvent{
 			ID:      "existing-id",
 			ICalUID: req.body.ICalUID,
-			ETag:    `W/"server-etag-2"`,
+			ETag:    `W/"server-etag-3"`,
 		})
 	})
 	defer srv.Close()
@@ -424,7 +438,7 @@ func TestMicrosoftProvider_PushEvent_UpdatePATCHWithIfMatch(t *testing.T) {
 	ev := Event{
 		UID:             "evt@aerion-microsoft",
 		ProviderEventID: "existing-id",
-		ETag:            `W/"old-etag"`,
+		ETag:            `W/"old-etag"`, // deliberately stale — must be overwritten by GET
 		ICSBlob:         msMinimalICSBlob(t, "evt@aerion-microsoft"),
 	}
 
@@ -432,17 +446,18 @@ func TestMicrosoftProvider_PushEvent_UpdatePATCHWithIfMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PushEvent: %v", err)
 	}
-	if got.method != http.MethodPatch {
-		t.Errorf("method = %q, want PATCH", got.method)
+	if patchReq.method != http.MethodPatch {
+		t.Errorf("method = %q, want PATCH", patchReq.method)
 	}
-	// Microsoft PATCHes by event id directly, NOT nested under calendar.
-	if !strings.HasSuffix(got.path, "/me/events/existing-id") {
-		t.Errorf("path = %q, want suffix /me/events/existing-id", got.path)
+	if !strings.HasSuffix(patchReq.path, "/me/events/existing-id") {
+		t.Errorf("path = %q, want suffix /me/events/existing-id", patchReq.path)
 	}
-	if got.ifMatch != `W/"old-etag"` {
-		t.Errorf("If-Match = %q", got.ifMatch)
+	// The fresh etag from the GET must be what's sent on the PATCH, not
+	// the caller's stale `W/"old-etag"`.
+	if patchReq.ifMatch != freshServerETag {
+		t.Errorf("If-Match = %q, want %q (fresh from GET, not caller's stale cache)", patchReq.ifMatch, freshServerETag)
 	}
-	if result.ETag != `W/"server-etag-2"` {
+	if result.ETag != `W/"server-etag-3"` {
 		t.Errorf("ETag = %q", result.ETag)
 	}
 }
