@@ -3,7 +3,6 @@ package backend
 import (
 	"context"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -110,13 +109,6 @@ func probeCalDAVScheduling(ctx context.Context, baseURL, username, password stri
 	}
 	// Server is reachable but doesn't advertise scheduling support.
 	return "none"
-}
-
-// formatNoITIPModeReason is a small helper for the UI/error path so the
-// caller can surface why a CalDAV source ended up in itip_mode='none'.
-// Currently unused; kept for parity with the planned UI tooltip.
-func formatNoITIPModeReason() string {
-	return fmt.Sprintf("CalDAV server does not advertise RFC 6638 (calendar-auto-schedule)")
 }
 
 // probeCalDAVOrganizerIdentities returns the list of email addresses the

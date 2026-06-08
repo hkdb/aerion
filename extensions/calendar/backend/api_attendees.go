@@ -176,15 +176,10 @@ func eventToEventInput(ev Event) EventInput {
 		IsAllDay:    ev.IsAllDay,
 		TZName:      ev.TZName,
 	}
-	if ev.RRuleText != "" {
-		// RRuleText already canonical; serializeVEVENT calls setRRuleText.
-		// Wrapping in a RecurrenceSpec is unnecessary here — the existing
-		// serializeVEVENT honors rruleText() which handles ev.RRuleText
-		// directly. NOTE: we deliberately don't reconstruct a Recurrence
-		// spec from the raw RRULE (lossy); ICS round-trip via ev.ICSBlob
-		// preserves the raw form. UpdateMyAttendeeStatus changes only
-		// attendee PartStat, so the recurrence pattern is unaffected.
-	}
+	// Recurrence: we deliberately don't reconstruct a RecurrenceSpec from
+	// ev.RRuleText (lossy). ICS round-trip via ev.ICSBlob preserves the raw
+	// form. UpdateMyAttendeeStatus changes only attendee PartStat, so the
+	// recurrence pattern is unaffected.
 	if len(ev.Attendees) > 0 {
 		in.Attendees = make([]AttendeeInput, 0, len(ev.Attendees))
 		for _, a := range ev.Attendees {

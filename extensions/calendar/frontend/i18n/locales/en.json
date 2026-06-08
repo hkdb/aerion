@@ -43,7 +43,6 @@
       "lastSync": "Synced {time}",
       "lastSyncNever": "Not synced yet",
       "noCalendars": "No calendars yet. Add a CalDAV source to get started.",
-      "syncNow": "Sync now",
       "syncing": "Syncing {name}…",
       "syncingCalendar": "Syncing {source} · {name} ({n}/{total})",
       "syncingGeneric": "Syncing…",
@@ -58,7 +57,6 @@
       "prev": "Previous",
       "next": "Next",
       "sync": "Sync",
-      "comingSoon": "{view} view coming soon",
       "tzLabel": "tz: {tz}",
       "newEvent": "Event"
     },
@@ -73,7 +71,6 @@
         "sat": "SAT"
       },
       "moreEventsHidden": "+{n} more",
-      "allDay": "all day",
       "emptyState": "Add a CalDAV source to see events here."
     },
     "add": {
@@ -112,10 +109,7 @@
       "organizerEmailInvalid": "Enter a valid email address."
     },
     "toast": {
-      "syncStarted": "Syncing {name}…",
-      "syncFailed": "Sync failed for {name}: {message}",
-      "sourceDeleted": "Removed {name}",
-      "visibilityChanged": "Calendar visibility updated"
+      "sourceDeleted": "Removed {name}"
     },
     "detail": {
       "noTitle": "(no title)",
@@ -129,10 +123,6 @@
       "lastSync": "{time}",
       "lastSyncNever": "Not synced yet",
       "allDay": "all day",
-      "focusEnter": "Enter focus mode",
-      "focusExit": "Exit focus mode",
-      "close": "Close",
-      "back": "Back",
       "editButton": "Edit",
       "deleteButton": "Delete"
     },
@@ -174,7 +164,6 @@
       "calendarCountOne": "1 calendar",
       "lastSync": "Synced {time} ago",
       "lastSyncNever": "Never synced",
-      "syncIntervalLabel": "Sync every",
       "syncNow": "Sync now",
       "deleteConfirmTitle": "Remove {name}?",
       "deleteConfirmDescription": "All calendars and events from this source will be removed locally. The CalDAV server is not affected.",
@@ -182,8 +171,6 @@
       "globalDefaultLabel": "Global default",
       "providerDefaultsLabel": "Defaults per account",
       "noDefaultsHint": "Add a calendar to set defaults.",
-      "alarmsSection": "Alarms",
-      "alarmsHelp": "Events with VALARM reminders trigger a desktop notification at their trigger time.",
       "oauthSection": "OAuth Credentials (advanced)",
       "oauthHelp": "Pick the Google or Microsoft OAuth client this extension uses. The default (Aerion testing for Google, Aerion - Microsoft for Microsoft) is fine for most users.",
       "oauthGoogleLabel": "Google",

@@ -72,11 +72,6 @@
       "localOption": "Local contacts",
       "addressbookLabel": "Address book",
       "addressbookPlaceholder": "Select an address book",
-      "emailLabel": "Email",
-      "emailPlaceholder": "name@example.com",
-      "nameLabel": "Display name",
-      "nameOptional": "(optional)",
-      "namePlaceholder": "Jane Doe",
       "errorEmailRequired": "Email is required.",
       "errorEmailInvalid": "Enter a valid email address.",
       "errorEmailExists": "A contact with this email already exists."

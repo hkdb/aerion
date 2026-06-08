@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"github.com/hkdb/aerion/internal/carddav"
 	"github.com/hkdb/aerion/internal/contact"
 	coreapi "github.com/hkdb/aerion/internal/core/api/v1"
 )
@@ -24,19 +23,6 @@ func fromLocal(c *contact.Contact) coreapi.Contact {
 		Emails:    []string{c.Email},
 		SourceID:  c.Source,
 		UpdatedAt: updated,
-	}
-}
-
-// fromCardDAV converts a carddav.Contact into the API-surface Contact, scoped
-// to a known sourceID. The caller knows which CardDAV source it queried, so
-// we propagate that ID into the result rather than re-deriving it via a join.
-func fromCardDAV(c *carddav.Contact, sourceID string) coreapi.Contact {
-	return coreapi.Contact{
-		ID:        c.ID,
-		Name:      c.DisplayName,
-		Emails:    []string{c.Email},
-		SourceID:  sourceID,
-		UpdatedAt: c.SyncedAt,
 	}
 }
 
