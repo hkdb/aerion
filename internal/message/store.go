@@ -1274,10 +1274,31 @@ func (s *Store) ListConversationsByFolder(folderID string, offset, limit int, so
 		orderClause = "ORDER BY latest_date ASC"
 	}
 
+	// Pre-fetch folder type so we can pick the right participants
+	// aggregation. Sent and Drafts folders should surface the recipient
+	// list ("who you wrote to") instead of the sender (always self).
+	// Mirrors the inline folder-type lookup in GetConversation. Lookup
+	// errors are intentionally swallowed: an empty folderType falls
+	// through to the existing sender-based behavior, so the list never
+	// breaks on a metadata hiccup.
+	var folderType string
+	_ = s.db.QueryRow("SELECT folder_type FROM folders WHERE id = ?", folderID).Scan(&folderType)
+	useToList := folderType == "sent" || folderType == "drafts"
+
+	// participantsExpr is byte-identical to the historical query for
+	// every folder except sent/drafts. The sent/drafts branch
+	// aggregates per-message to_list JSON arrays into a nested array
+	// that parseAggregatedToListJSON flattens + dedupes in Go (DISTINCT
+	// doesn't work across nested-array values in SQLite).
+	participantsExpr := `json_group_array(DISTINCT json_object('name', from_name, 'email', from_email))`
+	if useToList {
+		participantsExpr = `json_group_array(json(to_list))`
+	}
+
 	// Get conversations grouped by thread_id, ordered by date
 	// Use GROUP_CONCAT to get all message IDs in a single query
-	query := `
-		SELECT 
+	query := fmt.Sprintf(`
+		SELECT
 			COALESCE(thread_id, id) as conv_thread_id,
 			MIN(subject) as subject,
 			MAX(snippet) as snippet,
@@ -1288,14 +1309,14 @@ func (s *Store) ListConversationsByFolder(folderID string, offset, limit int, so
 			MAX(date) as latest_date,
 			GROUP_CONCAT(id) as message_ids,
 			MAX(CASE WHEN smime_encrypted = 1 OR pgp_encrypted = 1 THEN 1 ELSE 0 END) as is_encrypted,
-			json_group_array(DISTINCT json_object('name', from_name, 'email', from_email)) as participants_json
+			%s as participants_json
 		FROM messages
 		WHERE folder_id = ?
-		GROUP BY COALESCE(thread_id, id)` +
-		filterHavingClause(filter, "") + `
-		` + orderClause + `
+		GROUP BY COALESCE(thread_id, id)`+
+		filterHavingClause(filter, "")+`
+		`+orderClause+`
 		LIMIT ? OFFSET ?
-	`
+	`, participantsExpr)
 
 	rows, err := s.db.Query(query, folderID, limit, offset)
 	if err != nil {
@@ -1341,7 +1362,12 @@ func (s *Store) ListConversationsByFolder(folderID string, offset, limit int, so
 		}
 
 		if participantsJSON.Valid {
-			c.Participants = parseParticipantsJSON(participantsJSON.String)
+			if useToList {
+				c.Participants = parseAggregatedToListJSON(participantsJSON.String)
+			}
+			if !useToList {
+				c.Participants = parseParticipantsJSON(participantsJSON.String)
+			}
 		}
 
 		conversations = append(conversations, c)
@@ -1371,6 +1397,40 @@ func parseParticipantsJSON(s string) []Address {
 		}
 		seen[r.Email] = true
 		participants = append(participants, Address{Name: r.Name, Email: r.Email})
+	}
+	return participants
+}
+
+// parseAggregatedToListJSON parses the nested array produced by
+// `json_group_array(json(to_list))` — one outer entry per message in the
+// conversation, each containing that message's parsed to_list array.
+// Flattens to a deduplicated Address slice keyed by lowercased email.
+//
+// Used by ListConversationsByFolder when the folder type is sent or
+// drafts so the row's "who" column reflects recipients rather than the
+// always-self sender.
+func parseAggregatedToListJSON(s string) []Address {
+	if s == "" || s == "[]" {
+		return nil
+	}
+	var nested [][]struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+	if err := json.Unmarshal([]byte(s), &nested); err != nil {
+		return nil
+	}
+	participants := make([]Address, 0)
+	seen := make(map[string]bool)
+	for _, inner := range nested {
+		for _, r := range inner {
+			key := strings.ToLower(r.Email)
+			if key == "" || seen[key] {
+				continue
+			}
+			seen[key] = true
+			participants = append(participants, Address{Name: r.Name, Email: r.Email})
+		}
 	}
 	return participants
 }

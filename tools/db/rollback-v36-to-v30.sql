@@ -74,34 +74,38 @@
 
 BEGIN TRANSACTION;
 
--- 1. Recreate legacy `contacts` table with v30 schema.
+-- 1. Recreate legacy `contacts` table with the v30 / pre-v0.3.0 shape.
+--    Older Aerion's contact.Store.ensureTable created this table with five
+--    columns only (no name_overridden, no kind). Migration 31 was updated
+--    to backfill name_overridden / kind from literal defaults rather than
+--    selecting them from this table, so there's no longer any reason to
+--    preserve those columns through the rollback — they wouldn't survive
+--    re-upgrade anyway (migration 31 reruns after rollback clears the
+--    migrations tracker at step 8).
 CREATE TABLE contacts (
     email TEXT PRIMARY KEY,
     display_name TEXT,
     send_count INTEGER DEFAULT 0,
     last_used DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    name_overridden INTEGER NOT NULL DEFAULT 0,
-    kind TEXT NOT NULL DEFAULT 'collected'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_contacts_send_count ON contacts(send_count DESC);
 CREATE INDEX idx_contacts_last_used ON contacts(last_used DESC);
 
 -- 2. Restore local-contact rows. One row per (record, email) pair where the
---    record is sourced locally. Lossless: email/name/send_count/last_used/
---    name_overridden/kind all round-trip. The v32 record-id format (UUID) is
---    discarded — v30 keys by email, which is the natural identity for the
---    legacy schema.
-INSERT INTO contacts (email, display_name, send_count, last_used, created_at, name_overridden, kind)
+--    record is sourced locally. Round-trip is lossless for email / name /
+--    send_count / last_used. The kind (manual vs collected) and the
+--    name_overridden flag are dropped: the v30 schema has no place to
+--    store them, and re-upgrading would substitute literal defaults
+--    regardless of what the rollback preserved.
+INSERT INTO contacts (email, display_name, send_count, last_used, created_at)
 SELECT
     ce.email,
     cr.fn,
     ce.send_count,
     ce.last_used,
-    cr.created_at,
-    ce.name_overridden,
-    COALESCE(cr.kind, 'collected')
+    cr.created_at
 FROM contact_records cr
 JOIN contact_emails ce ON ce.record_id = cr.id
 WHERE cr.source = 'local';

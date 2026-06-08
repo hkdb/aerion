@@ -241,6 +241,7 @@
           <li>ALPHA: Added Calendar extension - shipped disabled</li>
           <li>Added fallback for Mailfence and other non-quote-compliant providers - #209</li>
           <li>Fixed CardDav remove provider code path to not leave orphaned contacts in db</li>
+          <li>Fixed Sent/Draft folder message listing - #227</li>
         </ul>
       </description>
     </release>

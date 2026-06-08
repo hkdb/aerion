@@ -100,12 +100,11 @@ Migrations 31, 32, 33, 34, 35, and 36 ship together in 0.3.0 — no real-world D
 - Local-record UUIDs are dropped — v30 keys local contacts by email, which is the natural identity for the legacy schema.
 - **Extension secrets stored in the AES-fallback path** (i.e., entries in the `extension_secrets` table). Keyring-stored entries are NOT touched by the rollback SQL — they remain in the OS keyring but become orphaned (no DB row pointing at them). To clean them up, use your OS keyring manager (Seahorse / Keychain / Credential Manager) and remove entries starting with `ext:`. In practice the Calendar extension is the only Phase-1 consumer, so the impact is: any saved CalDAV passwords will need to be re-entered after rollback + upgrade.
 - **Per-extension OAuth grants** (the `google-contacts`, `google-calendar`, `microsoft-contacts`, `microsoft-calendar` slot tokens). The rollback deletes those `oauth_tokens` rows and drops the new fallback columns. v0.2.5 doesn't have the contacts/calendar extensions, so this only matters when you upgrade back to 0.3.0 — you'll need to re-grant calendar / contacts access from inside the relevant extension setting. Per-slot keyring entries (keys of the form `<accountID>:<configID>:access_token` / `refresh_token`) are NOT cleared by the rollback SQL; remove them from the OS keyring manager if you want a clean state. The mail OAuth grant (the `google-mail` / `microsoft-mail` row) is untouched.
+- The local-contact `kind` (`manual` vs. `collected`) and the `name_overridden` flag. The v30 / pre-v0.3.0 `contacts` table has no columns for these (older `ensureTable` never created them). Re-upgrading after rollback reruns migration 31, which backfills both from literal defaults (`'collected'` / `0`) regardless of what the rollback would have stored, so preservation through the round-trip isn't possible. Practically: contacts you marked as manually-added in v0.3.0 will look auto-collected after a full round-trip; user-edited names auto-collected from sent mail won't be protected from being overwritten on the next auto-collection until you re-mark them.
 
 **What round-trips losslessly**:
 
 - All emails and display names.
 - Send-count and last-used autocomplete metadata (per-email).
-- The `name_overridden` flag that prevents auto-collection from overwriting user-edited names.
-- The local-contact `kind` (`manual` vs. `collected`).
 - CardDAV addressbook membership, href, and ETag (for re-sync identity).
 

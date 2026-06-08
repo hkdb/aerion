@@ -807,14 +807,19 @@ var migrations = []Migration{
 			-- Defensive: contact.Store.ensureTable creates "contacts" lazily AFTER
 			-- migrations run, so on a fresh install the table won't exist here. Make
 			-- sure it exists so the backfill SELECTs below don't error.
+			--
+			-- Shape matches the LEGACY (pre-v0.3.0) ensureTable schema — no
+			-- kind, no name_overridden. Older Aerion installs (≤ v0.2.4) have
+			-- the table in this shape, so referencing those columns in the
+			-- backfill SELECTs would fail on real production DBs. Defaults
+			-- for the post-migration columns are supplied as literals in the
+			-- INSERTs below.
 			CREATE TABLE IF NOT EXISTS contacts (
 				email TEXT PRIMARY KEY,
 				display_name TEXT,
 				send_count INTEGER DEFAULT 0,
 				last_used DATETIME,
-				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-				name_overridden INTEGER NOT NULL DEFAULT 0,
-				kind TEXT NOT NULL DEFAULT 'collected'
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 			);
 
 			-- New tables.
@@ -913,11 +918,18 @@ var migrations = []Migration{
 			-- record id: derived from email so subsequent linking via record_id is
 			-- stable. Older Aerion never exposed contact ids externally; this just
 			-- needs to be unique + deterministic within the migration.
+			-- kind / name_overridden are hardcoded literals here rather than
+			-- selected from the contacts table because legacy v0.2.x DBs
+			-- don't have those columns (the legacy ensureTable shape never
+			-- included them). Semantic match: legacy local contacts were
+			-- exclusively auto-collected from sent mail (no manual-add UI
+			-- before v0.3.0), and name_overridden was never set, so
+			-- 'collected' / 0 are the correct historical defaults.
 			INSERT INTO contact_records (id, source, kind, fn, created_at, updated_at)
 			SELECT
 				'local-' || email,
 				'local',
-				kind,
+				'collected',
 				display_name,
 				created_at,
 				created_at
@@ -929,7 +941,7 @@ var migrations = []Migration{
 				email,
 				send_count,
 				last_used,
-				name_overridden,
+				0,
 				1
 			FROM contacts;
 
