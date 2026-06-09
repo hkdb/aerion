@@ -21,6 +21,8 @@
 - Fixed duplicate unified inbox freeze - [#241](https://github.com/hkdb/aerion/issues/241)
 - Fixed unparsible body fetch handling - [#240](https://github.com/hkdb/aerion/issues/240)
 - Added incremental flag sync - [#240](https://github.com/hkdb/aerion/issues/240)
+- Fixed drag-n-drop inline image - [#224](https://github.com/hkdb/aerion/issues/224)
+- Fixed duplicate inline image rendering
 
 
 **v0.2.5 - 05-27-2026**

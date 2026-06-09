@@ -252,6 +252,8 @@
           <li>Fixed duplicate unified inbox freeze - #241</li>
           <li>Fixed unparsible body fetch handling - #240</li>
           <li>Added incremental flag sync - #240</li>
+          <li>Fixed drag-n-drop inline image - #224</li>
+          <li>Fixed duplicate inline image rendering</li>
         </ul>
       </description>
     </release>

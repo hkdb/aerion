@@ -450,8 +450,15 @@
         const dataUrl = canvas.toDataURL('image/png')
         const base64Data = dataUrl.split(',')[1]
 
-        // Replace non-standard src with data URL in the HTML string
-        result = result.replaceAll(src, dataUrl)
+        // If the same canvas-extracted content was already registered
+        // (e.g. user pasted the same screenshot twice), reuse that cid —
+        // the viewer is what handles same-cid resolution (see
+        // EmailBody.svelte querySelectorAll fix).
+        const dup = inlineImages.find(i => i.dataUrl === dataUrl)
+        if (dup) {
+          result = result.replaceAll(src, dup.dataUrl)
+          continue
+        }
 
         const cid = generateCID()
         inlineImages = [...inlineImages, {
@@ -461,6 +468,7 @@
           data: base64Data,
           filename: `pasted-image${inlineImageCounter}.png`,
         }]
+        result = result.replaceAll(src, dataUrl)
       } catch {
         continue
       }
@@ -1411,6 +1419,19 @@
 
     try {
       const dataUrl = await readFileAsDataUrl(file)
+
+      // Dedup by content (dataUrl): same image pasted twice produces a
+      // single inlineImage entry, so the sent MIME has one inline
+      // attachment instead of leaving the second cid orphaned. The editor
+      // still gets a second <img> with the same dataUrl src — the viewer
+      // side is what handles same-cid resolution (see EmailBody.svelte).
+      const existing = inlineImages.find(i => i.dataUrl === dataUrl)
+      if (existing) {
+        editor?.chain().focus().setImage({ src: existing.dataUrl, alt: existing.filename }).run()
+        scheduleDraftSave()
+        return
+      }
+
       const cid = generateCID()
 
       // Extract base64 data and content type from data URL
@@ -1488,6 +1509,15 @@
           }
           // Insert as inline image
           const dataUrl = `data:${att.contentType};base64,${att.data}`
+
+          // Dedup by content; mirrors handleInlineImageFile. Same image
+          // dropped twice ⇒ one inline attachment (no orphan cid in MIME).
+          const existing = inlineImages.find(i => i.dataUrl === dataUrl)
+          if (existing) {
+            editor?.chain().focus().setImage({ src: existing.dataUrl, alt: existing.filename }).run()
+            continue
+          }
+
           const cid = generateCID()
           inlineImages = [...inlineImages, {
             cid,
