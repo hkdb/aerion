@@ -39,15 +39,15 @@ Each rollback section lists the **data lost on rollback** for that migration. Th
 3. **Download the rollback script** from the Aerion repo. On the branch where the 0.3.0 schema lives (0.3.0 or later):
 
    ```bash
-   curl -O https://raw.githubusercontent.com/hkdb/aerion/main/tools/db/rollback-v38-to-v30.sql
+   curl -O https://raw.githubusercontent.com/hkdb/aerion/main/tools/db/rollback-v39-to-v30.sql
    ```
 
-   (Or download via your browser from `https://github.com/hkdb/aerion/blob/main/tools/db/rollback-v38-to-v30.sql`.)
+   (Or download via your browser from `https://github.com/hkdb/aerion/blob/main/tools/db/rollback-v39-to-v30.sql`.)
 
 4. **Run the script against your DB**:
 
    ```bash
-   sqlite3 ~/.local/share/aerion/aerion.db < rollback-v38-to-v30.sql
+   sqlite3 ~/.local/share/aerion/aerion.db < rollback-v39-to-v30.sql
    ```
 
    The script runs in a single transaction. If anything fails, no changes are committed and your DB is unchanged.
@@ -71,15 +71,15 @@ Restore the backup you made in step 2:
 cp ~/.local/share/aerion/aerion.db.before-rollback ~/.local/share/aerion/aerion.db
 ```
 
-You're back to the v38 state and can run Aerion 0.3.0 again.
+You're back to the v39 state and can run Aerion 0.3.0 again.
 
 If the issue persists, open a GitHub issue with the SQL error output and the version you were rolling back from / to.
 
 ---
 
-## Rollback: v38 → v30 (Aerion 0.3.0 → 0.2.5)
+## Rollback: v39 → v30 (Aerion 0.3.0 → 0.2.5)
 
-**Introduced in**: Aerion 0.3.0 (cumulative effect of migrations 31 + 32 + 33 + 34 + 35 + 36 + 37 + 38 — see notes below).
+**Introduced in**: Aerion 0.3.0 (cumulative effect of migrations 31 + 32 + 33 + 34 + 35 + 36 + 37 + 38 + 39 — see notes below).
 
 **What 0.3.0 changed since 0.2.5**:
 
@@ -91,8 +91,9 @@ If the issue persists, open a GitHub issue with the SQL error output and the ver
 - **Migration 36** (Extension OAuth keyring-fallback): Adds `encrypted_access_token` and `encrypted_refresh_token` columns to `oauth_tokens` so non-mail OAuth slots (`google-contacts`, `google-calendar`, `microsoft-contacts`, `microsoft-calendar`) can persist tokens on systems where the OS keyring isn't available — previously only the mail slots had an encrypted-DB fallback (via the `accounts` table from v9).
 - **Migration 37** (Per-account "No outgoing server" + separate SMTP credentials): Adds `no_outgoing_server` (INTEGER, default 0), `smtp_username` (TEXT, default `''`), and `encrypted_smtp_password` (TEXT, nullable) columns to the `accounts` table. Lets users mark an account as receive-only (hidden from the composer's From dropdown, send attempts blocked), and lets Generic-provider accounts authenticate SMTP with credentials separate from IMAP. The keyring carries the separate SMTP password under `<accountID>:smtp` when set; `encrypted_smtp_password` is the AES-fallback companion for systems without an OS keyring.
 - **Migration 38** (Per-account "Reply/Forward with" identity preference): Adds `reply_forward_identity_id` (TEXT, default `''`) to the `accounts` table. For receive-only accounts (the v37 feature), lets the user pick a specific identity from another sendable account to pre-select in the composer when replying or forwarding messages received here. Empty value falls back to the user's default sending account, then to the first available identity. Sendable accounts ignore the column entirely.
+- **Migration 39** (Persistent body-parse-failed flag): Adds `body_failed` (INTEGER, default 0) to the `messages` table. Set to 1 when a body fetch+parse produced no usable content (and the message isn't encrypted, which legitimately has empty plaintext until view-time decryption). Replaces an in-memory cap on parse retries that reset every sync session — so an unparseable message used to be re-fetched from IMAP on every cycle, forever (issue #240). The body-fetch queue now excludes any row with `body_failed = 1`. A future parser improvement can re-queue previously-skipped messages via a one-line `UPDATE messages SET body_failed = 0 WHERE …` migration.
 
-Migrations 31, 32, 33, 34, 35, 36, 37, and 38 ship together in 0.3.0 — no real-world DB will ever stop between them. The rollback script below handles the cumulative v38 state, which is what your DB will be in after upgrading from 0.2.5.
+Migrations 31 through 39 ship together in 0.3.0 — no real-world DB will ever stop between them. The rollback script below handles the cumulative v39 state, which is what your DB will be in after upgrading from 0.2.5.
 
 **Data lost on rollback to v30**:
 
@@ -105,6 +106,7 @@ Migrations 31, 32, 33, 34, 35, 36, 37, and 38 ship together in 0.3.0 — no real
 - The local-contact `kind` (`manual` vs. `collected`) and the `name_overridden` flag. The v30 / pre-v0.3.0 `contacts` table has no columns for these (older `ensureTable` never created them). Re-upgrading after rollback reruns migration 31, which backfills both from literal defaults (`'collected'` / `0`) regardless of what the rollback would have stored, so preservation through the round-trip isn't possible. Practically: contacts you marked as manually-added in v0.3.0 will look auto-collected after a full round-trip; user-edited names auto-collected from sent mail won't be protected from being overwritten on the next auto-collection until you re-mark them.
 - **Per-account "No outgoing server" + separate SMTP credentials state** (v37). The `no_outgoing_server`, `smtp_username`, and `encrypted_smtp_password` columns are dropped. Any account you marked receive-only in v0.3.0 will become sendable again under v0.2.5 if it still has a valid `smtp_host`; if SMTP host was left blank, v0.2.5 will surface an SMTP error at send time instead. Accounts that used separate SMTP credentials revert to using the IMAP username + IMAP password for SMTP AUTH, which is what v0.2.5 has always done. Separate-SMTP keyring entries (keys of the form `<accountID>:smtp`) are NOT cleared by the rollback SQL; remove them from the OS keyring manager if you want a clean state — v0.2.5 ignores them entirely. After re-upgrading to v0.3.0, you'll need to re-enter any separate SMTP passwords (the `<accountID>:smtp` keyring entry survives if you didn't manually clear it, in which case the toggle still works without re-entry).
 - **Per-account "Reply/Forward with" identity preference** (v38). The `reply_forward_identity_id` column is dropped. v0.2.5 has no concept of receive-only accounts (that's the v37 feature this preference depends on), so the dropped value wouldn't have applied under v0.2.5 anyway — there's no behavior change. On re-upgrade to v0.3.0, accounts that had this preference set will revert to the empty default (i.e., the composer will use the user's default sending account when replying/forwarding on a receive-only account); the user re-picks the identity in the account's Server tab.
+- **Persistent body-parse-failed flag** (v39). The `body_failed` column is dropped. Effect under v0.2.5: every message that v0.3.0 had marked unparseable will be subject to v0.2.5's old (unbounded) re-fetch behavior — the same state the user was in before #240 was fixed. Bounded only by message count, not by sync cycles. On re-upgrade to v0.3.0, those messages will be re-attempted up to one time and re-flagged via the new persistence path; transient, self-correcting.
 
 **What round-trips losslessly**:
 

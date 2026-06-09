@@ -1277,4 +1277,19 @@ var migrations = []Migration{
 			ALTER TABLE accounts ADD COLUMN reply_forward_identity_id TEXT NOT NULL DEFAULT '';
 		`,
 	},
+	{
+		Version: 39,
+		SQL: `
+			-- Persistent flag set when a body fetch+parse produced no usable content
+			-- (and the message isn't encrypted, which is intentionally empty until
+			-- decrypted at view time). Replaces the previous in-memory
+			-- failedParseAttempts map in sync/fetch.go that reset every sync session
+			-- — without persistence, an unparseable message was re-fetched from IMAP
+			-- on every sync cycle forever. A future parser improvement clears this
+			-- flag via its own migration so previously-skipped messages get retried
+			-- under the new parser.
+
+			ALTER TABLE messages ADD COLUMN body_failed INTEGER NOT NULL DEFAULT 0;
+		`,
+	},
 }

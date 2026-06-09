@@ -192,6 +192,10 @@ func TestMigrationV32_LocalRecordIDsRewrittenToUUIDs(t *testing.T) {
 			t.Fatalf("drop accounts.%s for re-migrate: %v", col, err)
 		}
 	}
+	// Same for v39's body_failed on messages.
+	if _, err := db.Exec(`ALTER TABLE messages DROP COLUMN body_failed`); err != nil {
+		t.Fatalf("drop messages.body_failed for re-migrate: %v", err)
+	}
 
 	// Re-run migrations — migration 32 should rewrite the seeded local- id.
 	if err := db.Migrate(); err != nil {
@@ -339,6 +343,10 @@ func TestMigrationV33_CleansExistingOrphans(t *testing.T) {
 		if _, err := db.Exec(`ALTER TABLE accounts DROP COLUMN ` + col); err != nil {
 			t.Fatalf("drop accounts.%s for re-migrate: %v", col, err)
 		}
+	}
+	// And v39's body_failed on messages.
+	if _, err := db.Exec(`ALTER TABLE messages DROP COLUMN body_failed`); err != nil {
+		t.Fatalf("drop messages.body_failed for re-migrate: %v", err)
 	}
 
 	// Seed: orphan state row whose addressbook doesn't exist. Pre-migration,

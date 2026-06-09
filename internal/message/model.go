@@ -49,6 +49,7 @@ type Message struct {
 	BodyText    string `json:"bodyText,omitempty"`
 	BodyHTML    string `json:"bodyHtml,omitempty"`
 	BodyFetched bool   `json:"bodyFetched"` // Whether full body has been downloaded
+	BodyFailed  bool   `json:"-"`           // Set when fetch+parse produced no usable content; excludes from body-fetch queue (server-internal; not exposed to frontend)
 
 	// Read receipt
 	ReadReceiptTo      string `json:"readReceiptTo,omitempty"` // Email requesting receipt (from Disposition-Notification-To header)

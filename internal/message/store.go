@@ -898,7 +898,7 @@ func (s *Store) GetMessagesWithoutBody(folderID string, limit int, sinceDate tim
 			WHERE folder_id = ? AND (
 				body_fetched = 0 OR
 				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			)
+			) AND body_failed = 0
 			ORDER BY date DESC
 			LIMIT ?
 		`
@@ -909,7 +909,7 @@ func (s *Store) GetMessagesWithoutBody(folderID string, limit int, sinceDate tim
 			WHERE folder_id = ? AND (
 				body_fetched = 0 OR
 				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			) AND (date >= ? OR date < '1970-01-01')
+			) AND body_failed = 0 AND (date >= ? OR date < '1970-01-01')
 			ORDER BY date DESC
 			LIMIT ?
 		`
@@ -954,7 +954,7 @@ func (s *Store) GetMessagesWithoutBodyAndSize(folderID string, limit int, sinceD
 			WHERE folder_id = ? AND (
 				body_fetched = 0 OR
 				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			)
+			) AND body_failed = 0
 			ORDER BY date DESC
 			LIMIT ?
 		`
@@ -965,7 +965,7 @@ func (s *Store) GetMessagesWithoutBodyAndSize(folderID string, limit int, sinceD
 			WHERE folder_id = ? AND (
 				body_fetched = 0 OR
 				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			) AND (date >= ? OR date < '1970-01-01')
+			) AND body_failed = 0 AND (date >= ? OR date < '1970-01-01')
 			ORDER BY date DESC
 			LIMIT ?
 		`
@@ -1002,7 +1002,7 @@ func (s *Store) CountMessagesWithoutBody(folderID string, sinceDate time.Time) (
 			`SELECT COUNT(*) FROM messages WHERE folder_id = ? AND (
 				body_fetched = 0 OR
 				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			)`,
+			) AND body_failed = 0`,
 			folderID,
 		).Scan(&count)
 	} else {
@@ -1010,7 +1010,7 @@ func (s *Store) CountMessagesWithoutBody(folderID string, sinceDate time.Time) (
 			`SELECT COUNT(*) FROM messages WHERE folder_id = ? AND (
 				body_fetched = 0 OR
 				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			) AND (date >= ? OR date < '1970-01-01')`,
+			) AND body_failed = 0 AND (date >= ? OR date < '1970-01-01')`,
 			folderID, sinceDate,
 		).Scan(&count)
 	}
@@ -1900,6 +1900,38 @@ func (s *Store) UpdateFlagsBatch(ids []string, isRead, isStarred *bool) error {
 	_, err := s.db.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to update flags batch: %w", err)
+	}
+	return nil
+}
+
+// MarkBodyFailed flags messages whose body fetch+parse produced no usable content
+// so they are excluded from future body-fetch queries (GetMessagesWithoutBody and
+// friends). Idempotent: re-flagging an already-flagged row is a no-op. The flag
+// survives across sessions; clear it via a one-off migration if a future parser
+// improvement should retry these messages.
+//
+// Without this persistent flag, an unparseable message stays empty in the local
+// DB, GetMessagesWithoutBody picks it up next sync, IMAP FETCH runs again, parse
+// fails again — forever. See migration v39.
+func (s *Store) MarkBodyFailed(messageIDs []string) error {
+	if len(messageIDs) == 0 {
+		return nil
+	}
+
+	placeholders := make([]string, len(messageIDs))
+	args := make([]interface{}, len(messageIDs))
+	for i, id := range messageIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(
+		"UPDATE messages SET body_failed = 1 WHERE id IN (%s)",
+		strings.Join(placeholders, ", "),
+	)
+
+	if _, err := s.db.Exec(query, args...); err != nil {
+		return fmt.Errorf("failed to mark messages body-failed: %w", err)
 	}
 	return nil
 }

@@ -1,26 +1,28 @@
--- Aerion: rollback the v0.3.0 schema (migrations 31 + 32 + 33 + 34 + 35 + 36 + 37 + 38) back to v0.2.5 (v30).
+-- Aerion: rollback the v0.3.0 schema (migrations 31 + 32 + 33 + 34 + 35 + 36 + 37 + 38 + 39) back to v0.2.5 (v30).
 --
 -- This script reconstructs the v30 schema (`contacts` + `carddav_contacts` tables)
--- from the v38 schema (`contact_records` + `contact_emails` + sidecars +
+-- from the v39 schema (`contact_records` + `contact_emails` + sidecars +
 -- `extension_secrets` + per-slot oauth_tokens encrypted fallback columns +
 -- per-account no_outgoing_server / smtp_username / encrypted_smtp_password +
--- reply_forward_identity_id columns) via JOINs + DROPs / DROP COLUMNs. No
--- external backup file is needed — the unified schema IS the data; the old
--- shape is just a denormalized projection of it.
+-- reply_forward_identity_id columns + messages.body_failed flag) via JOINs +
+-- DROPs / DROP COLUMNs. No external backup file is needed — the unified
+-- schema IS the data; the old shape is just a denormalized projection of it.
 --
 -- Aerion versions and the schemas they ship with:
 --   - v0.2.5 (last released) → schema v30 (separate `contacts`, `carddav_contacts`)
---   - v0.3.0 (upcoming)      → schema v38 (unified contact_records + UUID identity
+--   - v0.3.0 (upcoming)      → schema v39 (unified contact_records + UUID identity
 --                                          + carddav_record_state.addressbook_id FK
 --                                          + PHOTO columns + extension_secrets
 --                                          + per-slot oauth_tokens encrypted fallback
 --                                          + per-account no-outgoing-server +
 --                                            separate SMTP credential columns
---                                          + reply/forward-with identity preference)
+--                                          + reply/forward-with identity preference
+--                                          + persistent body-parse-failed flag)
 --
--- v31, v32, v33, v34, v35, v36, v37 were intermediate development schemas that
--- never shipped — no real-world DB will ever be at any of them alone. The only
--- rollback path that matters is v38 → v30 (the released-to-released transition).
+-- v31, v32, v33, v34, v35, v36, v37, v38 were intermediate development schemas
+-- that never shipped — no real-world DB will ever be at any of them alone. The
+-- only rollback path that matters is v39 → v30 (the released-to-released
+-- transition).
 --
 -- Migrations bundled into the 0.3.0 cumulative jump:
 --   - 31: unified contact_records + multi-field sub-tables; replaced legacy
@@ -64,6 +66,13 @@
 --     column. Since v0.2.5 has no concept of receive-only accounts (those
 --     are the v37 feature this preference depends on), the dropped value
 --     wouldn't have applied under v0.2.5 anyway.
+--   - 39: persistent "body fetch+parse produced no usable content" flag on the
+--     messages table. Adds body_failed (INTEGER, default 0). The previous
+--     in-memory cap on parse retries reset every sync session, so
+--     unparseable messages re-fetched from IMAP every cycle forever (#240).
+--     Rolling back drops the column. Effect on v0.2.5: any message that
+--     v0.3.0 had marked unparseable will be re-attempted up to v0.2.5's old
+--     limits — same behavior the user used to get before the v0.3.0 fix.
 --
 -- Inherent data loss on rollback:
 --   - Multi-field data (phones, addresses, URLs, IMPPs, org, title, note, bday,
@@ -88,7 +97,7 @@
 --      (or whatever your DB path is — `~/Library/Application Support/Aerion/`
 --       on macOS, `%LOCALAPPDATA%\aerion\` on Windows).
 --   3. Run this script against your DB:
---        sqlite3 ~/.local/share/aerion/aerion.db < rollback-v38-to-v30.sql
+--        sqlite3 ~/.local/share/aerion/aerion.db < rollback-v39-to-v30.sql
 --   4. Launch the older Aerion (v0.2.5). It should start normally and your
 --      contacts autocomplete should work.
 --
@@ -220,10 +229,19 @@ ALTER TABLE accounts DROP COLUMN encrypted_smtp_password;
 --    pure FK reference to identities.id.
 ALTER TABLE accounts DROP COLUMN reply_forward_identity_id;
 
--- 10. Roll back the migration tracker so older Aerion doesn't think v31/v32/
---     v33/v34/v35/v36/v37/v38 have been applied. After this, older Aerion sees
---     schema_version=30 and starts normally. The `>= 31` bound catches all
---     v0.3.0 migrations plus any future intermediate schemas.
+-- 10. Roll back v39's persistent body-parse-failed flag on messages. Same
+--     DROP COLUMN caveat — needs SQLite >= 3.35. v0.2.5 ignores the column
+--     if left in place, but leaving it causes v39's ADD COLUMN to fail on
+--     re-upgrade. No external state attached — the column was the entire
+--     persistence layer for the v39 fix; any message previously marked
+--     unparseable will re-enter v0.2.5's old (unbounded) retry behavior,
+--     which is the state the user was in before the v0.3.0 fix.
+ALTER TABLE messages DROP COLUMN body_failed;
+
+-- 11. Roll back the migration tracker so older Aerion doesn't think v31..v39
+--     have been applied. After this, older Aerion sees schema_version=30 and
+--     starts normally. The `>= 31` bound catches all v0.3.0 migrations plus
+--     any future intermediate schemas.
 DELETE FROM migrations WHERE version >= 31;
 
 COMMIT;
