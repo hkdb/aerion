@@ -119,7 +119,7 @@ generate:
 # Run Go tests
 test:
 	@echo "Running tests..."
-	go test ./...
+	go test -tags $(BUILD_TAGS) ./...
 
 # Run all linters (Go + frontend)
 lint: lint-go lint-frontend

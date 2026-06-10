@@ -1,5 +1,7 @@
 run:
   timeout: 5m
+  build-tags:
+    - webkit2_41
 
 linters:
   disable:
