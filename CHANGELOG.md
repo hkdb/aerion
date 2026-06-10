@@ -13,6 +13,7 @@
 - Added no outgoing server option - [#132](https://github.com/hkdb/aerion/issues/132) [(#134)](https://github.com/hkdb/aerion/pull/134)
 - Added fallback for Mailfence and other non-quote-compliant providers - [#209](https://github.com/hkdb/aerion/issues/209)
 - Added smtp auto-pre-fill of smtp from imap input - [#179](https://github.com/hkdb/aerion/issues/179)
+- Added delete account button in settings accounts tab
 - Fixed CardDav remove provider code path to not leave orphaned contacts in db
 - Fixed Sent/Draft folder message listing - [#227](https://github.com/hkdb/aerion/issues/227)
 - Fixed unified inbox actions - [#234](https://github.com/hkdb/aerion/issues/234)

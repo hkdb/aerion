@@ -423,7 +423,8 @@
     "addAccount": "Add Account",
     "moveUp": "Move up",
     "moveDown": "Move down",
-    "editAccount": "Edit account"
+    "editAccount": "Edit account",
+    "deleteAccount": "Delete account"
   },
   "settingsAbout": {
     "version": "Version {version}",

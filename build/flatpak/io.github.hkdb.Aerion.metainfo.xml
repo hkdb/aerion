@@ -244,6 +244,7 @@
           <li>Added no outgoing server option - #132</li>
           <li>Added fallback for Mailfence and other non-quote-compliant providers - #209</li>
           <li>Added smtp auto-pre-fill of smtp from imap input - #179</li>
+          <li>Added delete account button in settings accounts tab</li>
           <li>Fixed CardDav remove provider code path to not leave orphaned contacts in db</li>
           <li>Fixed Sent/Draft folder message listing - #227</li>
           <li>Fixed unified inbox actions - #234</li>
