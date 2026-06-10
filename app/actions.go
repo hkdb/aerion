@@ -1067,6 +1067,18 @@ func (a *App) EmptyTrash(accountID, folderID string) error {
 	return a.DeletePermanently(ids)
 }
 
+// EmptyJunk permanently deletes all messages in a junk/spam folder
+func (a *App) EmptyJunk(accountID, folderID string) error {
+	ids, err := a.messageStore.GetAllIDsByFolder(folderID)
+	if err != nil {
+		return fmt.Errorf("failed to get messages in junk: %w", err)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return a.DeletePermanently(ids)
+}
+
 // DeletePermanently permanently deletes messages
 func (a *App) DeletePermanently(messageIDs []string) error {
 	log := logging.WithComponent("app")

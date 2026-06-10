@@ -52,6 +52,7 @@
     "noMessages": "No messages in this folder",
     "selectFolder": "Select a folder to view messages",
     "emptyTrash": "Empty Trash",
+    "emptyJunk": "Empty Junk",
     "ftsBuilding": "Building search index... ({percentage}%)",
     "syncFolder": "Sync Folder",
     "forceResync": "Force Re-sync",
@@ -260,6 +261,7 @@
     "deletedFromFolder": "Deleted from folder",
     "permanentlyDeleted": "Permanently deleted",
     "trashEmptied": "Trash emptied",
+    "junkEmptied": "Junk emptied",
     "markedAsRead": "Marked as read",
     "markedAsUnread": "Marked as unread",
     "markedAsSpam": "Marked as spam",
@@ -282,6 +284,7 @@
     "failedToArchive": "Failed to archive.",
     "failedToDelete": "Failed to delete.",
     "failedToEmptyTrash": "Failed to empty trash.",
+    "failedToEmptyJunk": "Failed to empty junk.",
     "failedToMarkAsRead": "Failed to mark as read.",
     "failedToMarkAsUnread": "Failed to mark as unread.",
     "failedToMarkAsSpam": "Failed to mark as spam.",
@@ -814,7 +817,10 @@
     "emptyTrash": "Empty Trash?",
     "emptyTrashDescription": "This will permanently delete all messages in the Trash folder. This action cannot be undone.",
     "confirmDeletePermanently": "Delete Permanently",
-    "confirmEmptyTrash": "Empty Trash"
+    "confirmEmptyTrash": "Empty Trash",
+    "emptyJunk": "Empty Junk?",
+    "emptyJunkDescription": "This will permanently delete all messages in the Junk folder. This action cannot be undone.",
+    "confirmEmptyJunk": "Empty Junk"
   },
   "date": {
     "justNow": "just now",

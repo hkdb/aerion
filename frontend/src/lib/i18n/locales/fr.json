@@ -52,6 +52,7 @@
     "noMessages": "Aucun message dans ce dossier",
     "selectFolder": "Sélectionnez un dossier pour voir les messages",
     "emptyTrash": "Vider la corbeille",
+    "emptyJunk": "Vider les indésirables",
     "ftsBuilding": "Construction de l'index de recherche... ({percentage}%)",
     "syncFolder": "Synchroniser le dossier",
     "forceResync": "Forcer la synchronisation",
@@ -260,6 +261,7 @@
     "deletedFromFolder": "Supprimé du dossier",
     "permanentlyDeleted": "Supprimé définitivement",
     "trashEmptied": "Corbeille vidée",
+    "junkEmptied": "Courriers indésirables vidés",
     "markedAsRead": "Marqué comme lu",
     "markedAsUnread": "Marqué comme non lu",
     "markedAsSpam": "Marqué comme spam",
@@ -280,6 +282,7 @@
     "failedToArchive": "Échec de l'archivage.",
     "failedToDelete": "Échec de la suppression.",
     "failedToEmptyTrash": "Échec de la vidange de la corbeille.",
+    "failedToEmptyJunk": "Échec de la vidange des indésirables.",
     "failedToMarkAsRead": "Échec du marquage comme lu.",
     "failedToMarkAsUnread": "Échec du marquage comme non lu.",
     "failedToMarkAsSpam": "Échec du marquage comme spam.",
@@ -778,7 +781,10 @@
     "emptyTrash": "Vider la corbeille ?",
     "emptyTrashDescription": "Ceci supprimera définitivement tous les messages de la Corbeille. Cette action est irréversible.",
     "confirmDeletePermanently": "Supprimer définitivement",
-    "confirmEmptyTrash": "Vider la corbeille"
+    "confirmEmptyTrash": "Vider la corbeille",
+    "emptyJunk": "Vider les indésirables ?",
+    "emptyJunkDescription": "Ceci supprimera définitivement tous les messages du dossier Indésirables. Cette action est irréversible.",
+    "confirmEmptyJunk": "Vider les indésirables"
   },
   "date": {
     "justNow": "à l'instant",
