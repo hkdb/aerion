@@ -177,6 +177,8 @@ export function DownloadAttachment(arg1:string,arg2:string):Promise<string>;
 
 export function DownloadEncryptedAttachment(arg1:string,arg2:string,arg3:string):Promise<string>;
 
+export function EmptyJunk(arg1:string,arg2:string):Promise<void>;
+
 export function EmptyTrash(arg1:string,arg2:string):Promise<void>;
 
 export function FetchMessageBody(arg1:string):Promise<message.Message>;
