@@ -272,6 +272,8 @@
     "settingsSaved": "Đã lưu cài đặt",
     "undone": "Đã hoàn tác: {description}",
     "contactSourceSynced": "Đã đồng bộ nguồn danh bạ",
+    "contactSourceForceSynced": "Đã đồng bộ lại nguồn danh bạ từ máy chủ",
+    "contactSourceForceSyncFailed": "Lỗi tái đồng bộ lại danh bạ",
     "contactSourceDeleted": "Đã xóa nguồn danh bạ",
     "contactSourceAdded": "Đã thêm nguồn danh bạ",
     "contactSourceUpdated": "Đã cập nhật nguồn danh bạ",
@@ -421,7 +423,8 @@
     "addAccount": "Thêm tài khoản",
     "moveUp": "Di chuyển lên",
     "moveDown": "Di chuyển xuống",
-    "editAccount": "Chỉnh sửa tài khoản"
+    "editAccount": "Chỉnh sửa tài khoản",
+    "deleteAccount": "Xóa tài khoản"
   },
   "settingsAbout": {
     "version": "Phiên bản {version}",
@@ -549,15 +552,26 @@
     "invalidEmail": "Định dạng email không hợp lệ",
     "passwordRequired": "Mật khẩu là bắt buộc",
     "imapHostRequired": "Máy chủ IMAP là bắt buộc",
+    "usernameRequired": "Tên đăng nhập là bắt buộc",
     "smtpHostRequired": "Máy chủ SMTP là bắt buộc",
     "invalidPort": "Cổng không hợp lệ",
-    "trustedCertificates": "Chứng chỉ đáng tin cậy",
+    "noOutgoingServer": "Không có máy chủ gửi thư",
+    "noOutgoingServerHelp": "Tắt tính năng gửi thư cho tài khoản này. Tài khoản này sẽ không xuất hiện trong danh sách Người gửi khi soạn thư. Khi trả lời các thư nhận ở đây, danh tính đã chọn hoặc tài khoản gửi mặc định sẽ được dùng để thay thế.",
+    "replyForwardWith": "Trả lời/Chuyển tiếp bằng",
+    "replyForwardWithHelp": "Tài khoản được chọn sẵn trong cửa sổ soạn thư khi trả lời hoặc chuyển tiếp thư nhận ở đây.",
+    "replyForwardWithDefault": "Tài khoản gửi mặc định",
+    "smtpAuthentication": "Xác thực SMTP",
+    "smtpUseSameAsIncoming": "Giống máy chủ nhận thư",
+    "smtpUsernamePlaceholder": "nguoi-dung-smtp@example.com",
+    "smtpPasswordPlaceholder": "Mật khẩu SMTP",
+    "smtpCredsNote": "Nếu bạn đặt tên đăng nhập và mật khẩu khác cho SMTP, bạn có thể chỉnh sửa trong phần \"Xác thực SMTP\" ở tab \"Máy chủ\".",
+    "trustedCertificates": "Chứng chỉ tin cậy",
     "trustedCertsHelp": "Các chứng chỉ TLS đã được tin cậy thủ công cho các máy chủ của tài khoản này.",
     "loadingCerts": "Đang tải chứng chỉ...",
     "noTrustedCerts": "Không có chứng chỉ nào được tin cậy thủ công cho các máy chủ của tài khoản này.",
     "certFingerprint": "Dấu vân tay:",
     "certExpires": "Hết hạn:",
-    "removeTrustedCert": "Gỡ chứng chỉ đáng tin cậy",
+    "removeTrustedCert": "Gỡ chứng chỉ tin cậy",
     "removeTrustedCertDescription": "Chứng chỉ này sẽ không còn được tin cậy. Các kết nối trong tương lai với máy chủ này có thể yêu cầu bạn chấp nhận lại chứng chỉ."
   },
   "identity": {
@@ -717,6 +731,9 @@
     "editSource": "Chỉnh sửa nguồn danh bạ",
     "deleteTitle": "Xóa nguồn danh bạ",
     "deleteConfirmName": "Xóa \"{name}\"? Thao tác này sẽ xóa tất cả danh bạ đã đồng bộ từ nguồn này.",
+    "forceSync": "Buộc đồng bộ lại",
+    "forceSyncConfirmTitle": "Buộc đồng bộ lại từ \"{name}\"?",
+    "forceSyncConfirmDescription": "Tải lại toàn bộ liên hệ trong \"{name}\" từ máy chủ. Thao tác này bổ sung các trường (số điện thoại, địa chỉ, tổ chức, ghi chú, v.v.) có thể bị thiếu ở các liên hệ được đồng bộ từ phiên bản Aerion cũ hơn. Có thể mất vài phút với các danh bạ lớn.",
     "name": "Tên",
     "namePlaceholder": "Ví dụ: Nextcloud, Công việc, Cá nhân",
     "serverUrl": "URL máy chủ",
@@ -781,6 +798,13 @@
     "termsOfUse": "Điều khoản sử dụng",
     "agreeLabel": "Tôi đã đọc và đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư",
     "accept": "Chấp nhận & Tiếp tục"
+  },
+  "oauthMissing": {
+    "title": "Thiếu thông tin xác thực OAuth",
+    "intro": "Phiên bản này thiếu thông tin xác thực OAuth của Aerion cho:",
+    "implication": "Điều này có nghĩa là các nhà cung cấp thiếu thông tin xác thực sẽ không hoạt động đúng cách. Nhiều khả năng là do bạn không cài đặt Aerion từ nguồn chính thức.",
+    "installInstruction": "Để cài đặt Aerion từ nguồn chính thức, xem:",
+    "dontShowAgain": "Không hiển thị lại"
   },
   "dialog": {
     "deletePermanently": "Xóa vĩnh viễn?",
@@ -890,5 +914,20 @@
     "noDomains": "Chưa có tên miền nào trong danh sách cho phép. Dùng \"Luôn tải > Cho tên miền\" trong trình xem email để thêm tên miền.",
     "removeButton": "Gỡ khỏi danh sách cho phép",
     "removed": "Đã gỡ khỏi danh sách cho phép"
+  },
+  "oauth": {
+    "writeAccessPicker": {
+      "title": "Bật quyền ghi",
+      "description": "Chọn tài khoản {provider} để cấp quyền ghi cho {sourceName}.",
+      "providerGoogle": "Google",
+      "providerMicrosoft": "Microsoft",
+      "loadFailed": "Không tải được tài khoản: {message}",
+      "emptyHeading": "Không tìm thấy tài khoản {provider} nào.",
+      "emptyHint": "Thêm tài khoản {provider} trong Mail (Cài đặt → Tài khoản) hoặc Danh bạ (Cài đặt → Danh bạ → Thêm nguồn) trước, rồi quay lại đây.",
+      "cancel": "Hủy",
+      "continue": "Tiếp tục",
+      "successToast": "Đã bật quyền ghi cho {name}",
+      "failureToast": "Không bật được quyền ghi: {message}"
+    }
   }
 }
