@@ -12,4 +12,5 @@ import { register } from 'svelte-i18n'
 
 export function registerExtensionI18n(): void {
   register('en', () => import('./locales/en.json'))
+  register('cs', () => import('./locales/cs.json'))
 }
