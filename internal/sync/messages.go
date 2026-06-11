@@ -69,6 +69,12 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		// Continue with sync, will fall back to local count
 	}
 
+	// CONDSTORE baseline for this cycle's flag-sync decision. Captured BEFORE
+	// any mutation of f, so a UIDValidity reset below clears it explicitly.
+	// See condstore.go (shouldUseCondStore / nextModSeq).
+	prevModSeq := f.HighestModSeq
+	uidValidityChanged := false
+
 	// Check for UIDValidity change (mailbox recreated)
 	if f.UIDValidity != 0 && f.UIDValidity != mailbox.UIDValidity {
 		e.log.Warn().
@@ -82,6 +88,10 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 			return fmt.Errorf("failed to delete messages: %w", err)
 		}
 		f.UIDValidity = mailbox.UIDValidity
+		// The old modseq refers to a different universe of UIDs after a
+		// mailbox recreation; treat this cycle as first-sync.
+		uidValidityChanged = true
+		prevModSeq = 0
 	}
 
 	// Calculate sync date cutoff
@@ -226,12 +236,21 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		}
 	}
 
+	// flagSyncOK gates whether the persisted HighestModSeq is allowed to
+	// advance below. Stays true on success; flipped to false if the only
+	// available flag-sync path failed. See nextModSeq in condstore.go.
+	flagSyncOK := true
 	if len(existingUIDs) > 0 {
-		e.log.Debug().Int("count", len(existingUIDs)).Msg("Syncing flags for existing messages")
-		if err := e.syncMessageFlags(ctx, conn.Client().RawClient(), folderID, existingUIDs); err != nil {
-			e.log.Warn().Err(err).Msg("Failed to sync message flags")
-			// Continue with sync even if flag sync fails
-		}
+		flagSyncOK = e.runFlagSync(
+			ctx,
+			conn.Client().RawClient(),
+			folderID,
+			existingUIDs,
+			uidValidityChanged,
+			prevModSeq,
+			mailbox.HighestModSeq,
+			conn.Client().SupportsCondStore(),
+		)
 	}
 
 	// Fetch new messages with incremental approach (headers first)
@@ -336,7 +355,10 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 	now := time.Now()
 	f.UIDValidity = mailbox.UIDValidity
 	f.UIDNext = mailbox.UIDNext
-	f.HighestModSeq = mailbox.HighestModSeq
+	// Pin modseq when flag sync didn't fully succeed — advancing the
+	// baseline after a partial failure silently skips whatever the failed
+	// cycle missed. See nextModSeq in condstore.go.
+	f.HighestModSeq = nextModSeq(flagSyncOK, mailbox.HighestModSeq, prevModSeq)
 	f.TotalCount = int(mailbox.Messages)
 	f.LastSync = &now
 

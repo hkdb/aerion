@@ -20,6 +20,8 @@
 import {
   Contacts_ListSources as ListSources,
   Contacts_LinkAccountSource as LinkAccountSource,
+  Contacts_SyncSource as SyncSource,
+  Contacts_SyncAllSources as SyncAllSources,
 } from '$wailsjs/go/app/App'
 // @ts-ignore - wailsjs bindings
 import type { v1 } from '$wailsjs/go/models'
@@ -27,6 +29,11 @@ import type { v1 } from '$wailsjs/go/models'
 function createContactSourcesStore() {
   let sources = $state<v1.ContactSource[]>([])
   let loading = $state(false)
+  // `syncing` flips true while a sync call is in flight (single source or
+  // all). The sidebar footer keys its "Syncing…" indicator off this. No
+  // event-driven progress yet — contacts has no per-step sync events the
+  // way calendar does; the boolean alone covers the user-facing UX.
+  let syncing = $state(false)
 
   async function load(): Promise<void> {
     loading = true
@@ -50,6 +57,32 @@ function createContactSourcesStore() {
     await load()
   }
 
+  // syncSource fires a one-off sync for the given source. Used by the
+  // sidebar footer's Ctrl+Shift+S handler. The `syncing` flag covers the
+  // in-flight window so the footer can render "Syncing…".
+  async function syncSource(sourceId: string): Promise<void> {
+    if (!sourceId) return
+    syncing = true
+    try {
+      await SyncSource(sourceId)
+      await load()
+    } finally {
+      syncing = false
+    }
+  }
+
+  // syncAll fires a sync against every configured contact source. Used by
+  // the sidebar footer's Ctrl+Shift+A shortcut.
+  async function syncAll(): Promise<void> {
+    syncing = true
+    try {
+      await SyncAllSources()
+      await load()
+    } finally {
+      syncing = false
+    }
+  }
+
   // Synchronous boolean derived from the cached list. Returns false for
   // unknown ids (the "aerion" local sentinel, OAuth sources not yet
   // writable, etc.) — callers OR with their own local-source check.
@@ -66,8 +99,13 @@ function createContactSourcesStore() {
     get loading(): boolean {
       return loading
     },
+    get syncing(): boolean {
+      return syncing
+    },
     load,
     linkAccount,
+    syncSource,
+    syncAll,
     isSourceWritable,
   }
 }

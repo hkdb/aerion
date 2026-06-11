@@ -1,16 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { _ } from 'svelte-i18n'
+  import Icon from '@iconify/svelte'
   import SourceSidebar from '$lib/components/kit/SourceSidebar.svelte'
   import SourceItem from '$lib/components/kit/SourceItem.svelte'
+  import SidebarFooter from '$lib/components/kit/SidebarFooter.svelte'
   import { contactSourcesStore } from '$extensions/contacts/frontend/stores/contactSources.svelte'
   import { contactsView, selectSource } from '$extensions/contacts/frontend/stores/contactsView.svelte'
 
   interface Props {
     onSelect: () => void
+    onOpenSettings?: () => void
   }
 
-  const { onSelect }: Props = $props()
+  const { onSelect, onOpenSettings }: Props = $props()
 
   onMount(() => {
     contactSourcesStore.load()
@@ -65,5 +68,31 @@
 
   {#snippet sectionEmpty(_section: { heading?: string; items: SidebarItem[] })}
     <p class="mx-4 my-1 text-xs text-muted-foreground">{$_('contacts.sidebar.noSources')}</p>
+  {/snippet}
+
+  {#snippet footerContent()}
+    <SidebarFooter>
+      {#snippet leading()}
+        {#if contactSourcesStore.syncing}
+          <Icon icon="mdi:sync" class="w-4 h-4 shrink-0 animate-spin" />
+          <span class="truncate">{$_('contacts.sidebar.syncing')}</span>
+        {/if}
+        {#if !contactSourcesStore.syncing}
+          <Icon icon="mdi:sync" class="w-4 h-4 shrink-0" />
+          <span class="truncate">{$_('contacts.sidebar.idle')}</span>
+        {/if}
+      {/snippet}
+      {#snippet trailing()}
+        <button
+          class="p-1 rounded hover:bg-muted/40"
+          title={$_('contacts.sidebar.settings')}
+          onclick={() => onOpenSettings?.()}
+          type="button"
+          aria-label={$_('contacts.sidebar.settings')}
+        >
+          <Icon icon="mdi:cog-outline" class="w-4 h-4" />
+        </button>
+      {/snippet}
+    </SidebarFooter>
   {/snippet}
 </SourceSidebar>

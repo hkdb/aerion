@@ -295,17 +295,6 @@ func (s *Store) UpdateSourceSyncStatus(id string, syncError string) error {
 	return err
 }
 
-// ClearSourceError clears the error for a source
-func (s *Store) ClearSourceError(id string) error {
-	query := `
-		UPDATE contact_sources
-		SET last_error = NULL, last_error_at = NULL
-		WHERE id = ?
-	`
-	_, err := s.db.Exec(query, id)
-	return err
-}
-
 // GetSourcesWithErrors returns all sources that have errors
 func (s *Store) GetSourcesWithErrors() ([]*SourceError, error) {
 	query := `

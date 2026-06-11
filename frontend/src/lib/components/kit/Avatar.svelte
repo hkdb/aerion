@@ -16,7 +16,7 @@
     size?: number
     /** Inline base64-encoded photo bytes. When set with photoMediaType, the
      *  avatar renders as an <img> instead of initials. Falls back to initials
-     *  on image load error. (Phase 2b.2.b.2) */
+     *  on image load error. */
     photoData?: string
     /** Photo media type (e.g. "image/jpeg"). Required alongside photoData. */
     photoMediaType?: string

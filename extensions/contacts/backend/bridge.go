@@ -2,6 +2,7 @@ package backend
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/hkdb/aerion/internal/carddav"
@@ -11,9 +12,9 @@ import (
 	"github.com/hkdb/aerion/internal/platform"
 )
 
-// Bridge is the Wails-bindable surface for the Contacts extension. It's
+// ContactsBridge is the Wails-bindable surface for the Contacts extension. It's
 // embedded into the host `*app.App` struct; Go's method-promotion makes
-// every Bridge method appear on App so Wails' reflection-based bind
+// every ContactsBridge method appear on App so Wails' reflection-based bind
 // generator picks them up. All Contacts-specific logic lives here, not
 // in the host. The host's `app/extension_contacts.go` is reduced to a
 // dozen lines of construction wiring.
@@ -24,17 +25,17 @@ import (
 // and is enforced by code review when accepting 3rd-party extension PRs.
 //
 // Lightweight-by-default invariant: when the user has the Contacts
-// extension disabled, NOTHING is loaded beyond the ~80-byte Bridge struct
+// extension disabled, NOTHING is loaded beyond the ~80-byte ContactsBridge struct
 // itself. Stores, the extension's per-extension SQLite, and the API
 // wrapper are all lazy-constructed inside `ensureInit`, gated by
 // `sync.Once`. The first enabled method call triggers init; subsequent
 // calls are fast. If the user disables the extension after it was
 // initialized, the in-memory state stays until the next Aerion launch
 // (acceptable trade — matches VS Code / browser extension behavior).
-type Bridge struct {
+type ContactsBridge struct {
 	// Dependencies provided by the host at construction time. None of these
 	// own anything Contacts-specific.
-	deps BridgeDeps
+	deps ContactsBridgeDeps
 
 	// Lazy-initialized Contacts state. Nil while disabled or until the
 	// first enabled method call kicks ensureInit.
@@ -43,10 +44,10 @@ type Bridge struct {
 	api      *API
 }
 
-// BridgeDeps bundles the host-provided dependencies the bridge needs.
+// ContactsBridgeDeps bundles the host-provided dependencies the bridge needs.
 // Grouped into a struct so adding a new dep (e.g., logger, event bus)
 // doesn't churn every call site in the host.
-type BridgeDeps struct {
+type ContactsBridgeDeps struct {
 	// SettingsStore is consulted on every bridge call for the enabled gate
 	// (lightweight invariant — disabled calls short-circuit before any work).
 	SettingsStore SettingsStore
@@ -64,25 +65,25 @@ type BridgeDeps struct {
 	// every time it needs to publish a conflict event.
 	Emitter EventEmitter
 
-	// GetCardDAVPassword resolves the basic-auth password for a CardDAV
-	// source by id. Provided by the host so the bridge doesn't have to
-	// import internal/credentials (per the EXTENSIONS.md "no internal
-	// imports" rule). Closure pattern mirrors Emitter.
-	GetCardDAVPassword CardDAVPasswordFunc
-
 	// Core is the coreapi.Core handle the bridge uses to call host-owned
-	// cross-extension surfaces — specifically the source-management methods
-	// (ListSources, LinkAccountSource) that back the extension's sidebar
-	// + account-setup hook. Source management lives in host code because
-	// contact_sources is a host-owned table; the extension goes through
-	// coreapi for read + link, not direct internal access.
+	// cross-extension surfaces:
+	//   - Source-management methods (ListSources, LinkAccountSource) that
+	//     back the extension's sidebar + account-setup hook.
+	//   - Storage().HostSecrets() — read-only access to core-managed
+	//     CardDAV passwords, since the contacts extension's writes need
+	//     the password but core owns the credential lifecycle (Pattern B
+	//     per docs/EXTENSIONS.md).
 	Core coreapi.Core
-}
 
-// CardDAVPasswordFunc is the host-provided closure for fetching a CardDAV
-// source's basic-auth password. Returns the password string or an error
-// describing why the lookup failed (no source, no creds, keyring locked, ...).
-type CardDAVPasswordFunc func(sourceID string) (string, error)
+	// GetStandaloneSourceToken returns a valid OAuth access token for a
+	// standalone contacts-only OAuth source (account_id IS NULL). Mirrors
+	// the host getter the carddav syncer uses for the read path; the
+	// contacts API uses it for the write path so create/update/delete work
+	// on standalone Google/Microsoft sources just like they do on
+	// account-linked ones. Nil-safe (writes to standalone sources then
+	// error with a clear message).
+	GetStandaloneSourceToken func(sourceID string) (string, error)
+}
 
 // SettingsStore is the narrow interface the bridge needs from the host's
 // settings store. Defined here (rather than importing the concrete type)
@@ -98,11 +99,11 @@ type SettingsStore interface {
 // a one-method struct.
 type EventEmitter func(eventName string, payload any)
 
-// NewBridge constructs the bridge with its dependencies. Does NOT touch
+// NewContactsBridge constructs the bridge with its dependencies. Does NOT touch
 // the DB or open any extension state — that happens lazily in ensureInit
 // when the first enabled method call arrives.
-func NewBridge(deps BridgeDeps) *Bridge {
-	return &Bridge{deps: deps}
+func NewContactsBridge(deps ContactsBridgeDeps) *ContactsBridge {
+	return &ContactsBridge{deps: deps}
 }
 
 // extensionID is the key the bridge looks up in settings for the
@@ -118,7 +119,7 @@ const extensionID = "contacts"
 // Errors reading the settings table also count as "not enabled" — a
 // best-effort read; we don't want a transient DB hiccup to surface as
 // "your extension method failed."
-func (b *Bridge) gateEnabled() bool {
+func (b *ContactsBridge) gateEnabled() bool {
 	if b.deps.SettingsStore == nil {
 		return false
 	}
@@ -135,10 +136,10 @@ func (b *Bridge) gateEnabled() bool {
 // work. sync.Once means it runs at most once per process lifetime; later
 // disable-then-enable cycles in the same session reuse the same state
 // (and the disabled call still short-circuits before reaching here).
-func (b *Bridge) ensureInit() error {
+func (b *ContactsBridge) ensureInit() error {
 	b.initOnce.Do(func() {
 		if b.deps.DB == nil || b.deps.Paths == nil {
-			b.initErr = errors.New("contacts.Bridge: missing DB or Paths in deps")
+			b.initErr = errors.New("contacts.ContactsBridge: missing DB or Paths in deps")
 			return
 		}
 		contactStore := contact.NewStore(b.deps.DB.DB)
@@ -148,12 +149,8 @@ func (b *Bridge) ensureInit() error {
 			b.initErr = err
 			return
 		}
-		b.api = NewAPI(contactStore, carddavStore, b.deps.GetCardDAVPassword)
-		// extStore is the per-extension SQLite; held for future use by
-		// the extension. The current API doesn't read it (per-extension
-		// data is empty for Contacts at this phase), but the schema is
-		// kept open across enable/disable cycles per the Phase 1 design.
-		_ = extStore
+		b.api = NewAPI(contactStore, carddavStore, extStore, b.deps.Core, b.deps.DB.DB)
+		b.api.SetStandaloneSourceTokenGetter(b.deps.GetStandaloneSourceToken)
 	})
 	return b.initErr
 }
@@ -163,7 +160,7 @@ func (b *Bridge) ensureInit() error {
 // the error was a conflict (and an event was emitted) so the caller can
 // short-circuit further error handling — the user's intent was acknowledged,
 // just superseded by the server.
-func (b *Bridge) emitConflict(err error) bool {
+func (b *ContactsBridge) emitConflict(err error) bool {
 	var conflict *coreapi.ErrConflict
 	if !errors.As(err, &conflict) {
 		return false
@@ -193,7 +190,7 @@ func (b *Bridge) emitConflict(err error) bool {
 //
 // Gated on the extension being enabled — disabled returns nil so the
 // frontend can call this unconditionally without checking state.
-func (b *Bridge) Contacts_ListContactsForBrowse(query, sourceID string, limit, offset int) ([]coreapi.Contact, error) {
+func (b *ContactsBridge) Contacts_ListContactsForBrowse(query, sourceID string, limit, offset int) ([]coreapi.Contact, error) {
 	if !b.gateEnabled() {
 		return nil, nil
 	}
@@ -210,7 +207,7 @@ func (b *Bridge) Contacts_ListContactsForBrowse(query, sourceID string, limit, o
 
 // Contacts_GetContactDetail returns a single contact by email (if argument
 // contains '@') or by CardDAV UUID otherwise.
-func (b *Bridge) Contacts_GetContactDetail(emailOrID string) (*coreapi.Contact, error) {
+func (b *ContactsBridge) Contacts_GetContactDetail(emailOrID string) (*coreapi.Contact, error) {
 	if !b.gateEnabled() {
 		return nil, nil
 	}
@@ -234,7 +231,7 @@ func (b *Bridge) Contacts_GetContactDetail(emailOrID string) (*coreapi.Contact, 
 // The historical `Contacts_CreateLocalContact(email, name)` shape was renamed
 // here in Track B because the backend already dispatched by source; the bridge
 // just hadn't surfaced the full input shape yet.
-func (b *Bridge) Contacts_CreateContact(input coreapi.ContactCreateInput) (string, error) {
+func (b *ContactsBridge) Contacts_CreateContact(input coreapi.ContactCreateInput) (string, error) {
 	if !b.gateEnabled() {
 		return "", nil
 	}
@@ -251,7 +248,7 @@ func (b *Bridge) Contacts_CreateContact(input coreapi.ContactCreateInput) (strin
 // Returns nil for: extension disabled, empty sourceID, non-CardDAV source,
 // or any error during lookup (the caller treats nil as "no addressbooks to
 // pick" — falls back to letting the backend resolve the default).
-func (b *Bridge) Contacts_ListAddressbooks(sourceID string) ([]coreapi.Addressbook, error) {
+func (b *ContactsBridge) Contacts_ListAddressbooks(sourceID string) ([]coreapi.Addressbook, error) {
 	if !b.gateEnabled() {
 		return nil, nil
 	}
@@ -271,7 +268,7 @@ func (b *Bridge) Contacts_ListAddressbooks(sourceID string) ([]coreapi.Addressbo
 // proxies to host state via coreapi, never touches the extension's own
 // stores. Frontend can call this safely even before the extension's
 // SQLite has been opened.
-func (b *Bridge) Contacts_ListSources() ([]coreapi.ContactSource, error) {
+func (b *ContactsBridge) Contacts_ListSources() ([]coreapi.ContactSource, error) {
 	if !b.gateEnabled() {
 		return nil, nil
 	}
@@ -289,7 +286,7 @@ func (b *Bridge) Contacts_ListSources() ([]coreapi.ContactSource, error) {
 // Returns "" (no error) when extension is disabled. Otherwise proxies to
 // coreapi.Contacts.LinkAccountSource, which in turn delegates to the host's
 // existing source-management implementation.
-func (b *Bridge) Contacts_LinkAccountSource(accountID, name string, syncInterval int) (string, error) {
+func (b *ContactsBridge) Contacts_LinkAccountSource(accountID, name string, syncInterval int) (string, error) {
 	if !b.gateEnabled() {
 		return "", nil
 	}
@@ -297,6 +294,32 @@ func (b *Bridge) Contacts_LinkAccountSource(accountID, name string, syncInterval
 		return "", nil
 	}
 	return b.deps.Core.Contacts().LinkAccountSource(accountID, name, syncInterval)
+}
+
+// Contacts_SyncSource triggers an immediate sync against one source.
+// Used by the sidebar footer's Ctrl+Shift+S handler so the user can
+// refresh the focused address book without opening settings.
+func (b *ContactsBridge) Contacts_SyncSource(sourceID string) error {
+	if !b.gateEnabled() {
+		return errors.New("contacts: extension disabled")
+	}
+	if b.deps.Core == nil {
+		return errors.New("contacts: core not wired")
+	}
+	return b.deps.Core.Contacts().SyncSource(sourceID)
+}
+
+// Contacts_SyncAllSources triggers an immediate sync against every
+// configured contact source. Used by the sidebar footer's Ctrl+Shift+A
+// shortcut.
+func (b *ContactsBridge) Contacts_SyncAllSources() error {
+	if !b.gateEnabled() {
+		return errors.New("contacts: extension disabled")
+	}
+	if b.deps.Core == nil {
+		return errors.New("contacts: core not wired")
+	}
+	return b.deps.Core.Contacts().SyncAllSources()
 }
 
 // Contacts_UpdateContact applies a ContactPatch to a contact. Source
@@ -307,7 +330,7 @@ func (b *Bridge) Contacts_LinkAccountSource(accountID, name string, syncInterval
 // 412 conflicts surface as a contacts:conflict event the UI listens for;
 // the method returns nil on conflict (the user's edit was discarded but
 // the local cache now matches the server, so the UI just reloads).
-func (b *Bridge) Contacts_UpdateContact(idOrEmail string, patch coreapi.ContactPatch) error {
+func (b *ContactsBridge) Contacts_UpdateContact(idOrEmail string, patch coreapi.ContactPatch) error {
 	if !b.gateEnabled() {
 		return nil
 	}
@@ -330,7 +353,7 @@ func (b *Bridge) Contacts_UpdateContact(idOrEmail string, patch coreapi.ContactP
 // Note: there's a separate top-level `App.DeleteContact` from pre-
 // extension days for legacy callers. This one is gated to the extension's
 // enabled state.
-func (b *Bridge) Contacts_DeleteLocalContact(idOrEmail string) error {
+func (b *ContactsBridge) Contacts_DeleteLocalContact(idOrEmail string) error {
 	if !b.gateEnabled() {
 		return nil
 	}
@@ -353,11 +376,100 @@ type ResizedContactPhoto struct {
 	MediaType string `json:"mediaType"`
 }
 
+// Contacts_EnableWriteAccess runs the interactive OAuth flow to grant write
+// access on a contact source, attaching the grant to a user-picked existing
+// auth context (either a mail account or a standalone contact source).
+//
+// Synchronous: blocks until OAuth completes (success / cancel / error). On
+// success: tokens are persisted under the picked identity, and the contact
+// source's Writable flag flips. The frontend's WriteAccessAccountPicker
+// dialog `await`s this.
+//
+// Inputs:
+//   sourceID              — the contact source being granted write access
+//   authContextKind       — "mail" or "standalone-contacts"
+//   authContextIdentifier — account_id (for "mail") or source_id (for
+//                           "standalone-contacts"); identifies the
+//                           OAuth identity the new tokens attach to
+//   expectedEmail         — the picked identity's email; enforced on
+//                           OAuth callback (mismatch = reject)
+//
+// Aerion's design forbids creating new accounts from inside the contacts
+// extension; all auth contexts MUST be one the user already set up in core
+// (Mail account add OR standalone contacts source add).
+func (b *ContactsBridge) Contacts_EnableWriteAccess(sourceID, authContextKind, authContextIdentifier, expectedEmail string) error {
+	if !b.gateEnabled() {
+		return nil
+	}
+	if b.deps.Core == nil {
+		return errors.New("contacts: write-access flow unavailable (core not wired)")
+	}
+	if sourceID == "" {
+		return errors.New("contacts: sourceID is required")
+	}
+	if authContextIdentifier == "" {
+		return errors.New("contacts: authContextIdentifier is required")
+	}
+	if expectedEmail == "" {
+		return errors.New("contacts: expectedEmail is required")
+	}
+
+	// Resolve the source's provider → clientConfigID + write scope.
+	sources, err := b.deps.Core.Contacts().ListSources()
+	if err != nil {
+		return err
+	}
+	var providerType string
+	for _, s := range sources {
+		if s.ID == sourceID {
+			providerType = s.Type
+			break
+		}
+	}
+	if providerType == "" {
+		return fmt.Errorf("contacts: source %q not found", sourceID)
+	}
+
+	var clientConfigID coreapi.ClientConfigID
+	var writeScope string
+	switch providerType {
+	case "google":
+		clientConfigID = "google-contacts"
+		writeScope = "https://www.googleapis.com/auth/contacts"
+	case "microsoft":
+		clientConfigID = "microsoft-contacts"
+		writeScope = "https://graph.microsoft.com/Contacts.ReadWrite"
+	default:
+		return fmt.Errorf("contacts: source provider %q does not support write access", providerType)
+	}
+
+	req := coreapi.StartIncrementalConsentRequest{
+		ClientConfigID: clientConfigID,
+		Scopes:         []coreapi.AuthScope{{Resource: writeScope}},
+		ExpectedEmail:  expectedEmail,
+		LoginHint:      expectedEmail,
+	}
+	switch authContextKind {
+	case "mail":
+		req.AccountID = authContextIdentifier
+	case "standalone-contacts":
+		req.SourceID = authContextIdentifier
+	default:
+		return fmt.Errorf("contacts: unknown authContextKind %q", authContextKind)
+	}
+
+	if err := b.deps.Core.Auth().StartIncrementalConsent(req); err != nil {
+		return err
+	}
+
+	return b.deps.Core.Contacts().SetSourceWritable(sourceID, true)
+}
+
 // Contacts_ResizeContactPhoto takes a base64-encoded image, decodes it,
 // resizes to a max edge of 256px, and re-encodes as JPEG at quality 85.
 // Used by the contacts Edit dialog after the frontend HTML file input
 // hands over a picked image.
-func (b *Bridge) Contacts_ResizeContactPhoto(b64In string) (ResizedContactPhoto, error) {
+func (b *ContactsBridge) Contacts_ResizeContactPhoto(b64In string) (ResizedContactPhoto, error) {
 	if !b.gateEnabled() {
 		return ResizedContactPhoto{}, nil
 	}

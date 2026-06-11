@@ -3,8 +3,8 @@
 import {certificate} from '../models';
 import {account} from '../models';
 import {carddav} from '../models';
-import {v1} from '../models';
 import {backend} from '../models';
+import {v1} from '../models';
 import {message} from '../models';
 import {folder} from '../models';
 import {app} from '../models';
@@ -37,6 +37,68 @@ export function Archive(arg1:Array<string>):Promise<void>;
 
 export function BroadcastThemeChange(arg1:string):Promise<void>;
 
+export function Calendar_AddCalDAVSource(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<string>;
+
+export function Calendar_AddGoogleSource(arg1:string,arg2:string,arg3:string,arg4:Array<backend.GoogleCalendarSelection>):Promise<string>;
+
+export function Calendar_AddLocalCalendar(arg1:string,arg2:string,arg3:string):Promise<string>;
+
+export function Calendar_AddLocalSource(arg1:string):Promise<string>;
+
+export function Calendar_AddMicrosoftSource(arg1:string,arg2:string,arg3:string,arg4:Array<backend.MicrosoftCalendarSelection>):Promise<string>;
+
+export function Calendar_CreateEvent(arg1:backend.EventInput):Promise<string>;
+
+export function Calendar_DeleteCalendar(arg1:string):Promise<void>;
+
+export function Calendar_DeleteEvent(arg1:string,arg2:string):Promise<void>;
+
+export function Calendar_DeleteSource(arg1:string):Promise<void>;
+
+export function Calendar_DismissAlarm(arg1:string):Promise<void>;
+
+export function Calendar_GetEvent(arg1:string):Promise<backend.Event>;
+
+export function Calendar_GrantCalendarAccess(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function Calendar_ListCalendars(arg1:string):Promise<Array<backend.Calendar>>;
+
+export function Calendar_ListEventsInRange(arg1:Array<string>,arg2:number,arg3:number):Promise<Array<backend.EventInstance>>;
+
+export function Calendar_ListGoogleCalendarsForAccount(arg1:string):Promise<Array<backend.GoogleCalendarChoice>>;
+
+export function Calendar_ListMicrosoftCalendarsForAccount(arg1:string):Promise<Array<backend.MicrosoftCalendarChoice>>;
+
+export function Calendar_ListSources():Promise<Array<backend.Source>>;
+
+export function Calendar_LogFrontend(arg1:string,arg2:string):Promise<void>;
+
+export function Calendar_OpenURL(arg1:string):Promise<void>;
+
+export function Calendar_QueryFreeBusy(arg1:Array<string>,arg2:Array<string>,arg3:number,arg4:number):Promise<Array<backend.FreeBusyResult>>;
+
+export function Calendar_RenameSource(arg1:string,arg2:string):Promise<void>;
+
+export function Calendar_ReprobeCalDAVOrganizerIdentities(arg1:string):Promise<number>;
+
+export function Calendar_SearchContacts(arg1:string,arg2:number):Promise<Array<v1.Contact>>;
+
+export function Calendar_SetCalendarColor(arg1:string,arg2:string):Promise<void>;
+
+export function Calendar_SetCalendarVisible(arg1:string,arg2:boolean):Promise<void>;
+
+export function Calendar_SetOrganizerIdentity(arg1:string,arg2:string):Promise<void>;
+
+export function Calendar_SetSyncInterval(arg1:string,arg2:number):Promise<void>;
+
+export function Calendar_SyncAllSources():Promise<void>;
+
+export function Calendar_SyncSource(arg1:string):Promise<void>;
+
+export function Calendar_UpdateEvent(arg1:backend.EventUpdateInput,arg2:string):Promise<void>;
+
+export function Calendar_UpdateMyAttendeeStatus(arg1:string,arg2:Array<string>,arg3:string):Promise<void>;
+
 export function CanUndo():Promise<boolean>;
 
 export function CancelAccountSync(arg1:string):Promise<void>;
@@ -53,8 +115,6 @@ export function CheckRecipientCerts(arg1:Array<string>):Promise<Record<string, b
 
 export function CheckRecipientPGPKeys(arg1:Array<string>):Promise<Record<string, boolean>>;
 
-export function ClearContactSourceError(arg1:string):Promise<void>;
-
 export function ClearOAuthCreds(arg1:string):Promise<void>;
 
 export function CloseWindow():Promise<void>;
@@ -66,6 +126,8 @@ export function CompleteOAuthAccountSetup(arg1:string,arg2:string,arg3:string,ar
 export function Contacts_CreateContact(arg1:v1.ContactCreateInput):Promise<string>;
 
 export function Contacts_DeleteLocalContact(arg1:string):Promise<void>;
+
+export function Contacts_EnableWriteAccess(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function Contacts_GetContactDetail(arg1:string):Promise<v1.Contact>;
 
@@ -79,9 +141,11 @@ export function Contacts_ListSources():Promise<Array<v1.ContactSource>>;
 
 export function Contacts_ResizeContactPhoto(arg1:string):Promise<backend.ResizedContactPhoto>;
 
-export function Contacts_UpdateContact(arg1:string,arg2:v1.ContactPatch):Promise<void>;
+export function Contacts_SyncAllSources():Promise<void>;
 
-export function CopyOAuthCreds(arg1:string,arg2:string):Promise<void>;
+export function Contacts_SyncSource(arg1:string):Promise<void>;
+
+export function Contacts_UpdateContact(arg1:string,arg2:v1.ContactPatch):Promise<void>;
 
 export function CopyToFolder(arg1:Array<string>,arg2:string):Promise<void>;
 
@@ -120,6 +184,8 @@ export function FetchMessageBody(arg1:string):Promise<message.Message>;
 export function FetchServerMessage(arg1:string,arg2:string,arg3:number):Promise<message.Message>;
 
 export function FindLocalMessageIDs(arg1:string,arg2:string,arg3:Array<string>):Promise<Array<string>>;
+
+export function ForceSyncContactSource(arg1:string):Promise<void>;
 
 export function ForceSyncFolder(arg1:string,arg2:string):Promise<void>;
 
@@ -197,6 +263,8 @@ export function GetInlineAttachments(arg1:string):Promise<Record<string, string>
 
 export function GetLanguage():Promise<string>;
 
+export function GetLastSeenVersion():Promise<string>;
+
 export function GetLinkedAccountsForContactSync():Promise<Array<app.LinkedAccountInfo>>;
 
 export function GetMailtoMode():Promise<string>;
@@ -219,9 +287,15 @@ export function GetMicrosoftSharedMailboxes(arg1:string):Promise<Array<account.A
 
 export function GetNativeTitleBar():Promise<boolean>;
 
+export function GetOAuthBuildStatus():Promise<app.OAuthBuildStatus>;
+
+export function GetOAuthCredsChoices(arg1:string,arg2:string):Promise<app.OAuthCredsChoices>;
+
 export function GetOAuthCredsStatus(arg1:string):Promise<app.OAuthCredsStatus>;
 
 export function GetOAuthStatus(arg1:string):Promise<app.OAuthStatus>;
+
+export function GetOAuthWarningDisabled():Promise<boolean>;
 
 export function GetPGPEncryptPolicy(arg1:string):Promise<string>;
 
@@ -317,6 +391,8 @@ export function LinkAccountContactSource(arg1:string,arg2:string,arg3:number):Pr
 
 export function ListAccountSetupHooksForProvider(arg1:string):Promise<Array<v1.AccountSetupHookRequest>>;
 
+export function ListAuthContextsForProvider(arg1:string):Promise<Array<app.AuthContextInfo>>;
+
 export function ListContacts(arg1:number):Promise<Array<contact.Contact>>;
 
 export function ListDrafts(arg1:string):Promise<Array<draft.Draft>>;
@@ -384,6 +460,8 @@ export function PickRecipientCertFile():Promise<string>;
 export function PickRecipientPGPKeyFile():Promise<string>;
 
 export function PickSMIMECertificateFile():Promise<string>;
+
+export function Preflight():Promise<void>;
 
 export function PrepareReply(arg1:string,arg2:string):Promise<smtp.ComposeMessage>;
 
@@ -465,6 +543,8 @@ export function SetExtensionEnabled(arg1:string,arg2:boolean):Promise<void>;
 
 export function SetLanguage(arg1:string):Promise<void>;
 
+export function SetLastSeenVersion(arg1:string):Promise<void>;
+
 export function SetMailtoMode(arg1:string):Promise<void>;
 
 export function SetMarkAsReadDelay(arg1:number):Promise<void>;
@@ -476,6 +556,10 @@ export function SetMessageListSortOrder(arg1:string):Promise<void>;
 export function SetNativeTitleBar(arg1:boolean):Promise<void>;
 
 export function SetOAuthCreds(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function SetOAuthCredsChoice(arg1:string,arg2:string):Promise<void>;
+
+export function SetOAuthWarningDisabled(arg1:boolean):Promise<void>;
 
 export function SetPGPEncryptPolicy(arg1:string,arg2:string):Promise<void>;
 

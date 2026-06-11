@@ -143,6 +143,32 @@ func (a *App) SetTermsAccepted(accepted bool) error {
 	return a.settingsStore.SetTermsAccepted(accepted)
 }
 
+// GetLastSeenVersion returns the Aerion version last acknowledged by the user
+// in the "What's new in this version" launch dialog. Empty = never acknowledged.
+func (a *App) GetLastSeenVersion() (string, error) {
+	return a.settingsStore.GetLastSeenVersion()
+}
+
+// SetLastSeenVersion records the current version as acknowledged. The
+// frontend calls this from the dialog's OK click handler only — not on
+// ESC / outside-click — so a user who dismisses without acknowledging
+// sees the dialog again next launch.
+func (a *App) SetLastSeenVersion(version string) error {
+	return a.settingsStore.SetLastSeenVersion(version)
+}
+
+// GetOAuthWarningDisabled reports whether the user has opted out of the
+// missing-OAuth-creds launch warning via "Don't show again".
+func (a *App) GetOAuthWarningDisabled() (bool, error) {
+	return a.settingsStore.GetOAuthWarningDisabled()
+}
+
+// SetOAuthWarningDisabled persists the user's "Don't show again" choice
+// from the OAuth-credentials-missing launch warning.
+func (a *App) SetOAuthWarningDisabled(disabled bool) error {
+	return a.settingsStore.SetOAuthWarningDisabled(disabled)
+}
+
 // GetRunBackground returns whether Aerion keeps running when the window is closed
 func (a *App) GetRunBackground() (bool, error) {
 	return a.settingsStore.GetRunBackground()

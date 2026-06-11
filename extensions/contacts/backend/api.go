@@ -1,11 +1,13 @@
 package backend
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/hkdb/aerion/extensions/contacts/backend/imaging"
 	"github.com/hkdb/aerion/internal/carddav"
 	"github.com/hkdb/aerion/internal/contact"
@@ -47,24 +49,60 @@ func localKindFromSourceID(id string) string {
 }
 
 // API implements coreapi.Contacts by wrapping the existing core contact.Store
-// and carddav.Store. getCardDAVPassword is a host-provided closure that
-// resolves per-source basic-auth passwords for CardDAV writes (Phase
-// 2b.2.b.1); it may be nil in test fixtures that never exercise CardDAV
-// writes. The closure pattern (rather than a direct *credentials.Store)
-// keeps this package free of `internal/credentials` so the extension
-// conforms to the docs/EXTENSIONS.md "no internal imports" rule.
+// and carddav.Store. CardDAV passwords are read via core.Storage().HostSecrets()
+// (Pattern B — core owns the credential lifecycle; the extension just reads).
 type API struct {
-	localStore         *contact.Store
-	carddavStore       *carddav.Store
-	getCardDAVPassword CardDAVPasswordFunc
+	localStore   *contact.Store
+	carddavStore *carddav.Store
+	extStore     *Store       // per-extension SQLite; backs oauth_record_state for Phase 2b.3 write paths
+	core         coreapi.Core // host handle: OAuth via core.Auth().HTTPClient, CardDAV passwords via core.Storage().HostSecrets(). Nil disables CardDAV + OAuth writes.
+	// db is the shared application DB. Phase 2b.3 OAuth write paths use this
+	// to compose contact.UpsertRecordTx + carddav_record_state writes inside
+	// a single transaction. Nil disables OAuth provider writes (tests).
+	db *sql.DB
+	// getStandaloneSourceToken returns a valid OAuth access token for a
+	// standalone (account_id-less) contact source, proactively refreshing
+	// when within 5 minutes of expiry. Mirrors what the sync layer uses
+	// (`getSourceToken` in internal/carddav/sync.go); set via
+	// SetStandaloneSourceTokenGetter at bridge wiring time. Nil disables
+	// OAuth writes for standalone sources (they error with a clear message);
+	// account-linked sources still go through core.Auth().HTTPClient.
+	getStandaloneSourceToken func(sourceID string) (string, error)
 }
 
 // NewAPI constructs the Contacts API wrapper. Any store may be nil — the
 // wrapper degrades gracefully (a profile with no CardDAV sources has nil
 // carddavStore; search still returns local results; CardDAV writes refuse with
-// a clear error rather than panicking).
-func NewAPI(localStore *contact.Store, carddavStore *carddav.Store, getCardDAVPassword CardDAVPasswordFunc) *API {
-	return &API{localStore: localStore, carddavStore: carddavStore, getCardDAVPassword: getCardDAVPassword}
+// a clear error rather than panicking). extStore is the per-extension SQLite
+// wrapper; nil means OAuth ETag tracking is disabled (tests typically pass
+// nil since they don't exercise Google/MS write paths).
+//
+// core is the coreapi.Core handle used by both the OAuth write paths
+// (core.Auth().HTTPClient) and the CardDAV write paths
+// (core.Storage().HostSecrets() for the basic-auth password). Nil means
+// neither CardDAV nor OAuth writes work — tests that don't exercise them
+// pass nil; tests that do need them must inject a minimal Core fake.
+//
+// db is the shared application DB; used by OAuth provider write paths to
+// compose contact.UpsertRecordTx + carddav_record_state inserts in a single
+// transaction. Nil-safe in the same way as core.
+func NewAPI(localStore *contact.Store, carddavStore *carddav.Store, extStore *Store, core coreapi.Core, db *sql.DB) *API {
+	return &API{
+		localStore:   localStore,
+		carddavStore: carddavStore,
+		extStore:     extStore,
+		core:         core,
+		db:           db,
+	}
+}
+
+// SetStandaloneSourceTokenGetter wires the host-provided closure that returns
+// a valid OAuth access token for a standalone (account_id-less) contact
+// source. Called once by the bridge during ensureInit; nil-safe (writes to
+// standalone sources will then error with a clear "getter not wired" message
+// rather than panicking).
+func (a *API) SetStandaloneSourceTokenGetter(fn func(sourceID string) (string, error)) {
+	a.getStandaloneSourceToken = fn
 }
 
 // SearchContacts delegates to the core contact store's merged search across
@@ -197,28 +235,44 @@ func (a *API) CreateContact(input coreapi.ContactCreateInput) (string, error) {
 		if a.localStore == nil {
 			return "", fmt.Errorf("contacts.CreateContact: local store unavailable")
 		}
-		if err := a.localStore.Create(email, strings.TrimSpace(input.Name)); err != nil {
-			return "", err
+		// Legacy minimal-create shortcut: keep email+name path intact so the
+		// sent-mail collection path (which only has email+name) is undisturbed.
+		if !hasRichFields(input) {
+			if err := a.localStore.Create(email, strings.TrimSpace(input.Name)); err != nil {
+				return "", err
+			}
+			return email, nil
 		}
-		return email, nil
+		// Rich-create path: build a full Record and UpsertRecord into the
+		// local store. ID is a fresh UUID; source=local, kind=manual mirror
+		// what Create() sets. NameOverridden=true on every email so future
+		// sent-mail auto-collection doesn't clobber the user's chosen FN.
+		name := strings.TrimSpace(input.Name)
+		if name == "" {
+			name = email
+		}
+		rec := recordFromCreateInput(input, email, name)
+		rec.ID = uuid.New().String()
+		rec.Source = "local"
+		rec.Kind = "manual"
+		for i := range rec.Emails {
+			rec.Emails[i].NameOverridden = true
+		}
+		if err := a.localStore.UpsertRecord(rec); err != nil {
+			if errors.Is(err, contact.ErrContactExists) {
+				return "", err
+			}
+			return "", fmt.Errorf("contacts.CreateContact: upsert local record: %w", err)
+		}
+		return rec.ID, nil
 	case input.SourceID == SourceIDLocalCollected:
 		return "", fmt.Errorf("contacts.CreateContact: cannot manually create a Collected contact (auto-derived from sent mail)")
-	default:
-		return a.createCardDAVContact(input, email)
 	}
-}
 
-// createCardDAVContact resolves the target addressbook + client and PUTs a new
-// vCard. Used by CreateContact when the SourceID is a CardDAV source UUID.
-// The record's UUID is freshly generated; href is "<addressbookPath><uuid>.vcf".
-func (a *API) createCardDAVContact(input coreapi.ContactCreateInput, email string) (string, error) {
+	// External-source dispatch by carddav.Source.Type (Phase 2b.3).
 	if a.carddavStore == nil {
 		return "", fmt.Errorf("contacts.CreateContact: carddav store unavailable")
 	}
-
-	// Validate the source exists and is a CardDAV source. Google/Microsoft
-	// sources here would also have a UUID source id but their write path
-	// isn't wired yet.
 	source, err := a.carddavStore.GetSource(input.SourceID)
 	if err != nil {
 		return "", fmt.Errorf("contacts.CreateContact: lookup source %s: %w", input.SourceID, err)
@@ -226,11 +280,28 @@ func (a *API) createCardDAVContact(input coreapi.ContactCreateInput, email strin
 	if source == nil {
 		return "", fmt.Errorf("contacts.CreateContact: source %s not found", input.SourceID)
 	}
-	if source.Type != carddav.SourceTypeCardDAV {
-		// OAuth source — write capability lands in 2b.3.
-		return "", coreapi.ErrUnimplemented
+	switch source.Type {
+	case carddav.SourceTypeCardDAV:
+		return a.createCardDAVContact(input, email)
+	case carddav.SourceTypeGoogle:
+		return a.createGoogleContact(input, email, source)
+	case carddav.SourceTypeMicrosoft:
+		return a.createMicrosoftContact(input, email, source)
 	}
+	return "", fmt.Errorf("contacts.CreateContact: unknown source type %q for source %s", source.Type, input.SourceID)
+}
 
+// createGoogleContact lives in google_api.go (Phase 2b.3 Track B).
+// createMicrosoftContact lives in microsoft_api.go (Phase 2b.3 Track C).
+
+// createCardDAVContact resolves the target addressbook + client and PUTs a new
+// vCard. Used by CreateContact when the SourceID is a CardDAV source UUID.
+// The record's UUID is freshly generated; href is "<addressbookPath><uuid>.vcf".
+//
+// Caller (CreateContact dispatch) has already validated the source exists and
+// is a CardDAV source — this function trusts that and skips the redundant
+// lookup. The source.Type guard lives in CreateContact's switch.
+func (a *API) createCardDAVContact(input coreapi.ContactCreateInput, email string) (string, error) {
 	// Resolve the target addressbook. If the caller passed one, validate it
 	// belongs to this source. Otherwise pick the first enabled addressbook.
 	addressbookID := input.AddressbookID
@@ -263,21 +334,13 @@ func (a *API) createCardDAVContact(input coreapi.ContactCreateInput, email strin
 	}
 
 	// Build the record. FN is required by vCard 3.0 — fall back to email
-	// when Name is blank.
+	// when Name is blank. Rich fields from input.* land here too via the
+	// shared helper.
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
 		name = email
 	}
-	rec := &contact.Record{
-		Fn: name,
-		Emails: []contact.RecordEmail{
-			{
-				Email:     email,
-				EmailType: "",
-				IsPrimary: true,
-			},
-		},
-	}
+	rec := recordFromCreateInput(input, email, name)
 
 	client, _, err := a.cardDAVClientForAddressbook(addressbookID)
 	if err != nil {
@@ -354,13 +417,29 @@ func (a *API) UpdateContact(id string, patch coreapi.ContactPatch) error {
 		return a.localStore.UpsertRecord(rec)
 	}
 
-	// CardDAV: server-side PUT path. Reuses the source's basic-auth creds.
+	// External-source records (rec.Source == "carddav" in contact_records for
+	// CardDAV, Google, AND Microsoft — they all share that row's source tag).
+	// Distinguish by the carddav.Source.Type one level up via the addressbook
+	// linkage. Phase 2b.3 splits this into per-provider write paths.
 	if rec.Source == "carddav" {
-		return a.writeCardDAVRecord(rec)
+		sourceType, err := a.sourceTypeForRecord(rec)
+		if err != nil {
+			return err
+		}
+		switch sourceType {
+		case carddav.SourceTypeCardDAV:
+			return a.writeCardDAVRecord(rec)
+		case carddav.SourceTypeGoogle:
+			return a.updateGoogleContact(rec)
+		case carddav.SourceTypeMicrosoft:
+			return a.updateMicrosoftContact(rec)
+		}
 	}
-	// Google/Microsoft (other source values) — write path lands in 2b.3.
 	return coreapi.ErrUnimplemented
 }
+
+// updateGoogleContact lives in google_api.go. updateMicrosoftContact lives
+// in microsoft_api.go (Phase 2b.3 Track C).
 
 // applyContactPatchToRecord copies every non-nil patch field onto the record.
 // Returns true if any field was applied; false if the patch was entirely nil
@@ -471,6 +550,102 @@ func applyContactPatchToRecord(rec *contact.Record, patch coreapi.ContactPatch) 
 	return applied
 }
 
+// recordFromCreateInput builds a contact.Record from a (rich) ContactCreateInput.
+// `email` is the resolved primary email address (already lowercased+trimmed by
+// the caller); `name` is the resolved display name (caller may default it to
+// the email's local part when not supplied).
+//
+// When input.Emails is non-empty it REPLACES the implicit single-primary
+// email constructed from `email` — callers supplying rich emails take full
+// control of the email list. Same for the other repeating slices: anything
+// non-empty replaces the legacy minimal default.
+//
+// Mirrors applyContactPatchToRecord's field copy logic so the create path
+// and patch path build records identically.
+func recordFromCreateInput(input coreapi.ContactCreateInput, email, name string) *contact.Record {
+	rec := &contact.Record{
+		Fn:       strings.TrimSpace(name),
+		Nickname: strings.TrimSpace(input.Nickname),
+		Org:      strings.TrimSpace(input.Org),
+		Title:    strings.TrimSpace(input.Title),
+		Note:     strings.TrimSpace(input.Note),
+		Bday:     strings.TrimSpace(input.Bday),
+	}
+
+	if len(input.Emails) > 0 {
+		for _, e := range input.Emails {
+			rec.Emails = append(rec.Emails, contact.RecordEmail{
+				Email:     strings.ToLower(strings.TrimSpace(e.Email)),
+				EmailType: e.Type,
+				IsPrimary: e.IsPrimary,
+			})
+		}
+	} else if email != "" {
+		rec.Emails = []contact.RecordEmail{{
+			Email:     email,
+			IsPrimary: true,
+		}}
+	}
+
+	for _, p := range input.Phones {
+		rec.Phones = append(rec.Phones, contact.RecordPhone{
+			Number:    strings.TrimSpace(p.Number),
+			PhoneType: p.Type,
+			IsPrimary: p.IsPrimary,
+		})
+	}
+	for _, a := range input.Addresses {
+		rec.Addresses = append(rec.Addresses, contact.RecordAddress{
+			AddrType: a.Type,
+			Street:   strings.TrimSpace(a.Street),
+			City:     strings.TrimSpace(a.City),
+			Region:   strings.TrimSpace(a.Region),
+			Postcode: strings.TrimSpace(a.Postcode),
+			Country:  strings.TrimSpace(a.Country),
+		})
+	}
+	for _, u := range input.URLs {
+		rec.URLs = append(rec.URLs, contact.RecordURL{
+			URL:     strings.TrimSpace(u.URL),
+			URLType: u.Type,
+		})
+	}
+	for _, i := range input.IMPPs {
+		rec.IMPPs = append(rec.IMPPs, contact.RecordIMPP{
+			Handle:   strings.TrimSpace(i.Handle),
+			IMPPType: i.Type,
+		})
+	}
+	if len(input.Categories) > 0 {
+		rec.Categories = append([]string{}, input.Categories...)
+	}
+	if input.Photo != nil {
+		rec.PhotoData = strings.TrimSpace(input.Photo.Data)
+		rec.PhotoMediaType = strings.TrimSpace(input.Photo.MediaType)
+		rec.PhotoURL = strings.TrimSpace(input.Photo.URL)
+	}
+	return rec
+}
+
+// hasRichFields reports whether any non-legacy field on the input is set.
+// Used by CreateContact to pick between the legacy minimal-create shortcut
+// (email + name only) and the full recordFromCreateInput path.
+func hasRichFields(input coreapi.ContactCreateInput) bool {
+	if input.Nickname != "" || input.Org != "" || input.Title != "" || input.Note != "" || input.Bday != "" {
+		return true
+	}
+	if len(input.Categories) > 0 || len(input.Emails) > 0 || len(input.Phones) > 0 {
+		return true
+	}
+	if len(input.Addresses) > 0 || len(input.URLs) > 0 || len(input.IMPPs) > 0 {
+		return true
+	}
+	if input.Photo != nil && (input.Photo.Data != "" || input.Photo.URL != "") {
+		return true
+	}
+	return false
+}
+
 // DeleteContact removes a contact by id. Source dispatch:
 //
 //   - Local: cascade-deletes the record (and its sub-tables) via
@@ -513,12 +688,58 @@ func (a *API) DeleteContact(id string) error {
 		return a.localStore.DeleteRecord(rec.ID)
 	}
 
-	// CardDAV: server-side DELETE then cascade-delete locally.
+	// External-source records: dispatch by carddav.Source.Type. See UpdateContact
+	// for the same pattern (contact_records.source == 'carddav' for all three;
+	// the source type is one level up).
 	if rec.Source == "carddav" {
-		return a.deleteCardDAVRecord(rec)
+		sourceType, err := a.sourceTypeForRecord(rec)
+		if err != nil {
+			return err
+		}
+		switch sourceType {
+		case carddav.SourceTypeCardDAV:
+			return a.deleteCardDAVRecord(rec)
+		case carddav.SourceTypeGoogle:
+			return a.deleteGoogleContact(rec)
+		case carddav.SourceTypeMicrosoft:
+			return a.deleteMicrosoftContact(rec)
+		}
 	}
-	// Google/Microsoft — 2b.3.
 	return coreapi.ErrUnimplemented
+}
+
+// deleteGoogleContact lives in google_api.go. deleteMicrosoftContact lives
+// in microsoft_api.go (Phase 2b.3 Track C).
+
+// sourceTypeForRecord looks up the carddav.SourceType for a record by walking
+// rec.SourceRef (its addressbook id) → carddav_source_addressbooks → source.
+// Used by the external-source dispatch in UpdateContact and DeleteContact to
+// route between CardDAV, Google, and Microsoft write paths.
+//
+// All three source types tag contact_records.source as 'carddav' (the column
+// just distinguishes "local" vs "external"), so the actual provider lives on
+// the source row two joins away.
+func (a *API) sourceTypeForRecord(rec *contact.Record) (carddav.SourceType, error) {
+	if a.carddavStore == nil {
+		return "", fmt.Errorf("sourceTypeForRecord: carddav store unavailable")
+	}
+	if rec == nil {
+		return "", fmt.Errorf("sourceTypeForRecord: nil record")
+	}
+	if rec.SourceRef == "" {
+		return "", fmt.Errorf("sourceTypeForRecord: record has no addressbook reference")
+	}
+	// Direct lookup — don't go through cardDAVClientForRecord because that
+	// gates on Writable + fetches credentials (irrelevant for type lookup, and
+	// would early-error for non-writable OAuth sources before we can route).
+	source, err := a.carddavStore.GetSourceForAddressbook(rec.SourceRef)
+	if err != nil {
+		return "", fmt.Errorf("sourceTypeForRecord: lookup source for addressbook %s: %w", rec.SourceRef, err)
+	}
+	if source == nil {
+		return "", fmt.Errorf("sourceTypeForRecord: no source owns addressbook %s", rec.SourceRef)
+	}
+	return source.Type, nil
 }
 
 // writeCardDAVRecord is the shared CardDAV-write dispatch used by UpdateContact.
@@ -599,10 +820,10 @@ func (a *API) cardDAVClientForAddressbook(addressbookID string) (*carddav.Client
 	if !source.Writable {
 		return nil, source.ID, fmt.Errorf("this source is not writable; enable write access in its settings")
 	}
-	if a.getCardDAVPassword == nil {
+	if a.core == nil {
 		return nil, source.ID, fmt.Errorf("credentials lookup unavailable")
 	}
-	password, err := a.getCardDAVPassword(source.ID)
+	password, err := a.core.Storage().HostSecrets().Get("carddav:" + source.ID)
 	if err != nil {
 		return nil, source.ID, fmt.Errorf("get password for source %s: %w", source.ID, err)
 	}
@@ -613,9 +834,16 @@ func (a *API) cardDAVClientForAddressbook(addressbookID string) (*carddav.Client
 	return client, source.ID, nil
 }
 
-// ListAddressbooks returns the addressbooks for a CardDAV source as the API
+// ListAddressbooks returns the addressbooks for a contact source as the API
 // surface type. Backs Contacts_ListAddressbooks which feeds the Add Contact
 // dialog's addressbook picker.
+//
+// Source-type dispatch (Phase 2b.3):
+//   - CardDAV: lists the source's enabled addressbooks straight from the local
+//     carddav_source_addressbooks table.
+//   - Google: surfaces contactGroups as pseudo-addressbooks + a synthetic
+//     "My Contacts" entry. Track B fills the live HTTP call.
+//   - Microsoft: surfaces contactFolders as addressbooks. Track C fills in.
 func (a *API) ListAddressbooks(sourceID string) ([]coreapi.Addressbook, error) {
 	if a.carddavStore == nil {
 		return nil, nil
@@ -623,6 +851,27 @@ func (a *API) ListAddressbooks(sourceID string) ([]coreapi.Addressbook, error) {
 	if sourceID == "" {
 		return nil, nil
 	}
+	source, err := a.carddavStore.GetSource(sourceID)
+	if err != nil {
+		return nil, fmt.Errorf("contacts.ListAddressbooks: lookup source %s: %w", sourceID, err)
+	}
+	if source == nil {
+		return nil, nil
+	}
+	switch source.Type {
+	case carddav.SourceTypeCardDAV:
+		return a.listCardDAVAddressbooks(sourceID)
+	case carddav.SourceTypeGoogle:
+		return a.listGoogleAddressbooks(source)
+	case carddav.SourceTypeMicrosoft:
+		return a.listMicrosoftAddressbooks(source)
+	}
+	return nil, nil
+}
+
+// listCardDAVAddressbooks is the legacy CardDAV path — lists the source's
+// enabled addressbooks from the local mirror table.
+func (a *API) listCardDAVAddressbooks(sourceID string) ([]coreapi.Addressbook, error) {
 	abs, err := a.carddavStore.ListAddressbooks(sourceID)
 	if err != nil {
 		return nil, fmt.Errorf("contacts.ListAddressbooks: %w", err)
@@ -641,6 +890,9 @@ func (a *API) ListAddressbooks(sourceID string) ([]coreapi.Addressbook, error) {
 	}
 	return out, nil
 }
+
+// listGoogleAddressbooks lives in google_api.go. listMicrosoftAddressbooks
+// lives in microsoft_api.go (Phase 2b.3 Track C).
 
 // SubscribeToContactEvents is scaffolded; Phase 3+ wires through a core
 // event bus once one exists.

@@ -82,7 +82,29 @@ export async function reloadContacts(limit = 200, offset = 0): Promise<void> {
   }
 }
 
-export async function selectContact(id: string | null): Promise<void> {
+// Focus-vs-activate split mirrors mail's MessageList behavior (and is
+// enforced by the kit's ListPane semantics — see ListPane.svelte's onSelect
+// and onActivate docstrings):
+//
+//   focusContact(id)    — j/k navigation. Updates the highlighted row only.
+//                         Does NOT load detail, does NOT slide in the viewer.
+//   activateContact(id) — Enter key or row click. Loads detail and (on
+//                         responsive viewports) reveals the viewer overlay.
+//
+// Programmatic callers that want the "old" combined behavior (e.g.,
+// post-create navigation in ContactsPane.handleCreated) call
+// activateContact(id) explicitly.
+
+export function focusContact(id: string | null): void {
+  selectedContactId = id
+  if (!id) {
+    detail = null
+  }
+  // Intentionally NO detail load and NO showViewer here — focus changes
+  // should not move data on/off the network or trigger overlay animations.
+}
+
+export async function activateContact(id: string | null): Promise<void> {
   selectedContactId = id
   if (!id) {
     detail = null
@@ -99,6 +121,7 @@ export async function selectContact(id: string | null): Promise<void> {
   }
 }
 
+
 // Update a contact (local or CardDAV) with a multi-field patch. The backend
 // dispatches by source — local writes via UpsertRecord, CardDAV PUTs to the
 // server. On 412 conflict the backend emits "contacts:conflict" via the
@@ -109,7 +132,7 @@ export async function updateContact(id: string, patch: v1.ContactPatch): Promise
   // Refresh the list + detail view so changes are visible immediately.
   await reloadContacts()
   if (selectedContactId === id) {
-    await selectContact(id)
+    await activateContact(id)
   }
 }
 

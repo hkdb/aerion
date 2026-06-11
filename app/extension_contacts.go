@@ -1,34 +1,9 @@
 package app
 
 import (
-	"github.com/hkdb/aerion/extensions/contacts"
 	extcontactsbe "github.com/hkdb/aerion/extensions/contacts/backend"
-	coreapi "github.com/hkdb/aerion/internal/core/api/v1"
-	"github.com/hkdb/aerion/internal/oauth2"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
-
-// extensionOAuthProvider adapts a slice of coreapi.OAuthProviderRegistration
-// entries into an oauth2.CredentialsProvider. Used to register a single
-// extension's OAuth client configs into the global resolver chain without
-// the extension itself having to import internal/oauth2.
-type extensionOAuthProvider []coreapi.OAuthProviderRegistration
-
-func (p extensionOAuthProvider) Lookup(configID string) (oauth2.ClientCredentials, bool) {
-	for _, r := range p {
-		if r.ConfigID != configID {
-			continue
-		}
-		if r.ClientID == "" {
-			return oauth2.ClientCredentials{}, false
-		}
-		return oauth2.ClientCredentials{
-			ClientID:     r.ClientID,
-			ClientSecret: r.ClientSecret,
-		}, true
-	}
-	return oauth2.ClientCredentials{}, false
-}
 
 // initContactsExtension wires the Contacts extension's Bridge into App
 // during Startup. All bridge logic lives in extensions/contacts/backend/
@@ -49,32 +24,33 @@ func (a *App) initContactsExtension() {
 	// extension identity for Auth routing.
 	contactsCore := newCoreForExtension(a, a.contactsExt)
 
-	a.Bridge = extcontactsbe.NewBridge(extcontactsbe.BridgeDeps{
+	a.ContactsBridge = extcontactsbe.NewContactsBridge(extcontactsbe.ContactsBridgeDeps{
 		SettingsStore: a.settingsStore,
 		Paths:         a.paths,
 		DB:            a.db,
 		Emitter: func(eventName string, payload any) {
 			wailsRuntime.EventsEmit(a.ctx, eventName, payload)
 		},
-		// Closure adapter — keeps the extension's bridge.go free of
-		// internal/credentials. The host owns credStore (a fully
-		// initialized *credentials.Store); the extension just calls
-		// this function to fetch per-source passwords for CardDAV writes.
-		GetCardDAVPassword: func(sourceID string) (string, error) {
-			return a.credStore.GetCardDAVPassword(sourceID)
-		},
+		// CardDAV passwords flow through Core.Storage().HostSecrets()
+		// (Pattern B — core owns the lifecycle; extension reads). No
+		// per-credential closure injection needed; the bridge constructs
+		// the right key prefix when reading.
+		//
 		// Core gives the bridge access to host-owned cross-extension
-		// surfaces — specifically Contacts().ListSources() and
-		// Contacts().LinkAccountSource() that back the extension's sidebar
-		// + account-setup hook flows.
+		// surfaces — Contacts().ListSources() and LinkAccountSource()
+		// back the sidebar + account-setup hook flows; Storage().HostSecrets()
+		// backs CardDAV writes.
 		Core: contactsCore,
+		// Mirrors what the carddav syncer gets via SetTokenGetters — the
+		// same proactively-refreshing token accessor for standalone
+		// contacts-only OAuth sources, now reused on the write side so
+		// create/update/delete succeed regardless of whether the user
+		// linked the source to an email account or set it up via the
+		// contacts-only OAuth flow.
+		GetStandaloneSourceToken: a.getValidContactSourceOAuthToken,
 	})
 
-	// Register the extension's declared OAuth client configs with the
-	// global resolver. The extension declares pairs as
-	// coreapi.OAuthProviderRegistration entries — the host wraps them in
-	// an oauth2.CredentialsProvider adapter so the extension never imports
-	// internal/oauth2 directly. Replaces the prior package-init registration
-	// that lived inside the extension's creds.go.
-	oauth2.RegisterCredentialsProvider(extensionOAuthProvider(contacts.OAuthClients()))
+	// All OAuth slot resolution lives in internal/oauth2/core_provider.go
+	// now — google-contacts and microsoft-contacts are owned there. The
+	// contacts extension package carries no OAuth client vars of its own.
 }

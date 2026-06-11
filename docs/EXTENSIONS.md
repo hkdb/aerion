@@ -66,8 +66,8 @@ Full architectural rationale lives in [`context/EXTENSION_ARCHITECTURE.md`](../c
 │  │  internal/oauth2/      │    │   (future: calendar/)        │    │
 │  │  internal/credentials/ │    │                              │    │
 │  │  internal/settings/    │    │  internal/extensions/        │    │
-│  │  ...                   │    │   ui/, auth/, mail/, ...     │    │
-│  │                        │    │   (host scaffolding)         │    │
+│  │  internal/kit/davutil  │    │   ui/, auth/, mail/, ...     │    │
+│  │  ...                   │    │   (host scaffolding)         │    │
 │  └──────────┬─────────────┘    └──────────┬───────────────────┘    │
 │             │                              │                        │
 │             ▼                              ▼                        │
@@ -95,11 +95,16 @@ Full architectural rationale lives in [`context/EXTENSION_ARCHITECTURE.md`](../c
 | Extension's host-side wiring (one embed field + one constructor call) | `app/extension_<name>.go` — see below |
 | A type or interface ALL extensions might consume | `internal/core/api/v1/` |
 | Shared host-side scaffolding (registry, broker, wrappers) | `internal/extensions/` |
+| **Generic backend utility extensions are allowed to import** | `internal/kit/<area>/` |
 | Host-owned UI used by the rail/dialog (not extension-specific) | `frontend/src/lib/components/rail/`, etc. |
+
+**`internal/kit/` — shared extension-facing building blocks.** Backend analog of the frontend `lib/components/kit/`. Modules under `internal/kit/*` are generic, extension-agnostic (no extension-specific naming or behavior) and may be imported directly from extension code — they're carved out from the otherwise blanket "extensions can't import `internal/*`" rule. Today's only member is [`internal/kit/davutil`](../internal/kit/davutil), which holds the `XMLFixTransport` and the `NewHTTPClient(timeout)` builder both `internal/carddav` and the calendar extension use to normalize WebDAV ETag / lastmodified server quirks. Add a new `internal/kit/<area>/` when two consumers need the same primitive and one of them is an extension.
 
 **The Bridge pattern + the `app/` minimum**: Wails v2 binds methods on structs in the `Bind` list at `wails.Run` time, generating frontend bindings via Go reflection. Because Go's reflection enumerates methods on **embedded** types via standard method promotion, the host (App) can embed a `*Bridge` struct from each extension's package; the Bridge's methods then appear in the generated `App.d.ts` as if they were on App. The actual method definitions live in `extensions/<name>/backend/bridge.go`. The only host-side file (`app/extension_<name>.go`) is reduced to about 10 lines: importing the extension's package, declaring the embedded field on App, and one constructor call that wires the bridge's host-provided dependencies during Startup.
 
 **Method naming — the `<Extension>_` prefix rule (HARD):** every Wails-bound bridge method MUST be named `<ExtensionName>_<MethodName>` (e.g., `Contacts_UpdateContact`, `Calendar_CreateEvent`). Embedded-method promotion happens in a single flat namespace on App; without the prefix, two extensions that both define `UpdateRecord()` would collide silently. The prefix is enforced by code review when accepting 3rd-party extension PRs — see [§ Contributing a new extension](#contributing-a-new-extension).
+
+**Bridge struct type-name rule (HARD):** the Bridge struct itself MUST be named `<Name>Bridge` (e.g., `ContactsBridge`, `CalendarBridge`), not the generic `Bridge`. Go's anonymous-embed field name is derived from the type's last identifier, so two extensions that both name their struct `Bridge` would produce a `duplicate field` compile error when embedded on App. The struct name is enforced by code review alongside the method-prefix rule. Likewise, the constructor and deps-struct follow the same pattern: `NewContactsBridge(deps ContactsBridgeDeps) *ContactsBridge`.
 
 Extensions DO NOT import from other extensions' Go packages. They go through `coreapi.Core.Extension(id)` (see [§ Core interface](#core-interface)).
 
@@ -120,14 +125,23 @@ This shape is **subprocess-ready**: if community-extension demand emerges and a 
   "id": "contacts",
   "name": "Contacts",
   "version": "0.1.0",
-  "description": "Browse contacts from your accounts (CardDAV, Google, Microsoft). Two-way edit/write capability lands in a future release.",
+  "description": "Browse and edit contacts from your accounts (CardDAV, Google, Microsoft). Local-contact editing in v0.3.x; provider write capability rolling out incrementally.",
   "author": "Aerion",
   "minAerionVersion": "0.3.0",
   "capabilities": [
     "contacts.read",
+    "contacts.write",
     "ui.rail-tab",
-    "ui.account-setup-hook"
-  ]
+    "ui.account-setup-hook",
+    "ui.settings-tab"
+  ],
+  "oauth": {
+    "first_party_uses_core_for_scopes": [
+      "https://www.googleapis.com/auth/contacts.readonly",
+      "Contacts.Read",
+      "Contacts.ReadBasic"
+    ]
+  }
 }
 ```
 
@@ -139,7 +153,8 @@ This shape is **subprocess-ready**: if community-extension demand emerges and a 
 | `description` | 1–2 sentence summary shown in the Settings listing. |
 | `author` | Display name only. No URL. |
 | `minAerionVersion` | Semver. Future host versions will refuse to load an extension whose minAerionVersion is higher than the running build. |
-| `capabilities` | Coarse capability strings the extension declares. See [coreapi.Capability](../internal/core/api/v1/manifest.go) for the known set (e.g., `contacts.read`, `ui.rail-tab`). Unknown strings are treated as opaque so the set can grow without breaking older hosts. |
+| `capabilities` | Coarse capability strings the extension declares. See [coreapi.Capability](../internal/core/api/v1/manifest.go) for the known set (e.g., `contacts.read`, `contacts.write`, `ui.rail-tab`, `ui.settings-tab`). Unknown strings are treated as opaque so the set can grow without breaking older hosts. |
+| `oauth.first_party_uses_core_for_scopes` | Optional. Lists OAuth scopes that should route through Aerion core's mail OAuth (reusing the user's existing consent) instead of the extension's own client config. See [§ Manifest OAuth routing](#manifest-oauth-routing--first_party_uses_core_for_scopes). First-party only. |
 
 ### Loading the manifest into Go
 
@@ -218,26 +233,30 @@ func (e *Extension) Register(core coreapi.Core) (coreapi.Unregister, error) {
 }
 ```
 
-**2. `Bridge` — the Wails-bound surface ([`extensions/contacts/backend/bridge.go`](../extensions/contacts/backend/bridge.go))**. Holds host dependencies, all `Contacts_`-prefixed Wails methods, and a `sync.Once`-gated lazy initializer for the extension's `*Store` + `*API`:
+**2. `ContactsBridge` — the Wails-bound surface ([`extensions/contacts/backend/bridge.go`](../extensions/contacts/backend/bridge.go))**. Holds host dependencies, all `Contacts_`-prefixed Wails methods, and a `sync.Once`-gated lazy initializer for the extension's `*Store` + `*API`:
 
 ```go
-type BridgeDeps struct {
+type ContactsBridgeDeps struct {
     SettingsStore SettingsStore        // for the enabled-flag gate
     Paths         *platform.Paths      // for the extension's SQLite dir
     DB            *database.DB         // shared writable DB handle for local contacts
     Emitter       EventEmitter         // for runtime.EventsEmit (kept generic — no Wails import in extensions/)
-    GetCardDAVPassword CardDAVPasswordFunc // closure for per-source basic-auth lookup — replaces direct internal/credentials import
-    Core          coreapi.Core         // host coreapi handle — bridge calls Core.Contacts().ListSources()/LinkAccountSource() for source management
+    Core          coreapi.Core         // host coreapi handle — used for Contacts().ListSources()/LinkAccountSource() (source management) AND Storage().HostSecrets() (read-only access to core-managed CardDAV passwords, per Pattern B in the Storage section below)
 }
 
-type Bridge struct {
-    deps     BridgeDeps
+// Type-name rule: each extension MUST name its Bridge struct `<Name>Bridge`
+// (here: `ContactsBridge`), not the generic `Bridge` — see the Bridge struct
+// type-name rule above. Same goes for the deps struct and constructor.
+type ContactsBridge struct {
+    deps     ContactsBridgeDeps
     initOnce sync.Once
     initErr  error
     api      *API
 }
 
-func NewBridge(deps BridgeDeps) *Bridge { return &Bridge{deps: deps} }
+func NewContactsBridge(deps ContactsBridgeDeps) *ContactsBridge {
+    return &ContactsBridge{deps: deps}
+}
 
 // Gate every bound method. Disabled = empty results, never errors.
 func (b *Bridge) gateEnabled() bool {
@@ -293,7 +312,7 @@ import (
 )
 
 func (a *App) initContactsExtension() {
-    a.Bridge = extcontactsbe.NewBridge(extcontactsbe.BridgeDeps{
+    a.ContactsBridge = extcontactsbe.NewContactsBridge(extcontactsbe.ContactsBridgeDeps{
         SettingsStore: a.settingsStore,
         Paths:         a.paths,
         DB:            a.db,
@@ -305,6 +324,114 @@ func (a *App) initContactsExtension() {
 ```
 
 When you add a new first-party extension, the host side is similarly thin: embed the extension's `*Bridge` on App, add an `init<Name>Extension()` helper, append the lifecycle `Extension` to `a.knownExtensions`. Everything else (Settings UI listing, rail rendering, hook discovery, Wails bindings generation) flows automatically.
+
+### Example: Calendar extension
+
+The Calendar extension is the second canonical extension and exercises every Phase 1 capability the SDK exposes. Where Contacts focuses on a single domain (per-source contact CRUD wrapped around the host's `coreapi.Contacts` surface), Calendar is **fully self-contained at the data layer** — it owns its per-extension SQLite with five tables, runs its own CalDAV sync engine, parses iCal events / RRULE expansions / VALARM blocks, and schedules desktop notifications via `coreapi.Notifications`. Use it as the reference when your extension needs to do more than wrap an existing host surface.
+
+**Package layout** ([`extensions/calendar/`](../extensions/calendar)):
+
+```
+extensions/calendar/
+├── manifest.go            // wraps embedded manifest.json
+├── manifest.json          // capabilities + reserved OAuth slots
+├── creds.go               // ldflag-injected GoogleClientID/Secret etc. (Phase 2)
+├── register.go            // RegisterRailTab + RegisterSettingsTab
+└── backend/
+    ├── bridge.go          // CalendarBridge + Calendar_* Wails methods
+    ├── api.go             // extension-local API (source CRUD, sync interval validation)
+    ├── store.go           // per-extension SQLite + migrations v1–v4
+    ├── caldav.go          // emersion/go-webdav/caldav wrapper + handwritten backfills
+    ├── sync.go            // per-source poll scheduler, CTag-based incremental sync
+    ├── ical_convert.go    // VEVENT ↔ internal Event (emersion/go-ical)
+    ├── rrule_expand.go    // Component.RecurrenceSet → rrule.Set.Between() expansion
+    ├── alarm.go           // VALARM parser + per-instance trigger computation
+    ├── alarm_scheduler.go // time.AfterFunc scheduler subscribed to system:wake
+    └── xmlfix.go          // inline-duplicated XML normalizer for buggy CalDAV servers
+```
+
+**Manifest** ([`extensions/calendar/manifest.json`](../extensions/calendar/manifest.json)) declares two capabilities and reserves Phase 2 OAuth slots so a future Google/Microsoft Calendar build doesn't need a schema change:
+
+```json
+{
+  "id": "calendar",
+  "name": "Calendar",
+  "capabilities": ["ui.rail-tab", "ui.settings-tab"],
+  "oauth_slots": [
+    { "id": "google-calendar", "provider": "google", "scopes": ["https://www.googleapis.com/auth/calendar"] },
+    { "id": "microsoft-calendar", "provider": "microsoft", "scopes": ["Calendars.ReadWrite"] }
+  ]
+}
+```
+
+**Per-extension SQLite** — Calendar owns five tables across four migrations:
+
+| Migration | Tables | Purpose |
+|---|---|---|
+| v1 | `meta` | Generic key/value store. Currently holds the user's display-timezone choice; future settings extend here. |
+| v2 | `calendar_sources`, `calendars` | CalDAV source rows + per-calendar visibility + color overrides. |
+| v3 | `events`, `event_recurrence_overrides`, `sync_log` | Materialized events from sync; RECURRENCE-ID exception blobs; per-sync audit trail. |
+| v4 | `event_alarms` | One row per (occurrence × VALARM) within the scheduler's 24h horizon; `INSERT OR IGNORE` unique index makes re-evaluation after sync idempotent. |
+
+This is **distinct from Contacts**, which uses the host's `coreapi.Contacts` surface and only adds a thin local-store layer. Calendar wraps no host data — it owns everything from sync to expansion to alarms.
+
+**Bridge + lazy init** ([`extensions/calendar/backend/bridge.go`](../extensions/calendar/backend/bridge.go)) follows the same `<Name>Bridge` + `sync.Once` pattern Contacts uses, but the `ensureInit` body wires **three** subsystems instead of one:
+
+```go
+b.initOnce.Do(func() {
+    store, err := backend.OpenStore(b.deps.Paths.DataDir, "calendar", migrations)
+    if err != nil { b.initErr = err; return }
+
+    secrets := b.deps.Core.Storage().Secrets("calendar")
+    b.api = NewAPI(store, secrets)
+    b.syncer = NewSyncer(store, secrets, b.deps.Core.Events(), b.deps.SettingsStore)
+    b.syncer.Start()
+    b.alarms = NewAlarmScheduler(store, b.deps.Core.Notifications(), b.deps.Core.Events())
+    b.alarms.Start(context.Background())
+})
+```
+
+The Syncer subscribes to `system:wake` and `system:network-online` for immediate resync; the AlarmScheduler subscribes to `calendar:sync-complete` (re-evaluates alarms after each sync writes new VALARM rows) and `system:wake` (sweeps past alarms to `fired` status without firing-after-the-fact, re-arms future ones). Both subscriptions go through `coreapi.EventBus`; the extension never imports `internal/platform`.
+
+**VALARM notifications via `coreapi.Notifications`** — at sync time, the upsert transaction extracts VALARM templates from each event's stored ICSBlob, projects them onto the expanded recurrence instances within a 7-day window, and writes one row per `(event_id, instance_unix, trigger_unix)` triple. The scheduler reads pending rows in `[now, now+24h]`, arms `time.AfterFunc` callbacks, and fires desktop notifications via the published `coreapi.Notifications` surface:
+
+```go
+s.notif.Show(coreapi.NotifyRequest{
+    Title: ev.Summary,
+    Body:  formatAlarmBody(*ev, a, time.Unix(a.InstanceUnix, 0)),
+    OnClick: coreapi.NotifyClickAction{
+        Kind:        "open-extension",
+        ExtensionID: "calendar",
+        Path:        "/event/" + ev.ID,
+    },
+})
+```
+
+Clicking the notification raises the Aerion window, switches the rail to Calendar via the host's generic `extension:open` Wails event, and the calendar pane drains the `/event/<id>` path on mount via a small kit-level pending-deep-link buffer ([`frontend/src/lib/stores/extensionDeepLink.svelte.ts`](../frontend/src/lib/stores/extensionDeepLink.svelte.ts)) — solving the mount-gap problem where the target pane isn't mounted yet when the Wails event fires.
+
+**Frontend patterns Calendar pioneered** that future extensions can borrow from:
+
+- **Tz-aware UI** via `date-fns-tz` + a calendar-scoped helper module ([`extensions/calendar/frontend/lib/tzMath.ts`](../extensions/calendar/frontend/lib/tzMath.ts)) wrapping `toZonedTime`/`fromZonedTime`. Every date-math helper in the view store reads the user's chosen tz at call time so changes propagate. See the [Per-extension npm deps convention](#vite--tsconfig-aliases) note for how the extension declares its dep without touching the host config files structurally.
+- **Searchable IANA timezone picker** via `Intl.supportedValuesOf('timeZone')` + `Intl.DateTimeFormat({ timeZone })` for formatters. localStorage persistence behind a `calendarSettings` store with the API shape ready to swap for a Wails-backed Store when extensions get richer settings infrastructure.
+- **Greenfield kit primitives Calendar consumed first**: `DetailOverlay` (right-side focus-mode panel — the first kit primitive with no mail equivalent, sanctioned by R25), `SidebarAddItem` (in-list "+ Add …" button), `ColorPicker` (palette + hex input pass-through). All three are calendar-driven additions to the kit; future extensions can adopt them.
+
+**Settings dialog** ([`extensions/calendar/frontend/components/CalendarSettingsDialog.svelte`](../extensions/calendar/frontend/components/CalendarSettingsDialog.svelte)) follows the same `bits-ui` Dialog pattern Contacts uses but adds a per-source `Select`-based sync-interval picker, a Sync Now button with optimistic UI, and a `ConfirmDialog`-driven Delete flow. Add CalDAV source uses the existing 2-stage AddCalDAVSourceDialog (color picker stage 2 was added during the per-calendar color work).
+
+The wiring file on the host side stays minimal — same shape as `app/extension_contacts.go`, ~30 LOC, just constructs the bridge with its BridgeDeps:
+
+```go
+// app/extension_calendar.go
+func (a *App) initCalendarExtension() {
+    a.CalendarBridge = calendarbackend.NewCalendarBridge(calendarbackend.CalendarBridgeDeps{
+        SettingsStore: a.settingsStore,
+        Paths:         a.paths,
+        Core:          newCoreImpl(a, "calendar"),
+        // ... + the EventEmitter closure + OAuth provider registrations ...
+    })
+}
+```
+
+When your extension needs more than wrapping a host surface — own data sovereignty, custom sync protocols, scheduled background work, desktop-level integrations — Calendar is the shape to copy.
 
 ---
 
@@ -324,19 +451,86 @@ This is the complete list of APIs your extension is allowed to consume. Anything
 |---|---|---|---|
 | `core.Mail()` | ⚠️ | `ListMessages`, `GetMessage`, `ListFolders`, `GetSpecialFolder` | Mutators (`MoveMessage`, `Archive`, `Trash`, `SetFlags`, `AppendMessage`) and `SubscribeToMailEvents` return `ErrUnimplemented`. |
 | `core.Composer()` | ⚠️ | `OpenComposer` (mailto URL form) | `Attachments` and `ReplyTo` in `ComposeRequest` return `ErrUnimplemented`. |
-| `core.Contacts()` | ⚠️ | `ListSources`, `LinkAccountSource`, `ListAddressbooks` | Source-management surface used by the Contacts extension itself (and available to future cross-extension consumers like Calendar). Contact CRUD methods (`Search`/`Get`/`List`/`Create`/`Update`/`Delete`) still return `ErrUnimplemented` at this surface — they're owned by the Contacts extension's Bridge and routing them through coreImpl would force the extension to initialize even when disabled. |
-| `core.Auth()` | ⚠️ | `HTTPClient(accountID, scopes)` — bearer + transparent refresh | `IMAPClient` and `SMTPClient` return `ErrUnimplemented`. |
-| `core.UI()` | ⚠️ | `RegisterRailTab`, `RegisterAccountSetupHook` | `RegisterSettingsTab`, `RegisterContextMenuItem`, `RegisterInboxView` accept registrations but no consumer reads them yet. |
-| `core.Storage()` | ✅ | `KV(extensionID)` backed by per-extension `ext_kv` table | Per-extension SQLite (your own `*sql.DB`) is the parallel persistence path — see [§ Per-extension storage](#per-extension-storage). |
-| `core.Notifications()` | 🚧 | — | `Show` interface only; no consumer wired. |
-| `core.Events()` | 🚧 | — | `Publish` / `Subscribe` interface only; no event bus wired. |
+| `core.Contacts()` | ✅ | `ListSources`, `LinkAccountSource`, `ListAddressbooks`, `SetSourceWritable`, `SearchContacts`; `ContactSource.AccountID` field surfaced | Source-management surface used by the Contacts extension itself + the first read-side cross-extension method (`SearchContacts`). `SearchContacts` was wired in v0.3.0 to back the Calendar extension's attendee-picker autocomplete — see [§ Cross-extension consumption (Search example)](#cross-extension-consumption-search-example) below. Remaining contact CRUD methods (`GetContact`/`ListContacts`/`Create`/`Update`/`Delete`/`ListAddressbooks`) still return `ErrUnimplemented` — no cross-extension consumer queries those yet, and routing them through coreImpl would force the Contacts extension to initialize even when disabled. They get wired in when a real consumer arrives. |
+| `core.Auth()` | ✅ | `HTTPClient(accountID, scopes)` — bearer + transparent refresh; `StartIncrementalConsent(req StartIncrementalConsentRequest)` — synchronous OAuth consent flow that persists tokens against either an account or a standalone contacts source (see [§ Write-access grant flow](#write-access-grant-flow-account-picker-model)) | `IMAPClient` and `SMTPClient` return `ErrUnimplemented`. |
+| `core.UI()` | ⚠️ | `RegisterRailTab`, `RegisterAccountSetupHook`, `OpenURL` | `RegisterSettingsTab`, `RegisterContextMenuItem`, `RegisterInboxView` accept registrations but no consumer reads them yet. `OpenURL` opens URLs in the system browser via the host's hardened resolver (protocol allowlist, Linux portal-first). |
+| `core.Storage()` | ⚠️ | `Secrets(extensionID)` — keyring-first with AES-encrypted DB fallback | `KV(extensionID)` still returns `stubKV` (all methods `ErrUnimplemented`) — wires up when a real consumer arrives. Per-extension SQLite (your own `*sql.DB`) is the parallel persistence path — see [§ Per-extension storage](#per-extension-storage). |
+| `core.Notifications()` | ✅ | `Show(NotifyRequest)` — dispatches to the host's platform notifier; click routing supports `open-extension` (raises window + emits Wails `extension:open`) | Calendar's VALARM scheduler is the first concrete consumer. |
+| `core.Events()` | ✅ | `Publish` (fan-out to Go subscribers + Wails frontend) + `Subscribe` (in-process Go handlers); host publishes `system:wake` and `system:network-online` for sleep/wake + network state | Lazy singleton via `sync.Once` — disabled-only configs pay nothing. Calendar consumes both system events. |
 | `core.Extension(id)` | 🚧 | Returns `(nil, false)` always | Typed cross-extension handles not wired yet. |
 
 Each subsection below documents the interface signatures + behavior in detail.
 
-### Stability promise
+### Cross-extension consumption (Search example)
 
-`v1` is the stable API for Aerion v0.3.0+. **Non-breaking additions** (new methods on existing interfaces with sensible defaults, new event types, new fields on request structs with zero values) may land between minor releases. **Breaking changes** require introducing `v2` and keeping `v1` as a compatibility shim. For solo-dev scale this stays at `v1` indefinitely.
+The canonical pattern for one extension to consume another's data is a
+**Wails wrapper method on the consuming extension's bridge that delegates
+through `coreapi`**. Consuming extensions DO NOT import the producing
+extension's Go package, and the frontend DOES NOT call the producing
+extension's `<Producer>_*` bridge methods directly.
+
+Concrete example (landed for v0.3.0): the Calendar extension needs
+contact-autocomplete suggestions in its attendee picker. Mail's composer
+already calls `Contacts_SearchContacts` via the Contacts extension's
+bridge — but Calendar can't (cleanly) reach into Contacts' bridge from
+its own frontend. The pattern:
+
+1. **Coreapi method**: `coreapi.Contacts.SearchContacts(query, limit)
+   ([]Contact, error)` is defined on the contacts interface in
+   `internal/core/api/v1/types.go`.
+2. **Host implementation**: `app/coreimpl.go`'s `contactsCoreImpl.SearchContacts`
+   delegates to the same host `App.SearchContacts` that the
+   `Contacts_SearchContacts` bridge method uses. Same backend
+   function, just behind the typed interface.
+3. **Consumer-side bridge wrapper**: Calendar's bridge exposes
+   `Calendar_SearchContacts(query, limit)` (a ~10-line wrapper at
+   `extensions/calendar/backend/bridge.go::Calendar_SearchContacts`)
+   that calls `b.deps.Core.Contacts().SearchContacts(...)`. Wails
+   generates a TypeScript binding under the calendar namespace, which
+   Calendar's frontend (`AttendeeInput.svelte`) imports directly.
+
+The result: Calendar has no hard dependency on Contacts being enabled
+(coreapi returns a no-op when Contacts is disabled), Mail's composer
+still works unchanged, and the `<Extension>_` prefix rule keeps the
+Wails namespace collision-free. The same pattern applies to any future
+cross-extension consumption — extend the relevant `coreapi.<Producer>`
+interface, implement it in `coreimpl`, expose a wrapper in the
+consumer's bridge.
+
+### Self-match via identities (RSVP example)
+
+Several extension flows need to know "did the current user perform this
+action / appear in this list?" — e.g., calendar's RSVP buttons on
+EventDetail only appear when the user is one of the event's attendees.
+The canonical pattern is **identity union match**:
+
+1. Frontend gathers the lowercase union of `Account.Email +
+   Identity.Email` across every account from `accountStore`.
+2. Frontend passes that union into the consuming Wails method as a
+   `[]string` parameter (e.g., `Calendar_UpdateMyAttendeeStatus(eventId,
+   selfEmails, partStat)`).
+3. Backend probes its data with that set as a `map[string]struct{}` for
+   O(1) lookup against each candidate row.
+
+This keeps account/identity state out of the extension's own database
+(no duplication, no cache-staleness) while letting the extension still
+make per-user decisions. First wired examples:
+
+- `Calendar_UpdateMyAttendeeStatus` at
+  `extensions/calendar/backend/bridge.go` (delegates to
+  `api.UpdateMyAttendeeStatus` at
+  `extensions/calendar/backend/api_attendees.go`) — RSVP self-match.
+- `Calendar_QueryFreeBusy` at the same bridge (delegates to
+  `api.QueryFreeBusyForAttendees` →
+  `freebusy_aggregator.go::QueryAggregatedFreeBusy`) — routes self
+  emails to a local DB scan (no remote query) and non-self emails to
+  Google `freeBusy.query` or Microsoft `getSchedule` via fan-out.
+
+### Stability
+
+The current `coreapi` surface is the one extensions should code against. **Non-breaking additions** (new methods on existing interfaces with sensible defaults, new event types, new fields on request structs with zero values) may land between minor releases. **Breaking changes** are avoided wherever possible; when they're truly necessary, they ship with migration notes and a deprecation period rather than a silent rename.
+
+Aerion is still pre-1.0 — the surface may continue to evolve as more first-party extensions surface their needs.
 
 ### `Core` interface
 
@@ -407,35 +601,100 @@ Phase 1 impl ([`internal/extensions/compose/api.go`](../internal/extensions/comp
 
 ```go
 type Contacts interface {
-    // Read
+    // Contact CRUD (consumed by the Contacts extension's own Bridge)
     SearchContacts(query string, limit int) ([]Contact, error)
     GetContact(emailOrID string) (*Contact, error)
     ListContacts(filter ContactFilter) ([]Contact, error)
-
-    // Write (Phase 2b)
+    ListAddressbooks(sourceID string) ([]Addressbook, error)
+    CreateContact(input ContactCreateInput) (id string, err error)
     UpdateContact(id string, patch ContactPatch) error
     DeleteContact(id string) error
 
-    // Events (Phase 3+)
+    // Source management (host-implemented in app/coreimpl.go; available to
+    // cross-extension consumers + used by the Contacts extension's bridge to
+    // drive the sidebar source list + account-setup hook).
+    ListSources() ([]ContactSource, error)
+    LinkAccountSource(accountID, name string, syncInterval int) (string, error)
+
+    // SetSourceWritable flips a contact source's writable flag. Used by the
+    // Phase 2b.3 incremental-consent flow to enable write access after a
+    // user grants the OAuth write scope; CardDAV sources also use it as a
+    // pure flag flip via the extension settings UI.
+    SetSourceWritable(sourceID string, writable bool) error
+
+    // Events (Phase 3+, when a core event bus exists)
     SubscribeToContactEvents(types []ContactEventType) (<-chan ContactEvent, Unsubscribe, error)
 }
 
+// ContactSource is the API-surface descriptor for a configured contact
+// source. AccountID (added in Phase 2b.3) carries the linked email account
+// id, when the source was created via LinkAccountSource. Standalone CardDAV
+// / contacts-only OAuth sources have AccountID == "".
+type ContactSource struct {
+    ID        string `json:"id"`
+    Name      string `json:"name"`
+    Type      string `json:"type"`              // "carddav" | "google" | "microsoft"
+    Writable  bool   `json:"writable"`
+    AccountID string `json:"accountId,omitempty"`
+}
+
+// Full multi-field patch shape (2b.2.b.2). Pointer fields distinguish
+// "leave unchanged" (nil) from "set to empty"; pointer-to-slice for
+// multi-value fields preserves the same three states.
 type ContactPatch struct {
-    Name *string `json:"name,omitempty"` // nil = leave unchanged
+    Name       *string           `json:"name,omitempty"`
+    Nickname   *string           `json:"nickname,omitempty"`
+    Org        *string           `json:"org,omitempty"`
+    Title      *string           `json:"title,omitempty"`
+    Note       *string           `json:"note,omitempty"`
+    Bday       *string           `json:"bday,omitempty"`
+    Emails     *[]ContactEmail   `json:"emails,omitempty"`
+    Phones     *[]ContactPhone   `json:"phones,omitempty"`
+    Addresses  *[]ContactAddress `json:"addresses,omitempty"`
+    URLs       *[]ContactURL     `json:"urls,omitempty"`
+    IMPPs      *[]ContactIMPP    `json:"impps,omitempty"`
+    Categories *[]string         `json:"categories,omitempty"`
+    Photo      *ContactPhoto     `json:"photo,omitempty"`
 }
 ```
 
-Concrete impl: [`extensions/contacts/backend/api.go`](../extensions/contacts/backend/api.go). Search/Get/List wrap the existing core `contact.Store` + `carddav.Store`. UpdateContact/DeleteContact dispatch by source (see "Local-contact edit/delete" in §16). `SubscribeToContactEvents` returns `ErrUnimplemented` until a core event bus exists.
+**Split implementation** — two backends sit behind this interface depending on the method:
+
+- **Contact CRUD** (`Search`/`Get`/`List`/`ListAddressbooks`/`Create`/`Update`/`Delete`): implemented in [`extensions/contacts/backend/api.go`](../extensions/contacts/backend/api.go) and exposed via the Contacts extension's Bridge. `Search`/`Get`/`List` wrap `contact.Store` + `carddav.Store`. `Create`/`Update`/`Delete` source-dispatch by `carddav.Source.Type`:
+  - **Local** (`SourceID == "local"` / `"local:manual"`) → `contact.Store` directly.
+  - **CardDAV** → `extensions/contacts/backend/api.go writeCardDAVRecord` / `deleteCardDAVRecord` (server PUT/DELETE with basic-auth + `If-None-Match: *` on create).
+  - **Google** → [`extensions/contacts/backend/google_api.go`](../extensions/contacts/backend/google_api.go) (Phase 2b.3 Track B). Uses the People API via [`extensions/contacts/backend/google_write.go`](../extensions/contacts/backend/google_write.go); `recordToGooglePerson` mapping in [`extensions/contacts/backend/google_convert.go`](../extensions/contacts/backend/google_convert.go). ETag stored per-record in the extension's SQLite (`oauth_record_state` table) and stamped at `metadata.sources[0].etag` on PATCH. 412/`failedPrecondition` becomes `*coreapi.ErrConflict` → `contacts:conflict` Wails event.
+  - **Microsoft** → [`extensions/contacts/backend/microsoft_api.go`](../extensions/contacts/backend/microsoft_api.go) (Phase 2b.3 Track C). Uses Graph via [`extensions/contacts/backend/microsoft_write.go`](../extensions/contacts/backend/microsoft_write.go); `recordToMicrosoftContact` in [`extensions/contacts/backend/microsoft_convert.go`](../extensions/contacts/backend/microsoft_convert.go). Effectively last-writer-wins (Graph contacts don't strictly enforce `If-Match`); etag stored for telemetry only. Multi-URL records collapse to `businessHomePage` (single field on Graph) with a log warn — documented lossy mapping.
+  - `SubscribeToContactEvents` returns `ErrUnimplemented` until a core event bus exists.
+- **Source management** (`ListSources`/`LinkAccountSource`/`SetSourceWritable`): implemented in [`app/coreimpl.go`](../app/coreimpl.go) `contactsCoreImpl`, wrapping `app.carddavStore.ListSources()` + the existing `App.LinkAccountContactSource` + `carddavStore.SetSourceWritable`. These live host-side because `contact_sources` is a host-owned table (mail's autocomplete also reads it). The Contacts extension's bridge proxies through `b.deps.Core.Contacts().*`.
+- The `Get`/`List`/`Create`/`Update`/`Delete` methods on `app/coreimpl.go contactsCoreImpl` are intentionally `ErrUnimplemented`: routing them through coreImpl would force the Contacts extension's stores to initialize even when disabled, breaking the lightweight invariant. They get filled in when a cross-extension consumer actually needs them.
+- **`SearchContacts` IS wired** (v0.3.0) — delegates to `App.SearchContacts`, the same backend mail's composer hits via the `Contacts_SearchContacts` bridge method. The host-level search doesn't touch the Contacts extension's own state (it queries the shared `contact.Store` + `contact_sources`-derived OAuth providers directly), so it's lightweight-safe. First cross-extension consumer: the Calendar extension's `Calendar_SearchContacts` bridge wrapper (see [§ Cross-extension consumption](#cross-extension-consumption-search-example)).
+
+**Addressbook synthetic IDs (Phase 2b.3)**:
+
+`ListAddressbooks` returns synthetic IDs for OAuth sources so the Add Contact dialog can target a specific group/folder without exposing remote ids directly to the UI:
+
+| Source type | Addressbook ID format | Maps to |
+|---|---|---|
+| CardDAV | `<addressbook UUID>` | Row in `carddav_source_addressbooks` (local mirror table). |
+| Google — My Contacts | `google-mycontacts:<sourceID>` | Default destination; no `ModifyGroupMembership` call. |
+| Google — specific group | `google-group:<contactGroupResourceName>` | POST + then `POST .../{groupResourceName}/members:modify` to add the new contact. |
+| Microsoft — default folder | `ms-default:<sourceID>` | POST `/me/contacts`. |
+| Microsoft — specific folder | `ms-folder:<folderID>` | POST `/me/contactFolders/{folderID}/contacts`. |
+
+`parseAddressbookGroupID` / `parseAddressbookFolderID` (in `google_convert.go` / `microsoft_convert.go`) parse these back to remote IDs at write time.
 
 **`ContactFilter.SourceID` conventions:**
 
 | Value | Behavior |
 |---|---|
 | `""` (empty) | Merged listing — when `Query` is set, calls `contact.Store.Search` (local + vCard + CardDAV merged + ranked). When `Query` is empty, falls back to local-only list. |
-| `"local"` (`extcontacts.SourceIDLocal`) | Aerion's core local contacts only (sent recipients, vCard). Paged via `Limit`/`Offset`. |
-| `<carddav source UUID>` | Contacts from a specific CardDAV source. Uses `carddav.Store.ListContactsPaged`; only enabled sources + addressbooks are returned. |
+| `"local"` | All local contacts (manual + collected). |
+| `"local:manual"` | User-added local contacts (Add Contact UI). Also the canonical target for `CreateContact` when SourceID is "" or "local". |
+| `"local:collected"` | Auto-collected from sent-mail recipients. Read-only as a *create target* (the `collected` kind is reserved for the email-collection process to assign); `UpdateContact`/`DeleteContact` work fine. |
+| `<carddav source UUID>` | Contacts from a specific CardDAV source. Reads use `carddav.Store.ListRecordIDsForSource`; writes PUT/DELETE the source's WebDAV. |
 
-**`GetContact` / `UpdateContact` / `DeleteContact` argument:** if the id contains `@`, treated as an email and routed to the core local store; otherwise treated as a CardDAV UUID. Read methods look up via `carddav.Store.GetContactByID`. Write methods on CardDAV/Google/Microsoft sources return `ErrUnimplemented` in Phase 2b.1; filled in by 2b.2 (CardDAV PUT) and 2b.3 (Google People / MS Graph). `GetContact` returns `(nil, nil)` when not found — never an error for missing. `ContactPatch` with no fields set is a no-op success.
+**`GetContact` / `UpdateContact` / `DeleteContact` argument:** if the id contains `@`, treated as an email and routed to the local store; otherwise treated as a record UUID (works for both local and CardDAV records). `GetContact` calls `enrichCardDAVSourceID` to rewrite the literal `"carddav"` string from `fromRecord` into the actual sidebar source UUID, so the frontend's writability gate finds the source row. As of Phase 2b.3, Write methods on Google AND Microsoft sources are fully wired (CardDAV since 2b.2). `GetContact` returns `(nil, nil)` when not found — never an error for missing. `ContactPatch` with all-nil pointers is a no-op success.
 
 ### `Auth`
 
@@ -446,10 +705,34 @@ type Auth interface {
     HTTPClient(accountID string, scopes []AuthScope) (*http.Client, error)
     IMAPClient(accountID string, requiredCaps []string) (IMAPClient, error)
     SMTPClient(accountID string) (SMTPClient, error)
+
+    // StartIncrementalConsent runs an interactive OAuth consent flow
+    // (synchronous; opens browser, blocks on callback, persists tokens
+    // against either an account or a standalone contacts source).
+    // Returns nil on grant or a wrapped error on user-cancel / callback
+    // failure / wrong-account mismatch. Used by extensions whose write
+    // paths hit ErrAdditionalConsentRequired from HTTPClient — they call
+    // this to upgrade the user's grant before retrying the write.
+    //
+    // Exactly one of req.AccountID or req.SourceID must be set:
+    //   - AccountID: tokens persist via SetOAuthTokensForClientConfig.
+    //   - SourceID:  tokens persist via SetContactSourceOAuthTokens.
+    // req.ExpectedEmail enforces a post-callback email match (also
+    // forwarded as login_hint so the IdP pre-selects the right account).
+    StartIncrementalConsent(req StartIncrementalConsentRequest) error
+}
+
+type StartIncrementalConsentRequest struct {
+    ClientConfigID ClientConfigID
+    Scopes         []AuthScope
+    AccountID      string // mutually exclusive with SourceID
+    SourceID       string
+    ExpectedEmail  string
+    LoginHint      string
 }
 ```
 
-Extensions get pre-configured HTTP clients with bearer token injection and transparent refresh-on-401. They never see access tokens, refresh tokens, or passwords. Full details in [§ Auth Broker](#auth-broker).
+Extensions get pre-configured HTTP clients with bearer token injection and transparent refresh-on-401. They never see access tokens, refresh tokens, or passwords. Full details in [§ Auth Broker](#auth-broker). Write-grant details in [§ Write-access grant flow](#write-access-grant-flow-account-picker-model).
 
 ### `Notifications`
 
@@ -461,7 +744,13 @@ type Notifications interface {
 }
 ```
 
-Phase 1: interface only. Phase 3+ wires to the existing `internal/notification` package. `NotifyClickAction` supports `open-extension`, `open-deep-link`, and `custom` handlers.
+Concrete impl: `notificationsCoreImpl` in [`app/coreimpl.go`](../app/coreimpl.go). Wired. `Show` constructs an `internal/notification.Notification` from the request (Title, Body, Icon, plus a `NotificationData` carrying ExtensionID + Path) and hands it to the host's `Notifier.Show`, which routes through the platform-native channel (D-Bus on Linux, NSUserNotification on macOS, etc.).
+
+**Click routing.** When the user clicks a notification, the host's `ClickHandler` reads back `NotificationData`:
+- `ExtensionID != ""` → raises the window + emits a Wails `extension:open` event with `{extensionId, path}`. App.svelte stashes the deep link via the pending-deep-link buffer and switches the rail tab; the extension's pane drains the link on mount.
+- `ExtensionID == ""` → falls through to mail's existing `notification:clicked` event (AccountID/FolderID/ThreadID).
+
+`NotifyClickAction` documents three kinds — `open-extension` is fully wired; `open-deep-link` is encoded the same way (extension owns its path scheme); `custom` is reserved for a future host-side handler registry. Calendar's VALARM scheduler is the first concrete consumer — see [`extensions/calendar/backend/alarm_scheduler.go`](../extensions/calendar/backend/alarm_scheduler.go).
 
 ### `UI`
 
@@ -469,15 +758,45 @@ Phase 1: interface only. Phase 3+ wires to the existing `internal/notification` 
 
 ```go
 type UI interface {
+    // Registrations
     RegisterRailTab(req RailTabRequest) (Unregister, error)
     RegisterSettingsTab(req SettingsTabRequest) (Unregister, error)
     RegisterContextMenuItem(req ContextMenuRequest) (Unregister, error)
     RegisterInboxView(req InboxViewRequest) (Unregister, error)
     RegisterAccountSetupHook(req AccountSetupHookRequest) (Unregister, error)
+
+    // UI actions
+    OpenURL(url string) error
 }
 ```
 
-Concrete impl: [`internal/extensions/ui/registry.go`](../internal/extensions/ui/registry.go) (Phase 2a). All five registration methods are wired and concurrency-safe (`RWMutex`-protected map per kind). `RailTab` and `AccountSetupHook` have real frontend consumers in v0.3.x; the other three (`SettingsTab`, `ContextMenuItem`, `InboxView`) accept registrations but no consumer reads them yet. See [§ UI registration](#ui-registration).
+Two halves: the five `Register*` methods that extensions use to publish UI surface descriptions to the host, and `OpenURL` for triggering a host-mediated user-facing action.
+
+**Registrations.** Concrete impl: [`internal/extensions/ui/registry.go`](../internal/extensions/ui/registry.go) (Phase 2a). All five registration methods are wired and concurrency-safe (`RWMutex`-protected map per kind). `RailTab` and `AccountSetupHook` have real frontend consumers in v0.3.x; the other three (`SettingsTab`, `ContextMenuItem`, `InboxView`) accept registrations but no consumer reads them yet. See [§ UI registration](#ui-registration).
+
+**`OpenURL(url string) error`** opens the given URL in the user's system browser via the host's hardened resolver. Behavior:
+
+- **Protocol allowlist** — only common safe schemes (http, https, mailto, etc.) are permitted; `file://` and other dangerous schemes are rejected with `"URL protocol not allowed for security reasons"`.
+- **Linux:** tries the XDG `OpenURI` portal first (works inside Flatpak where `xdg-open` can't reach host browsers), falls back to `xdg-open`.
+- **Other platforms:** delegates to the platform's standard URL handler.
+
+Extensions consume this instead of reaching for Wails' `BrowserOpenURL` directly so the security gates stay centralized. Calendar's `EventDetail` uses it to make URLs in event summary / location / description clickable; pattern is reusable from any extension's frontend through its own `<Extension>_OpenURL` Wails wrapper.
+
+Pattern from `extensions/calendar/backend/bridge.go`:
+
+```go
+func (b *CalendarBridge) Calendar_OpenURL(url string) error {
+    if !b.gateEnabled() {
+        return errors.New("calendar: extension disabled")
+    }
+    if b.deps.Core == nil {
+        return errors.New("calendar: core not available")
+    }
+    return b.deps.Core.UI().OpenURL(url)
+}
+```
+
+Gated per R16; `ensureInit()` is intentionally NOT called because `OpenURL` touches none of the lazy-initialized extension state (no store, no syncer, no scheduler). Stateless host delegation only.
 
 ### `Storage`
 
@@ -486,6 +805,8 @@ Concrete impl: [`internal/extensions/ui/registry.go`](../internal/extensions/ui/
 ```go
 type Storage interface {
     KV(extensionID string) KVStore
+    Secrets(extensionID string) Secrets
+    HostSecrets() HostSecrets
 }
 
 type KVStore interface {
@@ -494,9 +815,49 @@ type KVStore interface {
     Delete(key string) error
     List(prefix string) ([]string, error)
 }
+
+type Secrets interface {
+    Set(key, value string) error    // empty value treated as Delete
+    Get(key string) (string, error) // returns "" + nil error when missing
+    Delete(key string) error        // idempotent
+    DeleteAll() error               // uninstall cleanup
+}
+
+type HostSecrets interface {
+    Get(key string) (string, error) // key uses "<class>:<id>" prefix
+}
 ```
 
-For small config (per-extension preferences, sync tokens, etc.) that doesn't warrant SQL tables. Per-extension SQLite is implicit: each extension's `store.go` opens its own DB. See [§ Per-extension storage](#per-extension-storage).
+Three scoped surfaces. `KV` and `Secrets` are extension-isolated by `extensionID`; `HostSecrets` is a single host-wide read-only façade routed by key prefix.
+
+**Two credential-ownership patterns extensions can use:**
+
+| Pattern | API | Owner | Example |
+|---|---|---|---|
+| **A — extension-owned** | `Secrets(extensionID)` | extension reads + writes | Calendar's CalDAV passwords (only the calendar extension can add/edit/delete them) |
+| **B — core-owned, extension-readable** | `HostSecrets()` | core writes; extension reads | Contacts' CardDAV passwords (core's account-settings UI manages them; contacts reads to PUT vCards) |
+
+Pick Pattern A when only your extension has any business with the credential. Pick Pattern B when the credential's lifecycle is tied to a host-level concept (an account, a shared resource) and your extension is just a consumer.
+
+**`KV` — Phase 1 stub.** `storageCoreImpl.KV(extensionID)` returns a `stubKV` whose four methods return `ErrUnimplemented`. The interface is stable, but no consumer needs it today: every first-party extension that has settled storage needs either uses its own per-extension SQLite (Calendar's `meta` table for the display tz; Contacts via its existing schema) or uses `Secrets`/`HostSecrets` for credential material. KV gets wired (likely via a shared `ext_kv` table indexed on extensionID) when a real consumer arrives.
+
+**`Secrets` (Pattern A) — wired.** `storageCoreImpl.Secrets(extensionID)` returns a `secretsCoreImpl` that delegates to `internal/credentials.Store`'s extension-scoped helpers, which run keyring-first with an AES-encrypted DB-table fallback when the OS keyring is unavailable. Extensions never import `internal/credentials` directly — the four methods cover the whole credential lifecycle:
+- `Set` — empty value short-circuits to `Delete`.
+- `Get` — `("", nil)` for missing; callers distinguish from errors by checking the string.
+- `Delete` — idempotent.
+- `DeleteAll` — used during uninstall to clean up all of an extension's secrets at once.
+
+Used today by the Calendar extension for CalDAV passwords (`extensions/calendar/backend/bridge.go`'s `b.deps.Core.Storage().Secrets("calendar")`).
+
+**`HostSecrets` (Pattern B) — wired.** `storageCoreImpl.HostSecrets()` returns a `hostSecretsCoreImpl` that routes by the key's class prefix to the matching host-side `credentials.Store` helper. Read-only by design: the host owns add/update/delete; the extension just consumes the value at request time. Add new prefixes in `app/coreimpl.go::hostSecretsCoreImpl.Get` when a future Pattern B consumer emerges.
+
+Key format: `"<class>:<id>"`. Today only `"carddav:<sourceID>"` is supported; the contacts extension uses it like:
+
+```go
+password, err := a.core.Storage().HostSecrets().Get("carddav:" + source.ID)
+```
+
+Per-extension SQLite is the parallel persistence path for domain data — see [§ Per-extension storage](#per-extension-storage).
 
 ### `EventBus`
 
@@ -509,7 +870,18 @@ type EventBus interface {
 }
 ```
 
-Phase 1: interface only. Phase 3+ ships a concrete impl for cross-extension loose coupling.
+Concrete impl: `eventBusCoreImpl` in [`app/eventbus.go`](../app/eventbus.go). Wired. Two consumer audiences are served from a single Publish call:
+
+1. **Go-side subscribers** registered via `core.Events().Subscribe(name, handler)` get fan-out as in-process function calls. The host snapshots the subscriber list under a mutex, then invokes handlers outside the lock so a handler that re-subscribes / unsubscribes doesn't deadlock.
+2. **Frontend** — every Publish also calls `wailsRuntime.EventsEmit` so the Svelte side can subscribe to the same event names via `EventsOn()`. EXCEPTION: `system:*` events stay Go-side only — they're infrastructure for sync engines; the frontend uses its own event names for the equivalent UX-level signals.
+
+**System events the host publishes today** (consumable by any extension):
+- `system:wake` — emitted from `app/background.go::processSleepWakeEvents` when the platform's sleep monitor reports a wake. Calendar's Syncer + AlarmScheduler subscribe to it (resync after sleep, mark missed alarms `fired`, re-arm future ones).
+- `system:network-online` — emitted when the platform's network monitor reports the link came up. Calendar's Syncer triggers an immediate `SyncAllSources`.
+
+**Lightweight-by-default (R15) is preserved.** The EventBus is a lazy singleton via `sync.Once`; first `Publish` or `Subscribe` constructs it. `Publish` on an empty subscriber list is one map-lookup + zero-length loop (~10ns) — no extra goroutines, no extra D-Bus subscriptions, no cost to mail or to disabled-extension configurations.
+
+Aside from `system:*`, extensions publish their own namespaced events (e.g. Calendar publishes `calendar:sync-complete` and `calendar:source-error`). Other extensions can subscribe via `core.Events().Subscribe(...)` for cross-extension loose coupling.
 
 ### Shared types
 
@@ -585,7 +957,9 @@ kv := store.KV()           // coreapi.KVStore backed by ext_kv table
 
 Package: [`internal/extensions/auth/`](../internal/extensions/auth/) (files [`broker.go`](../internal/extensions/auth/broker.go), [`transport.go`](../internal/extensions/auth/transport.go), [`scope.go`](../internal/extensions/auth/scope.go)).
 
-The Auth Broker is the ONLY way an extension reaches external services. Extensions never see access tokens, refresh tokens, or passwords. Token refresh is transparent. Multi-client-config routing handles the "Mail uses project A, Calendar/Contacts use project B" reality without forcing users to re-authenticate the unrelated service.
+The Auth Broker is the ONLY way an extension reaches external services that use OAuth. Extensions never see OAuth access tokens or refresh tokens — token refresh is transparent. Multi-client-config routing handles the "Mail uses project A, Calendar/Contacts use project B" reality without forcing users to re-authenticate the unrelated service.
+
+For host-managed *basic-auth passwords* (today: CardDAV passwords whose lifecycle lives in core's account settings), extensions consume the documented Pattern B surface — `core.Storage().HostSecrets().Get("carddav:<sourceID>")` — rather than the Auth Broker. That's the *only* mechanism by which an extension may read a host-managed password, and it's read-only.
 
 ### `HTTPClient`
 
@@ -612,15 +986,16 @@ resp, err := client.Get("https://www.googleapis.com/calendar/v3/users/me/calenda
 
 ### Routing logic
 
-When you call `HTTPClient(accountID, scopes)`:
+`core.Auth().HTTPClient(...)` calls into [`internal/extensions/auth/broker.go HTTPClientForExtension`](../internal/extensions/auth/broker.go), which reads the calling extension's manifest to decide where each scope routes:
 
-1. Broker reads the account's existing Mail tokens to discover its provider (`google`, `microsoft`)
-2. Broker picks a `ClientConfigID` for the requested scopes via [`internal/extensions/auth/scope.go resolveClientConfigID`](../internal/extensions/auth/scope.go):
-   - If the extensions-OAuth client config is provisioned (`google-extensions` / `microsoft-extensions`), route there
-   - Otherwise fall back to the mail config (graceful local-dev mode when the second OAuth project isn't set up yet)
-3. Broker checks whether the account has tokens under that ClientConfigID covering the requested scopes
-4. **Covered**: returns `*http.Client` whose Transport injects bearer + refreshes on 401
-5. **Not covered**: returns `*coreapi.ErrAdditionalConsentRequired{ ... }` with the missing scopes
+1. Broker reads the account's existing Mail tokens to discover its provider (`google`, `microsoft`).
+2. Broker classifies each requested scope using the extension's manifest:
+   - Scopes listed in `manifest.oauth.first_party_uses_core_for_scopes` route to Aerion core's **mail** client config (`<provider>-mail`) — reuses existing mail consent; no new prompt.
+   - Scopes NOT listed route to the **extension's own** client config (`<provider>-<extensionID>`, e.g., `google-contacts`).
+3. **Mixed-scope calls are rejected.** Some-to-core + some-to-own in a single call returns an error; the extension must split into two HTTPClient calls.
+4. Broker checks whether the account has tokens under the resolved `ClientConfigID` covering the requested scopes.
+5. **Covered**: returns `*http.Client` whose Transport injects bearer + refreshes on 401.
+6. **Not covered**: returns `*coreapi.ErrAdditionalConsentRequired{ AccountID, ClientConfigID, MissingScopes }`. The host runs the incremental-consent flow ([§ Incremental consent flow](#incremental-consent-flow)) and the extension retries.
 
 ### Token refresh
 
@@ -652,32 +1027,43 @@ type ClientCredentials struct {
 }
 
 // Known ids:
-//   "google-mail"          — current verified Mail-scoped Google project
-//   "google-extensions"    — extension-scoped Google project (Calendar/Contacts/...)
-//   "microsoft-mail"       — current Mail-scoped Azure AD registration
-//   "microsoft-extensions" — extension-scoped Azure AD registration
+//   "google-mail"          — Aerion core's Mail-scoped Google project
+//   "microsoft-mail"       — Aerion core's Mail-scoped Azure AD registration
+//   "google-<extensionID>" — per-extension Google project (e.g., "google-contacts")
+//   "microsoft-<extensionID>" — per-extension Azure AD registration (e.g., "microsoft-contacts")
 func ClientConfigForID(id string) (ClientCredentials, bool)
 ```
 
-`ClientConfigForID` returns `(zero, false)` for configs that aren't yet provisioned (e.g., `"google-extensions"` before the second Google project is set up in the `aerion-creds` shim). The Auth Broker treats this as "fall back to the mail config" so local development works without provisioning a second project.
+Resolution order:
+
+1. User override from `credentials.Store` (Settings UI override) via `oauth2.UserOverrideLookup`
+2. Registered `CredentialsProvider` chain — Aerion core's mail slots, then each extension's own slots (registered at startup from each extension's `OAuthClients()` return value)
+3. `(zero, false)` → the consent flow surfaces "no creds configured" pointing the user at the extension's settings dialog
+
+> **Don't use `oauth2.GetProvider(clientConfigID)` to test "is this slot configured?"** It silently inherits the mail-side ldflag creds when the extension slot is empty, producing a misleading "configured" answer. Use `oauth2.ClientConfigForID(clientConfigID)` — that's the canonical resolver and only returns truthy when there are real per-slot creds. See [§ Incremental consent flow](#incremental-consent-flow) for the correctness rule.
 
 ### Provider lookup
 
 ```go
-provider, err := oauth2.GetProviderForClientConfig("google-extensions")
-// provider.ClientID, provider.ClientSecret are populated from the extension's project
-// provider.Scopes are the default Google scopes (override per-extension as needed)
+provider, err := oauth2.GetProviderForClientConfig("google-contacts")
+// provider.ClientID, provider.ClientSecret are populated from the extension's slot
+// (via ClientConfigForID's resolution chain).
+// provider.Scopes are the default Google scopes (override per-extension as needed).
 ```
 
 ### Provisioning a new client config
 
-When you ship a real extension that needs its own OAuth project:
+When you ship a new first-party extension that needs its own OAuth project:
 
-1. Create a new Google Cloud project (or Azure AD app registration) with the scopes your extension needs
-2. Add the client_id/secret to the `aerion-creds` shim binary's JSON output (keys: `google_ext_client_id`, `google_ext_client_secret`, `microsoft_ext_client_id`). See [`internal/oauth2/config.go`](../internal/oauth2/config.go) loadFromShim function.
-3. Optionally pass via ldflags at build time: `-X 'github.com/hkdb/aerion/internal/oauth2.GoogleExtClientID=...'`
+1. Create a Google Cloud project (or Azure AD app registration) with the scopes your extension needs.
+2. Define ldflag-injected vars in `extensions/<name>/creds.go` (e.g., `GoogleClientID`, `GoogleClientSecret`, `MicrosoftClientID`). See [`extensions/contacts/creds.go`](../extensions/contacts/creds.go) for the canonical pattern.
+3. Return them from the extension's `OAuthClients()` as `[]coreapi.OAuthProviderRegistration` keyed by `<provider>-<extensionID>`. The host iterates this list at startup and registers each entry into the global `ClientConfigForID` resolver chain.
+4. Inject the actual values at build time: typically a per-extension `.env` file (`extensions/<name>/.env`) consumed by the Makefile via `-ldflags '-X github.com/hkdb/aerion/extensions/<name>.GoogleClientID=...'`.
+5. Optionally also expose an "Aerion - {Google,Microsoft}" option in the extension slot's dropdown (see [§ User-supplied OAuth credentials](#user-supplied-oauth-credentials-override-ui)) so users on builds with shipped credentials can opt into them without pasting anything. The option only appears when the corresponding shipped creds were injected at build time. Choosing it clears any user-typed creds on the slot; the resolver then falls through to the shipped values via the provider chain.
 
-Once the shim publishes the new keys, `ClientConfigForID("google-extensions")` starts returning configured credentials and the Auth Broker routes extension scope requests to that client.
+Once the extension's slot is populated, `ClientConfigForID("<provider>-<extensionID>")` returns configured credentials and the Auth Broker routes the extension's scope requests to that client. Empty entries are safe — extensions can declare all their slots unconditionally and rely on build-time injection to fill in only the ones with credentials.
+
+Aerion core's mail credentials follow a separate path: they're loaded from the `aerion-creds` shim binary (or build-time ldflags) at startup. See [`internal/oauth2/config.go`](../internal/oauth2/config.go). Extension credentials do NOT use the shim — they live in their own extension package.
 
 ### Mapping legacy provider names
 
@@ -838,6 +1224,8 @@ The frontend calls these via the generated Wails bindings at `frontend/wailsjs/g
 
 ### Host methods (`App` package, no prefix)
 
+Extension-relevant subset. Many other `App.*` methods exist for mail-side concerns that extensions don't touch.
+
 | Method | Purpose |
 |---|---|
 | `App.IsExtensionEnabled(name string) (bool, error)` | Read the extension's enabled flag |
@@ -847,6 +1235,12 @@ The frontend calls these via the generated Wails bindings at `frontend/wailsjs/g
 | `App.ListExtensionRailTabs() ([]v1.RailTabRequest, error)` | Rail tabs for currently-enabled extensions only. Source: [`app/extension_ui.go`](../app/extension_ui.go). |
 | `App.ListAccountSetupHooksForProvider(provider string) ([]v1.AccountSetupHookRequest, error)` | Hooks matching a provider, returned regardless of enable state (hooks are the discovery surface that enables an extension). Called by `AccountDialog.svelte` after a new account is created. |
 | `App.ListExtensions() ([]app.ExtensionInfo, error)` | Full extension listing for Settings → Extensions tab. Returns manifest fields + current `enabled` state per extension. Iterates `a.knownExtensions`. Source: [`app/extension_ui.go`](../app/extension_ui.go). |
+| `App.SetContactSourceWritable(sourceID string, writable bool) error` | Flip a contact source's writable flag. Used by the Contacts extension's settings UI to enable/disable write access on CardDAV sources (a pure flag flip) and to disable previously-enabled OAuth sources. Enabling OAuth sources goes through `<Extension>_StartIncrementalConsent` (which calls `SetSourceWritable` server-side after consent). |
+| `App.GetOAuthCredsStatus(configID string) (app.OAuthCredsStatus, error)` | Reports per-slot config presence (`hasUserOverride`, `hasShipped`, last-4-char fingerprint of the active client_id). Never returns secret values. Used by the OAuth Credentials editor in each extension's settings dialog. |
+| `App.SetOAuthCreds(configID, clientID, clientSecret string) error` | Persist user-supplied client_id + secret for a slot (overrides any shipped defaults). |
+| `App.ClearOAuthCreds(configID string) error` | Remove a user override for a slot (reverts to shipped values, if any). Used both by the editor's "Clear" action and when the slot dropdown switches from Custom back to the Aerion-shipped option. |
+| `App.ListAuthContextsForProvider(provider string) ([]app.AuthContextInfo, error)` | Enumerates existing matching-provider auth identities: mail accounts (from `accountStore`) + standalone contact sources (`carddavStore.ListSources()` where `AccountID IS NULL` and `Type == provider`). Drives the `WriteAccessAccountPicker` dialog's radio list. Result entries carry `kind` (`"mail"` or `"standalone-contacts"`), `identifier` (account_id or source_id), `email`, and a pre-built display `label`. |
+| `App.CancelOAuthFlow()` | Cancel any in-progress OAuth flow (account add, write-access grant, etc.). Stops the OAuth manager's callback server; in-flight backend code returns with a cancellation error. |
 
 ### Extension bridge methods (`<Extension>_` prefix, defined on the embedded `*Bridge`)
 
@@ -868,13 +1262,14 @@ Currently bound by the Contacts extension's bridge (all gate on `extension_conta
 |---|---|
 | `App.Contacts_ListContactsForBrowse(query, sourceID string, limit, offset int) ([]v1.Contact, error)` | Browse listing — wraps `extcontacts.API.ListContacts`. Returns `nil` when Contacts is disabled. |
 | `App.Contacts_GetContactDetail(emailOrID string) (*v1.Contact, error)` | Single-contact detail load. |
-| `App.Contacts_CreateContact(input v1.ContactCreateInput) (string, error)` | Create new contact. Dispatches by `input.SourceID`: `local:manual` → local store; CardDAV UUID → server PUT to the source's addressbook. Track B (2b.2.c). |
-| `App.Contacts_UpdateContact(id string, patch v1.ContactPatch) error` | Multi-field patch update (local or CardDAV; backend dispatches by source). |
-| `App.Contacts_DeleteLocalContact(email string) error` | Delete contact (local cascade or CardDAV server DELETE). |
-| `App.Contacts_ResizeContactPhoto(b64 string, maxSide int) (string, error)` | Backend image resize for the Edit dialog's photo picker (decodes base64 → CatmullRom rescale → JPEG re-encode). |
-| `App.Contacts_ListAddressbooks(sourceID string) ([]v1.Addressbook, error)` | Enabled addressbooks for a CardDAV source. Backs the Add Contact dialog's addressbook sub-picker. Track B. |
-| `App.Contacts_ListSources() ([]v1.ContactSource, error)` | All configured contact sources. Routes through `coreapi.Contacts.ListSources` (host-owned, not bridge-API). Track D. |
-| `App.Contacts_LinkAccountSource(accountID, name string, syncInterval int) (string, error)` | Creates a CardDAV-like source backed by an existing OAuth account. Routes through `coreapi.Contacts.LinkAccountSource`. Used by `AccountContactsHookPanel`. Track D. |
+| `App.Contacts_CreateContact(input v1.ContactCreateInput) (string, error)` | Create new contact. Dispatches by `input.SourceID`: `local:manual` → local store; CardDAV UUID → server PUT to the addressbook; Google source → People API; Microsoft source → Graph API. |
+| `App.Contacts_UpdateContact(id string, patch v1.ContactPatch) error` | Multi-field patch update. Backend dispatches by source type (local / CardDAV / Google / Microsoft). |
+| `App.Contacts_DeleteLocalContact(idOrEmail string) error` | Delete contact. Method name is historical — handles all source types (local cascade + CardDAV / Google / Microsoft server DELETE), not just local. |
+| `App.Contacts_ResizeContactPhoto(b64In string) (backend.ResizedContactPhoto, error)` | Backend image resize for the Edit dialog's photo picker (decodes base64 → CatmullRom rescale to 256px max edge → JPEG re-encode at quality 85). Returns `{data, mediaType}`. |
+| `App.Contacts_ListAddressbooks(sourceID string) ([]v1.Addressbook, error)` | Addressbooks for a source — CardDAV addressbooks; Google contactGroups (as `google-group:*` synthetic IDs) + a `google-mycontacts:*` default; Microsoft contactFolders (as `ms-folder:*`) + a `ms-default:*` default. See [§ Contacts](#contacts) for the synthetic-ID table. |
+| `App.Contacts_ListSources() ([]v1.ContactSource, error)` | All configured contact sources. Routes through `coreapi.Contacts.ListSources` (host-owned, not bridge-API). |
+| `App.Contacts_LinkAccountSource(accountID, name string, syncInterval int) (string, error)` | Creates a contact source backed by an existing OAuth account. Routes through `coreapi.Contacts.LinkAccountSource`. Used by `AccountContactsHookPanel`. |
+| `App.Contacts_EnableWriteAccess(sourceID, authContextKind, authContextIdentifier, expectedEmail string) error` | Single entry point for granting write access on a Google or Microsoft contacts source. The frontend `WriteAccessAccountPicker` calls this after the user picks an existing auth identity (mail account or standalone contacts source). Backend derives `clientConfigID` and write-scope from the source's provider, then dispatches into `coreapi.Auth.StartIncrementalConsent` with either `AccountID` (for `"mail"` contexts) or `SourceID` (for `"standalone-contacts"` contexts) populated. `expectedEmail` is enforced post-callback — if the granted identity's email doesn't match, the tokens are discarded and the call returns an error. Flips the source's writable flag on success. Cancellable mid-flow via `App.CancelOAuthFlow`. |
 
 ### Frontend logger
 
@@ -1071,7 +1466,19 @@ Two aliases are configured in [`frontend/vite.config.ts`](../frontend/vite.confi
 | `$extensions/*` | `<repo>/extensions/*` | Host (App.svelte, AccountDialog.svelte) importing extension Svelte components |
 | `$wailsjs/*` | `<repo>/frontend/wailsjs/*` | Extension Svelte/TS files importing generated Wails bindings (without deep `../` chains) |
 
-Because extension files live outside `frontend/`, Rollup's default node-modules walking doesn't find `frontend/node_modules`. Shared npm dependencies (currently `@iconify/svelte`) are aliased explicitly in `vite.config.ts` to point back at the host's `node_modules`. Add new entries to the alias list as extensions pull in additional npm packages.
+Because extension files live outside `frontend/`, Rollup's default node-modules walking doesn't find `frontend/node_modules`. Shared npm dependencies (currently `@iconify/svelte`, `svelte-i18n`) are aliased explicitly in `vite.config.ts` to point back at the host's `node_modules`. Add new entries to the alias list as extensions pull in additional npm packages.
+
+**Extension-pulled deps convention (interim).** Until per-extension `package.json` / npm workspaces land, every extension dep is installed at the host's `frontend/package.json` and aliased in `vite.config.ts`. Tag each alias with the owning extension's manifest ID in a comment so we know which deps to move when we split. The aliases in `vite.config.ts` are grouped into **SHARED** (kit + multi-extension) and **PER-EXTENSION** sections — keep new entries in the right group.
+
+Three steps to add an extension-pulled npm dep:
+
+1. `npm install <pkg>` in `frontend/` (writes to host's `package.json` + `package-lock.json`).
+2. Add the alias to `vite.config.ts` under PER-EXTENSION, with the owning extension's manifest ID in a one-line comment.
+3. Run `python3 build/flatpak/flathub/gen-node-sources.py` so Flatpak CI picks up the tarball (per `feedback_regenerate_node_sources.md`). Commit lockfile + Flatpak sources together.
+
+If the dep's package.json ships a broken `exports` map (no `types` condition), add a small `.d.ts` shim under `extensions/<name>/frontend/lib/` so `svelte-check` can resolve it. `date-fns-tz` is the current example.
+
+This coupling is architectural debt — extensions touching `frontend/vite.config.ts` and `frontend/package.json` violates the SDK promise. Tracked for future work (Vite resolver plugin → manifest-declared deps → per-extension `package.json`).
 
 `tsconfig.json` includes `../extensions/**/frontend/**/*.{ts,svelte}` in its `include` array so `svelte-check` validates extension code alongside host code. Explicit `paths` entries (`@iconify/*`, `svelte`, `svelte/*`) keep TypeScript's type resolution pointing at the host's `node_modules`.
 
@@ -1087,7 +1494,9 @@ Extensions need to look and behave like the rest of Aerion — same keys, same f
 
 ### The 1-for-1 rule
 
-Every kit primitive (`Avatar`, `ListPane`, `ListRow`, `SourceSidebar`, `SourceItem`, `DetailPane`, `ConfirmDialog`, `OAuthCredsSlotEditor`, …) is a behavioral replica of how the equivalent functionality works in mail today: same key bindings, same focus semantics, same scroll-into-view, same edge-case behavior. The backwards-compat test: **if mail were ever refactored to consume the kit, the user should see zero difference**. If you can't pass that test on a kit primitive you're writing, you've diverged.
+Every kit primitive (`Avatar`, `PaneLayout`, `ListPane`, `ListRow`, `ListHeader`, `ResponsiveSidebarToggle`, `SidebarFrame`, `SourceSidebar`, `SourceItem`, `SidebarAddItem`, `DetailPane`, `ConfirmDialog`, `ColorPicker`, `OAuthCredsSlotEditor`, …) is a behavioral replica of how the equivalent functionality works in mail today: same key bindings, same focus semantics, same scroll-into-view, same edge-case behavior. The backwards-compat test: **if mail were ever refactored to consume the kit, the user should see zero difference**. If you can't pass that test on a kit primitive you're writing, you've diverged.
+
+**Greenfield exception (R25).** Some kit primitives have no mail equivalent — Calendar's `DetailOverlay`, for example, since mail's viewer is a flex-chain pane, not a fixed overlay. Per [`EXT_RULES.md` R25](./EXT_RULES.md), kit is an extension-driven SDK; when mail has no counterpart, the primitive is designed cleanly from the consumer's needs. The 1-for-1 rule applies to primitives that DO have a mail counterpart (`SidebarAddItem` ↔ mail's "+ Add Account" inline button, `ConfirmDialog` ↔ mail's confirms, etc.). Greenfield primitives are still bound by the kit's general conventions: theme tokens, density-aware sizing, layout-store responsive handling, `shortcuts.ts` predicates for keys, and **no imports from mail's `components/{list,sidebar,viewer}/` namespace**.
 
 **Practical consequence: read the mail equivalent before implementing a kit primitive.** Don't infer behavior. Don't reach for a generic third-party pattern. Open `MessageList.svelte` / `Sidebar.svelte` / `ConversationViewer.svelte` / the relevant `ui/` host primitive and study how it handles keyboard, focus, scroll, and edge cases. Then match that behavior in the kit.
 
@@ -1215,6 +1624,64 @@ The `onDelete` handler typically opens a `ConfirmDialog` (see below) rather than
 - j/k/Up/Down navigation across the flattened item list
 - Enter to re-select current
 - DOM-level focus; registers as `'sidebar'` slot by default (override via `focusSlot` prop)
+- **Chrome via `SidebarFrame`**: container styling, narrow-mode responsive overlay (slide-in + back button), title rendering, and the body-scroll layout are all delegated to the kit's `SidebarFrame` primitive (see below). SourceSidebar wraps that chrome with its keyboard nav, focus-slot integration, and section/item rendering — but doesn't own the visual shell anymore. The benefit: when sidebar-wide settings (density, etc.) land on `SidebarFrame`, all SourceSidebar consumers inherit them automatically.
+
+#### `SidebarFrame` — sidebar chrome primitive
+
+[`frontend/src/lib/components/kit/SidebarFrame.svelte`](../frontend/src/lib/components/kit/SidebarFrame.svelte)
+
+Lower-level kit primitive owning *only* the visual chrome of an extension sidebar: container styling (width, border, background), narrow-mode responsive overlay (slide-in + auto-injected back button), optional title `<h2>`, body slot (scrolling), and optional footer slot (sticky bottom strip). Used directly by extensions whose row models don't fit `SourceSidebar` (e.g. Calendar's multi-toggle visibility), and used internally by `SourceSidebar` itself so both paths share one chrome implementation.
+
+```svelte
+<SidebarFrame title={$_('calendar.sidebar.title')}>
+  {#snippet body()}
+    <!-- consumer's row list -->
+  {/snippet}
+  {#snippet footer()}
+    <!-- optional sticky bottom strip (consumer owns padding + border) -->
+  {/snippet}
+</SidebarFrame>
+```
+
+| Prop | Type | Notes |
+|---|---|---|
+| `title` | `string?` | Rendered as `<h2 class="text-lg font-semibold mb-3 px-4">`. Omit for sidebars without a title. |
+| `label` | `string?` | ARIA label for the `<aside>`. Defaults to `title`. |
+| `body` | `Snippet` | Required. The scrollable middle. SidebarFrame wraps it in `flex-1 min-h-0 overflow-y-auto`. |
+| `footer` | `Snippet?` | Optional bottom strip. Pinned with `shrink-0`. Consumer owns the strip's chrome (border-t, padding, content). |
+| `containerRef` | `bindable HTMLElement \| null` | Bind to access the outer `<aside>`. SourceSidebar uses this for its tabindex-based keyboard focus. |
+| `focusable` | `boolean?` | When true, the `<aside>` gets `tabindex="0"`. SourceSidebar passes true; row-only consumers leave false. |
+| `class` | `string?` | Extra class string appended to the outer `<aside>`. SourceSidebar uses this for `pane-focus-flash`. |
+| `onkeydown` / `onfocus` / `onmousedown` | `(e) => void`? | DOM event handlers forwarded to the outer `<aside>`. |
+
+**Layout model**: title is non-scrolling (sticky at the top), body fills the remaining space with its own overflow-y-auto, optional footer pins at the bottom. This split is intrinsic to the primitive — it's what enables consumers like Calendar to pin a sync-indicator + settings cog strip below a scrolling list.
+
+**Why this primitive exists**: SidebarFrame is the kit's single hook for upcoming cross-extension sidebar settings — density (like the existing message-list density), font-size variants, etc. When those settings ship, the density-aware classes live inside `SidebarFrame`, and all consumers (calendar directly, contacts via `SourceSidebar`'s internal composition, future extensions) inherit them automatically. No per-extension wiring required.
+
+**Greenfield primitive (R25)** — no 1-for-1 mail counterpart at this abstraction level; mail's `Sidebar.svelte` has app-level `TitleBar` chrome and a different idiom. Sits in the §"The 1-for-1 rule" greenfield-exception lane.
+
+#### `SidebarAddItem` — "+ Add …" entry for sidebar lists
+
+[`frontend/src/lib/components/kit/SidebarAddItem.svelte`](../frontend/src/lib/components/kit/SidebarAddItem.svelte)
+
+```svelte
+<SidebarAddItem
+  label={$_('calendar.sidebar.addSource')}
+  onclick={() => { showAddSource = true }}
+/>
+```
+
+| Prop | Type | Notes |
+|---|---|---|
+| `label` | `string` | Required. Button text — i18n it at the call site. |
+| `icon` | `string?` | Defaults to `'mdi:plus'`. Any `@iconify/svelte` icon name. |
+| `onclick` | `() => void` | Required. Invoked on click. |
+
+1-for-1 replica of mail's "+ Add Account" inline button at [`frontend/src/lib/components/sidebar/Sidebar.svelte:606-615`](../frontend/src/lib/components/sidebar/Sidebar.svelte) — same styling (`w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors`), same `px-3 py-2` outer wrapper, same `mdi:plus` default icon.
+
+**Intended placement**: at the bottom of the scrollable source/account list, BELOW the last source row — NOT in a separate footer strip. The primitive does not draw a divider; pair it with whatever sync-status / settings-cog footer chrome the sidebar already has (Calendar's `CalendarSidebar` is the reference: scrollable list with sources + `SidebarAddItem`, then a separate `border-t` footer with sync indicator + settings cog).
+
+Pairs with both manually-rolled sidebars (Calendar's case — `SourceSidebar`'s single-select keyboard nav didn't fit its multi-toggle visibility semantics) and `SourceSidebar`-based sidebars (render `SidebarAddItem` outside the `SourceSidebar` so its keyboard nav doesn't try to focus the button).
 
 #### `DetailPane` — header/body/empty-state shell
 
@@ -1233,6 +1700,109 @@ The `onDelete` handler typically opens a `ConfirmDialog` (see below) rather than
 ```
 
 Read-only shell — no keyboard ownership. Header is fixed; body scrolls. Empty-state can be customized via snippet or just `emptyIcon`/`emptyText` props.
+
+`DetailPane` is **self-managed responsive** — it reads `getLayoutMode` / `getResponsiveView` / `hideViewer` directly from `$lib/stores/layout.svelte` and applies `responsive-viewer-overlay` + `responsive-viewer-visible` to its outer `<section>` automatically when below the medium breakpoint. A back-arrow button is injected at the start of the header in narrow mode (calls `hideViewer`). Consumers don't pass responsive props or onBack handlers — the kit handles it.
+
+#### `DetailOverlay` — right-side detail panel with focus mode
+
+[`frontend/src/lib/components/kit/DetailOverlay.svelte`](../frontend/src/lib/components/kit/DetailOverlay.svelte)
+
+```svelte
+<DetailOverlay
+  open={selectedEventId !== null}
+  focused={eventFocusMode === 'event'}
+  title={selectedEvent?.summary}
+  onClose={() => calendarView.selectEvent(null)}
+  onToggleFocus={() => calendarView.toggleEventFocus()}
+>
+  {#snippet children()}
+    <EventDetail eventId={selectedEventId} />
+  {/snippet}
+</DetailOverlay>
+```
+
+| Prop | Type | Notes |
+|---|---|---|
+| `open` | `bindable boolean` | Drives mount + slide-in via `transition:fly`. Flip to false to dismiss. |
+| `focused` | `bindable boolean` | Drives full-window expansion. The kit toggles this through `onToggleFocus`; consumers may also flip it directly. |
+| `title` | `string?` | Shown in the header — used most visibly in responsive mode where it sits next to the back button. |
+| `onClose` | `() => void?` | Called when the close button, responsive back button, or Esc-while-not-focused dismisses the overlay. |
+| `onToggleFocus` | `() => void?` | Called by the fullscreen toggle button OR Esc-while-focused (which exits focus rather than dismissing). |
+| `children` | `Snippet?` | The body content. Rendered inside an `overflow-y-auto` container. |
+
+**Greenfield primitive (R25)** — no mail counterpart. Mail's `ConversationViewer` is part of the 3-column flex chain, not a fixed overlay. The 1-for-1 rule's backwards-compat test does not apply here; see the [Greenfield exception in §"The 1-for-1 rule"](#the-1-for-1-rule).
+
+**Three positioning modes**, driven by `focused` and `isResponsive()` from `$lib/stores/layout.svelte`:
+- **Regular desktop** (`focused=false`, not responsive): `position: fixed; right:0; top:0; bottom:0; w-[340px]`. Right-anchored sidebar overlay. **No scrim** — the view underneath stays interactive, so consumers can swap the children content (e.g., select a different row in the underlying list) without dismissing the overlay.
+- **Focused desktop** (`focused=true`): `position: fixed; inset:0`. Full-window. Reuses the same component tree; just a class swap with a 200ms ease-out transition.
+- **Responsive** (narrow breakpoint, regardless of `focused`): `position: fixed; inset:0` AND a back button auto-injected at the start of the header (calls `onClose`). Mirrors mail's `MessageViewer` responsive back-button placement.
+
+**Header chrome**: title text in the center; focus toggle (`mdi:fullscreen` / `mdi:fullscreen-exit`) and close (`mdi:close`) buttons on the right.
+
+**Esc handling**: while `open`, a window-level keydown listener intercepts Escape. If `focused=true`, it calls `onToggleFocus` (exits focus, stays open). Otherwise it calls `onClose` (dismisses). `preventDefault` + `stopPropagation` so mail's global handler and dialog handlers don't double-fire.
+
+**Containing-block caveat** (`position: fixed`): the overlay positions relative to the viewport ONLY when no ancestor has `transform`, `filter`, `perspective`, `contain: layout`/`contain: paint`, or `will-change` set to anything other than `auto`. The current ancestor chain (App.svelte → rail → extension pane) has none of these. Before adding any of those properties to a wrapping div, test the overlay or it will mis-position. Captured in the component's own header comment as well.
+
+**Animation**: slide-in from the right via `transition:fly={{ x: 360, duration: 200, easing: cubicOut }}` on mount; reverse on unmount. Mounted-and-state-swap (open→open with different children data) does NOT re-animate — the children snippet just re-renders in place.
+
+#### `PaneLayout` — outer container for 3-column extension panes
+
+[`frontend/src/lib/components/kit/PaneLayout.svelte`](../frontend/src/lib/components/kit/PaneLayout.svelte)
+
+```svelte
+<PaneLayout>
+  <ContactsSidebar />   <!-- wraps kit's SourceSidebar -->
+  <ContactList />        <!-- wraps kit's ListPane + ListHeader -->
+  <ContactDetail />      <!-- wraps kit's DetailPane -->
+</PaneLayout>
+```
+
+The canonical wrapper for kit-based 3-column extension panes. Provides:
+- A `relative` + `overflow-hidden` positioning context that anchors the kit primitives' `responsive-sidebar-overlay` / `responsive-viewer-overlay` and **clips their off-screen hit-test regions so sibling components (notably `ExtensionRail`) remain clickable in narrow mode**. The `overflow-hidden` is load-bearing — without it the off-screen sidebar's leftward translation leaks into the rail's column.
+- The narrow-mode `responsive-scrim` rendered as a sibling overlay; click dismisses the sidebar.
+
+Zero props. Just compose your three kit-based panes inside. Extensions don't import the layout store, manage scrim state, or wire pane-class merging — that's all internal.
+
+#### `ListHeader` — canonical list-column toolbar
+
+[`frontend/src/lib/components/kit/ListHeader.svelte`](../frontend/src/lib/components/kit/ListHeader.svelte)
+
+```svelte
+<ListHeader
+  label={headerLabel}                       /* extension-computed $derived from sidebar selection */
+  count={contactsView.contacts.length}
+  searchMode={showSearch}
+>
+  {#snippet search()}
+    <!-- consumer's search input + clear button -->
+  {/snippet}
+  {#snippet actions()}
+    <!-- consumer's sort / add / extra buttons -->
+  {/snippet}
+</ListHeader>
+```
+
+Owns:
+- Toolbar wrapper styling (`flex items-center justify-between px-4 py-3 border-b border-border`) so every kit consumer's list column shares mail's `MessageList` toolbar rhythm.
+- Leading `<ResponsiveSidebarToggle />` auto-included.
+- `<h2>` title + count badge layout.
+- Search-mode swap (when `searchMode === true`, the title area is replaced by the consumer's `search` snippet).
+- Trailing `actions` snippet for per-extension toolbar buttons.
+
+Does **not** own:
+- The label value (extension knows about sources/folders/categories — pass a `$derived` that tracks the active sidebar selection so the title is dynamic, not static).
+- Search input markup (debounce, refs, clear-button logic stays in the consumer).
+- The action buttons themselves (sort / add / etc. are extension-specific).
+
+#### `ResponsiveSidebarToggle` — hamburger for narrow mode
+
+[`frontend/src/lib/components/kit/ResponsiveSidebarToggle.svelte`](../frontend/src/lib/components/kit/ResponsiveSidebarToggle.svelte)
+
+```svelte
+<ResponsiveSidebarToggle />
+```
+
+Zero-prop drop-in. Renders nothing when not narrow; renders an `mdi:dock-left` icon button when narrow that fires `showSidebar()` on click. Auto-included inside `ListHeader` so extensions composing the canonical toolbar don't need to mount this directly — it appears here in the kit's component list only for the case where an extension renders its own custom toolbar and wants the canonical hamburger placement.
 
 #### `ConfirmDialog` — destructive-action confirmation
 
@@ -1285,6 +1855,26 @@ The dialog registers with [`dialogGuard`](../frontend/src/lib/stores/dialogGuard
 ```
 
 The bits-ui Root wrappers (`ui/dialog/Dialog`, `ui/alert-dialog/AlertDialog`) deliberately don't register on their own — the convention is "consumer owns it" so registration only happens when the dialog is actually open, not just rendered.
+
+#### `ColorPicker` — preset palette + hex input
+
+[`frontend/src/lib/components/kit/ColorPicker.svelte`](../frontend/src/lib/components/kit/ColorPicker.svelte)
+
+```svelte
+<ColorPicker
+  value={cal.color ?? ''}
+  onchange={(hex) => calendarSources.setColor(cal.id, hex)}
+/>
+```
+
+| Prop | Type | Notes |
+|---|---|---|
+| `value` | `string` | Current color as a 7-char hex (e.g. `"#3B82F6"`). Empty string is allowed and renders the first preset. |
+| `onchange` | `(color: string) => void` | Called whenever the user picks a preset or enters a valid hex (`/^#[0-9A-Fa-f]{6}$/`). Not called on partial / invalid input. |
+
+Thin pass-through to the host's [`ui/color-picker/ColorPicker.svelte`](../frontend/src/lib/components/ui/color-picker/ColorPicker.svelte) — the same component mail's [`AccountGeneralTab.svelte`](../frontend/src/lib/components/settings/account/AccountGeneralTab.svelte) and [`AccountForm.svelte`](../frontend/src/lib/components/settings/AccountForm.svelte) consume. 1-for-1 with mail's account-color picker: 8 preset swatches in a 4×2 grid, manual hex entry with auto-`#` prefix, popover dismisses on click-outside or Enter. Trigger button is `w-8 h-8` (fixed). Extensions consume the kit version so they don't reach into the host's `ui/` namespace; the host can swap the underlying primitive without breaking extensions.
+
+The host primitive's `aria.selectColor` and `aria.selectPresetColor` i18n keys are read from the core `aria.*` namespace at [`frontend/src/lib/i18n/locales/en.json`](../frontend/src/lib/i18n/locales/en.json) — extensions don't need to declare them.
 
 ### Extension keyboard shortcuts
 
@@ -1354,7 +1944,7 @@ Alt+H/L pane cycling already cycles through these three slot names — when an e
 
 When a future extension needs a primitive that doesn't exist yet (e.g., Calendar's grid view):
 
-1. **Find the mail equivalent first.** Open the matching `frontend/src/lib/components/{list,sidebar,viewer,ui,...}/` file and study how it handles keyboard, focus, scroll-into-view, and edge cases. The 1-for-1 rule starts here.
+1. **Find the mail equivalent first.** Open the matching `frontend/src/lib/components/{list,sidebar,viewer,ui,...}/` file and study how it handles keyboard, focus, scroll-into-view, and edge cases. The 1-for-1 rule starts here. **If mail has no equivalent** (e.g., overlays that aren't part of the flex chain), the primitive is greenfield per [R25](./EXT_RULES.md) — design from the consumer's needs while respecting kit conventions (theme tokens, density-aware sizing, layout-store responsive handling, `shortcuts.ts` predicates). See `DetailOverlay` for an example.
 2. **Build the kit primitive to match that behavior exactly.** Where the host already has a working primitive in `ui/` (`Button`, `Input`, `Dialog`, `AlertDialog`, etc.), wrap it as a thin pass-through — see [`ConfirmDialog.svelte`](../frontend/src/lib/components/kit/ConfirmDialog.svelte) for the canonical example. Where the kit has to copy (j/k navigation, accent-bar selection, density), copy faithfully and reference the same `shortcuts.ts` predicates.
 3. **Don't reach into mail's components** (`frontend/src/lib/components/{list,sidebar,viewer}/`). Those are the live mail UI, not reusable primitives. Copy the pattern, don't import it.
 4. **If you find a bug in the host primitive that affects the kit, fix it at the host layer** so mail benefits too. Don't patch the kit wrapper — that creates drift that breaks the 1-for-1 contract. Same code paths, same behavior, same fixes.
@@ -1384,10 +1974,16 @@ microsoft-calendar     ← Calendar extension (future)
 Each extension's package contains:
 - `extensions/<name>/manifest.json` — declares the extension
 - `extensions/<name>/manifest.go` — embeds the manifest JSON
-- `extensions/<name>/creds.go` — package-level `GoogleClientID` / `GoogleClientSecret` / `MicrosoftClientID` vars + a `CredentialsProvider` registered with `oauth2.RegisterCredentialsProvider`
-- `extensions/<name>/.env.example` — template for build-time injection of those vars
 
-See [`extensions/contacts/creds.go`](../extensions/contacts/creds.go) for the canonical pattern. Vars can be injected via Makefile ldflags from `extensions/<name>/.env` or a per-extension shim binary; if both are empty, the slot resolves to `(zero, false)` and the consent prompt fires.
+**No per-extension OAuth credentials live in extension packages.** All slot resolution is centralized in [`internal/oauth2/core_provider.go`](../internal/oauth2/core_provider.go), backed by three build-time ldflags variable pairs in `internal/oauth2/config.go`:
+
+| Variable | Slots backed | Surfaced in picker as | Notes |
+|---|---|---|---|
+| `GoogleClientID` / `GoogleClientSecret` | `google-mail` | "Aerion - Google" | Mail's Google-verified project. Also routable for scopes that an extension manifest lists in `first_party_uses_core_for_scopes` (today: contacts.readonly). |
+| `GoogleTestingClientID` / `GoogleTestingClientSecret` | `google-contacts`, `google-calendar` | "Aerion - Google (Testing)" | **Single shared un-Google-verified test project** that backs every first-party extension needing broader Google scopes (contacts.readwrite, full Calendar). When the mail project eventually gets verified for those scopes, the default in the picker UI switches to "Aerion - Google" and this slot becomes a fallback. |
+| `MicrosoftClientID` | `microsoft-mail`, `microsoft-contacts`, `microsoft-calendar` | "Aerion - Microsoft" | One Azure AD app registration covers all three surfaces. Microsoft Graph doesn't gate scopes behind verification, so adding `Contacts.ReadWrite` / `Calendars.ReadWrite` to the existing mail registration is free. |
+
+ldflags injection happens via the root `Makefile`'s LDFLAGS rules from the root `.env` / `.env.local`. Extension packages stay focused on domain logic — no `creds.go`, no `OAuthClients()`, no per-extension env file. If a slot's underlying variable is empty, the slot resolves to `(zero, false)` and the picker UI omits the corresponding option.
 
 ### Manifest OAuth routing — `first_party_uses_core_for_scopes`
 
@@ -1428,18 +2024,22 @@ Users can paste their own Client ID + Secret per slot via Aerion's settings:
 - **Aerion core's `*-mail` slots** → Settings → Accounts → "OAuth Credentials (advanced)" disclosure (collapsed by default). See [`AerionCoreOAuthSection.svelte`](../frontend/src/lib/components/settings/AerionCoreOAuthSection.svelte).
 - **Per-extension slots** → that extension's own settings dialog. See [`ContactsSettingsDialog.svelte`](../extensions/contacts/frontend/components/ContactsSettingsDialog.svelte) for the canonical layout.
 
-Both UIs use the same shared primitive [`kit/OAuthCredsSlotEditor.svelte`](../frontend/src/lib/components/kit/OAuthCredsSlotEditor.svelte) (composed from existing `ui/input`, `ui/button`, `ui/select`, `ui/confirm-dialog` — no new low-level inputs). Each slot supports:
+Both UIs use the same shared primitive [`kit/OAuthCredsSlotEditor.svelte`](../frontend/src/lib/components/kit/OAuthCredsSlotEditor.svelte) (composed from existing `ui/input`, `ui/button`, `ui/select`, `ui/confirm-dialog` — no new low-level inputs). The picker shows an enumerated set of choices returned by `App.GetOAuthCredsChoices(configID, extensionID)`. The choice IDs are stable and persisted via `App.SetOAuthCredsChoice(configID, choiceID)`:
 
-- Edit (paste Client ID + Secret; values are password-masked and never read back to the frontend)
-- Reset (clear the override and revert to shipped defaults)
-- "Copy from another slot…" — server-side copy through the credentials store; secret never crosses the Wails boundary
+- **`custom`** — user-supplied Client ID + Secret. Always available. Selecting reveals the edit form; saving writes to the `user_oauth_clients` table.
+- **`aerion-shipped`** — the slot's own built-in client (compiled in via the extension's `.env` ldflags). Only listed when the slot's shipped creds are populated. Label is per-slot:
+  - `google-contacts` / `google-calendar` → **"Aerion testing"** (un-Google-verified).
+  - `microsoft-*` slots → **"Aerion - Microsoft"** (backed by mail's client after the core consolidation).
+  - `<provider>-mail` → **"Aerion - Google"** / **"Aerion - Microsoft"** (mail's own settings UI).
+- **`aerion-mail`** — reuse the core `<provider>-mail` slot's client for this extension. Only listed when the extension's manifest declares the provider's scopes in `first_party_uses_core_for_scopes` AND the mail slot has shipped creds. Today only Google contacts qualifies (mail's verified client carries `contacts.readonly`).
 
 Resolution order in `oauth2.ClientConfigForID(configID)`:
-1. User override from `credentials.Store` (Settings UI override) via `oauth2.UserOverrideLookup`
-2. Registered `CredentialsProvider` chain (Aerion core's, then each extension's own)
-3. `(zero, false)` → triggers `ErrAdditionalConsentRequired` or "no creds available" UX
+1. User override (`oauth2.UserOverrideLookup`) — Settings UI `custom` choice.
+2. User-set slot alias (`oauth2.SlotAliasLookup`) — Settings UI `aerion-mail` choice. Recursive lookup on the target slot id, capped at one hop.
+3. Registered `CredentialsProvider` chain (Aerion core's, then each extension's).
+4. `(zero, false)` → triggers `ErrAdditionalConsentRequired` or "no creds available" UX.
 
-Storage: encrypted via `credentials.Store` (OS keyring primary, encrypted DB fallback in the `user_oauth_clients` table). See [`internal/credentials/oauth_user_creds.go`](../internal/credentials/oauth_user_creds.go).
+Storage: encrypted via `credentials.Store` (OS keyring primary, encrypted DB fallback). Custom Client IDs/Secrets live in `user_oauth_clients` ([`internal/credentials/oauth_user_creds.go`](../internal/credentials/oauth_user_creds.go)); slot aliases live in `user_oauth_slot_aliases` ([`internal/credentials/oauth_slot_alias.go`](../internal/credentials/oauth_slot_alias.go)).
 
 ### Per-extension settings dialog
 
@@ -1449,13 +2049,41 @@ Two entry paths:
 1. **Explicit Edit button** in Settings → Extensions → row (when the extension is enabled)
 2. **Extension-driven auto-open** via `openExtensionSettings(extensionId)` — the extension's frontend code can open its own settings dialog when needed (e.g., on pane mount when the extension detects it's missing OAuth creds for write capability)
 
-### Incremental consent flow
+### Write-access grant flow (account-picker model)
 
-When an extension's HTTPClient call hits `ErrAdditionalConsentRequired`, the host emits an `oauth:incremental-consent-required` Wails event. The globally-mounted [`IncrementalConsentDialog.svelte`](../frontend/src/lib/components/oauth/IncrementalConsentDialog.svelte) listens for that event, displays a prompt showing the missing scopes, and (in Phase 2b.3) triggers an OAuth flow targeted at the extension's specific client config + missing scopes.
+When the user wants to enable writes on a Google or Microsoft contacts source, the UI is explicit: a dialog asks which existing Aerion auth identity to attach the new write grant to. No silent retries on access-denied; no inline "consent required" dialogs popping up mid-write.
 
-The dialog is GENERIC — all extension-specific text comes from manifest data + the missing-scope resource strings. Calendar will reuse this same dialog when its write paths land.
+**Frontend.** [`WriteAccessAccountPicker.svelte`](../frontend/src/lib/components/oauth/WriteAccessAccountPicker.svelte) is the canonical UI. It's a generic dialog that takes `provider` (`'google'` or `'microsoft'`), `sourceID`, and `sourceName`. On open it fetches `App.ListAuthContextsForProvider(provider)` to populate the radio list. The list is the union of:
 
-Phase 2b.1 SCAFFOLDS this flow but the Connect button doesn't yet kick a real OAuth handshake — that lands in 2b.3 alongside the Google People / MS Graph write paths.
+- Mail accounts of that provider (from the host's account store)
+- Standalone contacts sources of that provider (from `carddavStore.ListSources()` where `AccountID IS NULL`)
+
+There is **no "Add another account"** entry. All identities must come from Aerion's core setup paths (Mail → add account, OR Contacts → add source). If the list is empty, the dialog shows a hint pointing the user to those paths.
+
+On Continue, the dialog calls the extension's `<Extension>_EnableWriteAccess(sourceID, authContextKind, authContextIdentifier, expectedEmail)` bridge method.
+
+**Backend.** The extension's bridge method ([`Contacts_EnableWriteAccess`](../extensions/contacts/backend/bridge.go) is the reference) does:
+
+1. Derive the slot's `clientConfigID` and the write scope from the source's provider (e.g. `google-contacts` + `https://www.googleapis.com/auth/contacts`).
+2. Build a `coreapi.StartIncrementalConsentRequest`. Set exactly one of `AccountID` (when `authContextKind == "mail"`) or `SourceID` (when `"standalone-contacts"`). Set `ExpectedEmail` to the picked identity's email. Pass through to `core.Auth().StartIncrementalConsent(req)`.
+3. On `nil` return, call `core.Contacts().SetSourceWritable(sourceID, true)`.
+
+The host's `StartIncrementalConsent` implementation:
+- Opens the browser, blocks until callback fires (or `App.CancelOAuthFlow` is called).
+- Passes `login_hint=<ExpectedEmail>` so the IdP account picker pre-selects the right account.
+- Validates the granted email matches `ExpectedEmail`. Mismatch → discard tokens, return error.
+- Persists tokens via `SetOAuthTokensForClientConfig(AccountID, slot, …)` (for mail contexts) or `SetContactSourceOAuthTokens(SourceID, …)` (for standalone contexts).
+
+**Slot-creds detection.** Before calling `EnableWriteAccess`, the picker doesn't probe slot state — the extension does that inside its bridge method. Use `oauth2.ClientConfigForID(clientConfigID)`; it walks the user-override + registered-provider chain and returns truthy only when there are real per-slot creds. Do NOT use `oauth2.GetProvider(clientConfigID)` for this check: it silently inherits the mail-side ldflag-injected creds when the extension's slot is empty, which produces a misleading "configured" answer.
+
+```go
+slotCreds, slotOK := oauth2.ClientConfigForID(string(clientConfigID))
+if !slotOK || slotCreds.ClientID == "" {
+    return fmt.Errorf("no OAuth credentials configured for %q — set them up in Settings → Extensions → … → OAuth Credentials", clientConfigID)
+}
+```
+
+**Why not retry-on-write?** Retry-with-consent worked for the prototype but conflated *which* identity owned the write with *whether* scopes were missing. Users with multiple Google accounts ended up granting writes to the wrong one. The picker model surfaces the identity decision up front and verifies it on the callback.
 
 ### Local-contact edit/delete
 
@@ -1468,12 +2096,10 @@ For sent-recipient (local) contacts and CardDAV contacts alike, the Contacts ext
 | Frontend (`ContactEditDialog.svelte`) | Collects multi-field form state; calls `contactsView.updateContact(id, patch)` |
 | Frontend store ([`contactsView.svelte.ts`](../extensions/contacts/frontend/stores/contactsView.svelte.ts)) | Calls Wails-bound `App.Contacts_UpdateContact(id, patch)` (imported with alias `UpdateContact`) |
 | Bridge method ([`extensions/contacts/backend/bridge.go`](../extensions/contacts/backend/bridge.go)) | `Contacts_UpdateContact` gates on `gateEnabled()`, calls `ensureInit()`, then delegates to the lazy-initialized `b.api.UpdateContact(id, patch)` |
-| Extension API ([`extensions/contacts/backend/api.go`](../extensions/contacts/backend/api.go)) | `UpdateContact` calls `applyContactPatchToRecord(rec, patch)` to apply every non-nil patch field, then source-dispatches by id: local id → `contact.Store.UpsertRecord(rec)`; CardDAV UUID → `writeCardDAVRecord(rec)` (PUT the full vCard); Google/MS UUID → `ErrUnimplemented` (filled in by 2b.3) |
+| Extension API ([`extensions/contacts/backend/api.go`](../extensions/contacts/backend/api.go)) | `UpdateContact` calls `applyContactPatchToRecord(rec, patch)` to apply every non-nil patch field, then source-dispatches by source type: local → `contact.Store.UpsertRecord(rec)`; CardDAV → `writeCardDAVRecord(rec)` (PUT the full vCard); Google → `updateGoogleContact` in `google_api.go`; Microsoft → `updateMicrosoftContact` in `microsoft_api.go`. |
 | Core store ([`internal/contact/store.go`](../internal/contact/store.go)) | `UpsertRecord` / `UpsertRecordTx` writes the record + all sub-tables (emails, phones, addresses, urls, impps, categories, photo). Sets `name_overridden=1` on every email when the Name field is patched, so auto-collection never clobbers a user edit. |
 
-**Why route through the extension API instead of calling the core store directly:** writes follow the same SDK pattern as reads. The 2b.2 (CardDAV write) and 2b.3 (Google/MS write) phases fill in source-branches inside `extcontactsbe.API.UpdateContact`/`DeleteContact` — NO new Wails methods, NO new direct-store call sites. Future extensions (Calendar) declare their CRUD on their own `coreapi` interface and follow the same pattern.
-
-CardDAV / Google / Microsoft contact edits land in Phase 2b.2 (CardDAV write) and 2b.3 (provider OAuth write paths). Same Wails methods, same extension API methods — only the now-`ErrUnimplemented` branches inside the API impl get filled in.
+**Why route through the extension API instead of calling the core store directly:** writes follow the same SDK pattern as reads. CardDAV writes shipped in 2b.2 (PUT/DELETE) and 2b.2.c (POST-new). Phase 2b.3 added Google + Microsoft branches inside `extcontactsbe.API.CreateContact` / `UpdateContact` / `DeleteContact` — the per-provider logic lives in [`extensions/contacts/backend/google_api.go`](../extensions/contacts/backend/google_api.go) and [`extensions/contacts/backend/microsoft_api.go`](../extensions/contacts/backend/microsoft_api.go). NO new Wails methods, NO new direct-store call sites. Future extensions (Calendar) declare their CRUD on their own `coreapi` interface and follow the same pattern.
 
 ### Source-dispatch pattern (transferable to Calendar / future extensions)
 
@@ -1485,21 +2111,25 @@ func (a *API) UpdateThing(id string, patch coreapi.ThingPatch) error {
     if id == "" {
         return fmt.Errorf("…: id is required")
     }
-    if isLocalID(id) {        // e.g., email format, or a "local:" prefix
+    sourceType, err := a.resolveSourceType(id) // local | carddav | google | microsoft
+    if err != nil {
+        return err
+    }
+    switch sourceType {
+    case "local":
         return a.localPath(id, patch)
-    }
-    if isCardDAVID(id) {      // e.g., UUID + lookup in carddav store
-        return a.carddavPath(id, patch) // returns ErrUnimplemented until ready
-    }
-    if isGoogleID(id) {
+    case "carddav":
+        return a.carddavPath(id, patch)
+    case "google":
         return a.googlePath(id, patch)
-    }
-    if isMicrosoftID(id) {
+    case "microsoft":
         return a.microsoftPath(id, patch)
     }
     return coreapi.ErrUnimplemented
 }
 ```
+
+Aerion's house style avoids `if/else` chains. Use guard clauses for early returns and `switch` for branch dispatch — both for readability and because the no-else convention is enforced project-wide (see [§ The two hard rules](#the-two-hard-rules-for-any-new-extension)).
 
 Rules that hold across this pattern:
 
@@ -1513,7 +2143,13 @@ When Calendar lands, its `coreapi.Calendar` interface gains `CreateEvent`/`Updat
 
 ### Source `writable` flag
 
-`contact_sources.writable` is a boolean (default 0) tracking whether the user has opted in to write capability on a given source. Set per-source via the source-edit UI (Phase 2b.2). For CardDAV sources, flipping the flag is purely a UI choice — credentials already cover both directions. For OAuth sources (Phase 2b.3), the flag is set after successful incremental consent stores write-scoped tokens under the extension's client config.
+`contact_sources.writable` is a boolean tracking whether the user has write capability enabled on a given source. **New CardDAV sources default to `writable = true`** at creation time — adding a CardDAV source signals intent to use it. New OAuth-linked sources (Google/Microsoft) default to `writable = false`; the user opts in via the incremental-consent flow.
+
+**The canonical Enable/Disable lever lives in the extension's own settings dialog**, NOT in the core source-edit dialog. For Contacts that's Settings → Extensions → Contacts → "Write Access" section (see [`ContactsSettingsDialog.svelte`](../extensions/contacts/frontend/components/ContactsSettingsDialog.svelte)). The section lists every external source (CardDAV + OAuth) regardless of state; per-row button flips between Enable / Disable based on `source.writable`. CardDAV is a pure flag flip via `App.SetContactSourceWritable`; Google / Microsoft route through the incremental-consent flow (which itself flips writable on success via `coreapi.Contacts.SetSourceWritable`).
+
+**Optional contextual surface** — extensions can also surface a banner in their main pane for the discoverable enable case (see [`WriteAccessBanner.svelte`](../extensions/contacts/frontend/components/WriteAccessBanner.svelte)). The banner shows enable-only rows and auto-hides once a source is writable; its visibility tracks the sidebar selection so it stays contextual. The canonical Disable lever stays in the settings dialog.
+
+**Phase 2b.3 cleanup**: the writable toggle was REMOVED from the core source-edit dialog ([`ContactSourceDialog.svelte`](../frontend/src/lib/components/settings/ContactSourceDialog.svelte)) so the extension owns this UX. New extensions with writable external sources should follow the same pattern: own the Enable/Disable lever in your own settings dialog, don't add a toggle to host-side source-edit UIs.
 
 ---
 
@@ -1574,7 +2210,7 @@ extensions/<name>/
   manifest.go                    # embeds manifest.json via //go:embed, exposes Manifest()
   backend/
     register.go                  # Extension struct + NewExtension() + Register()
-    bridge.go                    # Bridge struct + BridgeDeps + NewBridge() + all <Name>_-prefixed methods
+    bridge.go                    # <Name>Bridge struct + <Name>BridgeDeps + New<Name>Bridge() + all <Name>_-prefixed methods
     api.go                       # internal API the bridge methods delegate to
     store.go                     # per-extension SQLite via extensions.OpenStore (opened by ensureInit, not eagerly)
     # ... whatever else the extension needs ...
@@ -1588,7 +2224,7 @@ extensions/<name>/
         en.json                  # English source of truth (mandatory)
         <code>.json              # other locales (added by translators, optional per locale)
 app/
-  extension_<name>.go            # ~28 LOC host wiring: BridgeDeps construction + EventEmitter closure
+  extension_<name>.go            # ~28 LOC host wiring: <Name>BridgeDeps construction + EventEmitter closure
 ```
 
 The host-side delta in `app/app.go` is:
@@ -1698,11 +2334,8 @@ Things extensions CANNOT do in v0.3.0. Items marked with a phase have a planned 
 
 ### Frontend
 
-- The extension rail (first ship: Phase 2a, when Contacts becomes the second extension)
-- Slot pattern for swapping main pane between Mail and other extensions (Phase 2a)
-- Account-setup hook UI in `AccountDialog` (Phase 2a)
-- Per-extension settings tab in the Settings dialog (Phase 3+)
-- Per-extension context menu items (Phase 3+)
+- Per-extension context menu items (`UI.RegisterContextMenuItem` accepts registrations but no consumer reads them yet)
+- Per-extension inbox views (`UI.RegisterInboxView` — same as above)
 
 ### System
 

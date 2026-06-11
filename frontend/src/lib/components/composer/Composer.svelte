@@ -450,8 +450,15 @@
         const dataUrl = canvas.toDataURL('image/png')
         const base64Data = dataUrl.split(',')[1]
 
-        // Replace non-standard src with data URL in the HTML string
-        result = result.replaceAll(src, dataUrl)
+        // If the same canvas-extracted content was already registered
+        // (e.g. user pasted the same screenshot twice), reuse that cid —
+        // the viewer is what handles same-cid resolution (see
+        // EmailBody.svelte querySelectorAll fix).
+        const dup = inlineImages.find(i => i.dataUrl === dataUrl)
+        if (dup) {
+          result = result.replaceAll(src, dup.dataUrl)
+          continue
+        }
 
         const cid = generateCID()
         inlineImages = [...inlineImages, {
@@ -461,6 +468,7 @@
           data: base64Data,
           filename: `pasted-image${inlineImageCounter}.png`,
         }]
+        result = result.replaceAll(src, dataUrl)
       } catch {
         continue
       }
@@ -706,21 +714,40 @@
   onMount(async () => {
     // Load identities — try cross-account first (main window), fall back to single-account (detached)
     try {
+      // When replying or forwarding on a no-outgoing account, honor that
+      // account's configured Reply/Forward-with identity (if any). Captured
+      // from the pre-filter list because no-outgoing accounts are removed
+      // before the picker sees them.
+      let replyForwardIdentity: account.Identity | null = null
+
       if (api.getAllAccountIdentities) {
         const groups = await api.getAllAccountIdentities()
-        allGroups = groups || []
+        const sourceGroup = (groups || []).find(g => g.account?.id === accountId)
+        // Exclude receive-only accounts: their identities can't actually
+        // be used as a From address, so they don't belong in the picker.
+        allGroups = (groups || []).filter(g => !g.account?.noOutgoingServer)
         identities = allGroups.flatMap(g => g.identities || [])
+
+        const sourceReplyForwardId = sourceGroup?.account?.noOutgoingServer
+          ? ((sourceGroup.account as any).replyForwardIdentityId || '')
+          : ''
+        if (sourceReplyForwardId) {
+          replyForwardIdentity = identities.find(i => i.id === sourceReplyForwardId) || null
+        }
       }
       if (!api.getAllAccountIdentities) {
         // Detached window — single account only
         identities = await api.getIdentities(accountId)
       }
 
-      // Select identity: match reply recipient or use default for the initial account
+      // Select identity: explicit recipient match wins; then the source
+      // account's Reply/Forward-with preference (no-outgoing accounts
+      // only); then this account's default identity; then the first
+      // available identity as the ultimate fallback.
       const matchedIdentity = selectIdentityForReply()
       const accountIdentities = identities.filter(i => i.accountId === accountId)
       const defaultIdentity = accountIdentities.find(i => i.isDefault) || accountIdentities[0]
-      const selectedIdentity = matchedIdentity || defaultIdentity || identities[0]
+      const selectedIdentity = matchedIdentity || replyForwardIdentity || defaultIdentity || identities[0]
       if (selectedIdentity) {
         selectedIdentityId = selectedIdentity.id
       }
@@ -1392,6 +1419,19 @@
 
     try {
       const dataUrl = await readFileAsDataUrl(file)
+
+      // Dedup by content (dataUrl): same image pasted twice produces a
+      // single inlineImage entry, so the sent MIME has one inline
+      // attachment instead of leaving the second cid orphaned. The editor
+      // still gets a second <img> with the same dataUrl src — the viewer
+      // side is what handles same-cid resolution (see EmailBody.svelte).
+      const existing = inlineImages.find(i => i.dataUrl === dataUrl)
+      if (existing) {
+        editor?.chain().focus().setImage({ src: existing.dataUrl, alt: existing.filename }).run()
+        scheduleDraftSave()
+        return
+      }
+
       const cid = generateCID()
 
       // Extract base64 data and content type from data URL
@@ -1469,6 +1509,15 @@
           }
           // Insert as inline image
           const dataUrl = `data:${att.contentType};base64,${att.data}`
+
+          // Dedup by content; mirrors handleInlineImageFile. Same image
+          // dropped twice ⇒ one inline attachment (no orphan cid in MIME).
+          const existing = inlineImages.find(i => i.dataUrl === dataUrl)
+          if (existing) {
+            editor?.chain().focus().setImage({ src: existing.dataUrl, alt: existing.filename }).run()
+            continue
+          }
+
           const cid = generateCID()
           inlineImages = [...inlineImages, {
             cid,

@@ -29,19 +29,19 @@ fi
 
 # Check if runtimes are installed
 echo "Checking for required runtimes..."
-if ! flatpak list --runtime | grep -q "org.gnome.Platform.*49"; then
-    echo "⚠️  GNOME Platform 49 not found. Installing..."
-    flatpak install -y --user flathub org.gnome.Platform//49 org.gnome.Sdk//49
+if ! flatpak list --runtime | grep -q "org.gnome.Platform.*50"; then
+    echo "⚠️  GNOME Platform 50 not found. Installing..."
+    flatpak install -y --user flathub org.gnome.Platform//50 org.gnome.Sdk//50
 fi
 
 if ! flatpak list | grep -q "org.freedesktop.Sdk.Extension.golang"; then
     echo "⚠️  Go SDK extension not found. Installing..."
-    flatpak install -y --user flathub org.freedesktop.Sdk.Extension.golang//24.08
+    flatpak install -y --user flathub org.freedesktop.Sdk.Extension.golang//25.08
 fi
 
 if ! flatpak list | grep -q "org.freedesktop.Sdk.Extension.node24"; then
     echo "⚠️  Node.js 24 SDK extension not found. Installing..."
-    flatpak install -y --user flathub org.freedesktop.Sdk.Extension.node24//24.08
+    flatpak install -y --user flathub org.freedesktop.Sdk.Extension.node24//25.08
 fi
 
 echo "✅ All runtimes installed"

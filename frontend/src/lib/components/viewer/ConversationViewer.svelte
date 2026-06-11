@@ -167,7 +167,7 @@
 
     // Listen for message changes from backend
     cleanupFunctions.push(
-      EventsOn('messages:flagsChanged', (data: { messageIds: string[], isRead: boolean }) => {
+      EventsOn('messages:readChanged', (data: { messageIds: string[], isRead: boolean }) => {
         // Check if this is our own mark-as-read operation
         const isOwnOperation = data.messageIds.every(id => pendingMarkAsReadIds.has(id))
 
@@ -923,17 +923,25 @@
     const allRead = conversation.messages.every(m => m.isRead)
     const messageIds = conversation.messages.map(m => m.id)
 
+    // Tag these as our own operation so the readChanged listener treats
+    // the resulting event as a local toggle (update flags + counts) rather
+    // than an external mark-unread (which closes the conversation to stop
+    // the auto-mark-as-read timer).
+    pendingMarkAsReadIds = new Set(messageIds)
+
     try {
       if (allRead) {
         await MarkAsUnread(messageIds)
         toasts.success($_('toast.markedAsUnread'))
-      } else {
+      }
+      if (!allRead) {
         await MarkAsRead(messageIds)
         toasts.success($_('toast.markedAsRead'))
       }
     } catch (err) {
       console.error('Read status toggle failed:', err)
       toasts.error($_('toast.failedToUpdateReadStatus'))
+      pendingMarkAsReadIds = new Set()
     }
   }
 

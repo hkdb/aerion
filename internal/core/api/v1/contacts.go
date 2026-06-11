@@ -77,14 +77,41 @@ type ContactPhoto struct {
 //     2b.3 (Google People / MS Graph).
 //
 // AddressbookID applies only when SourceID is a CardDAV source UUID. Empty
-// AddressbookID means "the source's first writable addressbook." Future
-// fields (Emails []string, Phone, Address, Notes) get added when multi-field
-// Add lands.
+// AddressbookID means "the source's first writable addressbook."
+//
+// Rich-field support: when any of the optional rich fields below is set,
+// the create dispatchers route through recordFromCreateInput which mirrors
+// ContactPatch's shape onto a new contact.Record. Email + Name remain the
+// legacy minimum; when only those are set the create paths take a thin
+// "single primary email" shortcut for backward compatibility with the
+// sent-mail collection path that still uses email+name.
+//
+// Slice semantics differ from ContactPatch on purpose: Patch uses *[]T to
+// distinguish "unchanged" (nil) from "empty/cleared" ([]); Create has no
+// such ambiguity (omitting means empty, providing means set), so plain
+// slices are used.
 type ContactCreateInput struct {
 	SourceID      string `json:"sourceId,omitempty"`
 	AddressbookID string `json:"addressbookId,omitempty"`
 	Email         string `json:"email"`
 	Name          string `json:"name,omitempty"`
+
+	// Optional rich fields, mirroring ContactPatch's field set. When
+	// Emails is supplied (non-empty), it REPLACES the implicit single
+	// primary email built from the legacy Email field; otherwise the
+	// legacy single-email shortcut applies.
+	Nickname   string           `json:"nickname,omitempty"`
+	Org        string           `json:"org,omitempty"`
+	Title      string           `json:"title,omitempty"`
+	Note       string           `json:"note,omitempty"`
+	Bday       string           `json:"bday,omitempty"`
+	Categories []string         `json:"categories,omitempty"`
+	Emails     []ContactEmail   `json:"emails,omitempty"`
+	Phones     []ContactPhone   `json:"phones,omitempty"`
+	Addresses  []ContactAddress `json:"addresses,omitempty"`
+	URLs       []ContactURL     `json:"urls,omitempty"`
+	IMPPs      []ContactIMPP    `json:"impps,omitempty"`
+	Photo      *ContactPhoto    `json:"photo,omitempty"`
 }
 
 // Addressbook is the API-surface descriptor for a CardDAV addressbook hosted
@@ -113,6 +140,14 @@ type ContactSource struct {
 	Name     string `json:"name"`
 	Type     string `json:"type"` // "carddav" | "google" | "microsoft"
 	Writable bool   `json:"writable"`
+	// AccountID is the email account this source is linked to, when the source
+	// was created via LinkAccountSource. Standalone CardDAV / contacts-only
+	// OAuth sources have AccountID == "" (no linked email account).
+	//
+	// Surfaced so consent flows (Phase 2b.3) can find the source corresponding
+	// to a given account after running incremental consent, without exposing
+	// the host's full Source struct.
+	AccountID string `json:"accountId,omitempty"`
 }
 
 // Contacts is the read/write/subscribe surface for contacts.
@@ -120,8 +155,9 @@ type ContactSource struct {
 // All methods scoped to data the extension manages — local contact store +
 // per-source mirror tables. Write methods dispatch by source under the hood:
 // local (sent-recipient) contacts mutate through the host's contact.Store;
-// CardDAV / Google / Microsoft writes are scoped to their per-extension OAuth
-// path (Phase 2b.2 / 2b.3) and return ErrUnimplemented until those land.
+// CardDAV writes hit the server's WebDAV endpoint; Google / Microsoft writes
+// go through their per-extension OAuth slot (granted via the write-access
+// account picker flow).
 type Contacts interface {
 	SearchContacts(query string, limit int) ([]Contact, error)
 	GetContact(emailOrID string) (*Contact, error)
@@ -140,6 +176,26 @@ type Contacts interface {
 	// source's id. syncInterval is in minutes; 60 is the conventional
 	// default. Errors with ErrAccountNotFound when the account doesn't exist.
 	LinkAccountSource(accountID, name string, syncInterval int) (string, error)
+
+	// SyncSource triggers an immediate sync against the given source.
+	// Returns when the sync finishes; per-source failures are reported
+	// via the returned error. Used by the contacts extension's sidebar
+	// footer Ctrl+Shift+S handler.
+	SyncSource(sourceID string) error
+
+	// SyncAllSources triggers an immediate sync against every configured
+	// contact source. Per-source failures don't abort the loop; the
+	// returned error wraps any individual failures. Used by the contacts
+	// extension's Ctrl+Shift+A shortcut.
+	SyncAllSources() error
+
+	// SetSourceWritable flips the writable flag on a contact source. Used
+	// by the incremental-consent flow (Phase 2b.3) after the user grants
+	// write scopes for an OAuth source. CardDAV sources also use it via
+	// the "Enable write access" toggle in the source-settings dialog (where
+	// it's a pure flag flip — no consent needed because basic-auth grants
+	// full access).
+	SetSourceWritable(sourceID string, writable bool) error
 
 	CreateContact(input ContactCreateInput) (id string, err error)
 	UpdateContact(id string, patch ContactPatch) error

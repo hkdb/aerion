@@ -11,6 +11,9 @@ export namespace account {
 	    smtpHost: string;
 	    smtpPort: number;
 	    smtpSecurity: string;
+	    noOutgoingServer: boolean;
+	    smtpUsername: string;
+	    replyForwardIdentityId: string;
 	    authType: string;
 	    username: string;
 	    enabled: boolean;
@@ -49,6 +52,9 @@ export namespace account {
 	        this.smtpHost = source["smtpHost"];
 	        this.smtpPort = source["smtpPort"];
 	        this.smtpSecurity = source["smtpSecurity"];
+	        this.noOutgoingServer = source["noOutgoingServer"];
+	        this.smtpUsername = source["smtpUsername"];
+	        this.replyForwardIdentityId = source["replyForwardIdentityId"];
 	        this.authType = source["authType"];
 	        this.username = source["username"];
 	        this.enabled = source["enabled"];
@@ -99,6 +105,10 @@ export namespace account {
 	    smtpHost: string;
 	    smtpPort: number;
 	    smtpSecurity: string;
+	    noOutgoingServer: boolean;
+	    smtpUsername: string;
+	    smtpPassword: string;
+	    replyForwardIdentityId: string;
 	    authType: string;
 	    username: string;
 	    password: string;
@@ -132,6 +142,10 @@ export namespace account {
 	        this.smtpHost = source["smtpHost"];
 	        this.smtpPort = source["smtpPort"];
 	        this.smtpSecurity = source["smtpSecurity"];
+	        this.noOutgoingServer = source["noOutgoingServer"];
+	        this.smtpUsername = source["smtpUsername"];
+	        this.smtpPassword = source["smtpPassword"];
+	        this.replyForwardIdentityId = source["replyForwardIdentityId"];
 	        this.authType = source["authType"];
 	        this.username = source["username"];
 	        this.password = source["password"];
@@ -297,6 +311,24 @@ export namespace app {
 	        this.description = source["description"];
 	        this.website = source["website"];
 	        this.license = source["license"];
+	    }
+	}
+	export class AuthContextInfo {
+	    kind: string;
+	    identifier: string;
+	    email: string;
+	    label: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AuthContextInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.identifier = source["identifier"];
+	        this.email = source["email"];
+	        this.label = source["label"];
 	    }
 	}
 	export class ComposeMode {
@@ -488,6 +520,74 @@ export namespace app {
 	        this.subject = source["subject"];
 	        this.body = source["body"];
 	    }
+	}
+	export class OAuthBuildStatus {
+	    google: boolean;
+	    microsoft: boolean;
+	    googleTesting: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new OAuthBuildStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.google = source["google"];
+	        this.microsoft = source["microsoft"];
+	        this.googleTesting = source["googleTesting"];
+	    }
+	}
+	export class OAuthCredsChoice {
+	    id: string;
+	    label: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new OAuthCredsChoice(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.label = source["label"];
+	    }
+	}
+	export class OAuthCredsChoices {
+	    configId: string;
+	    choices: OAuthCredsChoice[];
+	    current: string;
+	    hasUserOverride: boolean;
+	    clientIdFingerprint: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new OAuthCredsChoices(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.configId = source["configId"];
+	        this.choices = this.convertValues(source["choices"], OAuthCredsChoice);
+	        this.current = source["current"];
+	        this.hasUserOverride = source["hasUserOverride"];
+	        this.clientIdFingerprint = source["clientIdFingerprint"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class OAuthCredsStatus {
 	    configId: string;
@@ -682,6 +782,510 @@ export namespace appstate {
 
 export namespace backend {
 	
+	export class Attendee {
+	    email: string;
+	    cn?: string;
+	    partStat?: string;
+	    role?: string;
+	    rsvp?: boolean;
+	    cuType?: string;
+	    delegate?: string;
+	    scheduleStatus?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Attendee(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.email = source["email"];
+	        this.cn = source["cn"];
+	        this.partStat = source["partStat"];
+	        this.role = source["role"];
+	        this.rsvp = source["rsvp"];
+	        this.cuType = source["cuType"];
+	        this.delegate = source["delegate"];
+	        this.scheduleStatus = source["scheduleStatus"];
+	    }
+	}
+	export class AttendeeInput {
+	    email: string;
+	    cn?: string;
+	    partStat?: string;
+	    role?: string;
+	    rsvp?: boolean;
+	    cuType?: string;
+	    delegate?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AttendeeInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.email = source["email"];
+	        this.cn = source["cn"];
+	        this.partStat = source["partStat"];
+	        this.role = source["role"];
+	        this.rsvp = source["rsvp"];
+	        this.cuType = source["cuType"];
+	        this.delegate = source["delegate"];
+	    }
+	}
+	export class Calendar {
+	    id: string;
+	    sourceId: string;
+	    url: string;
+	    displayName: string;
+	    description?: string;
+	    color?: string;
+	    visible: boolean;
+	    writable: boolean;
+	    ctag?: string;
+	    lastSyncedAt: number;
+	    createdAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Calendar(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.sourceId = source["sourceId"];
+	        this.url = source["url"];
+	        this.displayName = source["displayName"];
+	        this.description = source["description"];
+	        this.color = source["color"];
+	        this.visible = source["visible"];
+	        this.writable = source["writable"];
+	        this.ctag = source["ctag"];
+	        this.lastSyncedAt = source["lastSyncedAt"];
+	        this.createdAt = source["createdAt"];
+	    }
+	}
+	export class Organizer {
+	    email: string;
+	    cn?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Organizer(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.email = source["email"];
+	        this.cn = source["cn"];
+	    }
+	}
+	export class Event {
+	    id: string;
+	    calendarId: string;
+	    uid: string;
+	    etag: string;
+	    href: string;
+	    providerEventId?: string;
+	    summary: string;
+	    description?: string;
+	    location?: string;
+	    dtstartUnix: number;
+	    dtendUnix: number;
+	    isAllDay: boolean;
+	    tzName?: string;
+	    rruleText?: string;
+	    attendees?: Attendee[];
+	    organizer?: Organizer;
+	
+	    static createFrom(source: any = {}) {
+	        return new Event(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.calendarId = source["calendarId"];
+	        this.uid = source["uid"];
+	        this.etag = source["etag"];
+	        this.href = source["href"];
+	        this.providerEventId = source["providerEventId"];
+	        this.summary = source["summary"];
+	        this.description = source["description"];
+	        this.location = source["location"];
+	        this.dtstartUnix = source["dtstartUnix"];
+	        this.dtendUnix = source["dtendUnix"];
+	        this.isAllDay = source["isAllDay"];
+	        this.tzName = source["tzName"];
+	        this.rruleText = source["rruleText"];
+	        this.attendees = this.convertValues(source["attendees"], Attendee);
+	        this.organizer = this.convertValues(source["organizer"], Organizer);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class OrganizerInput {
+	    email: string;
+	    cn?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new OrganizerInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.email = source["email"];
+	        this.cn = source["cn"];
+	    }
+	}
+	export class ReminderSpec {
+	    offsetMinutes: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ReminderSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.offsetMinutes = source["offsetMinutes"];
+	    }
+	}
+	export class RecurrenceSpec {
+	    freq: string;
+	    untilUnix: number;
+	    count: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RecurrenceSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.freq = source["freq"];
+	        this.untilUnix = source["untilUnix"];
+	        this.count = source["count"];
+	    }
+	}
+	export class EventInput {
+	    calendarId: string;
+	    summary: string;
+	    description?: string;
+	    location?: string;
+	    dtstartUnix: number;
+	    dtendUnix: number;
+	    isAllDay?: boolean;
+	    tz?: string;
+	    recurrence?: RecurrenceSpec;
+	    reminder?: ReminderSpec;
+	    attendees?: AttendeeInput[];
+	    organizer?: OrganizerInput;
+	    sendUpdates?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new EventInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.calendarId = source["calendarId"];
+	        this.summary = source["summary"];
+	        this.description = source["description"];
+	        this.location = source["location"];
+	        this.dtstartUnix = source["dtstartUnix"];
+	        this.dtendUnix = source["dtendUnix"];
+	        this.isAllDay = source["isAllDay"];
+	        this.tz = source["tz"];
+	        this.recurrence = this.convertValues(source["recurrence"], RecurrenceSpec);
+	        this.reminder = this.convertValues(source["reminder"], ReminderSpec);
+	        this.attendees = this.convertValues(source["attendees"], AttendeeInput);
+	        this.organizer = this.convertValues(source["organizer"], OrganizerInput);
+	        this.sendUpdates = source["sendUpdates"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class EventInstance {
+	    id: string;
+	    calendarId: string;
+	    uid: string;
+	    etag: string;
+	    href: string;
+	    providerEventId?: string;
+	    summary: string;
+	    description?: string;
+	    location?: string;
+	    dtstartUnix: number;
+	    dtendUnix: number;
+	    isAllDay: boolean;
+	    tzName?: string;
+	    rruleText?: string;
+	    attendees?: Attendee[];
+	    organizer?: Organizer;
+	    instanceStartUnix: number;
+	    instanceEndUnix: number;
+	    isRecurrenceOverride?: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new EventInstance(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.calendarId = source["calendarId"];
+	        this.uid = source["uid"];
+	        this.etag = source["etag"];
+	        this.href = source["href"];
+	        this.providerEventId = source["providerEventId"];
+	        this.summary = source["summary"];
+	        this.description = source["description"];
+	        this.location = source["location"];
+	        this.dtstartUnix = source["dtstartUnix"];
+	        this.dtendUnix = source["dtendUnix"];
+	        this.isAllDay = source["isAllDay"];
+	        this.tzName = source["tzName"];
+	        this.rruleText = source["rruleText"];
+	        this.attendees = this.convertValues(source["attendees"], Attendee);
+	        this.organizer = this.convertValues(source["organizer"], Organizer);
+	        this.instanceStartUnix = source["instanceStartUnix"];
+	        this.instanceEndUnix = source["instanceEndUnix"];
+	        this.isRecurrenceOverride = source["isRecurrenceOverride"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class EventUpdateInput {
+	    eventId: string;
+	    calendarId: string;
+	    summary: string;
+	    description?: string;
+	    location?: string;
+	    dtstartUnix: number;
+	    dtendUnix: number;
+	    isAllDay?: boolean;
+	    tz?: string;
+	    recurrence?: RecurrenceSpec;
+	    reminder?: ReminderSpec;
+	    attendees?: AttendeeInput[];
+	    organizer?: OrganizerInput;
+	    sendUpdates?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new EventUpdateInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.eventId = source["eventId"];
+	        this.calendarId = source["calendarId"];
+	        this.summary = source["summary"];
+	        this.description = source["description"];
+	        this.location = source["location"];
+	        this.dtstartUnix = source["dtstartUnix"];
+	        this.dtendUnix = source["dtendUnix"];
+	        this.isAllDay = source["isAllDay"];
+	        this.tz = source["tz"];
+	        this.recurrence = this.convertValues(source["recurrence"], RecurrenceSpec);
+	        this.reminder = this.convertValues(source["reminder"], ReminderSpec);
+	        this.attendees = this.convertValues(source["attendees"], AttendeeInput);
+	        this.organizer = this.convertValues(source["organizer"], OrganizerInput);
+	        this.sendUpdates = source["sendUpdates"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class FreeBusyBlock {
+	    email: string;
+	    startUnix: number;
+	    endUnix: number;
+	    status: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FreeBusyBlock(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.email = source["email"];
+	        this.startUnix = source["startUnix"];
+	        this.endUnix = source["endUnix"];
+	        this.status = source["status"];
+	    }
+	}
+	export class FreeBusyResult {
+	    email: string;
+	    blocks: FreeBusyBlock[];
+	    source: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FreeBusyResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.email = source["email"];
+	        this.blocks = this.convertValues(source["blocks"], FreeBusyBlock);
+	        this.source = source["source"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class GoogleCalendarChoice {
+	    id: string;
+	    summary: string;
+	    primary: boolean;
+	    accessRole: string;
+	    writable: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new GoogleCalendarChoice(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.summary = source["summary"];
+	        this.primary = source["primary"];
+	        this.accessRole = source["accessRole"];
+	        this.writable = source["writable"];
+	    }
+	}
+	export class GoogleCalendarSelection {
+	    id: string;
+	    displayName: string;
+	    color?: string;
+	    writable: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new GoogleCalendarSelection(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.displayName = source["displayName"];
+	        this.color = source["color"];
+	        this.writable = source["writable"];
+	    }
+	}
+	export class MicrosoftCalendarChoice {
+	    id: string;
+	    name: string;
+	    isDefaultCalendar: boolean;
+	    writable: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new MicrosoftCalendarChoice(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.isDefaultCalendar = source["isDefaultCalendar"];
+	        this.writable = source["writable"];
+	    }
+	}
+	export class MicrosoftCalendarSelection {
+	    id: string;
+	    displayName: string;
+	    color?: string;
+	    writable: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new MicrosoftCalendarSelection(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.displayName = source["displayName"];
+	        this.color = source["color"];
+	        this.writable = source["writable"];
+	    }
+	}
+	
+	
+	
+	
 	export class ResizedContactPhoto {
 	    data: string;
 	    mediaType: string;
@@ -694,6 +1298,46 @@ export namespace backend {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.data = source["data"];
 	        this.mediaType = source["mediaType"];
+	    }
+	}
+	export class Source {
+	    id: string;
+	    type: string;
+	    name: string;
+	    url: string;
+	    username: string;
+	    syncIntervalMin: number;
+	    lastSyncedAt: number;
+	    lastError?: string;
+	    lastErrorAt?: number;
+	    accountId?: string;
+	    enabled: boolean;
+	    writable: boolean;
+	    createdAt: number;
+	    itipMode?: string;
+	    organizerIdentities: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Source(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.type = source["type"];
+	        this.name = source["name"];
+	        this.url = source["url"];
+	        this.username = source["username"];
+	        this.syncIntervalMin = source["syncIntervalMin"];
+	        this.lastSyncedAt = source["lastSyncedAt"];
+	        this.lastError = source["lastError"];
+	        this.lastErrorAt = source["lastErrorAt"];
+	        this.accountId = source["accountId"];
+	        this.enabled = source["enabled"];
+	        this.writable = source["writable"];
+	        this.createdAt = source["createdAt"];
+	        this.itipMode = source["itipMode"];
+	        this.organizerIdentities = source["organizerIdentities"];
 	    }
 	}
 
@@ -2250,26 +2894,6 @@ export namespace v1 {
 		}
 	}
 	
-	export class ContactCreateInput {
-	    sourceId?: string;
-	    addressbookId?: string;
-	    email: string;
-	    name?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ContactCreateInput(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.sourceId = source["sourceId"];
-	        this.addressbookId = source["addressbookId"];
-	        this.email = source["email"];
-	        this.name = source["name"];
-	    }
-	}
-	
-	
 	export class ContactPhoto {
 	    data?: string;
 	    mediaType?: string;
@@ -2286,6 +2910,68 @@ export namespace v1 {
 	        this.url = source["url"];
 	    }
 	}
+	export class ContactCreateInput {
+	    sourceId?: string;
+	    addressbookId?: string;
+	    email: string;
+	    name?: string;
+	    nickname?: string;
+	    org?: string;
+	    title?: string;
+	    note?: string;
+	    bday?: string;
+	    categories?: string[];
+	    emails?: ContactEmail[];
+	    phones?: ContactPhone[];
+	    addresses?: ContactAddress[];
+	    urls?: ContactURL[];
+	    impps?: ContactIMPP[];
+	    photo?: ContactPhoto;
+	
+	    static createFrom(source: any = {}) {
+	        return new ContactCreateInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sourceId = source["sourceId"];
+	        this.addressbookId = source["addressbookId"];
+	        this.email = source["email"];
+	        this.name = source["name"];
+	        this.nickname = source["nickname"];
+	        this.org = source["org"];
+	        this.title = source["title"];
+	        this.note = source["note"];
+	        this.bday = source["bday"];
+	        this.categories = source["categories"];
+	        this.emails = this.convertValues(source["emails"], ContactEmail);
+	        this.phones = this.convertValues(source["phones"], ContactPhone);
+	        this.addresses = this.convertValues(source["addresses"], ContactAddress);
+	        this.urls = this.convertValues(source["urls"], ContactURL);
+	        this.impps = this.convertValues(source["impps"], ContactIMPP);
+	        this.photo = this.convertValues(source["photo"], ContactPhoto);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
 	export class ContactPatch {
 	    name?: string;
 	    nickname?: string;
@@ -2347,6 +3033,7 @@ export namespace v1 {
 	    name: string;
 	    type: string;
 	    writable: boolean;
+	    accountId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ContactSource(source);
@@ -2358,6 +3045,7 @@ export namespace v1 {
 	        this.name = source["name"];
 	        this.type = source["type"];
 	        this.writable = source["writable"];
+	        this.accountId = source["accountId"];
 	    }
 	}
 	

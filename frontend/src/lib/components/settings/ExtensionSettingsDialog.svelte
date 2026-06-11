@@ -13,15 +13,22 @@
 
   import { getOpenSettingsExtension, closeExtensionSettings } from '$lib/stores/extensionRegistry.svelte'
   import ContactsSettingsDialog from '$extensions/contacts/frontend/components/ContactsSettingsDialog.svelte'
+  import CalendarSettingsDialog from '$extensions/calendar/frontend/components/CalendarSettingsDialog.svelte'
 
   let openExtension = $derived(getOpenSettingsExtension())
 
   // Each per-extension dialog binds its `open` prop to a derived true/false
   // based on the open state. Closing the dialog calls closeExtensionSettings.
   let contactsOpen = $derived(openExtension === 'contacts')
+  let calendarOpen = $derived(openExtension === 'calendar')
 </script>
 
 <ContactsSettingsDialog
   open={contactsOpen}
+  onClose={closeExtensionSettings}
+/>
+
+<CalendarSettingsDialog
+  open={calendarOpen}
   onClose={closeExtensionSettings}
 />

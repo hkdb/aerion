@@ -16,27 +16,36 @@ import (
 // See Makefile for the complete build command.
 // If ldflags are not set, credentials are loaded from the aerion-creds shim binary.
 var (
-	// GoogleClientID is the OAuth2 client ID for Google/Gmail (Mail-scoped project)
+	// GoogleClientID is the OAuth2 client ID for Google/Gmail (Mail-scoped project).
+	// Same client also backs first-party extensions' Google flows for any scopes
+	// listed in the extension manifest's first_party_uses_core_for_scopes (today:
+	// contacts.readonly). When that's not enough (write scopes, full Calendar),
+	// the picker UI offers GoogleTestingClientID instead — see below.
 	GoogleClientID string
 
 	// GoogleClientSecret is the OAuth2 client secret for Google/Gmail
 	GoogleClientSecret string
 
-	// MicrosoftClientID is the OAuth2 client ID for Microsoft/Outlook (Mail-scoped registration)
+	// MicrosoftClientID is the OAuth2 client ID for Microsoft/Outlook
+	// (Mail-scoped registration). Also serves microsoft-contacts and
+	// microsoft-calendar — Microsoft Graph doesn't gate scopes behind
+	// verification, so one app registration covers all three surfaces.
 	MicrosoftClientID string
 
-	// GoogleExtClientID is the OAuth2 client ID for first-party extensions
-	// (Calendar/Contacts/etc.) under a separate Google Cloud project. Empty in
-	// Phase 1 until the second project is provisioned; once set via ldflags or
-	// the aerion-creds shim, extensions can request scopes against this client.
-	GoogleExtClientID string
+	// GoogleTestingClientID is the shared OAuth2 client for first-party
+	// extensions that need broader Google scopes than the mail project is
+	// verified for (e.g., contacts.readwrite, full Calendar). Single un-
+	// Google-verified test client backs both google-contacts and
+	// google-calendar slots. Surfaced in the picker as
+	// "Aerion - Google (Testing)" so users understand the verification
+	// status before consenting. When the mail project eventually gets
+	// verified with these scopes, the default in the picker UI switches
+	// to "Aerion - Google" (which reuses GoogleClientID via a manifest-
+	// declared scope route) and this slot becomes a fallback.
+	GoogleTestingClientID string
 
-	// GoogleExtClientSecret is the secret paired with GoogleExtClientID.
-	GoogleExtClientSecret string
-
-	// MicrosoftExtClientID is the OAuth2 client ID for first-party extensions
-	// under a separate Azure AD app registration. Empty in Phase 1.
-	MicrosoftExtClientID string
+	// GoogleTestingClientSecret pairs with GoogleTestingClientID.
+	GoogleTestingClientSecret string
 )
 
 
@@ -73,25 +82,30 @@ func loadFromShim() {
 		GoogleClientID = creds["google_client_id"]
 		GoogleClientSecret = creds["google_client_secret"]
 		MicrosoftClientID = creds["microsoft_client_id"]
-		// Extension-scoped client configs are optional in the shim. When the
-		// second Google Cloud project / Azure AD registration is provisioned,
-		// the shim emits these keys; until then ClientConfigForID returns
-		// (zero, false) for the "*-extensions" ids.
-		GoogleExtClientID = creds["google_ext_client_id"]
-		GoogleExtClientSecret = creds["google_ext_client_secret"]
-		MicrosoftExtClientID = creds["microsoft_ext_client_id"]
+		// Optional shared testing client for the un-verified Google
+		// project that backs extensions needing broader scopes. Empty
+		// until provisioned — picker simply omits the "(Testing)" option.
+		GoogleTestingClientID = creds["google_testing_client_id"]
+		GoogleTestingClientSecret = creds["google_testing_client_secret"]
 		return
 	}
 }
 
-// IsGoogleConfigured returns true if Google OAuth credentials are available
+// IsGoogleConfigured returns true if Google OAuth credentials are
+// available from ANY configured source — user override (Settings → OAuth
+// Credentials), a user-set slot alias, or the shipped build-time vars.
+// Routed through the resolver so a from-source build with empty
+// build-time creds but a user override saved in the UI still passes the
+// pre-flight check at the start of the OAuth flow.
 func IsGoogleConfigured() bool {
-	return GoogleClientID != ""
+	creds, ok := ClientConfigForID("google-mail")
+	return ok && creds.ClientID != ""
 }
 
-// IsMicrosoftConfigured returns true if Microsoft OAuth credentials are available
+// IsMicrosoftConfigured mirrors IsGoogleConfigured for Microsoft.
 func IsMicrosoftConfigured() bool {
-	return MicrosoftClientID != ""
+	creds, ok := ClientConfigForID("microsoft-mail")
+	return ok && creds.ClientID != ""
 }
 
 // IsProviderConfigured returns true if the specified provider has OAuth credentials

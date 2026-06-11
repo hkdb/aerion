@@ -10,11 +10,13 @@
   import Composer from './lib/components/composer/Composer.svelte'
   import ToastContainer from './lib/components/ui/toast/ToastContainer.svelte'
   import TermsDialog from './lib/components/TermsDialog.svelte'
+  import OAuthMissingDialog from './lib/components/OAuthMissingDialog.svelte'
+  import WhatsNewDialog from './lib/components/WhatsNewDialog.svelte'
   import CertificateDialog from './lib/components/settings/CertificateDialog.svelte'
   import ExtensionSettingsDialog from './lib/components/settings/ExtensionSettingsDialog.svelte'
-  import IncrementalConsentDialog from './lib/components/oauth/IncrementalConsentDialog.svelte'
   import ExtensionRail from './lib/components/rail/ExtensionRail.svelte'
   import ContactsPane from '$extensions/contacts/frontend/components/ContactsPane.svelte'
+  import CalendarPane from '$extensions/calendar/frontend/components/CalendarPane.svelte'
   import { refreshExtensionRegistry, getRailTabs } from '$lib/stores/extensionRegistry.svelte'
   import { KEY } from '$lib/keyboard/shortcuts'
   import * as AlertDialog from '$lib/components/ui/alert-dialog'
@@ -24,6 +26,7 @@
   import { loadImageAllowlist } from '$lib/stores/imageAllowlist.svelte'
   import { initTheme, applyThemeFromMode, handleSystemThemeEvent, handleMediaQueryChange } from '$lib/stores/theme.svelte'
   import { loadUIState, saveUIState, paneConstraints, getActiveExtension, setActiveExtension } from '$lib/stores/uiState.svelte'
+  import { setPendingDeepLink } from '$lib/stores/extensionDeepLink.svelte'
   import {
     type FocusablePane,
     getFocusedPane,
@@ -39,7 +42,7 @@
   import { dispatchExtensionShortcut } from '$lib/stores/extensionShortcuts.svelte'
   import { initLayout, getLayoutMode, getResponsiveView, showViewer, hideViewer, showSidebar, hideSidebar, isResponsive } from '$lib/stores/layout.svelte'
   // @ts-ignore - wailsjs path
-  import { PrepareReply, GetPendingMailto, GetDraft, MarkAsRead, MarkAsUnread, Star, Unstar, Archive, MarkAsSpam, MarkAsNotSpam, Undo, GetTermsAccepted, SetTermsAccepted, RefreshWindowConstraints, AcceptCertificate, GetStartHiddenActive, CloseWindow, QuitApp, OpenComposerWindow, GetSystemTheme, NotifyStartupComplete } from '../wailsjs/go/app/App.js'
+  import { PrepareReply, GetPendingMailto, GetDraft, MarkAsRead, MarkAsUnread, Star, Unstar, Archive, MarkAsSpam, MarkAsNotSpam, Undo, GetTermsAccepted, SetTermsAccepted, RefreshWindowConstraints, AcceptCertificate, GetStartHiddenActive, CloseWindow, QuitApp, OpenComposerWindow, GetSystemTheme, NotifyStartupComplete, GetOAuthBuildStatus, GetOAuthWarningDisabled, SetOAuthWarningDisabled, GetLastSeenVersion, SetLastSeenVersion, GetAppInfo } from '../wailsjs/go/app/App.js'
   // @ts-ignore - wailsjs path
   import { smtp, folder, certificate } from '../wailsjs/go/models'
   // @ts-ignore - wailsjs runtime
@@ -145,6 +148,16 @@
   // Terms acceptance state
   let showTermsDialog = $state(false)
 
+  // Launch-time OAuth credentials warning state
+  let showOAuthMissingDialog = $state(false)
+  let oauthBuildStatus = $state({ google: true, microsoft: true, googleTesting: true })
+  let pendingOAuthWarning = $state(false)
+
+  // What's New (per-version) dialog state
+  let showWhatsNewDialog = $state(false)
+  let whatsNewVersion = $state('')
+  let pendingWhatsNew = $state(false)
+
   // Certificate TOFU state (for background sync cert errors)
   let showCertDialog = $state(false)
   let pendingCertificate = $state<certificate.CertificateInfo | null>(null)
@@ -173,6 +186,48 @@
       console.error('Failed to save terms acceptance:', err)
     }
   }
+
+  // OAuth warning dismiss — optionally persists the opt-out so the warning
+  // stops firing on future launches even when credentials remain missing.
+  async function dismissOAuthWarning(dontShowAgain: boolean) {
+    if (dontShowAgain) {
+      try {
+        await SetOAuthWarningDisabled(true)
+      } catch (err) {
+        console.error('Failed to persist OAuth warning preference:', err)
+      }
+    }
+    showOAuthMissingDialog = false
+  }
+
+  // What's New acknowledgement — records the current version as seen.
+  // Called ONLY on explicit OK click; ESC/outside-click leaves the version
+  // unrecorded so the dialog fires again on next launch.
+  async function acknowledgeWhatsNew() {
+    try {
+      await SetLastSeenVersion(whatsNewVersion)
+    } catch (err) {
+      console.error('Failed to persist last-seen version:', err)
+    }
+    showWhatsNewDialog = false
+  }
+
+  // Reactive sequencing: Terms → OAuth warning → What's New.
+  // Each gates on the previous being closed so users see them one at a
+  // time, never stacked.
+  $effect(() => {
+    if (!showTermsDialog && pendingOAuthWarning && !showOAuthMissingDialog) {
+      showOAuthMissingDialog = true
+      pendingOAuthWarning = false
+    }
+  })
+
+  $effect(() => {
+    if (!showTermsDialog && !showOAuthMissingDialog && pendingWhatsNew && !showWhatsNewDialog) {
+      showWhatsNewDialog = true
+      pendingWhatsNew = false
+    }
+  })
 
   // Certificate TOFU handlers for background sync
   async function handleBgCertAcceptOnce() {
@@ -239,6 +294,11 @@
       // Find folder info for display
       const folderInfo = findFolderById(data.accountId, data.folderId)
 
+      // Switch the rail back to mail in case the user was on an extension
+      // tab when the notification fired — without this the message-list
+      // state below would update but stay hidden behind the extension pane.
+      setActiveExtension('mail')
+
       // Navigate to the folder (use 'unified' source to highlight under Unified Inbox)
       selectedAccountId = data.accountId
       selectedFolderId = data.folderId
@@ -266,6 +326,17 @@
         selectedConversationAccountId: data.accountId,
         selectedConversationFolderId: data.folderId,
       })
+    })
+
+    // Generic extension-routed notification clicks. The host switches the
+    // rail tab here AND stashes the path in a pending-deep-link buffer.
+    // The target extension's pane drains the buffer on mount (it isn't
+    // mounted yet at the moment we set the tab). Extension-specific path
+    // parsing lives in each extension's own pane component.
+    EventsOn('extension:open', (data: { extensionId: string; path: string }) => {
+      if (!data.extensionId) return
+      if (data.path) setPendingDeepLink(data.extensionId, data.path)
+      setActiveExtension(data.extensionId)
     })
 
     // Listen for window show requests (from single-instance activation, notification clicks)
@@ -330,6 +401,43 @@
       console.error('Failed to check terms acceptance:', err)
       // Show dialog on error to be safe
       showTermsDialog = true
+    }
+
+    // OAuth credentials warning: surface missing provider creds on every
+    // launch unless the user has explicitly opted out. The dialog shows
+    // all three providers with a missing/present indicator, so the
+    // trigger fires when ANY of them is missing. Actual opening is
+    // deferred via $effect so Terms can resolve first.
+    try {
+      const status = await GetOAuthBuildStatus()
+      const anyMissing = !status.google || !status.microsoft || !status.googleTesting
+      if (anyMissing) {
+        const disabled = await GetOAuthWarningDisabled()
+        if (!disabled) {
+          oauthBuildStatus = status
+          pendingOAuthWarning = true
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check OAuth build status:', err)
+    }
+
+    // What's New: fire whenever the stored last-seen version differs from
+    // the current build's version — including the empty-string case so
+    // existing users upgrading to v0.3.0 (or anyone whose DB predates the
+    // last_seen_version key) see the release announcement on first launch.
+    // The version isn't recorded until the user explicitly clicks OK in
+    // the dialog (see acknowledgeWhatsNew); ESC/outside-click leaves it
+    // unrecorded so the dialog fires again next launch.
+    try {
+      const appInfo = await GetAppInfo()
+      const lastSeen = await GetLastSeenVersion()
+      if (lastSeen !== appInfo.version) {
+        whatsNewVersion = appInfo.version
+        pendingWhatsNew = true
+      }
+    } catch (err) {
+      console.error('Failed to check What\'s New state:', err)
     }
 
     // Load persisted UI state
@@ -801,20 +909,20 @@
           e.preventDefault()
           handleQuit()
           return
-        case 'n':
-          e.preventDefault()
-          handleCompose()
-          return
-        case 'tab': {
+        case 'tab':
+        case '`': {
           // Cycle through rail items: Mail + enabled extensions.
-          // Ctrl+Tab forward, Ctrl+Shift+Tab backward. Wraps at the ends.
+          // Ctrl+Tab        → forward
+          // Ctrl+`          → backward
+          // (Ctrl+Shift+Tab is intercepted by webkit2gtk before the
+          //  keydown event reaches us, so we use Ctrl+` for backward.)
           e.preventDefault()
           const tabs = getRailTabs()
           const order = ['mail', ...tabs.map(t => t.extensionId)]
           if (order.length <= 1) return // only Mail — nothing to cycle
           const current = getActiveExtension()
           const idx = order.indexOf(current)
-          const step = e.shiftKey ? -1 : 1
+          const step = e.key === '`' ? -1 : 1
           const next = (idx + step + order.length) % order.length
           setActiveExtension(order[next])
           return
@@ -844,6 +952,14 @@
 
       // MAIL-DOMAIN Ctrl/Cmd cases (guarded above).
       switch (e.key.toLowerCase()) {
+        case 'n':
+          // Ctrl/Cmd+N — new mail composer. Mail-domain only: when an
+          // extension rail is active (e.g., calendar), that extension's
+          // shortcut registry handles Ctrl+N before we reach the global
+          // switch, opening its own "new X" dialog.
+          e.preventDefault()
+          handleCompose()
+          return
         case 'r': {
           if (!hasConversation) return
           e.preventDefault()
@@ -1374,6 +1490,10 @@
       <ContactsPane />
     {/if}
 
+    {#if getActiveExtension() === 'calendar'}
+      <CalendarPane />
+    {/if}
+
     <!-- Mail layout is ALWAYS mounted; only its visibility is toggled when an
          extension takes over the pane. Unmounting+remounting the mail tree on
          every extension switch was leaking state (zombie listeners) and pinning
@@ -1509,11 +1629,6 @@
 <!-- Per-extension settings dialog dispatcher (Settings → Extensions → Edit) -->
 <ExtensionSettingsDialog />
 
-<!-- Generic OAuth incremental-consent prompt; listens for
-     `oauth:incremental-consent-required` from the host. Scaffolded in 2b.1;
-     wired to real flows in 2b.3 when Google/MS write paths land. -->
-<IncrementalConsentDialog />
-
 <!-- Composer Modal -->
 {#if showComposer && composerAccountId}
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -1539,6 +1654,23 @@
 
 <!-- Terms Acceptance Dialog -->
 <TermsDialog bind:open={showTermsDialog} onAccept={handleTermsAccepted} />
+
+<!-- Launch-time OAuth credentials warning. Shows on every launch when one
+     or more provider credentials weren't compiled in, unless the user
+     opts out via "Don't show again". -->
+<OAuthMissingDialog
+  bind:open={showOAuthMissingDialog}
+  oauthStatus={oauthBuildStatus}
+  onDismiss={dismissOAuthWarning}
+/>
+
+<!-- Per-version release announcement. OK click records acknowledgement;
+     closing without OK leaves the version unrecorded so the dialog
+     fires again next launch. -->
+<WhatsNewDialog
+  bind:open={showWhatsNewDialog}
+  onAcknowledge={acknowledgeWhatsNew}
+/>
 
 <!-- Certificate TOFU Dialog (for background sync cert errors) -->
 <CertificateDialog

@@ -5,6 +5,7 @@
   import { Label } from '$lib/components/ui/label'
   import * as Select from '$lib/components/ui/select'
   import { ColorPicker } from '$lib/components/ui/color-picker'
+  import Switch from '$lib/components/ui/switch/Switch.svelte'
   import {
     providers,
     detectProvider,
@@ -21,9 +22,9 @@
   import { oauthStore } from '$lib/stores/oauth.svelte'
   import { toasts } from '$lib/stores/toast'
   // @ts-ignore - wailsjs path
-  import { account, certificate } from '../../../../wailsjs/go/models'
+  import { account, certificate, app } from '../../../../wailsjs/go/models'
   // @ts-ignore - wailsjs path
-  import { GetAccountFoldersForMapping, GetAutoDetectedFolders, GetIdentities, AcceptCertificate } from '../../../../wailsjs/go/app/App'
+  import { GetAccountFoldersForMapping, GetAutoDetectedFolders, GetIdentities, AcceptCertificate, GetAllAccountIdentities } from '../../../../wailsjs/go/app/App'
   import CertificateDialog from './CertificateDialog.svelte'
   import { accountStore } from '$lib/stores/accounts.svelte'
   import { _ } from '$lib/i18n'
@@ -81,6 +82,29 @@
   let smtpHost = $state('')
   let smtpPort = $state(587)
   let smtpSecurity = $state<string>('starttls')
+  let noOutgoingServer = $state(false)
+  let smtpUsername = $state('')
+  let smtpPassword = $state('')
+  let smtpUseSameAsIncoming = $state(true)
+  // Auto-mirror IMAP host into SMTP host for new Generic accounts: most
+  // providers use the same hostname or a near-identical subdomain swap,
+  // so typing the IMAP host pre-fills SMTP. Goes sticky-off the moment
+  // the user types directly into the SMTP field — manual edits stick.
+  let smtpHostMirrorsImap = $state(true)
+  let replyForwardIdentityID = $state('')
+  let availableIdentityGroups = $state<app.AccountIdentityGroup[]>([])
+  // True only when the user explicitly picked Generic/Custom (or the
+  // detector fell back to it). The "Same as incoming server" toggle is
+  // gated on this; pre-configured providers always reuse IMAP creds.
+  const isGenericProvider = $derived(selectedProvider?.id === 'custom' || selectedProvider?.id === 'generic')
+
+  function handleSmtpUseSameAsIncomingChange(v: boolean) {
+    smtpUseSameAsIncoming = v
+    if (v) {
+      smtpUsername = ''
+      smtpPassword = ''
+    }
+  }
   let syncPeriodDays = $state<string>('180')
   let syncInterval = $state<string>('30') // Default: 30 minutes
   let readReceiptRequestPolicy = $state<string>('never')
@@ -238,8 +262,26 @@
       checkOAuthConfiguration()
       // Initialize OAuth event listeners
       oauthStore.initEvents()
+      // Load sendable identity groups for the Reply/Forward-with picker.
+      // Used only when the user toggles "No outgoing server" on; cheap
+      // single Wails call so load it up-front for snappier UI.
+      loadIdentityGroups()
     }
   })
+
+  async function loadIdentityGroups() {
+    try {
+      const groups = (await GetAllAccountIdentities()) || []
+      // Exclude the account being edited (its own identities can't be
+      // a "Reply/Forward-with" target when it's marked no-outgoing) and
+      // any other no-outgoing accounts (their identities aren't sendable
+      // either).
+      availableIdentityGroups = groups.filter((g: app.AccountIdentityGroup) => g.account?.id !== editAccount?.id && !g.account?.noOutgoingServer)
+    } catch (err) {
+      console.error('Failed to load identity groups for Reply/Forward-with picker:', err)
+      availableIdentityGroups = []
+    }
+  }
 
   // Update authMethod when OAuth configuration finishes loading.
   // If a user selects a provider before the async OAuth check completes,
@@ -392,6 +434,10 @@
       smtpHost,
       smtpPort,
       smtpSecurity,
+      noOutgoingServer,
+      smtpUsername,
+      smtpPassword,
+      replyForwardIdentityId: replyForwardIdentityID,
       authType: authMethod,
       syncPeriodDays: Number(syncPeriodDays),
       syncInterval: Number(syncInterval),
@@ -427,9 +473,19 @@
     }
 
     if (!imapHost.trim()) errors.imapHost = $_('account.imapHostRequired')
-    if (!smtpHost.trim()) errors.smtpHost = $_('account.smtpHostRequired')
     if (imapPort < 1 || imapPort > 65535) errors.imapPort = $_('account.invalidPort')
-    if (smtpPort < 1 || smtpPort > 65535) errors.smtpPort = $_('account.invalidPort')
+    // SMTP host/port checks only when the user wants outgoing.
+    if (!noOutgoingServer) {
+      if (!smtpHost.trim()) errors.smtpHost = $_('account.smtpHostRequired')
+      if (smtpPort < 1 || smtpPort > 65535) errors.smtpPort = $_('account.invalidPort')
+    }
+    // Separate SMTP credentials (Generic only, toggle off): username
+    // always required; password required on NEW accounts. Blank on EDIT
+    // is "keep existing keyring entry."
+    if (!noOutgoingServer && isGenericProvider && !smtpUseSameAsIncoming) {
+      if (!smtpUsername.trim()) errors.smtpUsername = $_('account.usernameRequired')
+      if (!editAccount && !smtpPassword) errors.smtpPassword = $_('account.passwordRequired')
+    }
 
     return Object.keys(errors).length === 0
   }
@@ -870,6 +926,12 @@
                   type="text"
                   placeholder="imap.example.com"
                   bind:value={imapHost}
+                  oninput={(e) => {
+                    const v = (e.target as HTMLInputElement).value
+                    if (isGenericProvider && !editAccount && smtpHostMirrorsImap) {
+                      smtpHost = v
+                    }
+                  }}
                   class={errors.imapHost ? 'border-destructive' : ''}
                 />
                 {#if errors.imapHost}
@@ -905,6 +967,64 @@
             </div>
           </div>
 
+          <!-- "No outgoing server" toggle (above SMTP). When on, SMTP +
+               SMTP-auth sections collapse and the composer's From dropdown
+               excludes this account. -->
+          <div class="space-y-2">
+            <label class="flex items-center gap-3 text-sm">
+              <Switch bind:checked={noOutgoingServer} />
+              <span class="font-medium">{$_('account.noOutgoingServer')}</span>
+            </label>
+            <p class="text-xs text-muted-foreground">{$_('account.noOutgoingServerHelp')}</p>
+
+            {#if noOutgoingServer}
+              <!-- Reply/Forward-with picker. Same shape as the composer's
+                   From dropdown. Default = empty value, which the composer
+                   resolves to the user's default sending identity. -->
+              <div class="pt-2 space-y-1">
+                <Label>{$_('account.replyForwardWith')}</Label>
+                <Select.Root bind:value={replyForwardIdentityID}>
+                  <Select.Trigger class="h-10">
+                    <Select.Value placeholder={$_('account.replyForwardWithDefault')}>
+                      {#if replyForwardIdentityID}
+                        {@const allIdentities = availableIdentityGroups.flatMap(g => (g.identities || []).map(i => ({ identity: i, group: g })))}
+                        {@const found = allIdentities.find(x => x.identity.id === replyForwardIdentityID)}
+                        {#if found}
+                          {#if found.group.account?.color}
+                            <span class="inline-block w-2 h-2 rounded-full mr-1.5 flex-shrink-0" style="background-color: {found.group.account.color}"></span>
+                          {/if}
+                          {found.identity.name} &lt;{found.identity.email}&gt;
+                        {:else}
+                          {$_('account.replyForwardWithDefault')}
+                        {/if}
+                      {:else}
+                        {$_('account.replyForwardWithDefault')}
+                      {/if}
+                    </Select.Value>
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="" label={$_('account.replyForwardWithDefault')} />
+                    {#each availableIdentityGroups as group (group.account?.id)}
+                      <Select.Group>
+                        <Select.GroupHeading class="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">
+                          {#if group.account?.color}
+                            <span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {group.account.color}"></span>
+                          {/if}
+                          {group.account?.name || group.account?.email}
+                        </Select.GroupHeading>
+                        {#each group.identities || [] as identity (identity.id)}
+                          <Select.Item value={identity.id} label="{identity.name} <{identity.email}>" />
+                        {/each}
+                      </Select.Group>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <p class="text-xs text-muted-foreground">{$_('account.replyForwardWithHelp')}</p>
+              </div>
+            {/if}
+          </div>
+
+          {#if !noOutgoingServer}
           <!-- SMTP Settings -->
           <div class="space-y-3">
             <h4 class="text-sm font-medium">{$_('account.outgoingMail')}</h4>
@@ -916,6 +1036,7 @@
                   type="text"
                   placeholder="smtp.example.com"
                   bind:value={smtpHost}
+                  oninput={() => { smtpHostMirrorsImap = false }}
                   class={errors.smtpHost ? 'border-destructive' : ''}
                 />
                 {#if errors.smtpHost}
@@ -949,7 +1070,52 @@
                 </div>
               </div>
             </div>
+
+            {#if isGenericProvider}
+              <!-- SMTP authentication subsection — Generic only. -->
+              <div class="space-y-3 pt-3 border-t border-border">
+                <h4 class="text-sm font-medium">{$_('account.smtpAuthentication')}</h4>
+                <label class="flex items-center gap-3 text-sm">
+                  <Switch
+                    checked={smtpUseSameAsIncoming}
+                    onCheckedChange={handleSmtpUseSameAsIncomingChange}
+                  />
+                  <span>{$_('account.smtpUseSameAsIncoming')}</span>
+                </label>
+                {#if !smtpUseSameAsIncoming}
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-2">
+                      <Label for="wizardSmtpUsername">{$_('account.username')}</Label>
+                      <Input
+                        id="wizardSmtpUsername"
+                        type="text"
+                        placeholder={$_('account.smtpUsernamePlaceholder')}
+                        bind:value={smtpUsername}
+                        class={errors.smtpUsername ? 'border-destructive' : ''}
+                      />
+                      {#if errors.smtpUsername}
+                        <p class="text-sm text-destructive">{errors.smtpUsername}</p>
+                      {/if}
+                    </div>
+                    <div class="space-y-2">
+                      <Label for="wizardSmtpPassword">{$_('account.password')}</Label>
+                      <Input
+                        id="wizardSmtpPassword"
+                        type="password"
+                        placeholder={$_('account.smtpPasswordPlaceholder')}
+                        bind:value={smtpPassword}
+                        class={errors.smtpPassword ? 'border-destructive' : ''}
+                      />
+                      {#if errors.smtpPassword}
+                        <p class="text-sm text-destructive">{errors.smtpPassword}</p>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            {/if}
           </div>
+          {/if}
 
           <!-- Sync Settings -->
           <div class="space-y-2">

@@ -1,6 +1,5 @@
 // Package imaging provides minimal image decode/resize/encode helpers used by
-// the host's Files surface (coreapi.Files.ReadAndResizeImageFile) and any
-// other code that needs to normalize image inputs to a small JPEG.
+// the Contacts extension's photo pipeline.
 //
 // The intended use case is contact-photo handling (~256x256 max edge) where
 // inline base64 in vCards needs to stay compact. Not a general image-processing
@@ -14,7 +13,6 @@ import (
 	_ "image/gif" // register decoders for the formats we accept
 	"image/jpeg"
 	_ "image/png"
-	"io"
 
 	_ "golang.org/x/image/webp" // WEBP decoder
 
@@ -103,12 +101,3 @@ func ResizeToJPEG(raw []byte, opts ResizeOptions) ([]byte, string, error) {
 	return out.Bytes(), "image/jpeg", nil
 }
 
-// ReadAndResize reads from r (capped at MaxAcceptedBytes) then delegates to
-// ResizeToJPEG. Convenience wrapper for file-backed callers.
-func ReadAndResize(r io.Reader, opts ResizeOptions) ([]byte, string, error) {
-	raw, err := io.ReadAll(io.LimitReader(r, MaxAcceptedBytes+1))
-	if err != nil {
-		return nil, "", fmt.Errorf("imaging: read: %w", err)
-	}
-	return ResizeToJPEG(raw, opts)
-}

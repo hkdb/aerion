@@ -28,6 +28,16 @@ type ProcessedBody struct {
 	SMIMEEncrypted bool                   // Whether the message is encrypted
 	PGPRawBody     []byte                 // Raw PGP body for on-view processing
 	PGPEncrypted   bool                   // Whether the message is PGP encrypted
+
+	// Size signals used by shouldChargeFailure to distinguish "true empty
+	// body" from "server-side truncation". ReportedSize comes from the
+	// IMAP RFC822.SIZE response item; ReceivedBytes is what we actually
+	// read from the BODY[] literal. A meaningful shortfall between the
+	// two (and below maxMessageSize, to exclude Aerion's own cap) means
+	// the FETCH was likely truncated and we should NOT persist the
+	// failure — the next sync may succeed.
+	ReportedSize  int64
+	ReceivedBytes int64
 }
 
 // FetchMessageBody fetches the body for a single message on-demand.
@@ -163,6 +173,7 @@ func (e *Engine) fetchMessageBodiesBatch(ctx context.Context, client *imapclient
 		var fetchedUID imap.UID
 		var rawBytes []byte
 		var gotBodySection bool
+		var reportedSize int64 // RFC822.SIZE; 0 if server didn't return it
 
 		for {
 			item := msg.Next()
@@ -173,6 +184,11 @@ func (e *Engine) fetchMessageBodiesBatch(ctx context.Context, client *imapclient
 			switch data := item.(type) {
 			case imapclient.FetchItemDataUID:
 				fetchedUID = data.UID
+			case imapclient.FetchItemDataRFC822Size:
+				// Captured so shouldChargeFailure can compare against bytes
+				// actually read and detect server-side truncation before
+				// persisting body_failed = 1.
+				reportedSize = int64(data.Size)
 			case imapclient.FetchItemDataBodySection:
 				gotBodySection = true
 				// Read body from literal reader with size limit to prevent memory exhaustion
@@ -264,6 +280,8 @@ func (e *Engine) fetchMessageBodiesBatch(ctx context.Context, client *imapclient
 			SMIMEEncrypted: parsed.SMIMEEncrypted,
 			PGPRawBody:     parsed.PGPRawBody,
 			PGPEncrypted:   parsed.PGPEncrypted,
+			ReportedSize:   reportedSize,
+			ReceivedBytes:  int64(len(rawBytes)),
 		}
 	}
 
@@ -282,6 +300,104 @@ func (e *Engine) fetchMessageBodiesBatch(ctx context.Context, client *imapclient
 		Msg("Batch fetch complete")
 
 	return results, nil
+}
+
+// bodyTruncationThreshold is the fraction of the IMAP-reported size below
+// which a received body is considered suspiciously short — likely truncated
+// in transit rather than legitimately empty. Tuned for the typical case of
+// a multipart message: small IMAP framing variations stay above this floor,
+// but a real loss of bytes (a clearly-cut-off response) falls under it.
+const bodyTruncationThreshold = 0.8
+
+// shouldChargeFailure decides whether a message that came back with no
+// usable body should be persisted as body_failed=1. Returns false when the
+// signals suggest the failure was a transient truncation, in which case
+// the next sync may succeed — so we want to retry rather than permanently
+// skip the message.
+//
+// Decision table (all comparisons in bytes):
+//   reportedSize == 0          → charge   (no signal to defer on; treat as definitive)
+//   received    >= maxMsgSize  → charge   (Aerion's own cap, not server truncation; next fetch hits same wall)
+//   received    <  reported*T  → DON'T    (clear shortfall; likely server-side truncation)
+//   otherwise                  → charge   (received is close enough to expected; the empty body is real)
+//
+// Kept as a pure function (no Engine receiver) so it can be unit-tested
+// against synthetic inputs without standing up a full sync engine.
+func shouldChargeFailure(receivedBytes, reportedSize int64) bool {
+	if reportedSize <= 0 {
+		return true
+	}
+	if receivedBytes >= maxMessageSize {
+		return true
+	}
+	threshold := int64(float64(reportedSize) * bodyTruncationThreshold)
+	if receivedBytes < threshold {
+		return false
+	}
+	return true
+}
+
+// markUnresolvedAsFailed persists messages.body_failed=1 for any requested ID
+// whose body parsed to empty AND wasn't encrypted, OR whose UID the server
+// didn't return at all. Encrypted messages (which legitimately carry empty
+// plaintext until view-time decryption) are treated as resolved. The flag
+// excludes the message from future body-fetch queries via the body_failed=0
+// guard in GetMessagesWithoutBody/AndSize/Count (see migration v39).
+//
+// sizes carries the per-message (received, reported) byte counts captured
+// during FETCH so shouldChargeFailure can defer marking when the response
+// was likely server-side truncation. IDs absent from sizes — typically
+// requested-but-not-returned — fall through to the "no signal" branch and
+// are charged (server returned nothing despite RFC822.SIZE being requested:
+// either a server bug or a persistent permission issue, both worth bounding).
+//
+// Without this persistence, the previous in-memory failedParseAttempts map
+// reset every sync cycle and re-fetched the same unparseable IDs forever.
+// fetchedSize records what the IMAP server said the message size was
+// (RFC822.SIZE) vs what we actually read from the BODY[] literal. Used by
+// shouldChargeFailure to decide whether to defer marking a message failed.
+type fetchedSize struct {
+	received int64
+	reported int64
+}
+
+func (e *Engine) markUnresolvedAsFailed(requestedIDs []string, updates []message.BodyUpdate, sizes map[string]fetchedSize) {
+	if len(requestedIDs) == 0 {
+		return
+	}
+	resolved := make(map[string]bool, len(updates))
+	for _, u := range updates {
+		if u.BodyHTML != "" || u.BodyText != "" || u.SMIMEEncrypted || u.PGPEncrypted {
+			resolved[u.MessageID] = true
+		}
+	}
+	var failedIDs []string
+	var deferredCount int
+	for _, id := range requestedIDs {
+		if resolved[id] {
+			continue
+		}
+		// Defer marking when the response looks truncated — retrying next
+		// sync may succeed. shouldChargeFailure returns true when no size
+		// signal exists (id not in sizes map → zero values → reported=0).
+		s := sizes[id]
+		if !shouldChargeFailure(s.received, s.reported) {
+			deferredCount++
+			continue
+		}
+		failedIDs = append(failedIDs, id)
+	}
+	if deferredCount > 0 {
+		e.log.Info().Int("count", deferredCount).Msg("Deferred marking bodies as parse-failed; FETCH looked truncated, will retry next sync")
+	}
+	if len(failedIDs) == 0 {
+		return
+	}
+	if err := e.messageStore.MarkBodyFailed(failedIDs); err != nil {
+		e.log.Warn().Err(err).Int("count", len(failedIDs)).Msg("Failed to persist body-parse-failed flag")
+		return
+	}
+	e.log.Info().Int("count", len(failedIDs)).Msg("Marked message bodies as parse-failed; excluded from future sync")
 }
 
 // FetchBodiesInBackground fetches bodies for messages that don't have them yet.
@@ -374,16 +490,22 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 	fetched := 0
 	failed := 0
 
-	// Track parse failures per message in this sync session
-	// Messages that fail parsing (empty body) 3 times will be skipped for the rest of this session
-	// This prevents infinite loops on messages that legitimately have no parseable body
-	failedParseAttempts := make(map[string]int) // messageID -> attempt count
-	const maxParseAttempts = 3
+	// Note: parse-failure tracking is persisted in messages.body_failed (v39).
+	// Once a fetch returns nothing usable for a message, MarkBodyFailed flags
+	// it and GetMessagesWithoutBodyAndSize excludes it from future queries —
+	// so no in-memory dedup is needed and the cap survives across sessions.
 
-	// Processing result from goroutine - contains parsed data ready for DB
+	// Processing result from goroutine - contains parsed data ready for DB.
+	// requestedIDs is every message the batch asked the server for, so we can
+	// tell which IDs came back unresolved (parsed empty AND not encrypted, or
+	// not returned at all) and persist their failure via MarkBodyFailed.
+	// sizes maps messageID → (received bytes, IMAP-reported size) so
+	// markUnresolvedAsFailed can defer flagging when the FETCH looks truncated.
 	type processingResult struct {
+		requestedIDs []string
 		bodyUpdates  []message.BodyUpdate
 		attachments  []*message.Attachment
+		sizes        map[string]fetchedSize
 		fetchedCount int
 	}
 
@@ -424,19 +546,12 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 				Int("fetchedCount", result.fetchedCount).
 				Msg("Received result from processing goroutine")
 
-			// Track messages that parsed to empty body (potential parse failures)
-			// These will be skipped after maxParseAttempts to prevent infinite loops
-			for _, update := range result.bodyUpdates {
-				if update.BodyHTML == "" && update.BodyText == "" {
-					failedParseAttempts[update.MessageID]++
-					if failedParseAttempts[update.MessageID] >= maxParseAttempts {
-						e.log.Warn().
-							Str("messageID", update.MessageID).
-							Int("attempts", failedParseAttempts[update.MessageID]).
-							Msg("Message body parsing failed after max attempts, skipping for this session")
-					}
-				}
-			}
+			// Persist parse failures via messages.body_failed so we never
+			// re-fetch these from IMAP again. A message is "resolved" if its
+			// parsed body is non-empty OR it's encrypted (encrypted bodies are
+			// intentionally empty until decrypted at view time). Everything
+			// else — including IDs the server didn't return — gets flagged.
+			e.markUnresolvedAsFailed(result.requestedIDs, result.bodyUpdates, result.sizes)
 
 			// Apply database updates - MUST complete before querying next batch
 			if len(result.bodyUpdates) > 0 {
@@ -490,23 +605,9 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 			break // All done
 		}
 
-		// Filter out messages that have already failed parsing too many times this session
-		var filteredCandidates []message.MessageWithSize
-		for _, msg := range candidates {
-			if failedParseAttempts[msg.ID] >= maxParseAttempts {
-				continue // Skip - already failed too many times this session
-			}
-			filteredCandidates = append(filteredCandidates, msg)
-		}
-
-		// If all candidates have been filtered out, we're done
-		if len(filteredCandidates) == 0 {
-			e.log.Debug().
-				Int("totalCandidates", len(candidates)).
-				Int("skippedDueToRetries", len(candidates)).
-				Msg("All remaining candidates have exceeded parse retry limit, finishing sync")
-			break
-		}
+		// Note: candidates already excludes any message with body_failed=1
+		// (enforced by GetMessagesWithoutBodyAndSize since v39), so the
+		// in-memory filter that used to live here is gone.
 
 		// Adaptive batch sizing: use smaller batches for large mailboxes
 		// This provides faster recovery if one batch fails and more frequent progress updates
@@ -530,7 +631,7 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 		var batchIDs []string
 		var batchBytes int64
 
-		for _, msg := range filteredCandidates {
+		for _, msg := range candidates {
 			msgSize := int64(msg.Size)
 			if msgSize <= 0 {
 				msgSize = 10 * 1024 // Assume 10KB for messages with unknown size
@@ -634,15 +735,15 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 		// Reset failure counters on success
 		failedBatches = 0
 
-		// If we got no bodies back, mark all messages in this batch as failed
-		// to prevent infinite loop (same messages being queried over and over)
+		// If we got no bodies back, persist the failure for every requested
+		// ID so they are excluded from future syncs forever — otherwise the
+		// next cycle would query and FETCH the same UIDs again.
 		if len(bodies) == 0 {
 			e.log.Warn().Int("requested", len(uidToMessageID)).Msg("IMAP returned no bodies for batch")
-			// Mark all messages in this batch as having failed parse attempts
-			// This prevents them from being selected again in this sync session
-			for _, msgID := range batchIDs {
-				failedParseAttempts[msgID] = maxParseAttempts // Mark as max failures to skip
-			}
+			// No size signals here — server returned nothing, so every ID
+			// falls through to the "no signal" branch of shouldChargeFailure
+			// and gets charged. Pass nil to keep the call sites uniform.
+			e.markUnresolvedAsFailed(batchIDs, nil, nil)
 			failed += len(uidToMessageID)
 			continue
 		}
@@ -657,6 +758,7 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 			startTime := time.Now()
 			var bodyUpdates []message.BodyUpdate
 			var allAttachments []*message.Attachment
+			sizes := make(map[string]fetchedSize, len(currentBodies))
 
 			for _, pb := range currentBodies {
 				// Build body update
@@ -674,6 +776,8 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 				// Don't cache S/MIME or PGP verification status — computed fresh on each view
 				bodyUpdates = append(bodyUpdates, bu)
 
+				sizes[pb.MessageID] = fetchedSize{received: pb.ReceivedBytes, reported: pb.ReportedSize}
+
 				// Use pre-extracted attachments (no re-parsing!)
 				if len(pb.Attachments) > 0 {
 					allAttachments = append(allAttachments, pb.Attachments...)
@@ -687,8 +791,10 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 				Msg("Built body updates and attachments for batch")
 
 			resultChan <- processingResult{
+				requestedIDs: batchIDs,
 				bodyUpdates:  bodyUpdates,
 				attachments:  allAttachments,
+				sizes:        sizes,
 				fetchedCount: len(currentBodies),
 			}
 		}()
@@ -701,18 +807,9 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 	if pendingResultChan != nil {
 		result := <-pendingResultChan
 
-		// Track messages that parsed to empty body (for logging purposes on final batch)
-		for _, update := range result.bodyUpdates {
-			if update.BodyHTML == "" && update.BodyText == "" {
-				failedParseAttempts[update.MessageID]++
-				if failedParseAttempts[update.MessageID] >= maxParseAttempts {
-					e.log.Warn().
-						Str("messageID", update.MessageID).
-						Int("attempts", failedParseAttempts[update.MessageID]).
-						Msg("Message body parsing failed after max attempts, skipping for this session")
-				}
-			}
-		}
+		// Persist parse failures for the final batch via the same path as
+		// every other batch — see markUnresolvedAsFailed.
+		e.markUnresolvedAsFailed(result.requestedIDs, result.bodyUpdates, result.sizes)
 
 		if len(result.bodyUpdates) > 0 {
 			if err := e.messageStore.UpdateBodiesBatch(result.bodyUpdates); err != nil {

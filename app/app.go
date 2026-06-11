@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os/exec"
@@ -19,6 +20,7 @@ import (
 	"github.com/hkdb/aerion/internal/credentials"
 	"github.com/hkdb/aerion/internal/database"
 	"github.com/hkdb/aerion/internal/draft"
+	extcalendarbe "github.com/hkdb/aerion/extensions/calendar/backend"
 	extcontactsbe "github.com/hkdb/aerion/extensions/contacts/backend"
 	extauth "github.com/hkdb/aerion/internal/extensions/auth"
 	extcompose "github.com/hkdb/aerion/internal/extensions/compose"
@@ -178,7 +180,13 @@ type App struct {
 	// Convention: bridge methods MUST be named with the extension's prefix
 	// (`Contacts_`, `Calendar_`, etc.) so embedded methods can never collide
 	// across extensions. See docs/EXTENSIONS.md.
-	*extcontactsbe.Bridge
+	//
+	// Each extension's bridge struct must use a DISTINCT type name (e.g.,
+	// `Bridge`, `CalendarBridge`) so the anonymous-embed field names are
+	// unique — Go derives the field name from the type's last identifier,
+	// and two fields named `Bridge` would collide.
+	*extcontactsbe.ContactsBridge
+	*extcalendarbe.CalendarBridge
 
 	ctx context.Context
 
@@ -233,8 +241,17 @@ type App struct {
 	composerAPI      *extcompose.API      // coreapi.Composer impl wrapping OpenComposerWindow
 	uiRegistry       *extui.Registry      // coreapi.UI impl: rail tabs, account-setup hooks, ...
 	contactsExt      *extcontactsbe.Extension // Contacts lifecycle handle (manifest + Register only)
+	calendarExt      *extcalendarbe.Extension // Calendar lifecycle handle (manifest + Register only)
 	knownExtensions  []coreapi.Extension      // all first-party extensions, iterated by ListExtensions
 	extensionUnregs  []coreapi.Unregister     // teardown funcs returned from each Extension.Register
+
+	// coreapi.EventBus implementation, lazily constructed on first
+	// Core.Events() call (via eventBusInitOnce). Extensions consume via
+	// core.Events().Publish / .Subscribe; the bus also tees to Wails
+	// frontend events. System-event wire-up (sleep/network → bus) inside
+	// the bus is also lazy — first system:* Subscribe triggers it.
+	eventBus         *eventBusCoreImpl
+	eventBusInitOnce goSync.Once
 
 	// S/MIME
 	smimeStore     *smime.Store
@@ -331,6 +348,150 @@ func NewApp(debugModeFn func() bool, useDirectDBus bool) *App {
 	}
 }
 
+// StartupDialogInfo holds the user-facing dialog content for a startup
+// failure: title, body, and an optional URL the dialog should expose
+// behind an action button. main.go's preflight glue inspects the URL
+// field to decide between ShowDialog and ShowDialogWithLink.
+type StartupDialogInfo struct {
+	Title       string
+	Text        string
+	ActionLabel string // button text; empty means no action button
+	ActionURL   string // URL opened when the action button is clicked
+}
+
+// StartupDialogInfoFor returns the user-facing dialog content for a startup
+// error returned by App.Preflight. Known sentinel types get a tailored
+// message + action URL; everything else falls back to a generic message.
+//
+// URLs in the returned Text are rendered as clickable links by dialog
+// backends that support markup (currently zenity on Linux via Pango).
+// Other backends show the URL as selectable plain text and use the
+// ActionURL field to drive an "Open Docs" button.
+func StartupDialogInfoFor(err error) StartupDialogInfo {
+	const docsRollbackURL = "https://github.com/hkdb/aerion/blob/main/docs/SQL_ROLLBACK.md"
+
+	var schemaTooNew *database.ErrSchemaTooNew
+	if errors.As(err, &schemaTooNew) {
+		text := fmt.Sprintf(
+			"Aerion cannot open your database because its schema (version %d) is newer "+
+				"than this build of Aerion supports (max version %d).\n\n"+
+				"This usually means you downgraded Aerion. To recover, either reinstall "+
+				"the newer version, or follow the rollback instructions to bring your "+
+				"database back to version %d:\n\n"+
+				"%s",
+			schemaTooNew.DBVersion, schemaTooNew.BuildVersion, schemaTooNew.BuildVersion,
+			docsRollbackURL,
+		)
+		return StartupDialogInfo{
+			Title:       "Aerion could not start",
+			Text:        text,
+			ActionLabel: "Open Docs",
+			ActionURL:   docsRollbackURL,
+		}
+	}
+	return StartupDialogInfo{
+		Title: "Aerion could not start",
+		Text:  fmt.Sprintf("Aerion could not start.\n\nDetails: %v", err),
+	}
+}
+
+// Preflight performs the early-startup steps that must succeed BEFORE the
+// Wails window is shown: logging init, platform paths, directory creation,
+// database open + migration, credential store init, and OAuth override
+// wiring. Returns an error on any failure; main.go is responsible for
+// surfacing the failure to the user (via StartupDialogInfoFor + a native
+// dialog) and exiting before wails.Run is called.
+//
+// Splitting these steps out of Startup is intentional: Wails calls Startup
+// AFTER it has already created the OS window, so a failure inside Startup
+// would briefly flash a half-rendered app window before the error dialog
+// appears. Preflight runs in main.go before wails.Run so the user only
+// ever sees the error dialog.
+func (a *App) Preflight() error {
+	logLevel := "fatal"
+	if a.debugMode != nil && a.debugMode() {
+		logLevel = "debug"
+	}
+	_ = logging.Init(logging.Config{
+		Level:   logLevel,
+		Console: true,
+	})
+	log := logging.WithComponent("app")
+
+	paths, err := platform.GetPaths()
+	if err != nil {
+		return fmt.Errorf("get platform paths: %w", err)
+	}
+	a.paths = paths
+
+	if err := paths.EnsureDirectories(); err != nil {
+		return fmt.Errorf("create directories: %w", err)
+	}
+	log.Info().
+		Str("config", paths.Config).
+		Str("data", paths.Data).
+		Str("cache", paths.Cache).
+		Msg("Initialized paths")
+
+	db, err := database.Open(paths.DatabasePath())
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	a.db = db
+	log.Info().Str("path", paths.DatabasePath()).Msg("Opened database")
+
+	if err := db.Migrate(); err != nil {
+		return err
+	}
+	log.Info().Msg("Database migrations complete")
+
+	credStore, err := credentials.NewStore(db.DB, paths.Data)
+	if err != nil {
+		return fmt.Errorf("init credential store: %w", err)
+	}
+	a.credStore = credStore
+
+	// Wire user-supplied OAuth client credentials override into the oauth2
+	// resolver chain. When the user has saved their own client_id + secret
+	// for a given config id via Settings → OAuth Credentials, those values
+	// take priority over any shipped (build-time) defaults.
+	oauth2.UserOverrideLookup = func(configID string) (oauth2.ClientCredentials, bool) {
+		clientID, clientSecret, ok, err := credStore.GetUserClientCreds(configID)
+		if err != nil || !ok {
+			return oauth2.ClientCredentials{}, false
+		}
+		return oauth2.ClientCredentials{ClientID: clientID, ClientSecret: clientSecret}, true
+	}
+
+	// Wire user-picked slot aliases into the oauth2 resolver chain. When the
+	// user has chosen a non-default shipped option for a given config id
+	// (e.g., contacts settings → "Aerion mail client" reroutes google-contacts
+	// onto google-mail), the resolver consults this hook after the user-
+	// override step and before the provider chain.
+	oauth2.SlotAliasLookup = func(configID string) (string, bool) {
+		target, ok, err := credStore.GetOAuthSlotAlias(configID)
+		if err != nil || !ok {
+			return "", false
+		}
+		return target, true
+	}
+
+	// Wire the user's explicit picker choice ("custom" / "aerion-shipped"
+	// / "aerion-mail") into the resolver. When recorded, this routes the
+	// resolver by choice rather than by row presence — so switching the
+	// picker between options no longer requires destroying stored values
+	// to make the new option take effect.
+	oauth2.ActiveChoiceLookup = func(configID string) (string, bool) {
+		choice, err := credStore.GetOAuthActiveChoice(configID)
+		if err != nil || choice == "" {
+			return "", false
+		}
+		return choice, true
+	}
+
+	return nil
+}
+
 // shuttingDown tracks if shutdown has been initiated to prevent multiple triggers
 var shuttingDown bool
 
@@ -351,47 +512,11 @@ func (a *App) Startup(ctx context.Context) {
 		})
 	}
 
-	// Initialize logging - fatal only unless --debug flag is used
-	logLevel := "fatal"
-	if a.debugMode != nil && a.debugMode() {
-		logLevel = "debug"
-	}
-	_ = logging.Init(logging.Config{
-		Level:   logLevel,
-		Console: true,
-	})
+	// Logging, paths, db open, migrations, and credential store are all
+	// initialized in Preflight (called from main.go before wails.Run). By
+	// the time Startup runs, a.paths, a.db, and a.credStore are non-nil.
 	log := logging.WithComponent("app")
-
-	// Get platform paths
-	paths, err := platform.GetPaths()
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to get platform paths")
-	}
-	a.paths = paths
-
-	// Ensure directories exist
-	if err := paths.EnsureDirectories(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to create directories")
-	}
-	log.Info().
-		Str("config", paths.Config).
-		Str("data", paths.Data).
-		Str("cache", paths.Cache).
-		Msg("Initialized paths")
-
-	// Open database
-	db, err := database.Open(paths.DatabasePath())
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to open database")
-	}
-	a.db = db
-	log.Info().Str("path", paths.DatabasePath()).Msg("Opened database")
-
-	// Run migrations
-	if err := db.Migrate(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to run migrations")
-	}
-	log.Info().Msg("Database migrations complete")
+	db := a.db
 
 	// Initialize stores
 	a.accountStore = account.NewStore(db)
@@ -420,25 +545,6 @@ func (a *App) Startup(ctx context.Context) {
 
 	// Initialize CardDAV support (will be fully set up after credStore is initialized)
 	a.carddavStore = carddav.NewStore(db.DB)
-
-	// Initialize credential store (keyring with encrypted DB fallback)
-	credStore, err := credentials.NewStore(db.DB, paths.Data)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize credential store")
-	}
-	a.credStore = credStore
-
-	// Wire user-supplied OAuth client credentials override into the oauth2
-	// resolver chain. When the user has saved their own client_id + secret
-	// for a given config id via Settings → OAuth Credentials, those values
-	// take priority over any shipped (build-time) defaults.
-	oauth2.UserOverrideLookup = func(configID string) (oauth2.ClientCredentials, bool) {
-		clientID, clientSecret, ok, err := credStore.GetUserClientCreds(configID)
-		if err != nil || !ok {
-			return oauth2.ClientCredentials{}, false
-		}
-		return oauth2.ClientCredentials{ClientID: clientID, ClientSecret: clientSecret}, true
-	}
 
 	// Initialize certificate trust store (TOFU)
 	a.certStore = certificate.NewStore(db.DB)
@@ -504,6 +610,14 @@ func (a *App) Startup(ctx context.Context) {
 	a.carddavSyncer = carddav.NewSyncer(a.carddavStore, a.credStore)
 	a.carddavScheduler = carddav.NewScheduler(a.carddavSyncer, a.carddavStore)
 
+	// Initialize the OAuth2 manager BEFORE constructing the Auth Broker — the
+	// broker captures a.oauth2Manager into bearerRefreshTransport at construction
+	// time, so a later assignment would leave every extension's HTTP client with
+	// a nil oauthManager and SIGSEGV on the first 401-triggered token refresh.
+	if a.oauth2Manager == nil {
+		a.oauth2Manager = oauth2.NewManager()
+	}
+
 	// Extension system (Phase 1 infrastructure). Per the lightweight-by-default
 	// invariant, NO extension stores are opened here. Each extension's Bridge
 	// lazy-initializes its stores + per-extension SQLite + API on the first
@@ -520,13 +634,15 @@ func (a *App) Startup(ctx context.Context) {
 	// are intentionally tiny (manifest + Register only); the Wails-bound
 	// surface lives on each extension's Bridge struct, embedded into App.
 	a.contactsExt = extcontactsbe.NewExtension()
-	a.knownExtensions = []coreapi.Extension{a.contactsExt}
+	a.calendarExt = extcalendarbe.NewExtension()
+	a.knownExtensions = []coreapi.Extension{a.contactsExt, a.calendarExt}
 
 	// Wire the Contacts extension's Bridge into App (embedded). Bridge
 	// methods become Wails-bindable via Go's method-promotion on the
 	// embedded field, so the frontend can call `Contacts_*` methods
 	// directly. Bridge state is lazy — no stores open here.
 	a.initContactsExtension()
+	a.initCalendarExtension()
 
 	// Construct one Core per known extension. The Core's Auth surface is
 	// scoped to that extension's identity, so HTTPClient calls route via
@@ -573,8 +689,8 @@ func (a *App) Startup(ctx context.Context) {
 	// Initialize undo stack (max 50 commands, 30 second timeout)
 	a.undoStack = undo.NewStack(50, 30*time.Second)
 
-	// Initialize OAuth2 manager for token refresh
-	a.oauth2Manager = oauth2.NewManager()
+	// OAuth2 manager was constructed earlier (before the Auth Broker, which
+	// captures it). See the earlier guarded init above for the rationale.
 
 	// Initialize shared compose operations (used by both App and ComposerApp)
 	a.composeOps = composeOps{

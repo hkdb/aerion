@@ -15,10 +15,48 @@ import (
 	"github.com/hkdb/aerion/internal/database"
 )
 
+// fakeCore is the minimal coreapi.Core fake the contacts tests need: it
+// exposes only Storage().HostSecrets() (backed by a real credentials.Store)
+// because that's the only Core method the CardDAV write path touches. All
+// other methods return zero values — tests that need them would extend
+// this fake. The internal/credentials import is fine in test code; the
+// no-internal-imports rule applies to production extension code only.
+type fakeCore struct{ creds *credentials.Store }
+
+func (f fakeCore) Mail() coreapi.Mail                   { return nil }
+func (f fakeCore) Composer() coreapi.Composer           { return nil }
+func (f fakeCore) Contacts() coreapi.Contacts           { return nil }
+func (f fakeCore) Auth() coreapi.Auth                   { return nil }
+func (f fakeCore) Notifications() coreapi.Notifications { return nil }
+func (f fakeCore) UI() coreapi.UI                       { return nil }
+func (f fakeCore) Storage() coreapi.Storage             { return fakeStorage(f) }
+func (f fakeCore) Events() coreapi.EventBus             { return nil }
+func (f fakeCore) Log() coreapi.Logger                  { return nil }
+func (f fakeCore) Extension(id string) (any, bool)      { return nil, false }
+
+type fakeStorage struct{ creds *credentials.Store }
+
+func (f fakeStorage) KV(extensionID string) coreapi.KVStore { return nil }
+func (f fakeStorage) Secrets(extensionID string) coreapi.Secrets {
+	return nil
+}
+func (f fakeStorage) HostSecrets() coreapi.HostSecrets {
+	return fakeHostSecrets(f)
+}
+
+type fakeHostSecrets struct{ creds *credentials.Store }
+
+func (f fakeHostSecrets) Get(key string) (string, error) {
+	if strings.HasPrefix(key, "carddav:") {
+		return f.creds.GetCardDAVPassword(strings.TrimPrefix(key, "carddav:"))
+	}
+	return "", errors.New("fakeHostSecrets: unsupported prefix")
+}
+
 // setupAPIWithCreds builds an API plus a real credentials.Store so the
-// CardDAV write paths (which need GetCardDAVPassword) can be exercised
-// end-to-end. The plain setupAPI passes credStore=nil since most tests
-// don't touch the write path.
+// CardDAV write paths (which read passwords via core.Storage().HostSecrets())
+// can be exercised end-to-end. The plain setupAPI passes core=nil since most
+// tests don't touch the write path.
 func setupAPIWithCreds(t *testing.T) (*API, *contact.Store, *carddav.Store, *credentials.Store) {
 	t.Helper()
 	tmp := t.TempDir()
@@ -38,13 +76,7 @@ func setupAPIWithCreds(t *testing.T) (*API, *contact.Store, *carddav.Store, *cre
 	if err != nil {
 		t.Fatalf("credentials.NewStore: %v", err)
 	}
-	// API takes a closure, not a *credentials.Store directly (D1 refactor).
-	// The closure here points at the real test credStore so the CardDAV
-	// write path can resolve real passwords end-to-end. The internal/
-	// credentials import is fine in test code — the rule against
-	// internal-package imports applies to production extension runtime
-	// code only.
-	return NewAPI(localStore, carddavStore, credStore.GetCardDAVPassword), localStore, carddavStore, credStore
+	return NewAPI(localStore, carddavStore, nil, fakeCore{creds: credStore}, db.DB), localStore, carddavStore, credStore
 }
 
 func setupAPI(t *testing.T) (*API, *contact.Store, *carddav.Store) {
@@ -67,7 +99,7 @@ func setupAPI(t *testing.T) (*API, *contact.Store, *carddav.Store) {
 	// and contact.Store.Search natively walks them. The legacy SetCardDAVSearchFunc
 	// wiring was deleted from app.go + this test setup at the same time.
 
-	return NewAPI(localStore, carddavStore, nil), localStore, carddavStore
+	return NewAPI(localStore, carddavStore, nil, nil, db.DB), localStore, carddavStore
 }
 
 func TestAPI_SearchContacts_LocalOnly(t *testing.T) {
@@ -425,7 +457,7 @@ func TestAPI_SubscribeToContactEvents_Unimplemented(t *testing.T) {
 }
 
 func TestAPI_NilStores_GracefulDegradation(t *testing.T) {
-	api := NewAPI(nil, nil, nil)
+	api := NewAPI(nil, nil, nil, nil, nil)
 	if got, err := api.SearchContacts("anything", 10); err != nil || got != nil {
 		t.Fatalf("search with nil stores: got=%v err=%v", got, err)
 	}

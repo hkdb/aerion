@@ -3,6 +3,7 @@
   import { Button } from '$lib/components/ui/button'
   import { accountStore } from '$lib/stores/accounts.svelte'
   import AccountDialog from './AccountDialog.svelte'
+  import DeleteAccountDialog from './DeleteAccountDialog.svelte'
   import AerionCoreOAuthSection from './AerionCoreOAuthSection.svelte'
   // @ts-ignore - wailsjs path
   import type { account } from '../../../../wailsjs/go/models'
@@ -15,6 +16,12 @@
   let showAccountDialog = $state(false)
   let editingAccount = $state<account.Account | null>(null)
 
+  // Delete confirmation state. Reuses the same DeleteAccountDialog that
+  // the sidebar's 3-dot menu uses, so both entry points share the warning
+  // copy, destructive styling, and accountStore.removeAccount cleanup.
+  let showDeleteDialog = $state(false)
+  let deletingAccount = $state<account.Account | null>(null)
+
   function openEdit(acc: account.Account) {
     editingAccount = acc
     showAccountDialog = true
@@ -25,9 +32,19 @@
     showAccountDialog = true
   }
 
+  function openDelete(acc: account.Account) {
+    deletingAccount = acc
+    showDeleteDialog = true
+  }
+
   function handleDialogClose() {
     showAccountDialog = false
     editingAccount = null
+  }
+
+  function handleDeleteDialogClose() {
+    showDeleteDialog = false
+    deletingAccount = null
   }
 
   async function moveUp(index: number) {
@@ -121,6 +138,17 @@
           >
             <Icon icon="mdi:pencil" class="w-4 h-4" />
           </Button>
+
+          <!-- Delete button -->
+          <Button
+            size="icon"
+            variant="ghost"
+            class="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onclick={() => openDelete(acc)}
+            title={$_('settingsAccounts.deleteAccount')}
+          >
+            <Icon icon="mdi:delete-outline" class="w-4 h-4" />
+          </Button>
         </div>
       {/each}
 
@@ -141,4 +169,11 @@
   bind:open={showAccountDialog}
   editAccount={editingAccount}
   onClose={handleDialogClose}
+/>
+
+<!-- Delete confirmation (same dialog used by the sidebar 3-dot menu) -->
+<DeleteAccountDialog
+  bind:open={showDeleteDialog}
+  account={deletingAccount}
+  onClose={handleDeleteDialogClose}
 />

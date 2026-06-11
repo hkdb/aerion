@@ -224,12 +224,18 @@
           var images = e.data.images;
           var replaced = 0;
           Object.keys(images).forEach(function(cid) {
-            var img = document.querySelector('img[data-cid="' + cid + '"]');
-            if (img) {
+            // querySelectorAll (not querySelector): a body can legitimately
+            // reference the same cid: from multiple <img> tags — e.g. the
+            // composer emits cid:c1 twice when the user pastes the same
+            // image twice and the dedup collapses both into one inline
+            // attachment. Single-querySelector would leave every <img>
+            // except the first stuck on the loading placeholder.
+            var imgs = document.querySelectorAll('img[data-cid="' + cid + '"]');
+            imgs.forEach(function(img) {
               img.src = images[cid];
               img.removeAttribute('data-cid');
               replaced++;
-            }
+            });
           });
           if (replaced > 0) {
             attachImageHandlers();

@@ -60,10 +60,28 @@ func (a *App) GetIMAPConnectionForUndo(ctx context.Context, accountID string) (*
 // UpdateLocalFlags implements undo.UndoContext
 func (a *App) UpdateLocalFlags(messageIDs []string, isRead, isStarred *bool) error {
 	err := a.messageStore.UpdateFlagsBatch(messageIDs, isRead, isStarred)
-	if err == nil {
-		wailsRuntime.EventsEmit(a.ctx, "messages:flagsChanged", messageIDs)
+	if err != nil {
+		return err
 	}
-	return err
+	// Emit a per-flag event so each listener sees the typed payload it
+	// expects. UpdateLocalFlags is called by undo commands; today each
+	// command flips exactly one flag (either read or starred), so in
+	// practice only one branch fires. The if/if (not if/else) shape
+	// covers a hypothetical future undo that combines both without
+	// changing this call site.
+	if isRead != nil {
+		wailsRuntime.EventsEmit(a.ctx, "messages:readChanged", map[string]interface{}{
+			"messageIds": messageIDs,
+			"isRead":     *isRead,
+		})
+	}
+	if isStarred != nil {
+		wailsRuntime.EventsEmit(a.ctx, "messages:starredChanged", map[string]interface{}{
+			"messageIds": messageIDs,
+			"isStarred":  *isStarred,
+		})
+	}
+	return nil
 }
 
 // MoveLocalMessages implements undo.UndoContext

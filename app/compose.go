@@ -301,6 +301,15 @@ func (ops *composeOps) sendMessage(ctx context.Context, accountID string, msg sm
 		return nil, fmt.Errorf("account not found: %s", accountID)
 	}
 
+	// Receive-only accounts have no SMTP wiring; reject sends before any
+	// further work. The composer's From dropdown already filters these
+	// out, so reaching this branch indicates a stale draft or a programmatic
+	// caller — surface a clear error rather than dialing a non-existent
+	// SMTP server.
+	if acc.NoOutgoingServer {
+		return nil, fmt.Errorf("account %q is configured as receive-only (no outgoing server)", acc.Email)
+	}
+
 	// Build RFC822 message
 	rawMsg, err := msg.ToRFC822()
 	if err != nil {
@@ -362,6 +371,13 @@ func (ops *composeOps) sendMessage(ctx context.Context, accountID string, msg sm
 			smtpConfig.Username = parent.Username
 		}
 	}
+	// Separate SMTP credentials override (Generic provider; gated by
+	// non-empty SMTPUsername at the model layer). Doesn't apply to OAuth
+	// accounts — those keep the bearer-token path below.
+	smtpUsesSeparateCreds := acc.SMTPUsername != "" && acc.AuthType != account.AuthOAuth2
+	if smtpUsesSeparateCreds {
+		smtpConfig.Username = acc.SMTPUsername
+	}
 	smtpConfig.TLSConfig = certificate.BuildTLSConfig(acc.SMTPHost, ops.certStore)
 
 	// Handle authentication based on auth type
@@ -374,11 +390,19 @@ func (ops *composeOps) sendMessage(ctx context.Context, accountID string, msg sm
 		smtpConfig.AuthType = smtp.AuthTypeOAuth2
 		smtpConfig.AccessToken = tokens.AccessToken
 	default:
+		smtpConfig.AuthType = smtp.AuthTypePassword
+		if smtpUsesSeparateCreds {
+			password, passErr := ops.credStore.GetSMTPPassword(accountID)
+			if passErr != nil {
+				return nil, fmt.Errorf("failed to get SMTP password: %w", passErr)
+			}
+			smtpConfig.Password = password
+			break
+		}
 		password, passErr := ops.credStore.GetPassword(accountID)
 		if passErr != nil {
 			return nil, fmt.Errorf("failed to get password: %w", passErr)
 		}
-		smtpConfig.AuthType = smtp.AuthTypePassword
 		smtpConfig.Password = password
 	}
 

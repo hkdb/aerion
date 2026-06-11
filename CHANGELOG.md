@@ -1,11 +1,33 @@
 # CHANGELOG
 
 
-**v0.3.0 - 06-03-2026**
+**v0.3.0 - 06-16-2026**
 ---
 
+- Prepared CardDav infra for extensibility
+- Added Extension infrastructure
+- ALPHA: Added Contacts extension - shipped disabled
+- ALPHA: Added Calendar extension - shipped disabled - [#28](https://github.com/hkdb/aerion/issues/28)
+- Added runtime config of client id/secret - [#138](https://github.com/hkdb/aerion/issues/138)
+- Added force re-sync of contacts
+- Added separate smtp credentials option - [#264](https://github.com/hkdb/aerion/issues/264)
+- Added no outgoing server option - [#132](https://github.com/hkdb/aerion/issues/132) [(#134)](https://github.com/hkdb/aerion/pull/134)
 - Added fallback for Mailfence and other non-quote-compliant providers - [#209](https://github.com/hkdb/aerion/issues/209)
+- Added smtp auto-pre-fill of smtp from imap input - [#179](https://github.com/hkdb/aerion/issues/179)
+- Added delete account button in settings accounts tab
 - Fixed CardDav remove provider code path to not leave orphaned contacts in db
+- Fixed Sent/Draft folder message listing - [#227](https://github.com/hkdb/aerion/issues/227)
+- Fixed unified inbox actions - [#234](https://github.com/hkdb/aerion/issues/234)
+- Fixed Microsoft admin pre-approved oauth - [#29](https://github.com/hkdb/aerion/issues/29)
+- Fixed read/star polluting undo - [#243](https://github.com/hkdb/aerion/issues/243)
+- Fixed duplicate unified inbox freeze - [#241](https://github.com/hkdb/aerion/issues/241)
+- Fixed unparsible body fetch handling - [#240](https://github.com/hkdb/aerion/issues/240)
+- Added incremental flag sync - [#240](https://github.com/hkdb/aerion/issues/240)
+- Fixed drag-n-drop inline image - [#224](https://github.com/hkdb/aerion/issues/224)
+- Fixed duplicate inline image rendering
+- Fixed post action blank conversation pane - [#271](https://github.com/hkdb/aerion/issues/271)
+- Fixed separate smtp creds persistence - [#270](https://github.com/hkdb/aerion/issues/270)
+- Bumped flatpak build to Gnome 50 runtime
 
 
 **v0.2.5 - 05-27-2026**

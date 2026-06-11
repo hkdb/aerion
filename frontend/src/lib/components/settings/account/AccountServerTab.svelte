@@ -9,7 +9,7 @@
     syncIntervalOptions,
   } from '$lib/config/providers'
   // @ts-ignore - wailsjs path
-  import { account, certificate } from '../../../../../wailsjs/go/models'
+  import { account, certificate, app } from '../../../../../wailsjs/go/models'
   // @ts-ignore - wailsjs path
   import { GetAccountFoldersForMapping, GetAutoDetectedFolders, GetTrustedCertificates, RemoveTrustedCertificate, GetFolders, SubscribeFolder, UnsubscribeFolder, SubscribeAllFolders } from '../../../../../wailsjs/go/app/App'
   // @ts-ignore - wailsjs path
@@ -28,6 +28,26 @@
     smtpHost: string
     smtpPort: number
     smtpSecurity: string
+    /** When true, SMTP fields are ignored and the composer hides this
+     *  account from the From dropdown. */
+    noOutgoingServer: boolean
+    /** SMTP-specific username (Generic only). Empty = use IMAP username. */
+    smtpUsername: string
+    /** SMTP-specific password (write-only; blank on edit means "keep
+     *  existing keyring entry"). */
+    smtpPassword: string
+    /** True when the editing account uses the generic provider, so the
+     *  separate-SMTP-credentials UI is allowed to render. */
+    isGenericProvider: boolean
+    /** Identity to pre-select in the composer when replying/forwarding on
+     *  a message received via this account. Only consulted when
+     *  noOutgoingServer is true. Empty = fall back to default sending
+     *  account. */
+    replyForwardIdentityID: string
+    /** Sendable account+identity groups available as Reply/Forward-with
+     *  candidates. Parent excludes the account being edited and any
+     *  no-outgoing-server accounts. */
+    availableIdentityGroups: app.AccountIdentityGroup[]
     syncInterval: string
     readReceiptRequestPolicy: string
     /** Folder mappings */
@@ -47,6 +67,10 @@
     onSmtpHostChange: (value: string) => void
     onSmtpPortChange: (value: number) => void
     onSmtpSecurityChange: (value: string) => void
+    onNoOutgoingServerChange: (value: boolean) => void
+    onSmtpUsernameChange: (value: string) => void
+    onSmtpPasswordChange: (value: string) => void
+    onReplyForwardIdentityIDChange: (value: string) => void
     onSyncIntervalChange: (value: string) => void
     onReadReceiptPolicyChange: (value: string) => void
     onFolderMappingChange: (type: string, value: string) => void
@@ -64,6 +88,12 @@
     smtpHost = $bindable(),
     smtpPort = $bindable(),
     smtpSecurity = $bindable(),
+    noOutgoingServer = $bindable(false),
+    smtpUsername = $bindable(''),
+    smtpPassword = $bindable(''),
+    isGenericProvider,
+    replyForwardIdentityID = $bindable(''),
+    availableIdentityGroups,
     syncInterval = $bindable(),
     readReceiptRequestPolicy = $bindable(),
     sentFolderPath = $bindable(),
@@ -80,6 +110,10 @@
     onSmtpHostChange,
     onSmtpPortChange,
     onSmtpSecurityChange,
+    onNoOutgoingServerChange,
+    onSmtpUsernameChange,
+    onSmtpPasswordChange,
+    onReplyForwardIdentityIDChange,
     onSyncIntervalChange,
     onReadReceiptPolicyChange,
     onFolderMappingChange,
@@ -88,6 +122,37 @@
     syncFoldersEnabled = $bindable(),
     onSyncFoldersEnabledChange,
   }: Props = $props()
+
+  // SMTP "Same as incoming server" toggle. Derived from the persisted
+  // editAccount.smtpUsername (empty string = on). Tracked as its own
+  // state so the user can toggle off, type a username, toggle back on
+  // (clearing), and toggle off again without losing UI continuity. On
+  // save the parent reads the final smtpUsername — empty means SMTP
+  // uses IMAP creds, non-empty means use the separate-creds path.
+  //
+  // IMPORTANT: capture from editAccount.smtpUsername, NOT from the
+  // smtpUsername prop. bits-ui Tabs.Content always-renders its children
+  // (only hides via CSS), so this component mounts immediately when the
+  // dialog opens — BEFORE the parent dialog's $effect has had a chance
+  // to populate the form state `smtpUsername` from editAccount. Reading
+  // the form prop here captured the parent's initial empty default,
+  // which is why the toggle always appeared as "Same as IMAP" on reopen
+  // / restart even when separate creds were persisted. The const indirection
+  // is to suppress Svelte's "only captures initial value" warning —
+  // initial-only capture is exactly what we want here (editAccount is
+  // stable for the life of this mount; the dialog unmounts on close).
+  // svelte-ignore state_referenced_locally
+  let smtpUseSameAsIncoming = $state(editAccount.smtpUsername === '')
+
+  function handleSmtpUseSameAsIncomingChange(v: boolean) {
+    smtpUseSameAsIncoming = v
+    if (v) {
+      smtpUsername = ''
+      smtpPassword = ''
+      onSmtpUsernameChange('')
+      onSmtpPasswordChange('')
+    }
+  }
 
   // Folder mapping state
   let showFolderMapping = $state(false)
@@ -331,6 +396,71 @@
   <!-- Divider -->
   <div class="border-t border-border"></div>
 
+  <!-- "No outgoing server" toggle. When on, the SMTP section + auth
+       subsection are hidden, the backend skips SMTP wiring, and the
+       composer's From dropdown excludes this account. -->
+  <div class="space-y-2">
+    <label class="flex items-center gap-3 text-sm">
+      <Switch
+        checked={noOutgoingServer}
+        onCheckedChange={(v) => { noOutgoingServer = v; onNoOutgoingServerChange(v) }}
+      />
+      <span class="font-medium">{$_('account.noOutgoingServer')}</span>
+    </label>
+    <p class="text-xs text-muted-foreground">{$_('account.noOutgoingServerHelp')}</p>
+
+    {#if noOutgoingServer}
+      <!-- Reply/Forward-with identity picker. Mirrors the composer's
+           From-dropdown shape (grouped by sendable account, with color
+           dots). Default = empty value, which the composer resolves to
+           the user's default sending identity at compose time. -->
+      <div class="pt-2 space-y-1">
+        <Label>{$_('account.replyForwardWith')}</Label>
+        <Select.Root
+          value={replyForwardIdentityID}
+          onValueChange={(v) => { replyForwardIdentityID = v; onReplyForwardIdentityIDChange(v) }}
+        >
+          <Select.Trigger class="h-10">
+            <Select.Value placeholder={$_('account.replyForwardWithDefault')}>
+              {#if replyForwardIdentityID}
+                {@const allIdentities = (availableIdentityGroups || []).flatMap(g => (g.identities || []).map(i => ({ identity: i, group: g })))}
+                {@const found = allIdentities.find(x => x.identity.id === replyForwardIdentityID)}
+                {#if found}
+                  {#if found.group.account?.color}
+                    <span class="inline-block w-2 h-2 rounded-full mr-1.5 flex-shrink-0" style="background-color: {found.group.account.color}"></span>
+                  {/if}
+                  {found.identity.name} &lt;{found.identity.email}&gt;
+                {:else}
+                  {$_('account.replyForwardWithDefault')}
+                {/if}
+              {:else}
+                {$_('account.replyForwardWithDefault')}
+              {/if}
+            </Select.Value>
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="" label={$_('account.replyForwardWithDefault')} />
+            {#each availableIdentityGroups || [] as group (group.account?.id)}
+              <Select.Group>
+                <Select.GroupHeading class="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">
+                  {#if group.account?.color}
+                    <span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {group.account.color}"></span>
+                  {/if}
+                  {group.account?.name || group.account?.email}
+                </Select.GroupHeading>
+                {#each group.identities || [] as identity (identity.id)}
+                  <Select.Item value={identity.id} label="{identity.name} <{identity.email}>" />
+                {/each}
+              </Select.Group>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+        <p class="text-xs text-muted-foreground">{$_('account.replyForwardWithHelp')}</p>
+      </div>
+    {/if}
+  </div>
+
+  {#if !noOutgoingServer}
   <!-- Outgoing Mail (SMTP) -->
   <div class="space-y-4">
     <h3 class="text-sm font-medium flex items-center gap-2">
@@ -384,7 +514,56 @@
         </div>
       </div>
     </div>
+
+    {#if isGenericProvider}
+      <!-- SMTP authentication: "Same as incoming server" toggle (on by
+           default). When off, the user supplies a separate SMTP
+           username + password. Generic provider only. -->
+      <div class="space-y-3 pt-3 border-t border-border">
+        <h4 class="text-sm font-medium">{$_('account.smtpAuthentication')}</h4>
+        <label class="flex items-center gap-3 text-sm">
+          <Switch
+            checked={smtpUseSameAsIncoming}
+            onCheckedChange={handleSmtpUseSameAsIncomingChange}
+          />
+          <span>{$_('account.smtpUseSameAsIncoming')}</span>
+        </label>
+        {#if !smtpUseSameAsIncoming}
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-2">
+              <Label for="smtpUsername">{$_('account.username')}</Label>
+              <Input
+                id="smtpUsername"
+                type="text"
+                placeholder={$_('account.smtpUsernamePlaceholder')}
+                bind:value={smtpUsername}
+                oninput={(e) => onSmtpUsernameChange((e.target as HTMLInputElement).value)}
+                class={errors.smtpUsername ? 'border-destructive' : ''}
+              />
+              {#if errors.smtpUsername}
+                <p class="text-sm text-destructive">{errors.smtpUsername}</p>
+              {/if}
+            </div>
+            <div class="space-y-2">
+              <Label for="smtpPassword">{$_('account.password')}</Label>
+              <Input
+                id="smtpPassword"
+                type="password"
+                placeholder={$_('account.leaveEmptyToKeep')}
+                bind:value={smtpPassword}
+                oninput={(e) => onSmtpPasswordChange((e.target as HTMLInputElement).value)}
+                class={errors.smtpPassword ? 'border-destructive' : ''}
+              />
+              {#if errors.smtpPassword}
+                <p class="text-sm text-destructive">{errors.smtpPassword}</p>
+              {/if}
+            </div>
+          </div>
+        {/if}
+      </div>
+    {/if}
   </div>
+  {/if}
 
   <!-- Divider -->
   <div class="border-t border-border"></div>

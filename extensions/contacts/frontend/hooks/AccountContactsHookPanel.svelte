@@ -28,9 +28,9 @@
     busy = true
     error = null
     try {
-      // Link the account as a read-only CardDAV contact source.
-      // Phase 2a uses a 60-minute sync interval to match the default for new
-      // sources; Phase 2c may surface this as a user setting.
+      // Link the account as a read-only CardDAV contact source. 60-minute
+      // sync interval matches the default for new sources; a future settings
+      // affordance may let the user override it.
       await contactSourcesStore.linkAccount(accountId, accountName, 60)
 
       // Enable the Contacts extension so the rail surfaces it.

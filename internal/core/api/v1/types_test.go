@@ -19,10 +19,18 @@ func (stubCore) Notifications() Notifications { return stubNotifications{} }
 func (stubCore) UI() UI                       { return stubUI{} }
 func (stubCore) Storage() Storage             { return stubStorage{} }
 func (stubCore) Events() EventBus             { return stubEvents{} }
+func (stubCore) Log() Logger                  { return stubLogger{} }
 func (stubCore) Extension(id string) (any, bool) {
 	_ = id
 	return nil, false
 }
+
+type stubLogger struct{}
+
+func (stubLogger) Debug(string) {}
+func (stubLogger) Info(string)  {}
+func (stubLogger) Warn(string)  {}
+func (stubLogger) Error(string) {}
 
 type stubMail struct{}
 
@@ -57,6 +65,9 @@ func (stubContacts) ListSources() ([]ContactSource, error) {
 func (stubContacts) LinkAccountSource(string, string, int) (string, error) {
 	return "", ErrUnimplemented
 }
+func (stubContacts) SyncSource(string) error      { return ErrUnimplemented }
+func (stubContacts) SyncAllSources() error        { return ErrUnimplemented }
+func (stubContacts) SetSourceWritable(string, bool) error { return ErrUnimplemented }
 func (stubContacts) CreateContact(ContactCreateInput) (string, error) {
 	return "", ErrUnimplemented
 }
@@ -71,6 +82,9 @@ type stubAuth struct{}
 func (stubAuth) HTTPClient(string, []AuthScope) (*http.Client, error) { return nil, ErrUnimplemented }
 func (stubAuth) IMAPClient(string, []string) (IMAPClient, error)      { return nil, ErrUnimplemented }
 func (stubAuth) SMTPClient(string) (SMTPClient, error)                 { return nil, ErrUnimplemented }
+func (stubAuth) StartIncrementalConsent(StartIncrementalConsentRequest) error {
+	return ErrUnimplemented
+}
 
 type stubNotifications struct{}
 
@@ -85,10 +99,17 @@ func (stubUI) RegisterInboxView(InboxViewRequest) (Unregister, error)           
 func (stubUI) RegisterAccountSetupHook(AccountSetupHookRequest) (Unregister, error) {
 	return func() {}, ErrUnimplemented
 }
+func (stubUI) OpenURL(string) error { return ErrUnimplemented }
 
 type stubStorage struct{}
 
-func (stubStorage) KV(string) KVStore { return stubKV{} }
+func (stubStorage) KV(string) KVStore         { return stubKV{} }
+func (stubStorage) Secrets(string) Secrets    { return stubSecrets{} }
+func (stubStorage) HostSecrets() HostSecrets  { return stubHostSecrets{} }
+
+type stubHostSecrets struct{}
+
+func (stubHostSecrets) Get(string) (string, error) { return "", nil }
 
 type stubKV struct{}
 
@@ -96,6 +117,13 @@ func (stubKV) Get(string) (string, error)        { return "", ErrUnimplemented }
 func (stubKV) Set(string, string) error          { return ErrUnimplemented }
 func (stubKV) Delete(string) error               { return ErrUnimplemented }
 func (stubKV) List(string) ([]string, error)     { return nil, ErrUnimplemented }
+
+type stubSecrets struct{}
+
+func (stubSecrets) Set(string, string) error { return ErrUnimplemented }
+func (stubSecrets) Get(string) (string, error) { return "", ErrUnimplemented }
+func (stubSecrets) Delete(string) error      { return ErrUnimplemented }
+func (stubSecrets) DeleteAll() error         { return ErrUnimplemented }
 
 type stubEvents struct{}
 

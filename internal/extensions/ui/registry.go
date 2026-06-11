@@ -211,5 +211,7 @@ func (r *Registry) unregisterFunc(mapPtr interface{}, id uint64) coreapi.Unregis
 	}
 }
 
-// compile-time check: Registry satisfies coreapi.UI
-var _ coreapi.UI = (*Registry)(nil)
+// Registry implements the Register* portion of coreapi.UI. The full
+// coreapi.UI surface (including OpenURL and other platform actions) is
+// composed in app/coreimpl.go's uiCoreImpl wrapper, which embeds this
+// Registry's registration methods alongside host-only actions.

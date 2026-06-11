@@ -16,7 +16,10 @@
       "localManual": "Local - Contacts",
       "localCollected": "Local - Collected",
       "sourcesHeading": "Sources",
-      "noSources": "No CardDAV sources configured."
+      "noSources": "No CardDAV sources configured.",
+      "syncing": "Syncing contacts…",
+      "idle": "Contacts",
+      "settings": "Contact settings"
     },
     "list": {
       "header": "Contacts",
@@ -30,6 +33,13 @@
       "addTooltip": "Add contact",
       "emptySearch": "No contacts match your search.",
       "empty": "No contacts."
+    },
+    "writeAccessBanner": {
+      "title": "Read-only sources — write access not enabled",
+      "enableButton": "Enable write access",
+      "providerGoogle": "Google",
+      "providerMicrosoft": "Microsoft",
+      "providerCardDAV": "CardDAV"
     },
     "detail": {
       "emptyState": "Select a contact to view details.",
@@ -62,11 +72,6 @@
       "localOption": "Local contacts",
       "addressbookLabel": "Address book",
       "addressbookPlaceholder": "Select an address book",
-      "emailLabel": "Email",
-      "emailPlaceholder": "name@example.com",
-      "nameLabel": "Display name",
-      "nameOptional": "(optional)",
-      "namePlaceholder": "Jane Doe",
       "errorEmailRequired": "Email is required.",
       "errorEmailInvalid": "Enter a valid email address.",
       "errorEmailExists": "A contact with this email already exists."
@@ -120,11 +125,19 @@
       "title": "Contacts settings",
       "description": "Configure OAuth credentials for the Contacts extension. Read access rides on your mail account's existing permission; these creds power WRITE operations (edit / create / delete) against Google or Microsoft sources.",
       "oauthHeading": "OAuth Credentials",
-      "oauthDescription": "Aerion ships verified credentials when available. Override with your own project's credentials, or copy from Aerion's Mail slot if your mail project already covers the Contacts.ReadWrite scope.",
+      "oauthDescription": "Each slot ships with Aerion's verified credentials when available; switch to Custom to supply your own project's Client ID and Secret.",
       "googleLabel": "Google Contacts",
       "microsoftLabel": "Microsoft Contacts",
-      "copyFromGoogle": "Google Mail",
-      "copyFromMicrosoft": "Microsoft Mail",
+      "writeAccessHeading": "Write Access",
+      "writeAccessDescription": "Enable or disable write permission on a contact source. CardDAV sources only need the toggle. Google and Microsoft also need a one-time OAuth consent to enable.",
+      "writeAccessRowSubtitle": "Read-only — write access not enabled",
+      "writeAccessRowSubtitleEnabled": "Write access enabled",
+      "enableWriteAccess": "Enable write access",
+      "disableWriteAccess": "Disable write access",
+      "writeAccessEnabled": "Write access enabled for {name}",
+      "writeAccessDisabled": "Write access disabled for {name}",
+      "writeAccessDisableFailed": "Failed to disable write access",
+      "writeAccessCanceled": "Write access not enabled",
       "close": "Close"
     },
     "hook": {
@@ -144,7 +157,10 @@
       "failedUpdate": "Failed to update contact.",
       "emailCopied": "Copied {email}",
       "emailCopyFailed": "Failed to copy email.",
-      "photoFailed": "Could not process that image. Try a different file."
+      "photoFailed": "Could not process that image. Try a different file.",
+      "syncSucceeded": "Contacts synced",
+      "syncAllSucceeded": "All contact sources synced",
+      "syncNoSource": "Select a CardDAV source in the sidebar first."
     }
   }
 }

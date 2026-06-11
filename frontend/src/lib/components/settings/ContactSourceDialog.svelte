@@ -6,7 +6,6 @@
   import { Label } from '$lib/components/ui/label'
   import { Input } from '$lib/components/ui/input'
   import { Button } from '$lib/components/ui/button'
-  import Switch from '$lib/components/ui/switch/Switch.svelte'
   import { addToast } from '$lib/stores/toast'
   import { _ } from '$lib/i18n'
   import { contactSourcesStore, type LinkedAccountInfo } from '$lib/stores/contactSources.svelte'
@@ -18,7 +17,6 @@
     AddContactSource,
     UpdateContactSource,
     GetSourceAddressbooks,
-    SetContactSourceWritable,
   } from '../../../../wailsjs/go/app/App.js'
   // @ts-ignore - wailsjs path
   import type { carddav } from '../../../../wailsjs/go/models'
@@ -45,12 +43,7 @@
   let username = $state('')
   let password = $state('')
   let syncInterval = $state(60)
-  // CardDAV uses the source's existing basic-auth creds, so writable is a pure
-  // flag. Defaults to true for new CardDAV sources — adding a source signals
-  // intent to use it, and forcing users to dig into a hidden toggle was a
-  // pre-2b.2.b.2 discoverability bug. OAuth sources stay false until 2b.3
-  // ships incremental consent for write scope.
-  let writable = $state(true)
+
 
   // Discovery state
   let discovering = $state(false)
@@ -119,7 +112,6 @@
       username = editSource.username || ''
       password = '' // Don't load password
       syncInterval = editSource.sync_interval || 60
-      writable = !!editSource.writable
       hasDiscovered = false
       discoveredAddressbooks = []
       selectedAddressbooks = new Set()
@@ -131,14 +123,12 @@
         loadExistingAddressbooks()
       }
     } else if (open && !editSource) {
-      // Reset for new source. CardDAV is the default tab so writable defaults
-      // to true; handleTabChange flips it when the user switches tabs.
+      // Reset for new source.
       name = ''
       url = ''
       username = ''
       password = ''
       syncInterval = 60
-      writable = true
       hasDiscovered = false
       discoveredAddressbooks = []
       selectedAddressbooks = new Set()
@@ -313,32 +303,30 @@
           username,
           password,
           enabled: true,
-          writable,
+          // New CardDAV sources default to writable=true at creation. Users
+          // toggle off later via Contacts extension settings → Write Access.
+          // UpdateSource ignores this field on edits, so it doesn't clobber
+          // an existing source's flag — the extension settings is the only
+          // place that actually changes it post-create.
+          writable: true,
           sync_interval: syncInterval,
           enabled_addressbooks: Array.from(selectedAddressbooks),
         }
 
-        let savedSourceID = editSource?.id || ''
         if (editSource) {
           await UpdateContactSource(editSource.id, config)
           addToast({ type: 'success', message: $_('toast.contactSourceUpdated') })
         }
         if (!editSource) {
-          const created = await AddContactSource(config)
-          savedSourceID = created?.id || ''
+          await AddContactSource(config)
           addToast({ type: 'success', message: $_('toast.contactSourceAdded') })
-        }
-        // Persist the writable flag via its dedicated Wails method (separate
-        // from UpdateContactSource/AddContactSource so it can be toggled
-        // without rediscovering addressbooks).
-        if (savedSourceID) {
-          await SetContactSourceWritable(savedSourceID, writable)
         }
       }
       if (sourceType !== 'carddav') {
         // Google or Microsoft source
         if (editSource && isEditingOAuthSource) {
-          // Editing existing OAuth source - just update name and sync interval
+          // Editing existing OAuth source — name + sync interval only.
+          // Writable is managed in Contacts extension settings, not here.
           const config = {
             name,
             type: editSource.type as 'google' | 'microsoft',
@@ -346,6 +334,8 @@
             username: '',
             password: '',
             enabled: true,
+            // Preserve existing writable; UpdateSource ignores this field
+            // anyway but keep the config shape correct.
             writable: !!editSource.writable,
             sync_interval: syncInterval,
             enabled_addressbooks: [],
@@ -400,9 +390,6 @@
     selectedAccountId = ''
     oauthEmail = ''
     oauthInProgress = false
-    // CardDAV: default writable=true (the dialog's writable Switch can flip it).
-    // OAuth: default writable=false — incremental consent (2b.3) sets it later.
-    writable = sourceType === 'carddav'
   }
 
   // Check if save is enabled
@@ -557,18 +544,10 @@
             </Select.Root>
           </div>
 
-          <!-- Writable toggle. Edit/Create/Delete on contacts in this source
-               unlock when this is enabled. Defaults to on for new CardDAV
-               sources; user can opt out before saving. -->
-          <div class="flex items-start gap-3 pt-2">
-            <Switch id="contact-source-writable" bind:checked={writable} class="mt-0.5" />
-            <Label for="contact-source-writable" class="flex flex-col text-sm cursor-pointer">
-              <span class="font-medium text-foreground">{$_('contactSource.enableWriteAccess')}</span>
-              <span class="text-xs text-muted-foreground font-normal">
-                {$_('contactSource.enableWriteAccessDescription')}
-              </span>
-            </Label>
-          </div>
+          <!-- Writable toggle moved out of the source-edit dialog into the
+               Contacts extension settings (Settings → Extensions → Contacts
+               → Write Access) for symmetric Enable/Disable + OAuth-consent
+               handling across all source types. -->
         {/if}
 
       {:else}
@@ -599,6 +578,11 @@
               </Select.Content>
             </Select.Root>
           </div>
+
+          <!-- Writable toggle lives in the Contacts extension settings now
+               (Settings → Extensions → Contacts → Write Access). Same UI
+               handles both enable (CardDAV: flag flip; Google/MS: OAuth
+               consent) and disable for all source types. -->
 
         {:else}
           <!-- New OAuth source -->

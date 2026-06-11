@@ -70,6 +70,42 @@ export const ExtendedColor = Color.extend({
  * Used for blocked remote images: the placeholder SVG is in src,
  * the original URL is in data-original-src for restoration on send.
  */
+/**
+ * Map a position in `doc.textContent` (plain text, 0-indexed) to a ProseMirror
+ * doc position (which includes block-boundary tokens between text nodes).
+ *
+ * Used by the WebKitGTK drop fallback below to convert "inserted text starts
+ * here in the doc's plain text" into "delete here in ProseMirror's positional
+ * coordinate system." Walks text nodes in document order, accumulating their
+ * lengths until the cumulative length covers the target text position.
+ *
+ * Returns -1 if textPos is out of range (caller should bail in that case).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function textPosToDocPos(doc: any, textPos: number): number {
+  if (textPos < 0) return -1
+  let cumulativeText = 0
+  let docPos = -1
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  doc.descendants((node: any, pos: number) => {
+    if (docPos !== -1) return false
+    if (node.isText && typeof node.text === 'string') {
+      const nodeLen = node.text.length
+      if (cumulativeText + nodeLen >= textPos) {
+        docPos = pos + (textPos - cumulativeText)
+        return false
+      }
+      cumulativeText += nodeLen
+    }
+    return true
+  })
+  // textPos exactly at the very end of all text → end of last text node
+  if (docPos === -1 && cumulativeText === textPos) {
+    docPos = doc.content.size
+  }
+  return docPos
+}
+
 const ComposerImage = Image.extend({
   addAttributes() {
     return {
@@ -242,48 +278,77 @@ export function createComposerEditor(
       handleDrop: (view, event, _slice, moved) => {
         if (moved) return false
 
-        // Snapshot pre-existing file:/// URIs so we only clean up NEW ones
-        // from the drop (preserves URIs the user intentionally typed)
-        const existingUris = new Set<string>()
-        view.state.doc.descendants((node) => {
-          if (!node.isText || !node.text || !node.text.includes('file:///')) return
-          const re = /file:\/\/\/.+/g
-          let m
-          while ((m = re.exec(node.text)) !== null) {
-            existingUris.add(m[0].trim())
-          }
-        })
+        // Snapshot the doc's plain text BEFORE the drop. The WebKitGTK
+        // fallback below uses this to compute the inserted region via a
+        // prefix/suffix diff, which sidesteps the impossible boundary
+        // problem the old regex-only approach had: when WebKitGTK inserts
+        // a file:// URI directly adjacent to user text (e.g. dropping into
+        // the middle of "Helloworld" with no space at the cursor), the
+        // URI characters are syntactically indistinguishable from the
+        // user's surrounding word. The diff knows where the URI starts
+        // and ends because it knows what changed. See #224 follow-up.
+        const beforeText = view.state.doc.textContent
 
         // WebKitGTK fallback: after ProseMirror syncs the native text
-        // insertion into state, delete only the NEW file:/// URIs and
-        // extract paths for file processing via the Wails Go backend.
+        // insertion into state, identify the inserted region (= the URI)
+        // by diffing against the snapshot, then delete it and dispatch
+        // the file paths to the Wails Go backend.
         setTimeout(() => {
           const { doc } = view.state
-          const fileUriRegex = /file:\/\/\/.+/g
-          const deletions: { from: number; to: number }[] = []
-          const uris: string[] = []
+          const afterText = doc.textContent
+          if (afterText === beforeText) return // no insertion; nothing to do
 
-          doc.descendants((node, pos) => {
-            if (!node.isText || !node.text || !node.text.includes('file:///')) return
-            let match
-            while ((match = fileUriRegex.exec(node.text)) !== null) {
-              const uri = match[0].trim()
-              if (existingUris.has(uri)) continue
-              deletions.push({
-                from: pos + match.index,
-                to: pos + match.index + match[0].length,
-              })
-              uris.push(uri)
-            }
-          })
-
-          if (deletions.length === 0) return
-
-          let tr = view.state.tr
-          for (let i = deletions.length - 1; i >= 0; i--) {
-            tr = tr.delete(deletions[i].from, deletions[i].to)
+          // Prefix/suffix diff isolates the inserted span. The inserted
+          // text is afterText.slice(prefixLen, afterText.length - suffixLen).
+          let prefixLen = 0
+          const maxPrefix = Math.min(beforeText.length, afterText.length)
+          while (
+            prefixLen < maxPrefix &&
+            beforeText[prefixLen] === afterText[prefixLen]
+          ) {
+            prefixLen++
           }
-          view.dispatch(tr)
+          let suffixLen = 0
+          const maxSuffix = Math.min(
+            beforeText.length - prefixLen,
+            afterText.length - prefixLen,
+          )
+          while (
+            suffixLen < maxSuffix &&
+            beforeText[beforeText.length - 1 - suffixLen] ===
+              afterText[afterText.length - 1 - suffixLen]
+          ) {
+            suffixLen++
+          }
+          const insertedText = afterText.slice(
+            prefixLen,
+            afterText.length - suffixLen,
+          )
+
+          // Extract file URIs from the inserted region only. \S+ is safe
+          // here because the region is delimited by the diff, not by
+          // whatever happens to surround the URI in user content.
+          const uris = Array.from(
+            insertedText.matchAll(/file:\/\/\/\S+/g),
+            m => m[0].trim(),
+          )
+          if (uris.length === 0) return // not a file drop
+
+          // Map text positions to doc positions for the deletion.
+          const startDocPos = textPosToDocPos(doc, prefixLen)
+          const endDocPos = textPosToDocPos(
+            doc,
+            prefixLen + insertedText.length,
+          )
+          if (
+            startDocPos < 0 ||
+            endDocPos < 0 ||
+            startDocPos >= endDocPos
+          ) {
+            return
+          }
+
+          view.dispatch(view.state.tr.delete(startDocPos, endDocPos))
 
           const paths = uris.map(uri => decodeURIComponent(uri.slice(7)))
           if (paths.length > 0) {

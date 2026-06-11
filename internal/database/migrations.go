@@ -807,14 +807,19 @@ var migrations = []Migration{
 			-- Defensive: contact.Store.ensureTable creates "contacts" lazily AFTER
 			-- migrations run, so on a fresh install the table won't exist here. Make
 			-- sure it exists so the backfill SELECTs below don't error.
+			--
+			-- Shape matches the LEGACY (pre-v0.3.0) ensureTable schema — no
+			-- kind, no name_overridden. Older Aerion installs (≤ v0.2.4) have
+			-- the table in this shape, so referencing those columns in the
+			-- backfill SELECTs would fail on real production DBs. Defaults
+			-- for the post-migration columns are supplied as literals in the
+			-- INSERTs below.
 			CREATE TABLE IF NOT EXISTS contacts (
 				email TEXT PRIMARY KEY,
 				display_name TEXT,
 				send_count INTEGER DEFAULT 0,
 				last_used DATETIME,
-				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-				name_overridden INTEGER NOT NULL DEFAULT 0,
-				kind TEXT NOT NULL DEFAULT 'collected'
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 			);
 
 			-- New tables.
@@ -913,11 +918,18 @@ var migrations = []Migration{
 			-- record id: derived from email so subsequent linking via record_id is
 			-- stable. Older Aerion never exposed contact ids externally; this just
 			-- needs to be unique + deterministic within the migration.
+			-- kind / name_overridden are hardcoded literals here rather than
+			-- selected from the contacts table because legacy v0.2.x DBs
+			-- don't have those columns (the legacy ensureTable shape never
+			-- included them). Semantic match: legacy local contacts were
+			-- exclusively auto-collected from sent mail (no manual-add UI
+			-- before v0.3.0), and name_overridden was never set, so
+			-- 'collected' / 0 are the correct historical defaults.
 			INSERT INTO contact_records (id, source, kind, fn, created_at, updated_at)
 			SELECT
 				'local-' || email,
 				'local',
-				kind,
+				'collected',
 				display_name,
 				created_at,
 				created_at
@@ -929,7 +941,7 @@ var migrations = []Migration{
 				email,
 				send_count,
 				last_used,
-				name_overridden,
+				0,
 				1
 			FROM contacts;
 
@@ -1172,6 +1184,112 @@ var migrations = []Migration{
 			ALTER TABLE contact_records ADD COLUMN photo_data TEXT;
 			ALTER TABLE contact_records ADD COLUMN photo_media_type TEXT;
 			ALTER TABLE contact_records ADD COLUMN photo_url TEXT;
+		`,
+	},
+	{
+		Version: 35,
+		SQL: `
+			-- Phase 1B of the Calendar extension introduces the shared
+			-- coreapi.Storage.Secrets surface — any first-party extension
+			-- can stash per-extension secrets via core without each one
+			-- adding its own credentials plumbing.
+			--
+			-- This table tracks ALL extension secret keys regardless of
+			-- where the value actually lives. The encrypted_value column
+			-- encodes location: '' (empty) = "lives in OS keyring at
+			-- ext:<extension>:<key>"; non-empty = "AES-encrypted base64
+			-- ciphertext is right here." Tracking keyring-stored keys in
+			-- the table is what lets DeleteAllExtensionSecrets enumerate
+			-- the matching keyring entries for cleanup on uninstall.
+			--
+			-- Owned by core. Not extension-specific (despite the column
+			-- name). New extensions opt in via core.Storage().Secrets()
+			-- and get keyring-first + table-fallback for free.
+
+			CREATE TABLE IF NOT EXISTS extension_secrets (
+				extension       TEXT NOT NULL,
+				key             TEXT NOT NULL,
+				encrypted_value TEXT NOT NULL DEFAULT '',
+				created_at      INTEGER NOT NULL,
+				PRIMARY KEY (extension, key)
+			);
+			CREATE INDEX IF NOT EXISTS idx_extension_secrets_ext ON extension_secrets(extension);
+		`,
+	},
+	{
+		Version: 36,
+		SQL: `
+			-- Per-(account, client_config) encrypted fallback for OAuth tokens.
+			--
+			-- Before this migration, only the *-mail client_config slots had a
+			-- DB fallback when the OS keyring is unavailable — they reuse the
+			-- legacy encrypted_access_token / encrypted_refresh_token columns
+			-- on the accounts table (migration v9). Non-mail slots (the
+			-- extension slots: google-contacts, google-calendar,
+			-- microsoft-contacts, microsoft-calendar) had no fallback at all:
+			-- when the keyring failed, the StartIncrementalConsent flow
+			-- returned "keyring unavailable and no fallback for client config".
+			--
+			-- This migration extends the per-(account, client_config)
+			-- oauth_tokens row with its own encrypted columns so every slot —
+			-- mail or extension — gets the same keyring-first +
+			-- encrypted-DB-fallback behavior.
+
+			ALTER TABLE oauth_tokens ADD COLUMN encrypted_access_token TEXT;
+			ALTER TABLE oauth_tokens ADD COLUMN encrypted_refresh_token TEXT;
+		`,
+	},
+	{
+		Version: 37,
+		SQL: `
+			-- v0.3.0: "No outgoing server" + separate SMTP credentials.
+			--
+			-- no_outgoing_server: marks the account as receive-only. SMTP
+			-- host/port/security are ignored when set; the composer hides
+			-- the account (and all its identities) from the From dropdown.
+			--
+			-- smtp_username: SMTP-specific username when the user supplies
+			-- separate SMTP credentials. Empty (the default for every
+			-- pre-v0.3.0 row) preserves legacy behavior — SMTP reuses the
+			-- account's Username + IMAP keyring password. Non-empty signals
+			-- the SMTP send path to use this username + a separately-stored
+			-- password keyed at "<accountID>:smtp" in the keyring.
+
+			ALTER TABLE accounts ADD COLUMN no_outgoing_server INTEGER NOT NULL DEFAULT 0;
+			ALTER TABLE accounts ADD COLUMN smtp_username TEXT NOT NULL DEFAULT '';
+			-- Encrypted-DB fallback for the SMTP-specific password when the
+			-- keyring is unavailable. Mirrors encrypted_password's role for
+			-- IMAP. Only consulted when smtp_username != ''.
+			ALTER TABLE accounts ADD COLUMN encrypted_smtp_password TEXT;
+		`,
+	},
+	{
+		Version: 38,
+		SQL: `
+			-- v0.3.0: "Reply/Forward with" identity preference for receive-only
+			-- accounts. Stores the identity ID to pre-select in the composer
+			-- when replying or forwarding a message received via a
+			-- no_outgoing_server account. Empty (the default) falls back to
+			-- the user's default sending account, then to the first available
+			-- identity. Only consulted when no_outgoing_server = 1; sendable
+			-- accounts use their own identities directly.
+
+			ALTER TABLE accounts ADD COLUMN reply_forward_identity_id TEXT NOT NULL DEFAULT '';
+		`,
+	},
+	{
+		Version: 39,
+		SQL: `
+			-- Persistent flag set when a body fetch+parse produced no usable content
+			-- (and the message isn't encrypted, which is intentionally empty until
+			-- decrypted at view time). Replaces the previous in-memory
+			-- failedParseAttempts map in sync/fetch.go that reset every sync session
+			-- — without persistence, an unparseable message was re-fetched from IMAP
+			-- on every sync cycle forever. A future parser improvement clears this
+			-- flag via its own migration so previously-skipped messages get retried
+			-- under the new parser.
+
+			ALTER TABLE messages ADD COLUMN body_failed INTEGER NOT NULL DEFAULT 0;
 		`,
 	},
 }

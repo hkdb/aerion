@@ -38,8 +38,18 @@
     loading?: boolean
     loadingSnippet?: Snippet
 
+    /** Fired on j/k/Arrow navigation when the highlighted row changes.
+     *  Semantics: this is "focus change," NOT "open." Consumers should use
+     *  it to update their selectedId state and refresh visual highlight — and
+     *  nothing else. In particular: do NOT load detail / open viewer here. */
     onSelect: (id: string) => void
-    /** Fired on Enter when an item is selected. Defaults to onSelect if absent. */
+    /** Fired on Enter when an item is activated. Consumers wire actual "open"
+     *  behavior here (load detail, slide in the viewer overlay, etc.). When
+     *  absent, Enter is a no-op — there is intentionally no fallback to
+     *  onSelect so consumers can't accidentally couple "highlight changed" with
+     *  "viewer opens." Mouse clicks on rows fire onActivate via the canonical
+     *  pattern: the consumer's row snippet wires `onclick` to invoke onActivate
+     *  for that item id (see ContactList.svelte for the reference example). */
     onActivate?: (id: string) => void
     /** Fired on Space — optional multi-select hook. */
     onToggleCheck?: (id: string) => void
@@ -73,7 +83,11 @@
   const {
     items,
     selectedId,
-    density = 'standard',
+    // Destructured but not used locally — density is honored by the consumer's
+    // ListRow renderer, not by ListPane's container styling. Kept in the Props
+    // interface so consumers can still pass <ListPane density="...">; the
+    // underscore prefix tells eslint this unused-on-purpose.
+    density: _density = 'standard',
     focusSlot = 'messageList',
     label,
     row,
@@ -179,9 +193,15 @@
     if (KEY.LIST_OPEN(e)) {
       const id = selectedId
       if (!id) return
+      // No fallback to onSelect — that would couple "highlight changed" with
+      // "viewer opens." If the consumer hasn't wired onActivate, Enter is a
+      // no-op (mild bug visible during dev) rather than the silent wrong
+      // behavior of auto-opening on every j/k navigation. See the onActivate
+      // docstring in Props for the canonical pattern.
+      if (!onActivate) return
       e.preventDefault()
       e.stopPropagation()
-      ;(onActivate ?? onSelect)(id)
+      onActivate(id)
       return
     }
     if (KEY.LIST_TOGGLE_CHECK(e)) {

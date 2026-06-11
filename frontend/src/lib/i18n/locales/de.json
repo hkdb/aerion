@@ -880,5 +880,20 @@
     "noDomains": "Keine Domains in der Freigabeliste. Verwende \"Immer laden > Für Domain\" im E-Mail-Viewer, um Domains hinzuzufügen.",
     "removeButton": "Aus der Freigabeliste entfernen",
     "removed": "Aus der Freigabeliste entfernt"
+  },
+  "oauth": {
+    "writeAccessPicker": {
+      "title": "Enable write access",
+      "description": "Choose the {provider} account to authorize for write access on {sourceName}.",
+      "providerGoogle": "Google",
+      "providerMicrosoft": "Microsoft",
+      "loadFailed": "Failed to load accounts: {message}",
+      "emptyHeading": "No {provider} accounts found.",
+      "emptyHint": "Add a {provider} account in Mail (Settings → Accounts) or Contacts (Settings → Contacts → Add source) first, then return here.",
+      "cancel": "Cancel",
+      "continue": "Continue",
+      "successToast": "Write access enabled for {name}",
+      "failureToast": "Failed to enable write access: {message}"
+    }
   }
 }

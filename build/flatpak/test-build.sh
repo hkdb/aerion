@@ -42,10 +42,10 @@ flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flath
 echo ""
 echo "Installing Flatpak runtimes and SDK extensions..."
 flatpak install -y --user flathub \
-  org.gnome.Platform//49 \
-  org.gnome.Sdk//49 \
-  org.freedesktop.Sdk.Extension.golang//24.08 \
-  org.freedesktop.Sdk.Extension.node24//24.08
+  org.gnome.Platform//50 \
+  org.gnome.Sdk//50 \
+  org.freedesktop.Sdk.Extension.golang//25.08 \
+  org.freedesktop.Sdk.Extension.node24//25.08
 
 echo ""
 echo "=========================================="

@@ -20,26 +20,28 @@ import (
 //   - DB metadata: oauth_tokens has composite PK (account_id, client_config_id).
 //   - Keyring tokens: keyed as "<accountID>:<clientConfigID>:<kind>". The legacy
 //     "<accountID>:<kind>" format is read as a fallback for back-compat.
-//   - Encrypted-DB fallback: only Mail-config tokens use the accounts table
-//     fallback columns. Non-Mail configs require keyring availability.
+//   - Encrypted-DB fallback: Mail configs fall back to the accounts table
+//     encrypted columns (back-compat with pre-v29 tokens). Non-mail configs
+//     fall back to oauth_tokens.encrypted_{access,refresh}_token columns
+//     (added in migration v36).
 // =============================================================================
 
 // SetOAuthTokensForClientConfig stores OAuth tokens for an account under a
 // specific client_config_id. New code (extension Auth Broker, OAuth flow for
 // extension-scope grants) calls this instead of SetOAuthTokens.
+//
+// Order matters: the metadata row is written FIRST so the per-slot encrypted
+// fallback (when the OS keyring isn't available) has an oauth_tokens row to
+// UPDATE in the access/refresh helpers below. Without this ordering the
+// helpers would try to update a row that doesn't yet exist and report
+// "keyring unavailable and no fallback" even when the encrypted columns
+// would have worked.
 func (s *Store) SetOAuthTokensForClientConfig(accountID, clientConfigID string, tokens *OAuthTokens) error {
 	if tokens == nil {
 		return fmt.Errorf("tokens cannot be nil")
 	}
 	if clientConfigID == "" {
 		return fmt.Errorf("clientConfigID cannot be empty")
-	}
-
-	if err := s.setOAuthAccessTokenForClientConfig(accountID, clientConfigID, tokens.AccessToken); err != nil {
-		return fmt.Errorf("failed to store access token: %w", err)
-	}
-	if err := s.setOAuthRefreshTokenForClientConfig(accountID, clientConfigID, tokens.RefreshToken); err != nil {
-		return fmt.Errorf("failed to store refresh token: %w", err)
 	}
 
 	scopesJSON, err := json.Marshal(tokens.Scopes)
@@ -58,6 +60,13 @@ func (s *Store) SetOAuthTokensForClientConfig(accountID, clientConfigID string, 
 	`, accountID, clientConfigID, tokens.Provider, tokens.ExpiresAt, string(scopesJSON))
 	if err != nil {
 		return fmt.Errorf("failed to store OAuth metadata: %w", err)
+	}
+
+	if err := s.setOAuthAccessTokenForClientConfig(accountID, clientConfigID, tokens.AccessToken); err != nil {
+		return fmt.Errorf("failed to store access token: %w", err)
+	}
+	if err := s.setOAuthRefreshTokenForClientConfig(accountID, clientConfigID, tokens.RefreshToken); err != nil {
+		return fmt.Errorf("failed to store refresh token: %w", err)
 	}
 
 	s.log.Debug().
@@ -192,13 +201,16 @@ func (s *Store) setOAuthAccessTokenForClientConfig(accountID, clientConfigID, to
 		}
 		s.log.Warn().Err(err).Msg("Failed to store extension access token in keyring")
 	}
-	// Mail configs share the encrypted_access_token column on accounts as a
-	// fallback. Non-mail configs require the keyring (no per-(account, config)
-	// fallback storage exists in Phase 1).
+	// Mail configs reuse the legacy accounts-table encrypted fallback for
+	// back-compat with tokens written before migration v29.
 	if clientConfigID == "google-mail" || clientConfigID == "microsoft-mail" {
 		return s.setOAuthAccessToken(accountID, token)
 	}
-	return fmt.Errorf("keyring unavailable and no fallback for client config %q", clientConfigID)
+	// Non-mail configs land in the per-(account, client_config) encrypted
+	// column on oauth_tokens (migration v36). The metadata row was already
+	// upserted by SetOAuthTokensForClientConfig before calling us, so this
+	// UPDATE always finds its row.
+	return s.setEncryptedTokenColumnForClientConfig(accountID, clientConfigID, "encrypted_access_token", token)
 }
 
 func (s *Store) getOAuthAccessTokenForClientConfig(accountID, clientConfigID string) (string, error) {
@@ -211,12 +223,11 @@ func (s *Store) getOAuthAccessTokenForClientConfig(accountID, clientConfigID str
 	}
 	// Mail configs additionally honor the legacy single-config storage paths
 	// (legacy keyring key OR encrypted DB column) for back-compat with tokens
-	// written before migration v29. Non-mail configs require the new keyring
-	// entry (no fallback storage exists for them in Phase 1).
+	// written before migration v29.
 	if clientConfigID == "google-mail" || clientConfigID == "microsoft-mail" {
 		return s.getOAuthAccessToken(accountID)
 	}
-	return "", ErrCredentialNotFound
+	return s.getEncryptedTokenColumnForClientConfig(accountID, clientConfigID, "encrypted_access_token")
 }
 
 func (s *Store) setOAuthRefreshTokenForClientConfig(accountID, clientConfigID, token string) error {
@@ -233,7 +244,7 @@ func (s *Store) setOAuthRefreshTokenForClientConfig(accountID, clientConfigID, t
 	if clientConfigID == "google-mail" || clientConfigID == "microsoft-mail" {
 		return s.setOAuthRefreshToken(accountID, token)
 	}
-	return fmt.Errorf("keyring unavailable and no fallback for client config %q", clientConfigID)
+	return s.setEncryptedTokenColumnForClientConfig(accountID, clientConfigID, "encrypted_refresh_token", token)
 }
 
 func (s *Store) getOAuthRefreshTokenForClientConfig(accountID, clientConfigID string) (string, error) {
@@ -246,5 +257,58 @@ func (s *Store) getOAuthRefreshTokenForClientConfig(accountID, clientConfigID st
 	if clientConfigID == "google-mail" || clientConfigID == "microsoft-mail" {
 		return s.getOAuthRefreshToken(accountID)
 	}
-	return "", ErrCredentialNotFound
+	return s.getEncryptedTokenColumnForClientConfig(accountID, clientConfigID, "encrypted_refresh_token")
+}
+
+// setEncryptedTokenColumnForClientConfig encrypts `token` and UPDATEs the
+// named column (`encrypted_access_token` or `encrypted_refresh_token`) on
+// the per-(account, client_config) oauth_tokens row. Errors if the row
+// doesn't exist — the metadata UPSERT in SetOAuthTokensForClientConfig
+// always runs first and must precede any token-write helper for a non-mail
+// slot.
+func (s *Store) setEncryptedTokenColumnForClientConfig(accountID, clientConfigID, column, token string) error {
+	encrypted, err := s.encryptor.Encrypt(token)
+	if err != nil {
+		return fmt.Errorf("encrypt %s for %s/%s: %w", column, accountID, clientConfigID, err)
+	}
+	// column is a fixed identifier (NOT user input) — only this file calls
+	// it and the two valid values are the literal strings above.
+	res, err := s.db.Exec(
+		"UPDATE oauth_tokens SET "+column+" = ? WHERE account_id = ? AND client_config_id = ?",
+		encrypted, accountID, clientConfigID,
+	)
+	if err != nil {
+		return fmt.Errorf("store encrypted %s: %w", column, err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("oauth_tokens row missing for %s/%s (metadata UPSERT must run first)", accountID, clientConfigID)
+	}
+	return nil
+}
+
+// getEncryptedTokenColumnForClientConfig reads the named encrypted column
+// from oauth_tokens and decrypts it. Returns ErrCredentialNotFound when
+// the row doesn't exist OR when the column is NULL/empty (i.e., keyring
+// path was used at write time).
+func (s *Store) getEncryptedTokenColumnForClientConfig(accountID, clientConfigID, column string) (string, error) {
+	var encrypted sql.NullString
+	err := s.db.QueryRow(
+		"SELECT "+column+" FROM oauth_tokens WHERE account_id = ? AND client_config_id = ?",
+		accountID, clientConfigID,
+	).Scan(&encrypted)
+	if err == sql.ErrNoRows {
+		return "", ErrCredentialNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("query encrypted %s: %w", column, err)
+	}
+	if !encrypted.Valid || encrypted.String == "" {
+		return "", ErrCredentialNotFound
+	}
+	plaintext, err := s.encryptor.Decrypt(encrypted.String)
+	if err != nil {
+		return "", fmt.Errorf("decrypt %s: %w", column, err)
+	}
+	return plaintext, nil
 }

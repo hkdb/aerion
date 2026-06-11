@@ -6,6 +6,7 @@
   import AccountDialog from '$lib/components/settings/AccountDialog.svelte'
   import DeleteAccountDialog from '$lib/components/settings/DeleteAccountDialog.svelte'
   import SettingsDialog from '$lib/components/settings/SettingsDialog.svelte'
+  import SidebarFooter from '$lib/components/kit/SidebarFooter.svelte'
   import { Button } from '$lib/components/ui/button'
   import { accountStore } from '$lib/stores/accounts.svelte'
   import { contactSourcesStore } from '$lib/stores/contactSources.svelte'
@@ -616,44 +617,53 @@
     {/if}
   </div>
 
-  <!-- Footer with Sync Status and Settings -->
-  <div class="relative p-3 border-t border-border text-xs text-muted-foreground flex items-center justify-between gap-2">
-    {#if syncStatus.percentage !== null}
-      <!-- Sync progress bar overlay on top edge — reused from the per-account bar removed from AccountSection -->
-      <div class="absolute top-0 left-0 right-0 h-1 bg-muted overflow-hidden">
-        <div
-          class="h-full bg-primary transition-all duration-300 ease-out"
-          style="width: {syncStatus.percentage}%"
-        ></div>
-      </div>
-    {/if}
-    <button
-      class="flex-1 min-w-0 flex items-end gap-2 hover:text-foreground transition-colors text-left"
-      onclick={accountStore.isAnySyncing ? cancelSync : syncAllAccounts}
-      title={$_(accountStore.isAnySyncing ? 'sidebar.clickToCancel' : 'sidebar.syncAllAccounts')}
-    >
-      <Icon
-        icon="mdi:sync"
-        class="w-4 h-4 flex-shrink-0 {accountStore.isAnySyncing ? 'animate-spin' : ''}"
-      />
-      <div class="flex-1 min-w-0">
-        {#if syncStatus.accountName}
-          <div class="truncate text-foreground font-medium leading-tight mb-0.5">{syncStatus.accountName}</div>
-        {/if}
-        <span class="block leading-tight">{syncStatus.label}</span>
-      </div>
-    </button>
-    <button
-      class="p-1 hover:text-foreground hover:bg-muted rounded transition-colors relative flex-shrink-0"
-      onclick={() => showSettingsDialog = true}
-      title={$_('sidebar.settings')}
-    >
-      <Icon icon="mdi:cog" class="w-4 h-4" />
-      {#if contactSourcesStore.hasErrors}
-        <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-destructive rounded-full border border-background"></span>
+  <!-- Footer: Sync Status + Settings. Chrome (padding/border/min-height)
+       lives in kit `SidebarFooter` so mail, calendar, and contacts all
+       render the same strip height. Mail's progress bar overlay + 2-line
+       leading content (account name + status label) pass through
+       SidebarFooter's overlay/leading snippets unchanged. -->
+  <SidebarFooter>
+    {#snippet overlay()}
+      {#if syncStatus.percentage !== null}
+        <div class="absolute top-0 left-0 right-0 h-1 bg-muted overflow-hidden">
+          <div
+            class="h-full bg-primary transition-all duration-300 ease-out"
+            style="width: {syncStatus.percentage}%"
+          ></div>
+        </div>
       {/if}
-    </button>
-  </div>
+    {/snippet}
+    {#snippet leading()}
+      <button
+        class="flex-1 min-w-0 flex items-end gap-2 hover:text-foreground transition-colors text-left"
+        onclick={accountStore.isAnySyncing ? cancelSync : syncAllAccounts}
+        title={$_(accountStore.isAnySyncing ? 'sidebar.clickToCancel' : 'sidebar.syncAllAccounts')}
+      >
+        <Icon
+          icon="mdi:sync"
+          class="w-4 h-4 flex-shrink-0 {accountStore.isAnySyncing ? 'animate-spin' : ''}"
+        />
+        <div class="flex-1 min-w-0">
+          {#if syncStatus.accountName}
+            <div class="truncate text-foreground font-medium leading-tight mb-0.5">{syncStatus.accountName}</div>
+          {/if}
+          <span class="block leading-tight">{syncStatus.label}</span>
+        </div>
+      </button>
+    {/snippet}
+    {#snippet trailing()}
+      <button
+        class="p-1 hover:text-foreground hover:bg-muted rounded transition-colors relative"
+        onclick={() => showSettingsDialog = true}
+        title={$_('sidebar.settings')}
+      >
+        <Icon icon="mdi:cog" class="w-4 h-4" />
+        {#if contactSourcesStore.hasErrors}
+          <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-destructive rounded-full border border-background"></span>
+        {/if}
+      </button>
+    {/snippet}
+  </SidebarFooter>
 </div>
 
 <!-- Account Dialog -->

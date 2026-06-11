@@ -9,9 +9,23 @@ import path from 'path'
 //
 // Because extension Svelte/TS files live OUTSIDE frontend/, Rollup's default
 // resolution doesn't find frontend/node_modules. The npm deps used by
-// extensions (iconify, svelte) are aliased explicitly to the host's node_modules
-// so a single dependency tree is shared. Add new entries here when extensions
-// pull in additional npm packages.
+// extensions are aliased explicitly below to the host's node_modules so a
+// single dependency tree is shared.
+//
+// CONVENTION — when an extension pulls in a new npm dep, three steps:
+//   1. `npm install <pkg>` (or add to frontend/package.json) — installs
+//      under frontend/node_modules, which extensions can't reach by
+//      default.
+//   2. Add an alias entry below tagged with the owning extension's
+//      manifest ID so we know which extension to move the dep to when we
+//      eventually split deps per-extension (npm workspaces / per-extension
+//      package.json — tracked as future architectural work).
+//   3. Run `python3 build/flatpak/flathub/gen-node-sources.py` so Flatpak
+//      CI picks up the new tarball (per project memory).
+//
+// Aliases are grouped as:
+//   - SHARED — used by kit primitives or multiple extensions
+//   - PER-EXTENSION — used by exactly one extension today; comment names it
 const EXTENSIONS_DIR = path.resolve(__dirname, '../extensions')
 const WAILSJS_DIR = path.resolve(__dirname, './wailsjs')
 const NODE_MODULES_DIR = path.resolve(__dirname, './node_modules')
@@ -25,10 +39,13 @@ export default defineConfig({
       '$': path.resolve('./src'),
       '$extensions': EXTENSIONS_DIR,
       '$wailsjs': WAILSJS_DIR,
-      // Shared deps used by extensions — must resolve to the host's node_modules
-      // because extension files live outside the frontend/ root.
+      // ── SHARED (kit primitives + most/all extensions) ───────────────────
       '@iconify/svelte': path.resolve(NODE_MODULES_DIR, '@iconify/svelte'),
-      'svelte-i18n': path.resolve(NODE_MODULES_DIR, 'svelte-i18n'),
+      'svelte-i18n':     path.resolve(NODE_MODULES_DIR, 'svelte-i18n'),
+
+      // ── PER-EXTENSION (move to per-ext deps when the SDK supports it) ───
+      // extension: calendar — tz-aware date math (toZonedTime / fromZonedTime)
+      'date-fns-tz':     path.resolve(NODE_MODULES_DIR, 'date-fns-tz'),
     },
   },
   optimizeDeps: {

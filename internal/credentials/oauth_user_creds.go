@@ -61,11 +61,17 @@ func (s *Store) SetUserClientCreds(configID, clientID, clientSecret string) erro
 	}
 
 	if s.keyringEnabled {
-		if err := gokeyring.Set(serviceName, userOAuthKeyringPrefix+configID, string(payload)); err == nil {
+		kerr := gokeyring.Set(serviceName, userOAuthKeyringPrefix+configID, string(payload))
+		if kerr == nil {
 			s.log.Debug().Str("config_id", configID).Msg("user OAuth client creds stored in OS keyring")
+			// Keyring is primary — clear any encrypted-DB copy.
 			s.clearUserClientCredsDB(configID)
 			return nil
 		}
+		// Keyring write failed. Log explicitly before falling back to the
+		// encrypted-DB path so keyring corruption / permission issues are
+		// visible in diagnostics instead of silently masked.
+		s.log.Warn().Err(kerr).Str("config_id", configID).Msg("Failed to store user OAuth creds in OS keyring, falling back to encrypted database")
 	}
 
 	if err := s.ensureUserClientsTable(); err != nil {
@@ -115,10 +121,10 @@ func (s *Store) GetUserClientCreds(configID string) (clientID, clientSecret stri
 	}
 	var encrypted sql.NullString
 	row := s.db.QueryRow(`SELECT encrypted FROM user_oauth_clients WHERE config_id = ?`, configID)
-	if err := row.Scan(&encrypted); err != nil {
-		if err == sql.ErrNoRows {
-			return "", "", false, nil
-		}
+	switch err := row.Scan(&encrypted); {
+	case err == sql.ErrNoRows:
+		return "", "", false, nil
+	case err != nil:
 		return "", "", false, fmt.Errorf("query user oauth creds: %w", err)
 	}
 	if !encrypted.Valid || encrypted.String == "" {

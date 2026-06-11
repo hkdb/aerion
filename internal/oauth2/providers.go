@@ -11,6 +11,10 @@ type ProviderConfig struct {
 	Scopes       []string // Required OAuth scopes
 	ClientID     string   // OAuth client ID
 	ClientSecret string   // OAuth client secret (may be empty for public clients)
+	LoginHint    string   // Optional: pre-fill the account picker (`login_hint`).
+	//                       Used by the Contacts extension's write-access flow
+	//                       to constrain the user to a specific email address
+	//                       matching an existing read account. Empty = no hint.
 }
 
 // GoogleProvider returns the OAuth2 configuration for Google/Gmail
@@ -71,6 +75,46 @@ func GoogleContactsOnlyProvider() ProviderConfig {
 	}
 }
 
+// GoogleCalendarProvider returns OAuth2 config for the Calendar extension's
+// per-extension OAuth slot. Scope covers full Calendar API read+write.
+// Mirrors GoogleContactsOnlyProvider's shape — separate ClientConfigID so
+// extension and mail OAuth grants stay isolated.
+func GoogleCalendarProvider() ProviderConfig {
+	return ProviderConfig{
+		Name:        "google-calendar",
+		DisplayName: "Google Calendar",
+		AuthURL:     "https://accounts.google.com/o/oauth2/v2/auth",
+		TokenURL:    "https://oauth2.googleapis.com/token",
+		Scopes: []string{
+			"https://www.googleapis.com/auth/calendar",       // Full Calendar API access (read + write)
+			"https://www.googleapis.com/auth/userinfo.email", // Get user's email address
+			"openid",                                         // OpenID Connect
+		},
+		ClientID:     GoogleClientID,
+		ClientSecret: GoogleClientSecret,
+	}
+}
+
+// MicrosoftCalendarProvider returns OAuth2 config for the Calendar
+// extension's Microsoft Graph slot. Scope covers Calendars.ReadWrite on
+// the Graph audience (separate from mail's Outlook IMAP audience).
+func MicrosoftCalendarProvider() ProviderConfig {
+	return ProviderConfig{
+		Name:        "microsoft-calendar",
+		DisplayName: "Outlook Calendar",
+		AuthURL:     "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+		TokenURL:    "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+		Scopes: []string{
+			"https://graph.microsoft.com/Calendars.ReadWrite", // Calendar CRUD via Graph
+			"offline_access", // Refresh tokens
+			"openid",         // OpenID Connect
+			"email",          // Get user's email address
+		},
+		ClientID:     MicrosoftClientID,
+		ClientSecret: "", // Public client, no secret needed
+	}
+}
+
 // MicrosoftContactsOnlyProvider returns OAuth2 config for contacts-only access (standalone contact sources)
 func MicrosoftContactsOnlyProvider() ProviderConfig {
 	return ProviderConfig{
@@ -89,20 +133,55 @@ func MicrosoftContactsOnlyProvider() ProviderConfig {
 	}
 }
 
-// GetProvider returns the OAuth2 configuration for the specified provider
+// GetProvider returns the OAuth2 configuration for the specified provider.
+//
+// For the mail entry-point names ("google", "microsoft") the returned
+// config's ClientID/ClientSecret reflect the full resolver chain
+// (UserOverrideLookup → SlotAliasLookup → registered providers), so a
+// user-supplied client_id saved via Settings → OAuth Credentials wins
+// over the shipped build-time defaults. Without this overlay the
+// mail-add flow (App.StartOAuthFlow → Manager.StartAuthFlow → GetProvider)
+// would silently use the embedded ClientID even after the user saved
+// their own override — issue #138.
+//
+// Other names (extension / standalone-contacts variants) return their
+// static ProviderConfig unchanged. Their callers (app/coreimpl.go and
+// GetProviderForClientConfig) already overlay slot-resolved creds on top
+// of the returned config, so retrofitting them here would be redundant
+// and would change the URL/scope semantics of standalone callers.
 func GetProvider(name string) (ProviderConfig, error) {
 	switch name {
 	case "google":
-		return GoogleProvider(), nil
+		return overlayResolvedCreds(GoogleProvider(), "google-mail"), nil
 	case "microsoft":
-		return MicrosoftProvider(), nil
+		return overlayResolvedCreds(MicrosoftProvider(), "microsoft-mail"), nil
 	case "google-contacts":
 		return GoogleContactsOnlyProvider(), nil
 	case "microsoft-contacts":
 		return MicrosoftContactsOnlyProvider(), nil
+	case "google-calendar":
+		return GoogleCalendarProvider(), nil
+	case "microsoft-calendar":
+		return MicrosoftCalendarProvider(), nil
 	default:
 		return ProviderConfig{}, fmt.Errorf("unknown OAuth provider: %s", name)
 	}
+}
+
+// overlayResolvedCreds replaces base.ClientID / base.ClientSecret with
+// the values the resolver chain returns for slot, leaving the base
+// config (URLs, scopes, name) untouched. When the resolver has no
+// credentials for the slot — neither user override nor shipped — the
+// base config is returned as-is, preserving stock behaviour for callers
+// that haven't customised anything.
+func overlayResolvedCreds(base ProviderConfig, slot string) ProviderConfig {
+	creds, ok := ClientConfigForID(slot)
+	if !ok {
+		return base
+	}
+	base.ClientID = creds.ClientID
+	base.ClientSecret = creds.ClientSecret
+	return base
 }
 
 // SupportedProviders returns the list of supported OAuth provider names for email accounts

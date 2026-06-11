@@ -41,6 +41,27 @@ type Account struct {
 	SMTPPort     int          `json:"smtpPort"`
 	SMTPSecurity SecurityType `json:"smtpSecurity"`
 
+	// NoOutgoingServer disables SMTP for this account. When true, the
+	// SMTP host/port/security fields are ignored, no SMTP client is
+	// started, and the composer hides this account (and its identities)
+	// from the From dropdown. Used for receive-only accounts.
+	NoOutgoingServer bool `json:"noOutgoingServer"`
+
+	// SMTPUsername is the SMTP-specific username when the server requires
+	// different credentials than IMAP. Empty (the zero-value default)
+	// means SMTP reuses Username + the IMAP keyring password — identical
+	// to pre-v0.3.0 behavior. Non-empty means SMTP authenticates with
+	// this username + a separately-stored password keyed at
+	// "<accountID>:smtp" in the keyring.
+	SMTPUsername string `json:"smtpUsername"`
+
+	// ReplyForwardIdentityID is the identity to pre-select in the composer
+	// when replying to or forwarding a message received via this account.
+	// Used only when NoOutgoingServer is true (receive-only accounts have
+	// no sendable identity of their own). Empty falls back to the user's
+	// default sending account, then to the first available identity.
+	ReplyForwardIdentityID string `json:"replyForwardIdentityId"`
+
 	// Authentication
 	AuthType AuthType `json:"authType"`
 	Username string   `json:"username"`
@@ -167,6 +188,21 @@ type AccountConfig struct {
 	SMTPPort     int          `json:"smtpPort"`
 	SMTPSecurity SecurityType `json:"smtpSecurity"`
 
+	// NoOutgoingServer marks this account as receive-only. SMTP fields
+	// are ignored when true. See Account.NoOutgoingServer.
+	NoOutgoingServer bool `json:"noOutgoingServer"`
+
+	// SMTPUsername / SMTPPassword override IMAP credentials for SMTP AUTH
+	// when SMTPUsername is non-empty. SMTPPassword is not persisted to
+	// the DB — it follows the same keyring handoff pattern as Password,
+	// stored at key "<accountID>:smtp". See Account.SMTPUsername.
+	SMTPUsername string `json:"smtpUsername"`
+	SMTPPassword string `json:"smtpPassword"` // Not stored in DB, goes to keyring under "<accountID>:smtp"
+
+	// ReplyForwardIdentityID — see Account.ReplyForwardIdentityID. Only
+	// meaningful when NoOutgoingServer is true.
+	ReplyForwardIdentityID string `json:"replyForwardIdentityId"`
+
 	AuthType AuthType `json:"authType"`
 	Username string   `json:"username"`
 	Password string   `json:"password"` // Not stored in DB, goes to keyring
@@ -205,7 +241,7 @@ func (c *AccountConfig) Validate() error {
 	if c.IMAPHost == "" {
 		return ErrIMAPHostRequired
 	}
-	if c.SMTPHost == "" {
+	if !c.NoOutgoingServer && c.SMTPHost == "" {
 		return ErrSMTPHostRequired
 	}
 	if c.Username == "" {

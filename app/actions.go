@@ -116,7 +116,7 @@ func (a *App) setReadStatus(messageIDs []string, isRead bool) error {
 	}
 
 	// Emit event for UI update with flag state
-	wailsRuntime.EventsEmit(a.ctx, "messages:flagsChanged", map[string]interface{}{
+	wailsRuntime.EventsEmit(a.ctx, "messages:readChanged", map[string]interface{}{
 		"messageIds": messageIDs,
 		"isRead":     isRead,
 	})
@@ -166,33 +166,14 @@ func (a *App) setReadStatus(messageIDs []string, isRead bool) error {
 		}
 	}()
 
-	// Create undo command
-	firstMsg := messages[0]
-	folderObj, _ := a.folderStore.Get(firstMsg.FolderID)
-	if folderObj != nil {
-		uids := make([]uint32, len(messages))
-		for i, m := range messages {
-			uids[i] = m.UID
-		}
-
-		description := "Mark as read"
-		if !isRead {
-			description = "Mark as unread"
-		}
-
-		cmd := undo.NewFlagChangeCommand(
-			a.ctx,
-			a,
-			firstMsg.AccountID,
-			folderObj.Path,
-			messageIDs,
-			uids,
-			"read",
-			!isRead, // previous state was opposite
-			description,
-		)
-		a.undoStack.Push(cmd)
-	}
+	// Read-flag changes are intentionally NOT pushed onto the undo stack.
+	// The original design treated every mark-read/unread as undoable, but
+	// in practice the auto-mark-as-read timer (and bulk operations) flooded
+	// the stack so Cmd+Z routinely undid a background read flip instead of
+	// the user's last real action (archive / move / trash). The cure is
+	// simpler than per-call-site filtering: just don't make read changes
+	// undoable at all — the user can re-flip manually if they need to.
+	// Closes #243.
 
 	return nil
 }
@@ -233,7 +214,10 @@ func (a *App) setStarredStatus(messageIDs []string, isStarred bool) error {
 		return fmt.Errorf("failed to update local flags: %w", err)
 	}
 
-	wailsRuntime.EventsEmit(a.ctx, "messages:flagsChanged", messageIDs)
+	wailsRuntime.EventsEmit(a.ctx, "messages:starredChanged", map[string]interface{}{
+		"messageIds": messageIDs,
+		"isStarred":  isStarred,
+	})
 
 	// Sync to IMAP in background with retry
 	go func() {
@@ -254,33 +238,10 @@ func (a *App) setStarredStatus(messageIDs []string, isStarred bool) error {
 		}
 	}()
 
-	// Create undo command
-	firstMsg := messages[0]
-	folderObj, _ := a.folderStore.Get(firstMsg.FolderID)
-	if folderObj != nil {
-		uids := make([]uint32, len(messages))
-		for i, m := range messages {
-			uids[i] = m.UID
-		}
-
-		description := "Star"
-		if !isStarred {
-			description = "Unstar"
-		}
-
-		cmd := undo.NewFlagChangeCommand(
-			a.ctx,
-			a,
-			firstMsg.AccountID,
-			folderObj.Path,
-			messageIDs,
-			uids,
-			"starred",
-			!isStarred,
-			description,
-		)
-		a.undoStack.Push(cmd)
-	}
+	// Star changes are intentionally NOT pushed onto the undo stack. Same
+	// rationale as setReadStatus: the cost of stack pollution outweighs
+	// the value of undo for a flag flip that the user can trivially
+	// reverse with another star/unstar click. Closes #243.
 
 	return nil
 }
@@ -327,6 +288,16 @@ func (a *App) MoveToFolder(messageIDs []string, destFolderID string) error {
 
 	if len(messageIDs) == 0 {
 		return nil
+	}
+
+	// Cross-account selections (Unified Inbox or any mixed-account multi-
+	// select) route to a partition helper that recurses through this
+	// same function with uniform single-account slices. The existing
+	// messages[0].AccountID != destFolder.AccountID guard below then
+	// fires exactly once per partition with a correct full-batch
+	// classification.
+	if spans, _ := a.messageStore.SpansMultipleAccounts(messageIDs); spans {
+		return a.moveToFolderCrossAccount(messageIDs, destFolderID)
 	}
 
 	messages, err := a.messageStore.GetByIDs(messageIDs)
@@ -615,6 +586,14 @@ func (a *App) CopyToFolder(messageIDs []string, destFolderID string) error {
 		return nil
 	}
 
+	// Cross-account selections route to a partition helper that recurses
+	// through this same function with uniform single-account slices. See
+	// MoveToFolder for the rationale — same shape applied to Copy (which
+	// keeps originals in place rather than deleting them).
+	if spans, _ := a.messageStore.SpansMultipleAccounts(messageIDs); spans {
+		return a.copyToFolderCrossAccount(messageIDs, destFolderID)
+	}
+
 	messages, err := a.messageStore.GetByIDs(messageIDs)
 	if err != nil {
 		return fmt.Errorf("failed to get messages: %w", err)
@@ -780,6 +759,14 @@ func (a *App) Archive(messageIDs []string) error {
 		return nil
 	}
 
+	// Cross-account selections (Unified Inbox) route to a partition
+	// helper that recurses through this same function with uniform
+	// single-account slices. SpansMultipleAccounts errors fall through
+	// to the fast path so a metadata hiccup never breaks what works.
+	if spans, _ := a.messageStore.SpansMultipleAccounts(messageIDs); spans {
+		return a.archiveCrossAccount(messageIDs)
+	}
+
 	// Get first message to determine account
 	messages, err := a.messageStore.GetByIDs(messageIDs[:1])
 	if err != nil || len(messages) == 0 {
@@ -803,6 +790,14 @@ func (a *App) Archive(messageIDs []string) error {
 func (a *App) Trash(messageIDs []string) (bool, error) {
 	if len(messageIDs) == 0 {
 		return false, nil
+	}
+
+	// Cross-account selections (Unified Inbox) route to a partition
+	// helper that recurses through this same function with uniform
+	// single-account slices. SpansMultipleAccounts errors fall through
+	// to the fast path so a metadata hiccup never breaks what works.
+	if spans, _ := a.messageStore.SpansMultipleAccounts(messageIDs); spans {
+		return a.trashCrossAccount(messageIDs)
 	}
 
 	messages, err := a.messageStore.GetByIDs(messageIDs[:1])
@@ -1000,6 +995,13 @@ func (a *App) MarkAsSpam(messageIDs []string) (bool, error) {
 		return false, nil
 	}
 
+	// Cross-account selections (Unified Inbox) route to a partition
+	// helper that recurses through this same function with uniform
+	// single-account slices.
+	if spans, _ := a.messageStore.SpansMultipleAccounts(messageIDs); spans {
+		return a.markAsSpamCrossAccount(messageIDs)
+	}
+
 	messages, err := a.messageStore.GetByIDs(messageIDs[:1])
 	if err != nil || len(messages) == 0 {
 		return false, fmt.Errorf("failed to get message")
@@ -1028,6 +1030,13 @@ func (a *App) MarkAsSpam(messageIDs []string) (bool, error) {
 func (a *App) MarkAsNotSpam(messageIDs []string) error {
 	if len(messageIDs) == 0 {
 		return nil
+	}
+
+	// Cross-account selections (Unified Inbox) route to a partition
+	// helper that recurses through this same function with uniform
+	// single-account slices.
+	if spans, _ := a.messageStore.SpansMultipleAccounts(messageIDs); spans {
+		return a.markAsNotSpamCrossAccount(messageIDs)
 	}
 
 	messages, err := a.messageStore.GetByIDs(messageIDs[:1])
@@ -1183,4 +1192,146 @@ func (a *App) deleteMessagesFromIMAP(messages []*message.Message, folderID strin
 
 		return conn.DeleteMessagesByUID(uids)
 	})
+}
+
+// ============================================================================
+// Cross-account dispatch helpers
+//
+// Bulk actions invoked from Unified Inbox may carry a selection that spans
+// multiple accounts. The public entry points (Trash, Archive, MarkAsSpam,
+// MarkAsNotSpam, MoveToFolder, CopyToFolder) detect this up front via
+// messageStore.SpansMultipleAccounts and route here. Each helper partitions
+// the IDs by AccountID, then loops by re-invoking the public function with
+// each partition's single-account slice. The recursive call takes the
+// untouched single-account fast path. Recursion depth is bounded at 1 by
+// construction (partition slices are uniform-account by definition).
+// ============================================================================
+
+// partitionByAccount groups message IDs by their owning account. Invalid
+// IDs (no matching row in the store) are silently dropped — matching the
+// behavior of every other call site that consumes GetByIDs results.
+func (a *App) partitionByAccount(messageIDs []string) (map[string][]string, error) {
+	msgs, err := a.messageStore.GetByIDs(messageIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get messages: %w", err)
+	}
+	byAccount := make(map[string][]string)
+	for _, m := range msgs {
+		byAccount[m.AccountID] = append(byAccount[m.AccountID], m.ID)
+	}
+	return byAccount, nil
+}
+
+// trashCrossAccount fan-outs Trash() per account partition. Aggregates the
+// (bool, error) returns: anyMoved is OR'd across partitions, firstErr wins.
+func (a *App) trashCrossAccount(messageIDs []string) (bool, error) {
+	byAccount, err := a.partitionByAccount(messageIDs)
+	if err != nil {
+		return false, err
+	}
+	var anyMoved bool
+	var firstErr error
+	for _, ids := range byAccount {
+		moved, err := a.Trash(ids)
+		if moved {
+			anyMoved = true
+		}
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return anyMoved, firstErr
+}
+
+// archiveCrossAccount fan-outs Archive() per account partition. Aggregates
+// first error encountered.
+func (a *App) archiveCrossAccount(messageIDs []string) error {
+	byAccount, err := a.partitionByAccount(messageIDs)
+	if err != nil {
+		return err
+	}
+	var firstErr error
+	for _, ids := range byAccount {
+		if err := a.Archive(ids); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+// markAsSpamCrossAccount fan-outs MarkAsSpam() per account partition.
+func (a *App) markAsSpamCrossAccount(messageIDs []string) (bool, error) {
+	byAccount, err := a.partitionByAccount(messageIDs)
+	if err != nil {
+		return false, err
+	}
+	var anyMoved bool
+	var firstErr error
+	for _, ids := range byAccount {
+		moved, err := a.MarkAsSpam(ids)
+		if moved {
+			anyMoved = true
+		}
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return anyMoved, firstErr
+}
+
+// markAsNotSpamCrossAccount fan-outs MarkAsNotSpam() per account partition.
+func (a *App) markAsNotSpamCrossAccount(messageIDs []string) error {
+	byAccount, err := a.partitionByAccount(messageIDs)
+	if err != nil {
+		return err
+	}
+	var firstErr error
+	for _, ids := range byAccount {
+		if err := a.MarkAsNotSpam(ids); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+// moveToFolderCrossAccount fan-outs MoveToFolder() per source-account
+// partition. Each recursive call hits the public MoveToFolder with a
+// uniform-source-account slice; the existing
+// `messages[0].AccountID != destFolder.AccountID` guard in that function
+// then classifies the WHOLE partition correctly:
+//   - partition's account == dest's account → same-account move path.
+//   - partition's account != dest's account → existing cross-account
+//     APPEND-then-Trash path (copyMessagesAcrossAccounts + recursive
+//     Trash on the partition's IDs).
+//
+// Each partition's outcome is independent — a Gmail partition's failure
+// doesn't block an IMAP partition's success.
+func (a *App) moveToFolderCrossAccount(messageIDs []string, destFolderID string) error {
+	byAccount, err := a.partitionByAccount(messageIDs)
+	if err != nil {
+		return err
+	}
+	var firstErr error
+	for _, ids := range byAccount {
+		if err := a.MoveToFolder(ids, destFolderID); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+// copyToFolderCrossAccount fan-outs CopyToFolder() per source-account
+// partition. Mirrors moveToFolderCrossAccount but Copy keeps originals.
+func (a *App) copyToFolderCrossAccount(messageIDs []string, destFolderID string) error {
+	byAccount, err := a.partitionByAccount(messageIDs)
+	if err != nil {
+		return err
+	}
+	var firstErr error
+	for _, ids := range byAccount {
+		if err := a.CopyToFolder(ids, destFolderID); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }

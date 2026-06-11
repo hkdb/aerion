@@ -4,9 +4,9 @@
   primitive in the curated state; switches to an inline <input> when the user
   picks "Custom…". Switching back to a curated option restores the Select.
 
-  Phase 2b.2.b.2 — used by ContactEditDialog repeater rows for emails / phones /
-  addresses / URLs / IMPPs to expose a consistent type picker across all those
-  fields without inventing per-field component shapes.
+  Used by ContactEditDialog repeater rows for emails / phones / addresses /
+  URLs / IMPPs to expose a consistent type picker across all those fields
+  without inventing per-field component shapes.
 
   Standard option lists are exported alongside so callers don't redefine them
   per dialog section.

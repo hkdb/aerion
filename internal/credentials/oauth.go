@@ -82,7 +82,18 @@ func (s *Store) SetOAuthTokens(accountID string, tokens *OAuthTokens) error {
 	return nil
 }
 
-// GetOAuthTokens retrieves OAuth tokens for an account
+// GetOAuthTokens retrieves the mail OAuth tokens for an account.
+//
+// This is the legacy single-config accessor that predates the per-(account,
+// client_config) token storage. Today there can be multiple oauth_tokens rows
+// per account (one per slot — google-mail, google-contacts, google-calendar,
+// etc.), so we filter to the canonical mail slot here. Callers that need a
+// specific extension slot should use GetOAuthTokensForClientConfig.
+//
+// Without this filter the Scan would pick whichever row SQLite returned first
+// and the provider column would hold an extension slot ID
+// (e.g. "google-calendar"), which then breaks downstream provider routing in
+// the Auth Broker.
 func (s *Store) GetOAuthTokens(accountID string) (*OAuthTokens, error) {
 	// Get metadata from database
 	var provider string
@@ -93,6 +104,7 @@ func (s *Store) GetOAuthTokens(accountID string) (*OAuthTokens, error) {
 		SELECT provider, expires_at, scopes
 		FROM oauth_tokens
 		WHERE account_id = ?
+		  AND client_config_id IN ('google-mail', 'microsoft-mail')
 	`, accountID).Scan(&provider, &expiresAt, &scopesJSON)
 
 	if err == sql.ErrNoRows {
@@ -162,17 +174,21 @@ func (s *Store) DeleteOAuthTokens(accountID string) error {
 }
 
 // UpdateOAuthAccessToken updates just the access token and expiry (after refresh)
+// for the account's mail tokens. Per-extension slots have their own update path
+// in UpdateOAuthAccessTokenForClientConfig (oauth_clientconfig.go).
 func (s *Store) UpdateOAuthAccessToken(accountID, accessToken string, expiresAt time.Time) error {
 	// Store new access token
 	if err := s.setOAuthAccessToken(accountID, accessToken); err != nil {
 		return fmt.Errorf("failed to store access token: %w", err)
 	}
 
-	// Update expiry in database
+	// Update expiry in database — restrict to the mail row so we don't
+	// clobber expiries for extension slots that share account_id.
 	_, err := s.db.Exec(`
-		UPDATE oauth_tokens 
-		SET expires_at = ?, updated_at = CURRENT_TIMESTAMP 
+		UPDATE oauth_tokens
+		SET expires_at = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE account_id = ?
+		  AND client_config_id IN ('google-mail', 'microsoft-mail')
 	`, expiresAt, accountID)
 
 	if err != nil {
@@ -187,11 +203,16 @@ func (s *Store) UpdateOAuthAccessToken(accountID, accessToken string, expiresAt 
 	return nil
 }
 
-// GetOAuthProvider returns the OAuth provider for an account, or empty string if not OAuth
+// GetOAuthProvider returns the OAuth provider for an account, or empty string
+// if not OAuth. Reads the mail row specifically — extension-slot rows carry
+// per-slot provider names (e.g. "google-calendar") that would otherwise
+// confuse provider-name comparisons in callers.
 func (s *Store) GetOAuthProvider(accountID string) (string, error) {
 	var provider string
 	err := s.db.QueryRow(
-		"SELECT provider FROM oauth_tokens WHERE account_id = ?",
+		`SELECT provider FROM oauth_tokens
+		 WHERE account_id = ?
+		   AND client_config_id IN ('google-mail', 'microsoft-mail')`,
 		accountID,
 	).Scan(&provider)
 

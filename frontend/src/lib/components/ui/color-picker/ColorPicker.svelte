@@ -24,6 +24,32 @@
   let isOpen = $state(false)
   let hexInput = $state(presets[0])
   let popoverRef: HTMLDivElement | null = $state(null)
+  let triggerRef: HTMLButtonElement | null = $state(null)
+
+  // The popover uses position:fixed (viewport-anchored) rather than
+  // position:absolute (trigger-anchored) so it isn't clipped when the
+  // trigger lives inside a scroll container with overflow-y-auto — the
+  // common case when this picker is mounted inside a dialog's
+  // overflowing rows list (e.g., CalendarColorPickStage, CalendarSettings
+  // per-source rows, AccountForm). Auto-flips upward when there isn't
+  // room below.
+  let popoverStyle = $state('')
+  const POPOVER_WIDTH = 224 // w-56 = 14rem ≈ 224px
+  const POPOVER_HEIGHT = 200 // 4×4 preset grid + hex input + padding (≈)
+
+  function recomputePopoverPosition() {
+    if (!triggerRef) return
+    const rect = triggerRef.getBoundingClientRect()
+    const flipsUp = rect.bottom + POPOVER_HEIGHT + 8 > window.innerHeight
+      && rect.top - POPOVER_HEIGHT - 8 > 0
+    const top = flipsUp ? rect.top - POPOVER_HEIGHT - 4 : rect.bottom + 4
+    let left = rect.left
+    if (left < 8) left = 8
+    if (left + POPOVER_WIDTH > window.innerWidth - 8) {
+      left = window.innerWidth - POPOVER_WIDTH - 8
+    }
+    popoverStyle = `position: fixed; top: ${top}px; left: ${left}px; width: ${POPOVER_WIDTH}px;`
+  }
 
   // Sync hex input with value prop (including initial value)
   $effect(() => {
@@ -32,6 +58,7 @@
 
   function togglePopover() {
     isOpen = !isOpen
+    if (isOpen) queueMicrotask(recomputePopoverPosition)
   }
 
   function selectPreset(color: string) {
@@ -73,8 +100,15 @@
   $effect(() => {
     if (isOpen) {
       document.addEventListener('click', handleClickOutside, true)
+      // Close on viewport changes so the position:fixed popover doesn't
+      // drift away from the trigger as the dialog scrolls underneath.
+      const onViewportChange = () => { isOpen = false }
+      window.addEventListener('scroll', onViewportChange, true)
+      window.addEventListener('resize', onViewportChange)
       return () => {
         document.removeEventListener('click', handleClickOutside, true)
+        window.removeEventListener('scroll', onViewportChange, true)
+        window.removeEventListener('resize', onViewportChange)
       }
     }
   })
@@ -83,10 +117,11 @@
   const displayColor = $derived(value || presets[0])
 </script>
 
-<div class="relative inline-block" bind:this={popoverRef}>
+<div class="inline-block" bind:this={popoverRef}>
   <!-- Color swatch button -->
   <button
     type="button"
+    bind:this={triggerRef}
     class="w-8 h-8 rounded-md border border-border shadow-sm cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
     style="background-color: {displayColor}"
     onclick={togglePopover}
@@ -96,7 +131,8 @@
   <!-- Popover -->
   {#if isOpen}
     <div
-      class="absolute left-0 top-full mt-2 z-50 bg-popover border border-border rounded-lg shadow-lg p-3 w-56"
+      class="z-50 bg-popover border border-border rounded-lg shadow-lg p-3"
+      style={popoverStyle}
       transition:fly={{ y: -5, duration: 150 }}
     >
       <!-- Preset colors grid -->

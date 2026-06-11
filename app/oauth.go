@@ -383,6 +383,32 @@ func (a *App) GetConfiguredOAuthProviders() []string {
 	return configured
 }
 
+// OAuthBuildStatus tells the frontend which OAuth provider credentials were
+// compiled into this build. The frontend uses this to surface a launch-time
+// warning when one or more providers are missing — sign-in for those
+// providers will silently fail otherwise. See OAuthMissingDialog.
+//
+// IsProviderConfigured() only checks the ClientID, but Google is a
+// confidential client (needs Secret too) and so is Google's testing slot
+// (used by extensions). Microsoft is a public client and only needs the
+// ClientID. The fields below honor each provider's actual requirement.
+type OAuthBuildStatus struct {
+	Google        bool `json:"google"`
+	Microsoft     bool `json:"microsoft"`
+	GoogleTesting bool `json:"googleTesting"`
+}
+
+// GetOAuthBuildStatus reports per-provider OAuth credential availability so the
+// launch-time warning dialog can list exactly what's missing. Called once on
+// app start; the result is build-constant for the running process.
+func (a *App) GetOAuthBuildStatus() OAuthBuildStatus {
+	return OAuthBuildStatus{
+		Google:        oauth2.GoogleClientID != "" && oauth2.GoogleClientSecret != "",
+		Microsoft:     oauth2.MicrosoftClientID != "",
+		GoogleTesting: oauth2.GoogleTestingClientID != "" && oauth2.GoogleTestingClientSecret != "",
+	}
+}
+
 // ReauthorizeAccount initiates re-authorization for an existing OAuth account.
 // This is used when tokens have expired and refresh has failed.
 func (a *App) ReauthorizeAccount(accountID string) error {

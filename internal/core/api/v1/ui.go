@@ -61,7 +61,7 @@ type AccountSetupHookRequest struct {
 	Component   string   `json:"component"`            // Svelte component handling the onboarding flow
 }
 
-// UI is the surface for extension-driven UI registrations.
+// UI is the surface for extension-driven UI registrations and UI actions.
 //
 // All registrations are interface-only in Phase 1; the host implementation is
 // Phase 2+ once the frontend slot pattern lands. Returning the Unregister func
@@ -73,4 +73,10 @@ type UI interface {
 	RegisterContextMenuItem(req ContextMenuRequest) (Unregister, error)
 	RegisterInboxView(req InboxViewRequest) (Unregister, error)
 	RegisterAccountSetupHook(req AccountSetupHookRequest) (Unregister, error)
+
+	// OpenURL opens the given URL in the user's system browser via the
+	// host's hardened resolver (protocol allowlist, portal-first on Linux,
+	// xdg-open fallback). Extensions consume this instead of reaching for
+	// Wails' BrowserOpenURL directly so the security gates stay centralized.
+	OpenURL(url string) error
 }

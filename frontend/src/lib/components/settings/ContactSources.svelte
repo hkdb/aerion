@@ -16,11 +16,16 @@
   let showAddDialog = $state(false)
   let editingSource = $state<carddav.Source | null>(null)
   let syncingSourceId = $state<string | null>(null)
+  let forceSyncingSourceId = $state<string | null>(null)
 
   // Delete confirmation state
   let showDeleteConfirm = $state(false)
   let deletingSource = $state<carddav.Source | null>(null)
   let isDeleting = $state(false)
+
+  // Force re-sync confirmation state
+  let showForceSyncConfirm = $state(false)
+  let forceSyncTarget = $state<carddav.Source | null>(null)
 
   onMount(() => {
     contactSourcesStore.load()
@@ -46,6 +51,33 @@
     } finally {
       syncingSourceId = null
     }
+  }
+
+  function openForceSyncConfirm(source: carddav.Source) {
+    forceSyncTarget = source
+    showForceSyncConfirm = true
+  }
+
+  async function confirmForceSync() {
+    if (!forceSyncTarget) return
+    const id = forceSyncTarget.id
+    showForceSyncConfirm = false
+    forceSyncTarget = null
+    forceSyncingSourceId = id
+    try {
+      await contactSourcesStore.forceSyncSource(id)
+      addToast({ type: 'success', message: $_('toast.contactSourceForceSynced') })
+    } catch (err) {
+      console.error('Contact source force-sync failed:', err)
+      addToast({ type: 'error', message: $_('toast.contactSourceForceSyncFailed') })
+    } finally {
+      forceSyncingSourceId = null
+    }
+  }
+
+  function cancelForceSync() {
+    showForceSyncConfirm = false
+    forceSyncTarget = null
   }
 
   function handleDelete(source: carddav.Source) {
@@ -138,11 +170,11 @@
 
           <!-- Error display -->
           {#if source.last_error}
-            <div class="flex items-start gap-2 p-2 bg-destructive/10 rounded text-sm">
+            <div class="flex items-start gap-2 p-2 bg-destructive/10 rounded text-sm min-w-0">
               <Icon icon="mdi:alert-circle" class="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-              <div class="flex-1">
+              <div class="flex-1 min-w-0">
                 <div class="text-destructive font-medium">{$_('contactSource.syncFailed')}</div>
-                <div class="text-xs text-muted-foreground">{source.last_error}</div>
+                <div class="text-xs text-muted-foreground break-all max-h-24 overflow-y-auto">{source.last_error}</div>
               </div>
             </div>
           {/if}
@@ -153,7 +185,7 @@
               size="sm"
               variant="ghost"
               onclick={() => handleSync(source.id)}
-              disabled={syncingSourceId === source.id}
+              disabled={syncingSourceId === source.id || forceSyncingSourceId === source.id}
             >
               {#if syncingSourceId === source.id}
                 <Icon icon="mdi:loading" class="w-4 h-4 mr-1 animate-spin" />
@@ -161,6 +193,20 @@
                 <Icon icon="mdi:sync" class="w-4 h-4 mr-1" />
               {/if}
               {source.last_error ? $_('common.retry') : $_('common.sync')}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onclick={() => openForceSyncConfirm(source)}
+              disabled={syncingSourceId === source.id || forceSyncingSourceId === source.id}
+              title={$_('contactSource.forceSync')}
+            >
+              {#if forceSyncingSourceId === source.id}
+                <Icon icon="mdi:loading" class="w-4 h-4 mr-1 animate-spin" />
+              {:else}
+                <Icon icon="mdi:refresh-auto" class="w-4 h-4 mr-1" />
+              {/if}
+              {$_('contactSource.forceSync')}
             </Button>
             <Button size="sm" variant="ghost" onclick={() => openEdit(source)}>
               <Icon icon="mdi:pencil" class="w-4 h-4 mr-1" />
@@ -201,4 +247,15 @@
   loading={isDeleting}
   onConfirm={confirmDelete}
   onCancel={cancelDelete}
+/>
+
+<!-- Force Re-sync Confirmation Dialog -->
+<ConfirmDialog
+  bind:open={showForceSyncConfirm}
+  title={$_('contactSource.forceSyncConfirmTitle')}
+  description={$_('contactSource.forceSyncConfirmDescription', { values: { name: forceSyncTarget?.name || '' } })}
+  confirmLabel={$_('contactSource.forceSync')}
+  cancelLabel={$_('common.cancel')}
+  onConfirm={confirmForceSync}
+  onCancel={cancelForceSync}
 />

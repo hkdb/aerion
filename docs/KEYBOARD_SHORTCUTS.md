@@ -16,7 +16,7 @@ These shortcuts work anywhere in the application (unless in composer).
 | `Ctrl+Shift+A` | Sync all accounts |
 | `Ctrl+Shift+S` | Sync selected folder |
 | `Ctrl+Tab` | Switch to next extension on the rail (Mail / Contacts / ...) |
-| `Ctrl+Shift+Tab` | Switch to previous extension on the rail |
+| `` Ctrl+` `` | Switch to previous extension on the rail |
 
 ### Pane Navigation
 
@@ -140,7 +140,7 @@ NAVIGATION
   Alt(L) + Alt(R)     Brings context menu up for the focused folder
   Alt + Enter         Expand/collapse account
   Ctrl + Tab          Switch to next extension on rail
-  Ctrl + Shift + Tab  Switch to previous extension on rail
+  Ctrl + `            Switch to previous extension on rail
   Arrow Keys / HJKL   Navigate within focused pane
   Enter               Open conversation / Expand account
   Space               Toggle checkbox / Expand account
@@ -223,7 +223,7 @@ When the composer is open:
 ### Extension Rail Navigation
 
 `Ctrl+Tab` cycles forward through the rail items: Mail → first enabled extension → next → wrap to Mail.
-`Ctrl+Shift+Tab` cycles backward. The shortcut is a no-op when no extensions are enabled (only Mail in the rail). Active extension is persisted across launches.
+`` Ctrl+` `` cycles backward. Both are no-ops when no extensions are enabled (only Mail in the rail). Active extension is persisted across launches.
 
 Composer state is preserved across switches: switching to an extension and back does not unmount or clear the composer.
 
@@ -232,3 +232,72 @@ Composer state is preserved across switches: switching to an extension and back 
 When viewing Unified Inbox and replying:
 - Reply uses the account associated with the selected message
 - This ensures replies come from the correct email address
+
+---
+
+## Extensions
+
+Extension shortcuts only fire when the corresponding extension is the active rail pane (selected via `Ctrl+Tab` / `` Ctrl+` ``). They never trigger while Mail is active — so shortcuts that overlap with Mail's (like `Ctrl+N`, `Ctrl+Shift+A`, `Ctrl+Shift+S`) are unambiguous: the active rail decides which handler runs. For example, `Ctrl+Shift+A` syncs accounts in Mail, syncs all calendar sources in Calendar, and syncs all contact sources in Contacts.
+
+Pane-local navigation (Up/Down/J/K, Enter, Space, Alt+H/L for pane cycling, Alt+Up/Down for sidebar) uses the same kit-shared predicates Mail does — they're listed per-extension below for completeness, but they're not extension-specific re-implementations.
+
+### Calendar
+
+**Navigation (pane cycling)**
+
+| Shortcut | Action |
+|----------|--------|
+| `Alt+Left` / `Alt+H` | Focus previous pane |
+| `Alt+Right` / `Alt+L` | Focus next pane |
+
+**Date / view navigation**
+
+| Shortcut | Action |
+|----------|--------|
+| `T` | Jump the calendar view to today |
+| `←` | Previous view-unit (prev month / week / day) |
+| `→` | Next view-unit (next month / week / day) |
+| `Alt+M` | Switch to month view |
+| `Alt+W` | Switch to week view |
+| `Alt+D` | Switch to day view |
+| `Alt+A` | Switch to agenda view |
+
+**Actions**
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+N` | Open the new-event composer |
+| `Ctrl+R` | Sync all calendar sources |
+| `Ctrl+Shift+A` | Sync all calendar sources (same chord as Mail's "sync all accounts" — fires whichever handler matches the active rail) |
+| `F` | Toggle focus mode for the selected event |
+
+> The calendar sidebar uses checkbox toggles per calendar (not single-select navigation), so it doesn't follow the kit's `J`/`K` row-cycling pattern. Clicking a checkbox or row in the sidebar toggles visibility.
+
+### Contacts
+
+**Sidebar navigation (works from any pane)**
+
+Mirrors mail's "Folder Navigation" shortcuts. These fire regardless of which contacts pane currently has keyboard focus — so you can scroll through addressbooks while the list or detail pane is focused.
+
+| Shortcut | Action |
+|----------|--------|
+| `Alt+Up` / `Alt+K` | Move to previous source / addressbook in the sidebar |
+| `Alt+Down` / `Alt+J` | Move to next source / addressbook in the sidebar |
+
+**Pane cycling**
+
+| Shortcut | Action |
+|----------|--------|
+| `Alt+Left` / `Alt+H` | Focus previous pane (detail → list → sidebar) |
+| `Alt+Right` / `Alt+L` | Focus next pane (sidebar → list → detail) |
+
+**Actions**
+
+| Shortcut | Action |
+|----------|--------|
+| `E` | Edit the currently-focused contact |
+| `Ctrl+N` | Open the new-contact dialog (pre-targeted to the sidebar-focused addressbook; falls back to local when the focused source isn't writable) |
+| `Ctrl+Shift+A` | Sync all contact sources (same chord as Mail's "sync all accounts" — fires whichever handler matches the active rail) |
+| `Ctrl+Shift+S` | Sync the contact source currently focused in the sidebar (no-op with warning toast when a built-in entry like "All" / "Local" is focused) |
+
+> Within a focused pane, `Up`/`K` and `Down`/`J` cycle rows (contact list, sidebar sources) and `Enter` opens / activates — same kit predicates Mail's list and folder tree use.
