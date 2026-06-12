@@ -12,4 +12,7 @@ import { register } from 'svelte-i18n'
 export function registerExtensionI18n(): void {
   register('en', () => import('./locales/en.json'))
   register('cs', () => import('./locales/cs.json'))
+  register('zh-CN', () => import('./locales/zh-CN.json'))
+  register('zh-HK', () => import('./locales/zh-HK.json'))
+  register('zh-TW', () => import('./locales/zh-TW.json'))
 }
