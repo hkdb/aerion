@@ -10,6 +10,7 @@
 - ALPHA: Added Calendar extension - shipped disabled - [#28](https://github.com/hkdb/aerion/issues/28)
 - Added runtime config of client id/secret - [#138](https://github.com/hkdb/aerion/issues/138)
 - Added force re-sync of contacts
+- Added Vietnamese translation - PR [#232](https://github.com/hkdb/aerion/pull/232)
 - Added separate smtp credentials option - [#264](https://github.com/hkdb/aerion/issues/264)
 - Added no outgoing server option - [#132](https://github.com/hkdb/aerion/issues/132) [(#134)](https://github.com/hkdb/aerion/pull/134)
 - Added fallback for Mailfence and other non-quote-compliant providers - [#209](https://github.com/hkdb/aerion/issues/209)
