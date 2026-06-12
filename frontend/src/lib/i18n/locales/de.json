@@ -272,7 +272,9 @@
     "settingsSaved": "Einstellungen gespeichert",
     "undone": "Rückgängig gemacht: {description}",
     "contactSourceSynced": "Kontaktquelle synchronisiert",
-    "contactSourceDeleted": "Kontaktquelle gelöscht",
+    "contactSourceForceSynced": "Kontaktquelle vom Server neu synchronisiert",
+    "contactSourceForceSyncFailed": "Neu-Synchronisierung der Kontaktquelle fehlgeschlagen",
+    "contactSourceDeleted": "Contact-Quelle gelöscht",
     "contactSourceAdded": "Kontaktquelle hinzugefügt",
     "contactSourceUpdated": "Kontaktquelle aktualisiert",
     "contactSourceLinked": "Kontaktquelle mit Konto verknüpft",
@@ -327,6 +329,16 @@
     "accounts": "Konten",
     "contacts": "Kontakte",
     "about": "Über",
+    "extensions": "Erweiterungen",
+    "extensionsCoreHeading": "Kern-Erweiterungen",
+    "extensionsCoreDescription": "Integrierte Erweiterungen, die du aktivieren oder deaktivieren kannst.",
+    "extensionsEnabled": "Aktiviert",
+    "extensionsDisabled": "Deaktiviert",
+    "extensionsEnable": "Aktivieren",
+    "extensionsDisable": "Deaktivieren",
+    "extensionsCapabilities": "Funktionen",
+    "extensionsVersion": "Version",
+    "extensionsNone": "In diesem Build sind keine Erweiterungen verfügbar.",
     "images": "Bilder",
     "composer": "Verfassen",
     "composerMode": "Standard-Verfassenmodus",
@@ -411,7 +423,8 @@
     "addAccount": "Konto hinzufügen",
     "moveUp": "Nach oben",
     "moveDown": "Nach unten",
-    "editAccount": "Konto bearbeiten"
+    "editAccount": "Konto bearbeiten",
+    "deleteAccount": "Konto löschen"
   },
   "settingsAbout": {
     "version": "Version {version}",
@@ -538,9 +551,20 @@
     "emailRequired": "E-Mail ist erforderlich",
     "invalidEmail": "Ungültiges E-Mail-Format",
     "passwordRequired": "Passwort ist erforderlich",
+    "usernameRequired": "Benutzername ist erforderlich",
     "imapHostRequired": "IMAP-Host ist erforderlich",
     "smtpHostRequired": "SMTP-Host ist erforderlich",
     "invalidPort": "Ungültiger Port",
+    "noOutgoingServer": "Kein Postausgangsserver",
+    "noOutgoingServerHelp": "Deaktiviert das Senden für dieses Konto. Die Adresse erscheint nicht im Absender-Dropdown des Editors. Antworten auf hier empfangene Nachrichten verwenden deine ausgewählte Identität oder das Standard-Sendekonto.",
+    "replyForwardWith": "Antworten/Weiterleiten mit",
+    "replyForwardWithHelp": "Identität, die im Editor vorausgewählt wird, wenn auf Nachrichten geantwortet oder diese weitergeleitet werden, die hier empfangen wurden.",
+    "replyForwardWithDefault": "Standard-Sendekonto",
+    "smtpAuthentication": "SMTP-Authentifizierung",
+    "smtpUseSameAsIncoming": "Gleich wie beim Posteingangsserver",
+    "smtpUsernamePlaceholder": "smtp-user@beispiel.de",
+    "smtpPasswordPlaceholder": "SMTP-Passwort",
+    "smtpCredsNote": "Wenn du einen anderen Benutzernamen und ein anderes Passwort für SMTP festlegst, kannst du dies im Abschnitt \"SMTP-Authentifizierung\" im Reiter \"Server\" ändern.",
     "trustedCertificates": "Vertrauenswürdige Zertifikate",
     "trustedCertsHelp": "Manuell vertrauenswürdige TLS-Zertifikate für die Server dieses Kontos.",
     "loadingCerts": "Zertifikate werden geladen...",
@@ -707,6 +731,9 @@
     "editSource": "Kontaktquelle bearbeiten",
     "deleteTitle": "Kontaktquelle löschen",
     "deleteConfirmName": "\"{name}\" löschen? Dadurch werden alle synchronisierten Kontakte aus dieser Quelle entfernt.",
+    "forceSync": "Neu-Synchronisierung erzwingen",
+    "forceSyncConfirmTitle": "Neu-Synchronisierung für \"{name}\" erzwingen?",
+    "forceSyncConfirmDescription": "Ruft jeden einzelnen Kontakt von \"{name}\" erneut vom Server ab. Dies füllt Felder (Telefon, Adresse, Organisation, Notizen etc.) nachträglich auf, die bei Kontakten fehlen könnten, die ursprünglich unter einer älteren Aerion-Version synchronisiert wurden. Kann bei großen Adressbüchern einige Minuten dauern.",
     "name": "Name",
     "namePlaceholder": "z. B. Nextcloud, Arbeit, Privat",
     "serverUrl": "Server-URL",
@@ -746,7 +773,9 @@
     "update": "Aktualisieren",
     "linked": "verknüpft",
     "autoName": "{name} Kontakte",
-    "minutesFallback": "{value} Minuten"
+    "minutesFallback": "{value} Minuten",
+    "enableWriteAccess": "Schreibzugriff auf diese Quelle aktivieren",
+    "enableWriteAccessDescription": "Erlaubt das Bearbeiten, Erstellen und Löschen von Kontakten auf diesem CardDAV-Server. Verwendet die oben angegebenen Anmeldedaten."
   },
   "certificate": {
     "title": "Nicht vertrauenswürdiges Zertifikat",
@@ -771,6 +800,13 @@
     "termsOfUse": "Nutzungsbedingungen",
     "agreeLabel": "Ich habe die Nutzungsbedingungen und die Datenschutzrichtlinie gelesen und stimme ihnen zu",
     "accept": "Akzeptieren & Fortfahren"
+  },
+  "oauthMissing": {
+    "title": "OAuth-Anmeldedaten fehlen",
+    "intro": "In diesem Build fehlen die Aerion OAuth-Anmeldedaten für:",
+    "implication": "Das bedeutet, dass die Anbieter mit fehlenden Anmeldedaten nicht ordnungsgemäß funktionieren werden. Dies liegt wahrscheinlich daran, dass Aerion nicht aus einer offiziellen Quelle installiert wurde.",
+    "installInstruction": "Um Aerion aus einer offiziellen Quelle zu installieren, siehe:",
+    "dontShowAgain": "Nicht mehr anzeigen"
   },
   "dialog": {
     "deletePermanently": "Endgültig löschen?",
@@ -883,17 +919,17 @@
   },
   "oauth": {
     "writeAccessPicker": {
-      "title": "Enable write access",
-      "description": "Choose the {provider} account to authorize for write access on {sourceName}.",
+      "title": "Schreibzugriff aktivieren",
+      "description": "Wähle das {provider}-Konto aus, das für den Schreibzugriff auf {sourceName} autorisiert werden soll.",
       "providerGoogle": "Google",
       "providerMicrosoft": "Microsoft",
-      "loadFailed": "Failed to load accounts: {message}",
-      "emptyHeading": "No {provider} accounts found.",
-      "emptyHint": "Add a {provider} account in Mail (Settings → Accounts) or Contacts (Settings → Contacts → Add source) first, then return here.",
-      "cancel": "Cancel",
-      "continue": "Continue",
-      "successToast": "Write access enabled for {name}",
-      "failureToast": "Failed to enable write access: {message}"
+      "loadFailed": "Konten konnten nicht geladen werden: {message}",
+      "emptyHeading": "Keine {provider}-Konten gefunden.",
+      "emptyHint": "Füge zuerst ein {provider}-Konto unter E-Mail (Einstellungen → Konten) oder Kontakte (Einstellungen → Kontakte → Quelle hinzufügen) hinzu und kehre dann hierher zurück.",
+      "cancel": "Abbrechen",
+      "continue": "Weiter",
+      "successToast": "Schreibzugriff für {name} aktiviert",
+      "failureToast": "Schreibzugriff konnte nicht aktiviert werden: {message}"
     }
   }
 }
