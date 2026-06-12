@@ -261,6 +261,7 @@
           <li>ALPHA: Added Calendar extension - shipped disabled - #28</li>
           <li>Added runtime config of client id/secret - #138</li>
           <li>Added force re-sync of contacts</li>
+          <li>Added Vietnamese translation - PR #232</li>
           <li>Added separate smtp credentials option - #264</li>
           <li>Added no outgoing server option - #132</li>
           <li>Added fallback for Mailfence and other non-quote-compliant providers - #209</li>
