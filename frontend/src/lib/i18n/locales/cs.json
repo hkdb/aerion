@@ -272,6 +272,8 @@
     "settingsSaved": "Nastavení uloženo",
     "undone": "Vráceno: {description}",
     "contactSourceSynced": "Zdroj kontaktů synchronizován",
+    "contactSourceForceSynced": "Zdroj kontaktů byl znovu synchronizován ze serveru",
+    "contactSourceForceSyncFailed": "Vynucená opětovná synchronizace selhala",
     "contactSourceDeleted": "Zdroj kontaktů smazán",
     "contactSourceAdded": "Zdroj kontaktů přidán",
     "contactSourceUpdated": "Zdroj kontaktů aktualizován",
@@ -327,6 +329,16 @@
     "accounts": "Účty",
     "contacts": "Kontakty",
     "about": "O aplikaci",
+    "extensions": "Rozšíření",
+    "extensionsCoreHeading": "Základní rozšíření",
+    "extensionsCoreDescription": "Vestavěná rozšíření, která můžete povolit nebo zakázat.",
+    "extensionsEnabled": "Povoleno",
+    "extensionsDisabled": "Zakázáno",
+    "extensionsEnable": "Povolit",
+    "extensionsDisable": "Zakázat",
+    "extensionsCapabilities": "Možnosti",
+    "extensionsVersion": "Verze",
+    "extensionsNone": "V tomto sestavení nejsou k dispozici žádná rozšíření.",
     "images": "Obrázky",
     "composer": "Editor",
     "composerMode": "Výchozí režim psaní zprávy",
@@ -411,7 +423,8 @@
     "addAccount": "Přidat účet",
     "moveUp": "Posunout nahoru",
     "moveDown": "Posunout dolů",
-    "editAccount": "Upravit účet"
+    "editAccount": "Upravit účet",
+    "deleteAccount": "Smazat účet"
   },
   "settingsAbout": {
     "version": "Verze {version}",
@@ -465,7 +478,7 @@
     "folderStarred": "Označené hvězdičkou",
     "deleteTitle": "Smazat účet",
     "deleteConfirm": "Opravdu chcete smazat {name} ({email})?",
-    "deleteWarning": "Tímto se trvale odstraní všechny lokální zprávy, složky a nastavení tohoto účtu. E-maily na serveru zůstanou zachovány.",
+    "deleteWarning": "Tímto se trvale odstraní všechny místní zprávy, složky a nastavení tohoto účtu. E-maily na serveru zůstanou zachovány.",
     "deleteAccount": "Smazat účet",
     "chooseProvider": "Vyberte poskytovatele e-mailu",
     "chooseProviderHelp": "Vyberte poskytovatele pro automatickou konfiguraci",
@@ -538,9 +551,20 @@
     "emailRequired": "E-mail je povinný",
     "invalidEmail": "Neplatný formát e-mailu",
     "passwordRequired": "Heslo je povinné",
+    "usernameRequired": "Uživatelské jméno je povinné",
     "imapHostRequired": "IMAP server je povinný",
     "smtpHostRequired": "SMTP server je povinný",
     "invalidPort": "Neplatný port",
+    "noOutgoingServer": "Žádný odchozí server",
+    "noOutgoingServerHelp": "Zakáže odesílání pro tento účet. Adresa účtu se v editoru nebude zobrazovat v rozbalovacím menu „Od“. Odpovědi na zprávy přijaté tímto účtem použijí vámi vybranou identitu nebo výchozí účet pro odesílání.",
+    "replyForwardWith": "Odpovědět/Přeposlat jako",
+    "replyForwardWithHelp": "Identita, která bude v editoru předvybrána při odpovídání na zprávy přijaté tímto účtem nebo při jejich přeposílání.",
+    "replyForwardWithDefault": "Výchozí účet pro odesílání",
+    "smtpAuthentication": "Ověření SMTP",
+    "smtpUseSameAsIncoming": "Stejné jako pro příchozí server",
+    "smtpUsernamePlaceholder": "uzivatel-smtp@example.com",
+    "smtpPasswordPlaceholder": "Heslo SMTP",
+    "smtpCredsNote": "Pokud pro SMTP používáte jiné uživatelské jméno a heslo, můžete je upravit v sekci „Ověření SMTP“ na kartě „Server“.",
     "trustedCertificates": "Důvěryhodné certifikáty",
     "trustedCertsHelp": "Ručně schválené TLS certifikáty pro servery tohoto účtu.",
     "loadingCerts": "Načítání certifikátů...",
@@ -707,6 +731,9 @@
     "editSource": "Upravit zdroj kontaktů",
     "deleteTitle": "Smazat zdroj kontaktů",
     "deleteConfirmName": "Smazat „{name}“? Odstraníte tak všechny synchronizované kontakty z tohoto zdroje.",
+    "forceSync": "Vynutit opětovnou synchronizaci",
+    "forceSyncConfirmTitle": "Vynutit opětovnou synchronizaci „{name}“?",
+    "forceSyncConfirmDescription": "Znovu načte všechny kontakty zdroje „{name}“ ze serveru. Doplní údaje (telefon, adresu, organizaci, poznámky apod.), které mohou chybět u kontaktů původně synchronizovaných ve starší verzi Aerionu. U velkých adresářů může operace trvat několik minut.",
     "name": "Název",
     "namePlaceholder": "např. Nextcloud, Práce, Osobní",
     "serverUrl": "URL serveru",
@@ -746,7 +773,9 @@
     "update": "Aktualizovat",
     "linked": "propojeno",
     "autoName": "Kontakty {name}",
-    "minutesFallback": "{value} minut"
+    "minutesFallback": "{value} minut",
+    "enableWriteAccess": "Povolit zápis do tohoto zdroje",
+    "enableWriteAccessDescription": "Povolí úpravy, vytváření a mazání kontaktů na tomto CardDAV serveru. Použije výše uvedené přihlašovací údaje."
   },
   "certificate": {
     "title": "Nedůvěryhodný certifikát",
@@ -771,6 +800,13 @@
     "termsOfUse": "Podmínky používání",
     "agreeLabel": "Přečetl(a) jsem si podmínky používání a zásady ochrany osobních údajů a souhlasím s nimi.",
     "accept": "Přijmout a pokračovat"
+  },
+  "oauthMissing": {
+    "title": "Chybí přihlašovací údaje OAuth",
+    "intro": "V tomto sestavení chybí přihlašovací údaje Aerion OAuth pro:",
+    "implication": "To znamená, že poskytovatelé, kterým tyto údaje chybí, nebudou fungovat správně. Pravděpodobně jste nenainstalovali Aerion z oficiálního zdroje.",
+    "installInstruction": "Pokyny k instalaci Aerionu z oficiálního zdroje naleznete zde:",
+    "dontShowAgain": "Příště nezobrazovat"
   },
   "dialog": {
     "deletePermanently": "Trvale smazat?",
@@ -883,17 +919,17 @@
   },
   "oauth": {
     "writeAccessPicker": {
-      "title": "Enable write access",
-      "description": "Choose the {provider} account to authorize for write access on {sourceName}.",
+      "title": "Povolit přístup k zápisu",
+      "description": "Vyberte účet {provider}, který chcete autorizovat pro přístup k zápisu do {sourceName}.",
       "providerGoogle": "Google",
       "providerMicrosoft": "Microsoft",
-      "loadFailed": "Failed to load accounts: {message}",
-      "emptyHeading": "No {provider} accounts found.",
-      "emptyHint": "Add a {provider} account in Mail (Settings → Accounts) or Contacts (Settings → Contacts → Add source) first, then return here.",
-      "cancel": "Cancel",
-      "continue": "Continue",
-      "successToast": "Write access enabled for {name}",
-      "failureToast": "Failed to enable write access: {message}"
+      "loadFailed": "Nepodařilo se načíst účty: {message}",
+      "emptyHeading": "Nebyly nalezeny žádné účty {provider}.",
+      "emptyHint": "Nejprve přidejte účet {provider} v poště (Nastavení → Účty) nebo kontaktech (Nastavení → Kontakty → Přidat zdroj) a poté se vraťte sem.",
+      "cancel": "Zrušit",
+      "continue": "Pokračovat",
+      "successToast": "Přístup k zápisu byl povolen pro {name}",
+      "failureToast": "Nepodařilo se povolit přístup k zápisu: {message}"
     }
   }
 }
