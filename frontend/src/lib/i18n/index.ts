@@ -8,6 +8,7 @@ register('de', () => import('./locales/de.json'))
 register('fr', () => import('./locales/fr.json'))
 register('it', () => import('./locales/it.json'))
 register('nb', () => import('./locales/nb.json'))
+register('vi', () => import('./locales/vi.json'))
 register('zh-CN', () => import('./locales/zh-CN.json'))
 register('zh-HK', () => import('./locales/zh-HK.json'))
 register('zh-TW', () => import('./locales/zh-TW.json'))
@@ -29,6 +30,7 @@ export const supportedLocales = [
   { code: 'fr', name: 'Français' },
   { code: 'it', name: 'Italiano' },
   { code: 'nb', name: 'Norsk Bokmål' },
+  { code: 'vi', name: 'Tiếng Việt' },
   { code: 'zh-CN', name: '简体中文 (中国)' },
   { code: 'zh-HK', name: '繁體中文 (香港)' },
   { code: 'zh-TW', name: '繁體中文 (台灣)' },
