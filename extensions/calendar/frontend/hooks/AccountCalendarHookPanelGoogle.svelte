@@ -28,7 +28,8 @@
   import { addToast } from '$lib/stores/toast'
   import { refreshExtensionRegistry } from '$lib/stores/extensionRegistry.svelte'
   // @ts-ignore - wailsjs bindings
-  import { SetExtensionEnabled, Calendar_ListGoogleCalendarsForAccount, Calendar_AddGoogleSource, Calendar_GrantCalendarAccess } from '$wailsjs/go/app/App'
+  import { SetExtensionEnabled, Calendar_ListGoogleCalendarsForAccount, Calendar_AddGoogleSource } from '$wailsjs/go/app/App'
+  import GrantCalendarAccessButton from '../components/GrantCalendarAccessButton.svelte'
   // @ts-ignore - wailsjs bindings
   import type { v1, backend } from '$wailsjs/go/models'
 
@@ -54,7 +55,6 @@
   let busy = $state(false)
   let done = $state(false)
   let needsConsent = $state(false)
-  let granting = $state(false)
   let error = $state<string | null>(null)
 
   onMount(() => void loadCalendars())
@@ -109,22 +109,6 @@
   $effect(() => {
     if (selectAllEl) selectAllEl.indeterminate = someSelected
   })
-
-  async function grantAccess() {
-    if (granting) return
-    granting = true
-    error = null
-    try {
-      await Calendar_GrantCalendarAccess('google', accountId, accountName)
-      // Consent flow returned without error → tokens now carry calendar
-      // scope. Re-run the calendar list fetch so the picker populates.
-      await loadCalendars()
-    } catch (err) {
-      error = (err as Error)?.message ?? String(err)
-    } finally {
-      granting = false
-    }
-  }
 
   async function setUp() {
     if (selectedIds.size === 0) {
@@ -185,9 +169,15 @@
     {#if !loading && needsConsent}
       <div class="rounded-md border border-yellow-400/40 bg-yellow-400/10 p-3 text-xs text-yellow-700 dark:text-yellow-300 mb-3 space-y-2">
         <div>{$_('calendar.hooks.consentNeeded')}</div>
-        <Button size="sm" variant="outline" onclick={grantAccess} disabled={granting}>
-          {#if granting}{$_('calendar.hooks.granting')}{:else}{$_('calendar.hooks.grantButton')}{/if}
-        </Button>
+        <GrantCalendarAccessButton
+          provider="google"
+          accountId={accountId}
+          email={accountName}
+          idleLabel={$_('calendar.hooks.grantButton')}
+          busyLabel={$_('calendar.hooks.granting')}
+          onSuccess={() => loadCalendars()}
+          onError={(m) => (error = m)}
+        />
       </div>
     {/if}
 

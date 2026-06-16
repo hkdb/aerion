@@ -23,6 +23,10 @@
   // backend has already refreshed the local cache from the server before
   // emitting — the UI just needs to toast + re-render.
   let unsubscribeConflict: (() => void) | null = null
+  // Fires after any source sync lands (background scheduler, post-add, or
+  // manual). reloadContacts() preserves the current selection + open detail,
+  // so a background refresh doesn't disrupt the user.
+  let unsubscribeChanged: (() => void) | null = null
 
   onMount(() => {
     reloadContacts()
@@ -33,10 +37,14 @@
         await activateContact(payload.contactId)
       }
     })
+    unsubscribeChanged = EventsOn('contacts:changed', () => {
+      void reloadContacts()
+    })
   })
 
   onDestroy(() => {
     if (unsubscribeConflict) unsubscribeConflict()
+    if (unsubscribeChanged) unsubscribeChanged()
   })
 
   let showAdd = $state(false)
@@ -114,6 +122,7 @@
   async function runSyncAll() {
     try {
       await contactSourcesStore.syncAll()
+      await reloadContacts()
       toasts.success($_('contacts.toast.syncAllSucceeded'))
     } catch (err) {
       const msg = (err as Error)?.message ?? String(err)
@@ -130,6 +139,7 @@
     }
     try {
       await contactSourcesStore.syncSource(id)
+      await reloadContacts()
       toasts.success($_('contacts.toast.syncSucceeded'))
     } catch (err) {
       const msg = (err as Error)?.message ?? String(err)

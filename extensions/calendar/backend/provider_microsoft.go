@@ -83,7 +83,14 @@ func (p microsoftProvider) httpClient(src Source) (*http.Client, error) {
 // (extensions/contacts/backend/microsoft_write.go).
 func doGraphRequest(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Prefer", microsoftPreferTZ)
+	// Combine the timezone preference with any Prefer the caller already set
+	// (e.g. odata.maxpagesize on the events delta). RFC 7240 allows multiple
+	// comma-separated preference tokens; a bare Set would clobber the caller's.
+	prefer := microsoftPreferTZ
+	if existing := req.Header.Get("Prefer"); existing != "" {
+		prefer = existing + ", " + microsoftPreferTZ
+	}
+	req.Header.Set("Prefer", prefer)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -114,7 +121,9 @@ func doGraphRequest(ctx context.Context, client *http.Client, req *http.Request)
 	if req.Body != nil {
 		// Caller should pre-buffer the body so retry is safe; in practice
 		// our PushEvent uses bytes.NewReader which auto-seeks.
-		if seeker, ok := req.Body.(interface{ Seek(int64, int) (int64, error) }); ok {
+		if seeker, ok := req.Body.(interface {
+			Seek(int64, int) (int64, error)
+		}); ok {
 			_, _ = seeker.Seek(0, 0)
 		}
 		retryReq.Body = req.Body
@@ -165,8 +174,11 @@ func (p microsoftProvider) SyncCalendar(ctx context.Context, src Source, cal Cal
 	// Start from stored deltaLink, or build the initial delta URL.
 	startURL := cal.Ctag
 	if startURL == "" {
+		// NB: no $top — Graph rejects it on the events delta (SyncEvents)
+		// resource. Page size is requested via the Prefer header in
+		// fetchDeltaPage instead.
 		startURL = microsoftGraphBase + "/me/calendars/" + url.PathEscape(cal.URL) +
-			"/events/delta?$top=" + fmt.Sprintf("%d", microsoftSyncLimit)
+			"/events/delta"
 	}
 
 	nextDeltaLink := ""
@@ -211,6 +223,10 @@ func (p microsoftProvider) fetchDeltaPage(ctx context.Context, client *http.Clie
 	if err != nil {
 		return nil, fmt.Errorf("build delta request: %w", err)
 	}
+	// Request page size via Prefer (Graph forbids $top on the events delta
+	// resource). Harmless on @odata.nextLink follow-ups, which already carry
+	// their own page state.
+	req.Header.Set("Prefer", "odata.maxpagesize="+fmt.Sprintf("%d", microsoftSyncLimit))
 	resp, err := doGraphRequest(ctx, client, req)
 	if err != nil {
 		return nil, fmt.Errorf("graph delta: %w", err)

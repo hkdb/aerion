@@ -964,12 +964,43 @@ func (a *API) listMerged(filter coreapi.ContactFilter) ([]coreapi.Contact, error
 	if limit <= 0 {
 		limit = 50
 	}
-	// "All" view: always merge local + vCard + CardDAV via contact.Store.Search.
-	// Empty query → LIKE '%%' in each source's SQL = match all. The merge +
-	// dedupe by email happens inside contact.Store.Search (which uses the
-	// carddavSearchFn bridge wired in app.go Startup). Offset is unsupported
-	// by Search; callers paginate by raising limit until "more" is needed.
-	return a.SearchContacts(filter.Query, limit)
+	// "All" view: list records across local + carddav/OAuth sources (Source==""
+	// returns both). Record-driven, NOT the email-keyed Search — so email-less /
+	// phone-only contacts appear here, not just in the per-source view. Dedupe by
+	// name+primary-email so a person collected locally AND synced from a source
+	// shows once; email-less records key by id so they never collapse together.
+	records, err := a.localStore.ListRecords(contact.RecordFilter{
+		Source: "",
+		Query:  filter.Query,
+		Limit:  limit,
+		Offset: filter.Offset,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("contacts.ListContacts (all): %w", err)
+	}
+	out := make([]coreapi.Contact, 0, len(records))
+	seen := make(map[string]struct{}, len(records))
+	for _, rec := range records {
+		c := fromRecord(rec)
+		key := mergeDedupeKey(c)
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, c)
+	}
+	return out, nil
+}
+
+// mergeDedupeKey collapses the same person appearing in multiple sources in the
+// "All" view. Keyed by lowercased name + first email; an email-less record
+// falls back to its record id so distinct phone-only contacts never merge.
+func mergeDedupeKey(c coreapi.Contact) string {
+	name := strings.ToLower(strings.TrimSpace(c.Name))
+	if len(c.Emails) > 0 && c.Emails[0] != "" {
+		return name + "|" + strings.ToLower(strings.TrimSpace(c.Emails[0]))
+	}
+	return name + "|#" + c.ID
 }
 
 // ResizeContactPhoto takes a base64-encoded image (PNG / JPEG / WEBP / GIF),

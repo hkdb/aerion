@@ -561,6 +561,24 @@ func (s *Store) DeleteAddressbookByID(id string) error {
 	return nil
 }
 
+// DeleteRecordsForAddressbook removes every contact_records row held by the
+// given addressbook (cascading through contact_emails + sub-tables AND
+// carddav_record_state via the FK ON DELETE CASCADE), but LEAVES the
+// addressbook row itself in place. Used by the OAuth full-sync path to clear
+// the local cache before re-landing the provider's current record set.
+func (s *Store) DeleteRecordsForAddressbook(addressbookID string) error {
+	if addressbookID == "" {
+		return nil
+	}
+	if _, err := s.db.Exec(`
+		DELETE FROM contact_records
+		WHERE id IN (SELECT record_id FROM carddav_record_state WHERE addressbook_id = ?)
+	`, addressbookID); err != nil {
+		return fmt.Errorf("delete records for addressbook: %w", err)
+	}
+	return nil
+}
+
 // ============================================================================
 // Contact CRUD — Phase 2b.2.a
 //

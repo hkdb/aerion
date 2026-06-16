@@ -205,8 +205,11 @@ type googlePerson struct {
 
 type googleName struct {
 	DisplayName string `json:"displayName"`
+	GivenName   string `json:"givenName"`
+	FamilyName  string `json:"familyName"`
 }
 
 type googleEmail struct {
 	Value string `json:"value"`
+	Type  string `json:"type"`
 }

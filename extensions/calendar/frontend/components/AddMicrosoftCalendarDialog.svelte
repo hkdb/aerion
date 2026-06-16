@@ -23,7 +23,8 @@
   import CalendarColorPickStage from './CalendarColorPickStage.svelte'
   import { applyDefaultsAfterAdd } from '$extensions/calendar/frontend/lib/defaultsApply'
   // @ts-ignore - wailsjs bindings
-  import { GetAccounts, Calendar_ListMicrosoftCalendarsForAccount, Calendar_AddMicrosoftSource, Calendar_GrantCalendarAccess } from '$wailsjs/go/app/App.js'
+  import { GetAccounts, Calendar_ListMicrosoftCalendarsForAccount, Calendar_AddMicrosoftSource } from '$wailsjs/go/app/App.js'
+  import GrantCalendarAccessButton from './GrantCalendarAccessButton.svelte'
   // @ts-ignore - wailsjs bindings
   import type { account, backend } from '$wailsjs/go/models'
 
@@ -46,7 +47,6 @@
   let submitting = $state(false)
   let errorMessage = $state('')
   let needsConsent = $state(false)
-  let granting = $state(false)
 
   // Two-stage flow mirroring AddCalDAVSourceDialog / AddGoogleCalendarDialog.
   let stage = $state<'form' | 'colors'>('form')
@@ -123,27 +123,6 @@
       }
     } finally {
       loadingCalendars = false
-    }
-  }
-
-  // grantAccess runs the incremental-consent OAuth flow to add Calendar
-  // scope to the selected Outlook account, then re-runs the calendar list
-  // fetch so the picker populates inline.
-  async function grantAccess() {
-    if (!selectedAccountId || granting) return
-    const acct = accounts.find((a) => a.id === selectedAccountId)
-    if (!acct) return
-    granting = true
-    errorMessage = ''
-    try {
-      await Calendar_GrantCalendarAccess('microsoft', selectedAccountId, acct.email)
-      needsConsent = false
-      await onAccountChange()
-    } catch (err) {
-      const msg = (err as Error)?.message ?? String(err)
-      errorMessage = $_('calendar.settings.addOutlookConsentFailed', { values: { message: msg } })
-    } finally {
-      granting = false
     }
   }
 
@@ -281,9 +260,15 @@
       {#if needsConsent}
         <div class="rounded-md border border-yellow-400/40 bg-yellow-400/10 p-3 text-xs text-yellow-700 dark:text-yellow-300 space-y-2">
           <div>{$_('calendar.settings.addOutlookConsentNeeded')}</div>
-          <Button size="sm" variant="outline" onclick={grantAccess} disabled={granting}>
-            {#if granting}{$_('calendar.settings.addOutlookGranting')}{:else}{$_('calendar.settings.addOutlookGrantButton')}{/if}
-          </Button>
+          <GrantCalendarAccessButton
+            provider="microsoft"
+            accountId={selectedAccountId}
+            email={accounts.find((a) => a.id === selectedAccountId)?.email ?? ''}
+            idleLabel={$_('calendar.settings.addOutlookGrantButton')}
+            busyLabel={$_('calendar.settings.addOutlookGranting')}
+            onSuccess={async () => { needsConsent = false; await onAccountChange() }}
+            onError={(m) => errorMessage = $_('calendar.settings.addOutlookConsentFailed', { values: { message: m } })}
+          />
         </div>
       {/if}
 

@@ -132,7 +132,7 @@ func (b *CalendarBridge) ensureInit() error {
 		auth := b.deps.Core.Auth()
 		queue := NewPendingQueue(store, secrets, auth, b.deps.Core.Events())
 		b.api = NewAPI(store, secrets, auth, queue)
-		b.syncer = NewSyncer(store, secrets, b.deps.Core.Events(), b.deps.SettingsStore, auth, queue)
+		b.syncer = NewSyncer(store, secrets, b.deps.Core.Events(), b.deps.SettingsStore, auth, queue, b.deps.Core.Log())
 		b.syncer.Start()
 		b.alarms = NewAlarmScheduler(store, b.deps.Core.Notifications(), b.deps.Core.Events(), b.deps.Core.Log())
 		b.alarms.Start(context.Background())
