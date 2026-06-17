@@ -773,7 +773,7 @@
     "update": "Aggiorna",
     "linked": "collegato",
     "autoName": "{name} Contatti",
-    "minutesFallback": "{value} minuti"
+    "minutesFallback": "{value} minuti",
     "enableWriteAccess": "Abilitare l'accesso in scrittura a questa fonte",
     "enableWriteAccessDescription": "Consenti la modifica, la creazione e l'eliminazione dei contatti su questo server CardDAV. Utilizza le credenziali sopra indicate."
   },
