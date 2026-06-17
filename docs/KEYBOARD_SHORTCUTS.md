@@ -166,7 +166,8 @@ MESSAGE ACTIONS
   Ctrl + Shift + U    Mark unread
   Ctrl + K            Archive
   Ctrl + J            Spam
-  Delete              Trash
+  V                   View message
+  Delete / D          Trash
   Shift + Delete      Permanent delete
   Alt(R)              Context Menu
 
