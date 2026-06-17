@@ -1316,6 +1316,13 @@
 
     // Single-key shortcuts
     switch (e.key) {
+      case 'v':
+        // Open the keyboard-focused conversation in the viewer (alias of Enter)
+        if (focusedPane === 'messageList') {
+          e.preventDefault()
+          messageListRef?.openSelected()
+        }
+        return
       case 's':
         if (messageListRef?.hasCheckedMessages()) {
           handleBulkToggleStar(messageListRef.getCheckedMessageIds(), messageListRef.getCheckedHasUnstarred())
@@ -1352,6 +1359,7 @@
         focusedMessageIdInFocus = targetId
         return
       }
+      case 'd': // alias of Delete: move focused/checked message(s) to Trash
       case 'Backspace':
       case 'Delete': {
         if (focusedPane === 'viewer' && viewerRef?.hasFocusedMessage()) {

@@ -73,7 +73,8 @@ These shortcuts depend on which pane is focused. They are disabled when typing i
 | `Shift+Up` / `Shift+K` | Select previous + toggle checkbox |
 | `Shift+Down` / `Shift+J` | Select next + toggle checkbox |
 | `Space` | Toggle checkbox on current conversation |
-| `Enter` | Open selected conversation in viewer |
+| `Enter` / `V` | Open selected conversation in viewer |
+| `D` | Delete selected/checked message(s) — move to Trash (same as `Delete`) |
 | `CTRL+A` | Select all messages in folder |
 | `Alt(R)` | Brings up context menu for the selected message(s) |
 

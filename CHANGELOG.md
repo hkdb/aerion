@@ -13,6 +13,7 @@
     - German
     - Vietnamese
     - Chinese - CN, HK, TW
+- Added shortcuts: V for View Message and D for Delete Message
 - Added runtime config of client id/secret - [#138](https://github.com/hkdb/aerion/issues/138)
 - Added force re-sync of contacts
 - Added Vietnamese translation - PR [#232](https://github.com/hkdb/aerion/pull/232)
