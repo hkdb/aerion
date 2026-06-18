@@ -472,3 +472,62 @@ func TestMigrationV34_AddsPhotoColumns(t *testing.T) {
 		t.Errorf("expected all NULL, got %v/%v/%v", dataNull, typeNull, urlNull)
 	}
 }
+
+// Regression for #289: upgrading from v0.2.5 with a "messy" CardDAV collection
+// that lists the same address twice for one vCard must not crash the app inside
+// migration 31. The CardDAV backfill collapses fanned-out rows onto one
+// record_id; a plain INSERT tripped PRIMARY KEY(record_id, email) and rolled the
+// whole startup migration back. INSERT OR IGNORE dedupes instead.
+func TestMigration31_DuplicateCardDAVEmailDoesNotFailMigration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	// applyMigration records into the migrations table, which Migrate() normally
+	// creates first — make it here since we drive applyMigration directly.
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS migrations (version INTEGER PRIMARY KEY, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatalf("create migrations table: %v", err)
+	}
+
+	// Build the pre-unification (v30) schema so the legacy tables exist.
+	for _, m := range migrations {
+		if m.Version <= 30 {
+			if err := db.applyMigration(m); err != nil {
+				t.Fatalf("apply migration %d: %v", m.Version, err)
+			}
+		}
+	}
+
+	// Seed one CardDAV vCard (single href) whose old schema fanned the SAME
+	// address out across two rows — the exact #289 trigger.
+	if _, err := db.Exec(`
+		INSERT INTO contact_sources (id, name, type, url) VALUES ('src1','Test','carddav','https://example.com/dav');
+		INSERT INTO contact_source_addressbooks (id, source_id, path) VALUES ('ab1','src1','/');
+		INSERT INTO carddav_contacts (id, addressbook_id, email, display_name, href, synced_at) VALUES
+			('c1','ab1','dup@example.com','Dup Person','/contacts/1.vcf',CURRENT_TIMESTAMP),
+			('c2','ab1','dup@example.com','Dup Person','/contacts/1.vcf',CURRENT_TIMESTAMP);
+	`); err != nil {
+		t.Fatalf("seed legacy carddav_contacts: %v", err)
+	}
+
+	// Apply migration 31 and everything after — must NOT fail on the duplicate.
+	for _, m := range migrations {
+		if m.Version > 30 {
+			if err := db.applyMigration(m); err != nil {
+				t.Fatalf("migration %d failed on duplicate CardDAV email (#289): %v", m.Version, err)
+			}
+		}
+	}
+
+	// The duplicate collapsed to exactly one contact_emails row.
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM contact_emails WHERE email = 'dup@example.com'`).Scan(&n); err != nil {
+		t.Fatalf("count contact_emails: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("want 1 deduped contact_emails row, got %d", n)
+	}
+}

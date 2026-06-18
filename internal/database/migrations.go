@@ -935,7 +935,12 @@ var migrations = []Migration{
 				created_at
 			FROM contacts;
 
-			INSERT INTO contact_emails (record_id, email, send_count, last_used, name_overridden, is_primary)
+			-- OR IGNORE: legacy data can hold the same address more than once for
+			-- one record (messy CardDAV collections fan a vCard across rows;
+			-- case/whitespace variants normalize to the same value). A plain
+			-- INSERT trips PRIMARY KEY(record_id, email) and fails the whole
+			-- migration at startup (issue #289). Dropping the duplicate is correct.
+			INSERT OR IGNORE INTO contact_emails (record_id, email, send_count, last_used, name_overridden, is_primary)
 			SELECT
 				'local-' || email,
 				email,
@@ -975,7 +980,11 @@ var migrations = []Migration{
 			-- JOIN every email row against it. Replaces a per-row correlated
 			-- subquery that was O(N²) — fast on small sets, but locks the app
 			-- for minutes on real addressbooks.
-			INSERT INTO contact_emails (record_id, email, send_count, name_overridden, is_primary)
+			-- OR IGNORE: a single vCard (one href) can list the same address
+			-- twice; all rows in the fan-out collapse onto one record_id, so the
+			-- duplicate would trip PRIMARY KEY(record_id, email) and fail the
+			-- migration (issue #289). Keep the first, drop the duplicate.
+			INSERT OR IGNORE INTO contact_emails (record_id, email, send_count, name_overridden, is_primary)
 			SELECT
 				canonical.rec_id,
 				cc.email,
