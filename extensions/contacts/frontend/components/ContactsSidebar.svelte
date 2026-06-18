@@ -5,6 +5,7 @@
   import SourceSidebar from '$lib/components/kit/SourceSidebar.svelte'
   import SourceItem from '$lib/components/kit/SourceItem.svelte'
   import SidebarFooter from '$lib/components/kit/SidebarFooter.svelte'
+  import SidebarSyncStatus from '$lib/components/kit/SidebarSyncStatus.svelte'
   import { contactSourcesStore } from '$extensions/contacts/frontend/stores/contactSources.svelte'
   import { contactsView, selectSource } from '$extensions/contacts/frontend/stores/contactsView.svelte'
 
@@ -73,14 +74,12 @@
   {#snippet footerContent()}
     <SidebarFooter>
       {#snippet leading()}
-        {#if contactSourcesStore.syncing}
-          <Icon icon="mdi:sync" class="w-4 h-4 shrink-0 animate-spin" />
-          <span class="truncate">{$_('contacts.sidebar.syncing')}</span>
-        {/if}
-        {#if !contactSourcesStore.syncing}
-          <Icon icon="mdi:sync" class="w-4 h-4 shrink-0" />
-          <span class="truncate">{$_('contacts.sidebar.idle')}</span>
-        {/if}
+        <SidebarSyncStatus
+          syncing={contactSourcesStore.syncing}
+          idleLabel={$_('contacts.sidebar.idle')}
+          syncingLabel={$_('contacts.sidebar.syncing')}
+          onSync={() => contactSourcesStore.syncAll()}
+        />
       {/snippet}
       {#snippet trailing()}
         <button
