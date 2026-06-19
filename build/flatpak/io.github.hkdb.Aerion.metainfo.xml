@@ -282,6 +282,7 @@
           <li>Fixed post action blank conversation pane - #271</li>
           <li>Fixed separate smtp creds persistence - #270</li>
           <li>Fixed print feature - #280</li>
+          <li>Fixed Windows links - #261</li>
           <li>Bumped flatpak build to Gnome 50 runtime</li>
         </ul>
       </description>

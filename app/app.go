@@ -1152,9 +1152,9 @@ func (a *App) OpenURL(url string) error {
 		// Use open on macOS
 		cmd = exec.Command("open", url)
 	case "windows":
-		// Use cmd /c start on Windows
-		// Note: Using cmd.exe with proper escaping
-		cmd = exec.Command("cmd", "/c", "start", url)
+		// Use ShellExecute, not `cmd /c start`: cmd treats `&` as a command
+		// separator and truncates URLs with multiple query params (issue #261).
+		return platform.OpenURLWindows(url)
 	default:
 		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
 	}

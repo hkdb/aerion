@@ -5,7 +5,6 @@ package platform
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -93,6 +92,7 @@ func showDialogWithLink(icon DialogIcon, title, text, actionLabel, actionURL str
 	// opening a URL when the user just slams Enter.
 	flags := uintptr(mbYesNo) | iconFlag | mbDefButton2 | mbSystemModal | mbTopMost
 	if messageBox(title, bodyText, flags) == idYes {
-		_ = exec.Command("cmd", "/c", "start", "", actionURL).Start()
+		// ShellExecute, not cmd: preserves `&` query params (issue #261).
+		_ = OpenURLWindows(actionURL)
 	}
 }

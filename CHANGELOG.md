@@ -36,6 +36,7 @@
 - Fixed separate smtp creds persistence - [#270](https://github.com/hkdb/aerion/issues/270)
 - Fixed plaintext reply/fwd - [#285](https://github.com/hkdb/aerion/issues/285)
 - Fixed print feature - [#280](https://github.com/hkdb/aerion/issues/280)
+- Fixed Windows links - [#261](https://github.com/hkdb/aerion/issues/261)
 - Bumped flatpak build to Gnome 50 runtime
 
 
