@@ -151,6 +151,7 @@ func buildEvent(ev *ical.Event, rawICS string) (Event, error) {
 		TZName:       tzName,
 		RRuleText:    rrule,
 		Transparency: transparencyFromICS(propText(ev, icsPropTransp)),
+		Visibility:   visibilityFromICS(propText(ev, icsPropClass)),
 		ICSBlob:      rawICS,
 		Attendees:    parseAttendeesFromVEVENT(ev),
 		Organizer:    parseOrganizerFromVEVENT(ev),

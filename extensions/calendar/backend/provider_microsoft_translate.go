@@ -44,7 +44,8 @@ type graphEvent struct {
 	ReminderMinutesBeforeStart  *int               `json:"reminderMinutesBeforeStart,omitempty"`
 	IsReminderOn                *bool              `json:"isReminderOn,omitempty"`
 	SeriesMasterID              string             `json:"seriesMasterId,omitempty"`
-	ShowAs                      string             `json:"showAs,omitempty"` // free|tentative|busy|oof|workingElsewhere|unknown
+	ShowAs                      string             `json:"showAs,omitempty"`      // free|tentative|busy|oof|workingElsewhere|unknown
+	Sensitivity                 string             `json:"sensitivity,omitempty"` // normal|personal|private|confidential
 	Type                        string             `json:"type,omitempty"` // "singleInstance" | "seriesMaster" | "exception" | "occurrence"
 	Status                      *graphEventStatus  `json:"@removed,omitempty"`
 	Attendees                   []graphAttendee    `json:"attendees,omitempty"`
@@ -171,6 +172,8 @@ func translateICSToGraphEvent(icsBlob string) (graphEvent, error) {
 	}
 	// TRANSP → Graph showAs (canonical "free"/"busy" are valid showAs values).
 	out.ShowAs = transparencyFromICS(propText(&ev, icsPropTransp))
+	// CLASS → Graph sensitivity.
+	out.Sensitivity = visibilityToGraphSensitivity(visibilityFromICS(propText(&ev, icsPropClass)))
 
 	start, end, isAllDay, err := extractGraphTimes(&ev)
 	if err != nil {
@@ -489,6 +492,28 @@ func graphDayToICSCode(day string) string {
 // translateGraphEventToICS converts ONE Graph event JSON into a
 // single-VEVENT VCALENDAR ICS blob.
 //
+// graphSensitivityToVisibility maps Graph sensitivity → canonical visibility.
+func graphSensitivityToVisibility(s string) string {
+	switch strings.ToLower(s) {
+	case "private", "personal":
+		return "private"
+	case "confidential":
+		return "confidential"
+	}
+	return "public"
+}
+
+// visibilityToGraphSensitivity maps canonical visibility → Graph sensitivity.
+func visibilityToGraphSensitivity(v string) string {
+	switch normVisibility(v) {
+	case "private":
+		return "private"
+	case "confidential":
+		return "confidential"
+	}
+	return "normal"
+}
+
 // icsText normalizes a string for use as an iCalendar TEXT value. go-ical's
 // SetText escapes "\n" but leaves raw "\r" in place, and its encoder rejects any
 // value containing CR or LF — so any text carrying CRLF (a Graph HTML body, or a
@@ -531,6 +556,10 @@ func translateGraphEventToICS(ev graphEvent) (string, error) {
 	// (busy/tentative/oof/...) blocks availability in our 2-state model.
 	if strings.EqualFold(ev.ShowAs, "free") {
 		icalEv.Props.SetText(icsPropTransp, "TRANSPARENT")
+	}
+	// Graph sensitivity → CLASS (public default omitted).
+	if cls := icsClassValue(graphSensitivityToVisibility(ev.Sensitivity)); cls != "" {
+		icalEv.Props.SetText(icsPropClass, cls)
 	}
 
 	isAllDay := ev.IsAllDay != nil && *ev.IsAllDay

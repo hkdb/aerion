@@ -300,6 +300,16 @@ var migrations = []extensions.Migration{
 			ALTER TABLE events ADD COLUMN transparency TEXT NOT NULL DEFAULT 'busy';
 		`,
 	},
+	{
+		Version: 11,
+		SQL: `
+			-- Per-event visibility (iCal CLASS / Graph sensitivity / Google
+			-- visibility). 'public' (default) | 'private' | 'confidential'.
+			-- DEFAULT 'public' matches the iCal default CLASS, so existing rows
+			-- need no backfill.
+			ALTER TABLE events ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public';
+		`,
+	},
 }
 
 // Store wraps the per-extension DB for the Calendar extension. Lives in an
@@ -745,6 +755,7 @@ type Event struct {
 	TZName          string `json:"tzName,omitempty"`
 	RRuleText       string `json:"rruleText,omitempty"`
 	Transparency    string `json:"transparency,omitempty"` // "busy" (default) | "free"; iCal TRANSP
+	Visibility      string `json:"visibility,omitempty"`   // "public" (default) | "private" | "confidential"; iCal CLASS
 	ICSBlob         string `json:"-"` // not exposed to frontend; used by rrule_expand
 
 	// Attendees + Organizer. Populated by the ICS parser on read; written
@@ -822,8 +833,8 @@ func (s *Store) UpsertEventTx(tx *sql.Tx, ev Event) error {
 			id, calendar_id, uid, etag, href, provider_event_id,
 			summary, description, location,
 			dtstart_unix, dtend_unix, is_all_day, tz_name,
-			rrule_text, transparency, ics_blob, attendees_json, organizer_json
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			rrule_text, transparency, visibility, ics_blob, attendees_json, organizer_json
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(calendar_id, uid) DO UPDATE SET
 			etag = excluded.etag,
 			href = excluded.href,
@@ -837,13 +848,14 @@ func (s *Store) UpsertEventTx(tx *sql.Tx, ev Event) error {
 			tz_name = excluded.tz_name,
 			rrule_text = excluded.rrule_text,
 			transparency = excluded.transparency,
+			visibility = excluded.visibility,
 			ics_blob = excluded.ics_blob,
 			attendees_json = excluded.attendees_json,
 			organizer_json = excluded.organizer_json`,
 		ev.ID, ev.CalendarID, ev.UID, ev.ETag, ev.Href, ev.ProviderEventID,
 		ev.Summary, nullIfEmpty(ev.Description), nullIfEmpty(ev.Location),
 		ev.DTStartUnix, ev.DTEndUnix, boolToInt(ev.IsAllDay), nullIfEmpty(ev.TZName),
-		nullIfEmpty(ev.RRuleText), normTransparency(ev.Transparency), ev.ICSBlob, string(attendeesJSON), organizerJSON,
+		nullIfEmpty(ev.RRuleText), normTransparency(ev.Transparency), normVisibility(ev.Visibility), ev.ICSBlob, string(attendeesJSON), organizerJSON,
 	)
 	if err != nil {
 		return fmt.Errorf("upsert event: %w", err)
@@ -923,7 +935,7 @@ func (s *Store) GetEvent(id string) (*Event, error) {
 		SELECT id, calendar_id, uid, etag, href, provider_event_id,
 		       summary, COALESCE(description, ''), COALESCE(location, ''),
 		       dtstart_unix, dtend_unix, is_all_day, COALESCE(tz_name, ''),
-		       COALESCE(rrule_text, ''), COALESCE(transparency, 'busy'), ics_blob,
+		       COALESCE(rrule_text, ''), COALESCE(transparency, 'busy'), COALESCE(visibility, 'public'), ics_blob,
 		       attendees_json, organizer_json
 		FROM events WHERE id = ?`, id)
 	ev := &Event{}
@@ -934,7 +946,7 @@ func (s *Store) GetEvent(id string) (*Event, error) {
 		&ev.ID, &ev.CalendarID, &ev.UID, &ev.ETag, &ev.Href, &ev.ProviderEventID,
 		&ev.Summary, &ev.Description, &ev.Location,
 		&ev.DTStartUnix, &ev.DTEndUnix, &isAllDay, &ev.TZName,
-		&ev.RRuleText, &ev.Transparency, &ev.ICSBlob, &attendeesJSON, &organizerJSON,
+		&ev.RRuleText, &ev.Transparency, &ev.Visibility, &ev.ICSBlob, &attendeesJSON, &organizerJSON,
 	); err != nil {
 		return nil, err
 	}
@@ -972,7 +984,7 @@ func (s *Store) ListEventsForExpansion(calendarIDs []string) ([]Event, error) {
 		SELECT id, calendar_id, uid, etag, href, provider_event_id,
 		       summary, COALESCE(description, ''), COALESCE(location, ''),
 		       dtstart_unix, dtend_unix, is_all_day, COALESCE(tz_name, ''),
-		       COALESCE(rrule_text, ''), COALESCE(transparency, 'busy'), ics_blob,
+		       COALESCE(rrule_text, ''), COALESCE(transparency, 'busy'), COALESCE(visibility, 'public'), ics_blob,
 		       attendees_json, organizer_json
 		FROM events WHERE calendar_id IN (%s)`,
 		strings.Join(placeholders, ","))
@@ -993,7 +1005,7 @@ func (s *Store) ListEventsForExpansion(calendarIDs []string) ([]Event, error) {
 			&ev.ID, &ev.CalendarID, &ev.UID, &ev.ETag, &ev.Href, &ev.ProviderEventID,
 			&ev.Summary, &ev.Description, &ev.Location,
 			&ev.DTStartUnix, &ev.DTEndUnix, &isAllDay, &ev.TZName,
-			&ev.RRuleText, &ev.Transparency, &ev.ICSBlob, &attendeesJSON, &organizerJSON,
+			&ev.RRuleText, &ev.Transparency, &ev.Visibility, &ev.ICSBlob, &attendeesJSON, &organizerJSON,
 		); err != nil {
 			return nil, fmt.Errorf("scan event: %w", err)
 		}

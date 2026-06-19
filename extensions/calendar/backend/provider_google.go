@@ -281,6 +281,7 @@ func fillDenormalizedFieldsFromICS(ev *Event, blob string) {
 	ev.IsAllDay = parsed.Master.IsAllDay
 	ev.TZName = parsed.Master.TZName
 	ev.Transparency = parsed.Master.Transparency
+	ev.Visibility = parsed.Master.Visibility
 	ev.Attendees = parsed.Master.Attendees
 	ev.Organizer = parsed.Master.Organizer
 }

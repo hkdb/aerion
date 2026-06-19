@@ -66,6 +66,7 @@
   let location = $state('')
   let description = $state('')
   let transparency = $state('busy') // 'busy' | 'free'
+  let visibility = $state('public') // 'public' | 'private' | 'confidential'
 
   let recurrenceFreq = $state('')
   let recurrenceEnd = $state('never')
@@ -342,6 +343,7 @@
     endTime = formatHM(endInTz)
     parseRRule(ev.rruleText || '')
     transparency = ev.transparency || 'busy'
+    visibility = ev.visibility || 'public'
     reminderChoice = 'none'
     // Attendees + organizer. backend.Attendee → backend.AttendeeInput
     // (shape-compatible; createFrom safely cherry-picks fields).
@@ -388,6 +390,7 @@
     location = ''
     description = ''
     transparency = 'busy'
+    visibility = 'public'
     isAllDay = false
     startDate = formatYMD(refInTz)
     startTime = formatHM(refInTz)
@@ -531,6 +534,7 @@
       isAllDay: isAllDay || undefined,
       tz: isAllDay ? undefined : calendarSettings.effectiveTimezone,
       transparency,
+      visibility,
       recurrence: buildRecurrenceSpec(),
       reminder: buildReminderSpec(),
       attendees: attendees.length > 0 ? attendees : undefined,
@@ -791,6 +795,20 @@
           <Select.Content>
             <Select.Item value="busy" label={$_('calendar.composer.availability.busy')} />
             <Select.Item value="free" label={$_('calendar.composer.availability.free')} />
+          </Select.Content>
+        </Select.Root>
+      </div>
+
+      <div>
+        <Label>{$_('calendar.composer.visibilityLabel')}</Label>
+        <Select.Root value={visibility} onValueChange={(v) => { if (v) visibility = v }}>
+          <Select.Trigger class="h-9">
+            {$_('calendar.composer.visibility.' + visibility)}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="public" label={$_('calendar.composer.visibility.public')} />
+            <Select.Item value="private" label={$_('calendar.composer.visibility.private')} />
+            <Select.Item value="confidential" label={$_('calendar.composer.visibility.confidential')} />
           </Select.Content>
         </Select.Root>
       </div>

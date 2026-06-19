@@ -53,6 +53,7 @@ type EventInput struct {
 	IsAllDay    bool            `json:"isAllDay,omitempty"`
 	TZName      string          `json:"tz,omitempty"`
 	Transparency string         `json:"transparency,omitempty"` // "busy" (default) | "free"
+	Visibility  string          `json:"visibility,omitempty"`   // "public" (default) | "private" | "confidential"
 	Recurrence  *RecurrenceSpec `json:"recurrence,omitempty"`
 	Reminder    *ReminderSpec   `json:"reminder,omitempty"`
 
@@ -142,6 +143,7 @@ func (a *API) CreateEvent(in EventInput) (string, error) {
 		TZName:       in.TZName,
 		RRuleText:    rruleText(in.Recurrence),
 		Transparency: normTransparency(in.Transparency),
+		Visibility:   normVisibility(in.Visibility),
 		ICSBlob:      icsBlob,
 		SendUpdates:  in.SendUpdates, // transient write-time hint (Phase E)
 		// ETag + Href empty: caldavProvider.PushEvent synthesizes the href
@@ -404,6 +406,7 @@ func (a *API) persistThisAndFutureUpdateLocally(master Event, in EventInput, res
 		IsAllDay:        in.IsAllDay,
 		RRuleText:       rruleText(in.Recurrence),
 		Transparency:    normTransparency(in.Transparency),
+		Visibility:      normVisibility(in.Visibility),
 		ICSBlob:         newICS,
 	}
 
@@ -561,6 +564,7 @@ func (a *API) updateAllAndPush(src Source, cal Calendar, master Event, in EventI
 	ev.TZName = in.TZName
 	ev.RRuleText = rruleText(in.Recurrence)
 	ev.Transparency = normTransparency(in.Transparency)
+	ev.Visibility = normVisibility(in.Visibility)
 	ev.ICSBlob = icsBlob
 	ev.SendUpdates = in.SendUpdates // transient write-time hint (Phase E)
 	// Overwrite master's persisted attendees + organizer with the user's
@@ -724,8 +728,12 @@ func setEventStartEnd(event *ical.Event, in EventInput) {
 	event.Props.SetDateTime(ical.PropDateTimeEnd, time.Unix(in.DTEndUnix, 0).In(loc))
 }
 
-// icsPropTransp is the iCalendar TRANSP property name (go-ical has no constant).
-const icsPropTransp = "TRANSP"
+// icsPropTransp / icsPropClass are iCalendar property names go-ical lacks
+// constants for.
+const (
+	icsPropTransp = "TRANSP"
+	icsPropClass  = "CLASS"
+)
 
 // normTransparency canonicalizes a free/busy value to "free" or "busy"
 // (default). Accepts the canonical words and the iCal TRANSP values.
@@ -744,6 +752,42 @@ func transparencyFromICS(transp string) string {
 	return "busy"
 }
 
+// normVisibility canonicalizes a visibility value to public|private|confidential
+// (default public).
+func normVisibility(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "private":
+		return "private"
+	case "confidential":
+		return "confidential"
+	}
+	return "public"
+}
+
+// visibilityFromICS maps an iCal CLASS value to canonical visibility. PUBLIC and
+// anything unrecognized → public (the iCal default).
+func visibilityFromICS(class string) string {
+	switch strings.ToUpper(strings.TrimSpace(class)) {
+	case "PRIVATE":
+		return "private"
+	case "CONFIDENTIAL":
+		return "confidential"
+	}
+	return "public"
+}
+
+// icsClassValue maps canonical visibility → iCal CLASS value, or "" for public
+// (PUBLIC is the iCal default, so we omit it).
+func icsClassValue(visibility string) string {
+	switch normVisibility(visibility) {
+	case "private":
+		return "PRIVATE"
+	case "confidential":
+		return "CONFIDENTIAL"
+	}
+	return ""
+}
+
 // serializeVEVENT builds a single-event VCALENDAR for events.ics_blob.
 func serializeVEVENT(uid string, in EventInput) (string, error) {
 	event := ical.NewEvent()
@@ -760,6 +804,10 @@ func serializeVEVENT(uid string, in EventInput) (string, error) {
 	// so we omit it.
 	if normTransparency(in.Transparency) == "free" {
 		event.Props.SetText(icsPropTransp, "TRANSPARENT")
+	}
+	// CLASS:PRIVATE / CONFIDENTIAL; public is the iCal default, so omitted.
+	if cls := icsClassValue(in.Visibility); cls != "" {
+		event.Props.SetText(icsPropClass, cls)
 	}
 
 	setEventStartEnd(event, in)

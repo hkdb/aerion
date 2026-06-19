@@ -131,3 +131,34 @@ func TestMicrosoftTranslate_ShowAs(t *testing.T) {
 		t.Errorf("busy ICS → showAs %q, want busy", g.ShowAs)
 	}
 }
+
+// Graph sensitivity ⇄ iCal CLASS (3-state).
+func TestMicrosoftTranslate_Sensitivity(t *testing.T) {
+	mk := func(sens string) graphEvent {
+		return graphEvent{
+			ICalUID: "u", Subject: "s", Sensitivity: sens,
+			Start: &graphTimePoint{DateTime: "2026-01-01T09:00:00.0000000", TimeZone: "UTC"},
+			End:   &graphTimePoint{DateTime: "2026-01-01T10:00:00.0000000", TimeZone: "UTC"},
+		}
+	}
+	cases := []struct{ sens, wantClass, wantSens string }{
+		{"normal", "", "normal"},
+		{"private", "CLASS:PRIVATE", "private"},
+		{"confidential", "CLASS:CONFIDENTIAL", "confidential"},
+	}
+	for _, c := range cases {
+		blob, err := translateGraphEventToICS(mk(c.sens))
+		if err != nil {
+			t.Fatalf("translate %s: %v", c.sens, err)
+		}
+		if c.wantClass == "" && strings.Contains(blob, "CLASS:") {
+			t.Errorf("%s should omit CLASS:\n%s", c.sens, blob)
+		}
+		if c.wantClass != "" && !strings.Contains(blob, c.wantClass) {
+			t.Errorf("%s → %s missing:\n%s", c.sens, c.wantClass, blob)
+		}
+		if g, _ := translateICSToGraphEvent(blob); g.Sensitivity != c.wantSens {
+			t.Errorf("%s round-trip sensitivity = %q, want %q", c.sens, g.Sensitivity, c.wantSens)
+		}
+	}
+}

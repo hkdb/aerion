@@ -480,3 +480,34 @@ func TestGoogleTranslate_Transparency(t *testing.T) {
 		t.Errorf("busy ICS → transparency %q, want opaque", g.Transparency)
 	}
 }
+
+// Google visibility ⇄ iCal CLASS (3-state). public maps to "default" (inherit).
+func TestGoogleTranslate_Visibility(t *testing.T) {
+	mk := func(vis string) googleEvent {
+		return googleEvent{
+			ICalUID: "g@aerion", Status: "confirmed", Summary: "s", Visibility: vis,
+			Start: &googleTimePoint{DateTime: "2026-06-10T14:00:00Z", TimeZone: "UTC"},
+			End:   &googleTimePoint{DateTime: "2026-06-10T15:00:00Z", TimeZone: "UTC"},
+		}
+	}
+	cases := []struct{ vis, wantClass, wantVis string }{
+		{"default", "", "default"},
+		{"private", "CLASS:PRIVATE", "private"},
+		{"confidential", "CLASS:CONFIDENTIAL", "confidential"},
+	}
+	for _, c := range cases {
+		blob, err := translateGoogleEventToICS(mk(c.vis))
+		if err != nil {
+			t.Fatalf("translate %s: %v", c.vis, err)
+		}
+		if c.wantClass == "" && strings.Contains(blob, "CLASS:") {
+			t.Errorf("%s should omit CLASS:\n%s", c.vis, blob)
+		}
+		if c.wantClass != "" && !strings.Contains(blob, c.wantClass) {
+			t.Errorf("%s → %s missing:\n%s", c.vis, c.wantClass, blob)
+		}
+		if g, _ := translateICSToGoogleJSON(blob); g.Visibility != c.wantVis {
+			t.Errorf("%s round-trip visibility = %q, want %q", c.vis, g.Visibility, c.wantVis)
+		}
+	}
+}

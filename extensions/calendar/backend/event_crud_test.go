@@ -310,3 +310,33 @@ func TestSerializeVEVENT_Transparency(t *testing.T) {
 		t.Errorf("busy round-trip = %q, want busy", p.Master.Transparency)
 	}
 }
+
+// Visibility round-trips through iCal CLASS: public omits CLASS (the default),
+// private/confidential write CLASS and read back.
+func TestSerializeVEVENT_Visibility(t *testing.T) {
+	start := time.Date(2026, 6, 5, 14, 0, 0, 0, time.UTC).Unix()
+	end := time.Date(2026, 6, 5, 15, 0, 0, 0, time.UTC).Unix()
+	cases := []struct{ in, wantClass, want string }{
+		{"public", "", "public"},
+		{"private", "CLASS:PRIVATE", "private"},
+		{"confidential", "CLASS:CONFIDENTIAL", "confidential"},
+	}
+	for _, c := range cases {
+		blob, err := serializeVEVENT("vis@aerion", EventInput{
+			CalendarID: "c", Summary: "s", DTStartUnix: start, DTEndUnix: end,
+			Visibility: c.in,
+		})
+		if err != nil {
+			t.Fatalf("serialize %s: %v", c.in, err)
+		}
+		if c.wantClass == "" && strings.Contains(blob, "CLASS:") {
+			t.Errorf("%s should omit CLASS:\n%s", c.in, blob)
+		}
+		if c.wantClass != "" && !strings.Contains(blob, c.wantClass) {
+			t.Errorf("%s should write %s:\n%s", c.in, c.wantClass, blob)
+		}
+		if p, _ := ParseCalendarObject(blob); p.Master.Visibility != c.want {
+			t.Errorf("%s round-trip = %q, want %q", c.in, p.Master.Visibility, c.want)
+		}
+	}
+}

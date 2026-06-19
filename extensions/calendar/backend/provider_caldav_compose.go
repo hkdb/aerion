@@ -226,6 +226,9 @@ func buildOverrideVEVENT(masterUID string, instanceTimeUnix int64, in EventInput
 	if normTransparency(in.Transparency) == "free" {
 		ev.Props.SetText(icsPropTransp, "TRANSPARENT")
 	}
+	if cls := icsClassValue(in.Visibility); cls != "" {
+		ev.Props.SetText(icsPropClass, cls)
+	}
 
 	setEventStartEnd(ev, in)
 

@@ -305,6 +305,12 @@
         "busy": "Busy",
         "free": "Free"
       },
+      "visibilityLabel": "Visibility",
+      "visibility": {
+        "public": "Public",
+        "private": "Private",
+        "confidential": "Confidential"
+      },
       "errorSummaryRequired": "Title is required.",
       "errorCalendarRequired": "Please select a calendar.",
       "errorStartRequired": "Start date is required.",
