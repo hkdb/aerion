@@ -78,6 +78,10 @@ export function Calendar_DismissAlarm(arg1) {
   return window['go']['app']['App']['Calendar_DismissAlarm'](arg1);
 }
 
+export function Calendar_ForceSyncSource(arg1) {
+  return window['go']['app']['App']['Calendar_ForceSyncSource'](arg1);
+}
+
 export function Calendar_GetEvent(arg1) {
   return window['go']['app']['App']['Calendar_GetEvent'](arg1);
 }

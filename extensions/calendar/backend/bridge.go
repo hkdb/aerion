@@ -374,6 +374,22 @@ func (b *CalendarBridge) Calendar_SyncAllSources() error {
 	return b.syncer.SyncAllSources(ctx)
 }
 
+// Calendar_ForceSyncSource clears the source's stored sync tokens, then runs a
+// full sync — re-pulling every event from scratch. Mirrors contacts'
+// ForceSyncContactSource; used to recover events missed by an earlier
+// incremental/windowed sync.
+func (b *CalendarBridge) Calendar_ForceSyncSource(sourceID string) error {
+	if !b.gateEnabled() {
+		return nil
+	}
+	if err := b.ensureInit(); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	return b.syncer.ForceResyncSource(ctx, sourceID)
+}
+
 // Calendar_ListEventsInRange is the workhorse query for calendar views.
 // Expands recurring events into concrete occurrences within [fromUnix,
 // toUnix]. Honors per-calendar visibility (invisible calendars are

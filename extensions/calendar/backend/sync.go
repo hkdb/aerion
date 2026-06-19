@@ -153,6 +153,22 @@ func (s *Syncer) SyncAllSources(ctx context.Context) error {
 	return nil
 }
 
+// ForceResyncSource clears every calendar's stored sync token (ctag) for the
+// source, then runs a normal sync — re-pulling all events from scratch. Backs
+// the per-source force-resync; mirrors contacts' force-sync.
+func (s *Syncer) ForceResyncSource(ctx context.Context, sourceID string) error {
+	if err := s.store.ResetCalendarSyncStateForSource(sourceID); err != nil {
+		return fmt.Errorf("reset calendar sync state: %w", err)
+	}
+	// Blank event etags so the sync re-processes every event (not just the ones
+	// the server reports changed) — the heal path for translation/recurrence
+	// fixes applied to already-stored rows.
+	if err := s.store.ClearEventETagsForSource(sourceID); err != nil {
+		return fmt.Errorf("clear event etags: %w", err)
+	}
+	return s.SyncSource(ctx, sourceID)
+}
+
 // SyncSource runs one sync pass against the given source. Returns the
 // first error encountered; also persists it on the source row + emits
 // a `calendar:source-error` event. Gate-checks via settings.IsExtensionEnabled
@@ -218,6 +234,7 @@ func (s *Syncer) syncSourceInner(ctx context.Context, sourceID string) error {
 		Secrets: s.secrets,
 		Events:  s.events,
 		Auth:    s.auth,
+		Log:     s.log,
 	})
 
 	calendars, err := s.store.ListCalendars(sourceID)

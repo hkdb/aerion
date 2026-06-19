@@ -1056,6 +1056,35 @@ func (s *Store) UpdateCalendarCtagTx(tx *sql.Tx, calendarID, ctag string, synced
 	return nil
 }
 
+// ResetCalendarSyncStateForSource clears the stored sync token (ctag) for every
+// calendar of a source, forcing the next sync to re-pull from scratch. Backs
+// the per-source force-resync. Leaves last_synced_at intact (the resync that
+// follows updates it). No-op effect for providers that already enumerate fully
+// each sync (Microsoft, CalDAV); a true full re-pull for token-based ones.
+func (s *Store) ResetCalendarSyncStateForSource(sourceID string) error {
+	if _, err := s.DB().Exec(
+		`UPDATE calendars SET ctag = NULL WHERE source_id = ?`, sourceID,
+	); err != nil {
+		return fmt.Errorf("reset calendar sync state: %w", err)
+	}
+	return nil
+}
+
+// ClearEventETagsForSource blanks the stored etag on every event of a source's
+// calendars, so the next sync treats all events as changed and re-processes
+// them. Backs force-resync's heal path: providers that skip unchanged events by
+// etag (Microsoft, CalDAV) will re-pull + re-convert everything, picking up
+// translation/recurrence fixes for rows that were stored before the fix.
+func (s *Store) ClearEventETagsForSource(sourceID string) error {
+	if _, err := s.DB().Exec(
+		`UPDATE events SET etag = '' WHERE calendar_id IN (SELECT id FROM calendars WHERE source_id = ?)`,
+		sourceID,
+	); err != nil {
+		return fmt.Errorf("clear event etags: %w", err)
+	}
+	return nil
+}
+
 // UpdateSourceSyncStatus marks a source as synced (on success: clears
 // last_error; on failure: stores the error message). Single statement; not
 // inside a transaction.

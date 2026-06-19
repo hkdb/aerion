@@ -48,6 +48,13 @@ type graphEvent struct {
 	Status                      *graphEventStatus  `json:"@removed,omitempty"`
 	Attendees                   []graphAttendee    `json:"attendees,omitempty"`
 	Organizer                   *graphRecipient    `json:"organizer,omitempty"`
+	// OriginalStart is set on an exception/occurrence: the original (pre-edit)
+	// instance start = the RECURRENCE-ID. UTC ISO-8601.
+	OriginalStart string `json:"originalStart,omitempty"`
+	// ExceptionOccurrences/CancelledOccurrences are returned only on a master
+	// GET with $expand/$select (Phase 2: modified + cancelled instances).
+	ExceptionOccurrences []graphEvent `json:"exceptionOccurrences,omitempty"`
+	CancelledOccurrences []string     `json:"cancelledOccurrences,omitempty"`
 }
 
 // graphAttendee is Graph's per-attendee shape:
@@ -479,6 +486,18 @@ func graphDayToICSCode(day string) string {
 // translateGraphEventToICS converts ONE Graph event JSON into a
 // single-VEVENT VCALENDAR ICS blob.
 //
+// icsText normalizes a string for use as an iCalendar TEXT value. go-ical's
+// SetText escapes "\n" but leaves raw "\r" in place, and its encoder rejects any
+// value containing CR or LF — so any text carrying CRLF (a Graph HTML body, or a
+// multi-line subject/description/location typed in the composer) would fail to
+// encode and drop the event (#278). Collapse CRLF/CR to LF; the LF is then
+// escaped to "\n" by SetText. Use this on every user/provider-supplied TEXT
+// value before SetText.
+func icsText(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	return strings.ReplaceAll(s, "\r", "\n")
+}
+
 // Delta-removed entries (the @removed field) return
 // errMicrosoftEventCancelled so the sync caller treats them as deletions.
 func translateGraphEventToICS(ev graphEvent) (string, error) {
@@ -497,13 +516,13 @@ func translateGraphEventToICS(ev graphEvent) (string, error) {
 	icalEv.Props.SetDateTime(ical.PropDateTimeStamp, time.Now().UTC())
 
 	if ev.Subject != "" {
-		icalEv.Props.SetText(ical.PropSummary, ev.Subject)
+		icalEv.Props.SetText(ical.PropSummary, icsText(ev.Subject))
 	}
 	if ev.Body != nil && ev.Body.Content != "" {
-		icalEv.Props.SetText(ical.PropDescription, ev.Body.Content)
+		icalEv.Props.SetText(ical.PropDescription, icsText(ev.Body.Content))
 	}
 	if ev.Location != nil && ev.Location.DisplayName != "" {
-		icalEv.Props.SetText(ical.PropLocation, ev.Location.DisplayName)
+		icalEv.Props.SetText(ical.PropLocation, icsText(ev.Location.DisplayName))
 	}
 
 	isAllDay := ev.IsAllDay != nil && *ev.IsAllDay
@@ -528,7 +547,7 @@ func translateGraphEventToICS(ev graphEvent) (string, error) {
 		trigger.Value = fmt.Sprintf("-PT%dM", *ev.ReminderMinutesBeforeStart)
 		alarm.Props.Add(trigger)
 		if ev.Subject != "" {
-			alarm.Props.SetText(ical.PropDescription, ev.Subject)
+			alarm.Props.SetText(ical.PropDescription, icsText(ev.Subject))
 		}
 		icalEv.Component.Children = append(icalEv.Component.Children, alarm)
 	}
@@ -616,6 +635,7 @@ func parseGraphDateTime(s string) (time.Time, error) {
 		"2006-01-02T15:04:05.999999999",
 		"2006-01-02T15:04:05",
 		time.RFC3339,
+		time.RFC3339Nano, // originalStart: UTC with Z and/or fractional seconds
 	}
 	for _, f := range formats {
 		if t, err := time.Parse(f, s); err == nil {
@@ -634,32 +654,54 @@ func graphRecurrenceToRRule(rec *graphRecurrence) string {
 	if rec == nil {
 		return ""
 	}
-	parts := []string{}
 	freq := graphPatternTypeToFreq(rec.Pattern.Type)
 	if freq == "" {
 		return ""
 	}
-	parts = append(parts, "FREQ="+freq)
+	parts := []string{"FREQ=" + freq}
 	if rec.Pattern.Interval > 1 {
 		parts = append(parts, fmt.Sprintf("INTERVAL=%d", rec.Pattern.Interval))
 	}
-	if (rec.Pattern.Type == "weekly" || strings.HasPrefix(rec.Pattern.Type, "relative")) && len(rec.Pattern.DaysOfWeek) > 0 {
-		codes := make([]string, 0, len(rec.Pattern.DaysOfWeek))
-		for _, d := range rec.Pattern.DaysOfWeek {
-			if code := graphDayToICSCode(d); code != "" {
-				codes = append(codes, code)
-			}
+
+	byday := graphDaysToICSCodes(rec.Pattern.DaysOfWeek)
+	switch strings.ToLower(rec.Pattern.Type) {
+	case "weekly":
+		if len(byday) > 0 {
+			parts = append(parts, "BYDAY="+strings.Join(byday, ","))
 		}
-		if len(codes) > 0 {
-			parts = append(parts, "BYDAY="+strings.Join(codes, ","))
+		if wkst := graphDayToICSCode(rec.Pattern.FirstDayOfWeek); wkst != "" {
+			parts = append(parts, "WKST="+wkst)
 		}
-	}
-	if rec.Pattern.Type == "absoluteMonthly" && rec.Pattern.DayOfMonth > 0 {
-		parts = append(parts, fmt.Sprintf("BYMONTHDAY=%d", rec.Pattern.DayOfMonth))
+	case "absolutemonthly":
+		if rec.Pattern.DayOfMonth > 0 {
+			parts = append(parts, fmt.Sprintf("BYMONTHDAY=%d", rec.Pattern.DayOfMonth))
+		}
+	case "relativemonthly":
+		if len(byday) > 0 {
+			parts = append(parts, "BYDAY="+strings.Join(byday, ","))
+			// "first/second/.../last <weekday>" → BYSETPOS. Required: without
+			// it BYDAY alone would mean every matching weekday in the month.
+			parts = append(parts, "BYSETPOS="+graphIndexToSetPos(rec.Pattern.Index))
+		}
+	case "absoluteyearly":
+		if rec.Pattern.Month > 0 {
+			parts = append(parts, fmt.Sprintf("BYMONTH=%d", rec.Pattern.Month))
+		}
+		if rec.Pattern.DayOfMonth > 0 {
+			parts = append(parts, fmt.Sprintf("BYMONTHDAY=%d", rec.Pattern.DayOfMonth))
+		}
+	case "relativeyearly":
+		if rec.Pattern.Month > 0 {
+			parts = append(parts, fmt.Sprintf("BYMONTH=%d", rec.Pattern.Month))
+		}
+		if len(byday) > 0 {
+			parts = append(parts, "BYDAY="+strings.Join(byday, ","))
+			parts = append(parts, "BYSETPOS="+graphIndexToSetPos(rec.Pattern.Index))
+		}
 	}
 
-	switch rec.Range.Type {
-	case "endDate":
+	switch strings.ToLower(rec.Range.Type) {
+	case "enddate":
 		if d, err := time.Parse("2006-01-02", rec.Range.EndDate); err == nil {
 			parts = append(parts, "UNTIL="+d.Format("20060102")+"T235959Z")
 		}
@@ -669,6 +711,35 @@ func graphRecurrenceToRRule(rec *graphRecurrence) string {
 		}
 	}
 	return strings.Join(parts, ";")
+}
+
+// graphDaysToICSCodes maps Graph daysOfWeek (e.g. "monday") to ICS BYDAY codes
+// (e.g. "MO"), dropping anything unrecognized.
+func graphDaysToICSCodes(days []string) []string {
+	codes := make([]string, 0, len(days))
+	for _, d := range days {
+		if code := graphDayToICSCode(d); code != "" {
+			codes = append(codes, code)
+		}
+	}
+	return codes
+}
+
+// graphIndexToSetPos maps Graph's weekIndex (first/second/third/fourth/last) to
+// an RRULE BYSETPOS value. Graph's documented default is "first", so an empty or
+// unrecognized index falls back to 1.
+func graphIndexToSetPos(index string) string {
+	switch strings.ToLower(index) {
+	case "second":
+		return "2"
+	case "third":
+		return "3"
+	case "fourth":
+		return "4"
+	case "last":
+		return "-1"
+	}
+	return "1"
 }
 
 func graphPatternTypeToFreq(t string) string {

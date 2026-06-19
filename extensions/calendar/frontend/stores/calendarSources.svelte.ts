@@ -11,6 +11,7 @@ import {
   Calendar_DeleteSource,
   Calendar_SyncSource,
   Calendar_SyncAllSources,
+  Calendar_ForceSyncSource,
   Calendar_SetCalendarVisible,
   Calendar_SetCalendarColor,
 } from '$wailsjs/go/app/App.js'
@@ -217,6 +218,15 @@ async function syncAll() {
   await load()
 }
 
+// forceSyncSource clears the source's stored sync tokens on the backend so the
+// next sync re-pulls every event from scratch. Recovers events missed by an
+// earlier incremental/windowed sync (e.g. M365 historical events). Mirrors the
+// contacts force-sync.
+async function forceSyncSource(sourceID: string) {
+  await Calendar_ForceSyncSource(sourceID)
+  await load()
+}
+
 async function setVisible(calendarID: string, visible: boolean) {
   await Calendar_SetCalendarVisible(calendarID, visible)
   // Optimistic local update so the UI reacts instantly without waiting
@@ -355,6 +365,7 @@ export const calendarSources = {
   deleteSource,
   syncSource,
   syncAll,
+  forceSyncSource,
   setVisible,
   setColor,
   colorOf,

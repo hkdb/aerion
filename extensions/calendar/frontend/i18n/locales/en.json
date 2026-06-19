@@ -109,7 +109,8 @@
       "organizerEmailInvalid": "Enter a valid email address."
     },
     "toast": {
-      "sourceDeleted": "Removed {name}"
+      "sourceDeleted": "Removed {name}",
+      "forceResyncDone": "Re-synced {name}"
     },
     "detail": {
       "noTitle": "(no title)",
@@ -165,6 +166,9 @@
       "lastSync": "Synced {time} ago",
       "lastSyncNever": "Never synced",
       "syncNow": "Sync now",
+      "forceResync": "Force resync",
+      "forceResyncConfirmTitle": "Force resync {name}?",
+      "forceResyncConfirmDescription": "Clears the stored sync state and re-pulls every event from the server. Use this if events are missing. It may take longer than a normal sync.",
       "deleteConfirmTitle": "Remove {name}?",
       "deleteConfirmDescription": "All calendars and events from this source will be removed locally. The CalDAV server is not affected.",
       "defaultsSection": "Defaults for new events",

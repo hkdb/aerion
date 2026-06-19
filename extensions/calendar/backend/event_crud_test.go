@@ -250,3 +250,28 @@ func TestValidateInput(t *testing.T) {
 		t.Error("both UntilUnix and Count accepted")
 	}
 }
+
+// Regression (#278): a multi-line subject/description/location (CRLF) typed in
+// the composer must serialize. go-ical's encoder rejects raw CR/LF; icsText
+// normalizes them so editing such an event doesn't fail with
+// "serialize event: ical: failed to encode property value: contains a CR or LF".
+func TestSerializeVEVENT_CRLFContent(t *testing.T) {
+	start := time.Date(2026, 6, 5, 14, 0, 0, 0, time.UTC).Unix()
+	end := time.Date(2026, 6, 5, 15, 0, 0, 0, time.UTC).Unix()
+
+	blob, err := serializeVEVENT("crlf@aerion-local", EventInput{
+		CalendarID:  "cal1",
+		Summary:     "Standup\r\nweekly",
+		Description: "agenda:\r\n- one\r\n- two\r\n",
+		Location:    "Room\r\n42",
+		DTStartUnix: start,
+		DTEndUnix:   end,
+		Reminder:    &ReminderSpec{OffsetMinutes: 10},
+	})
+	if err != nil {
+		t.Fatalf("serializeVEVENT failed on CRLF content: %v", err)
+	}
+	if _, perr := ParseCalendarObject(blob); perr != nil {
+		t.Fatalf("serialized blob is not parseable: %v", perr)
+	}
+}

@@ -63,6 +63,12 @@ func ExpandInRange(ev Event, overrides []EventOverride, from, to time.Time) ([]E
 		masterEv = &first
 	}
 
+	// RFC 5545 allows EXDATE/RDATE to carry a comma-separated list in one
+	// property, but go-ical's RecurrenceSet parses each property's whole value
+	// with a single time.Parse and errors on the comma — which would drop the
+	// entire calendar. Split multi-value props into single-value props first.
+	splitMultiValueDateLists(masterEv)
+
 	set, err := masterEv.RecurrenceSet(loc)
 	if err != nil {
 		return nil, fmt.Errorf("rrule_expand: build recurrence set: %w", err)
@@ -114,6 +120,55 @@ func ExpandInRange(ev Event, overrides []EventOverride, from, to time.Time) ([]E
 	})
 
 	return out, nil
+}
+
+// splitMultiValueDateLists rewrites EXDATE/RDATE properties on the master
+// VEVENT so that each property carries a single date value. RFC 5545 permits
+// a comma-separated list in one property (e.g. EXDATE:20250501T084500,
+// 20250502T084500), and Aerion's own instance-delete writes coalesce that way,
+// but go-ical's RecurrenceSet calls time.Parse on the whole value and fails on
+// the comma. Each split prop clones the original's Params so TZID / VALUE=DATE
+// semantics are preserved per value. Single-value props are left untouched.
+// This mutates the in-memory master only — never the stored ICS blob.
+func splitMultiValueDateLists(comp *ical.Event) {
+	for _, name := range []string{ical.PropExceptionDates, ical.PropRecurrenceDates} {
+		props := comp.Props.Values(name)
+		if len(props) == 0 {
+			continue
+		}
+		expanded := make([]ical.Prop, 0, len(props))
+		for _, p := range props {
+			if !strings.Contains(p.Value, ",") {
+				expanded = append(expanded, p)
+				continue
+			}
+			for _, v := range strings.Split(p.Value, ",") {
+				v = strings.TrimSpace(v)
+				if v == "" {
+					continue
+				}
+				expanded = append(expanded, ical.Prop{
+					Name:   p.Name,
+					Params: cloneParams(p.Params),
+					Value:  v,
+				})
+			}
+		}
+		comp.Props[name] = expanded
+	}
+}
+
+// cloneParams deep-copies a Params map so split EXDATE/RDATE props don't share
+// (and thus can't mutate) one another's parameter slices.
+func cloneParams(src ical.Params) ical.Params {
+	if src == nil {
+		return nil
+	}
+	dst := make(ical.Params, len(src))
+	for k, v := range src {
+		dst[k] = append([]string(nil), v...)
+	}
+	return dst
 }
 
 // resolveLocation looks up the IANA timezone name; returns time.Local on

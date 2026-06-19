@@ -615,3 +615,79 @@ func TestParseGraphRetryAfter(t *testing.T) {
 // Compile-time check that strconv import is exercised even when only used
 // in the test pattern paths above.
 var _ = strconv.Itoa
+
+// planEventSync is the pure decision behind the M365 events-collection sync
+// (#278): only new/etag-changed masters + single instances are processed;
+// unchanged events are skipped (the win on large read-only calendars);
+// exceptions (seriesMasterId set) are ignored (synced via their master); local
+// events no longer present server-side are deleted; and an empty listing
+// suppresses deletes so a glitchy/empty pull can't wipe the calendar.
+func TestPlanEventSync(t *testing.T) {
+	rows := []graphEvent{
+		{ICalUID: "s1", ETag: "e2new"},                        // single, changed
+		{ICalUID: "x1", SeriesMasterID: "m1"},                 // exception — skip entirely
+		{ICalUID: "n1", ETag: "e3"},                           // new single
+		{ICalUID: "u1", ETag: "eu"},                           // single, unchanged
+		{ICalUID: "mm", ETag: "em", Type: "seriesMaster"},     // master, unchanged etag
+		{ICalUID: ""},                                         // no UID — skip
+		{ICalUID: "s1", ETag: "e2new"},                        // duplicate — dedupe
+	}
+	local := map[string]string{
+		"s1":   "e2old", // changed → processed
+		"u1":   "eu",    // unchanged → not processed, but seen (kept)
+		"mm":   "em",    // unchanged etag, but it's a master → processed anyway
+		"old1": "eOld",  // gone from server → delete
+	}
+
+	plan := planEventSync(rows, local)
+
+	if !plan.seenAny {
+		t.Fatal("seenAny should be true (server returned events)")
+	}
+	gotProcess := map[string]bool{}
+	for _, r := range plan.process {
+		gotProcess[r.ICalUID] = true
+	}
+	for _, want := range []string{"s1", "n1", "mm"} { // changed + new + master(always)
+		if !gotProcess[want] {
+			t.Errorf("process missing %q", want)
+		}
+	}
+	for _, notWant := range []string{"u1", "x1", ""} { // unchanged single / exception / empty
+		if gotProcess[notWant] {
+			t.Errorf("process should not contain %q", notWant)
+		}
+	}
+	if len(plan.process) != 3 {
+		t.Errorf("got %d process, want 3 (s1 changed, n1 new, mm master)", len(plan.process))
+	}
+
+	gotDel := map[string]bool{}
+	for _, uid := range plan.deletes {
+		gotDel[uid] = true
+	}
+	if !gotDel["old1"] {
+		t.Errorf("deletes should contain old1 (gone from server)")
+	}
+	for _, notDel := range []string{"m1", "s1"} {
+		if gotDel[notDel] {
+			t.Errorf("deletes should NOT contain %q (present/unchanged server-side)", notDel)
+		}
+	}
+	if len(plan.deletes) != 1 {
+		t.Errorf("got %d deletes, want 1 (old1)", len(plan.deletes))
+	}
+}
+
+// An empty server listing must not produce a delete-everything plan.
+func TestPlanEventSync_EmptyListSuppressesDeletes(t *testing.T) {
+	local := map[string]string{"a": "1", "b": "2"}
+	plan := planEventSync(nil, local)
+	if plan.seenAny {
+		t.Error("seenAny should be false for an empty listing")
+	}
+	// deletes may be computed, but seenAny=false tells the caller to skip them.
+	if len(plan.process) != 0 {
+		t.Errorf("got %d process, want 0", len(plan.process))
+	}
+}

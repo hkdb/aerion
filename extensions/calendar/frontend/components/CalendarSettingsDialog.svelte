@@ -115,6 +115,9 @@
   let deleteTarget = $state<backend.Source | null>(null)
   let deleting = $state(false)
   let syncingSourceID = $state<string | null>(null)
+  // Pending force-resync confirmation + in-flight flag.
+  let forceTarget = $state<backend.Source | null>(null)
+  let forceSyncing = $state(false)
   let emailByAccountId = $state<Record<string, string>>({})
 
   // Per-source organizer-email edits. Keyed by source.id; populated when
@@ -276,6 +279,22 @@
       await calendarSources.syncSource(source.id)
     } finally {
       syncingSourceID = null
+    }
+  }
+
+  async function handleConfirmForceResync() {
+    if (!forceTarget) return
+    forceSyncing = true
+    const name = forceTarget.name
+    try {
+      await calendarSources.forceSyncSource(forceTarget.id)
+      toasts.success($_('calendar.toast.forceResyncDone', { values: { name } }))
+      forceTarget = null
+    } catch (err) {
+      const msg = (err as Error)?.message ?? String(err)
+      toasts.error(msg)
+    } finally {
+      forceSyncing = false
     }
   }
 
@@ -536,6 +555,21 @@
                     <Icon icon="mdi:sync" class="w-3.5 h-3.5" />
                   {/if}
                   <span class="ml-1">{$_('calendar.settings.syncNow')}</span>
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onclick={() => { forceTarget = src }}
+                  disabled={syncingSourceID !== null || forceSyncing}
+                  class="h-8"
+                  title={$_('calendar.settings.forceResync')}
+                >
+                  {#if forceSyncing && forceTarget?.id === src.id}
+                    <Icon icon="mdi:loading" class="w-3.5 h-3.5 animate-spin" />
+                  {:else}
+                    <Icon icon="mdi:refresh-auto" class="w-3.5 h-3.5" />
+                  {/if}
                 </Button>
 
                 <Button
@@ -811,6 +845,16 @@
   onCancel={() => { deleteTarget = null }}
 />
 
+<ConfirmDialog
+  open={forceTarget !== null}
+  title={forceTarget ? $_('calendar.settings.forceResyncConfirmTitle', { values: { name: forceTarget.name } }) : ''}
+  description={$_('calendar.settings.forceResyncConfirmDescription')}
+  confirmLabel={$_('calendar.settings.forceResync')}
+  cancelLabel={$_('calendar.common.cancel')}
+  loading={forceSyncing}
+  onConfirm={handleConfirmForceResync}
+  onCancel={() => { forceTarget = null }}
+/>
 <ConfirmDialog
   open={deleteCalendarTarget !== null}
   title={deleteCalendarTarget ? $_('calendar.settings.deleteCalendarConfirmTitle', { values: { name: deleteCalendarTarget.displayName } }) : ''}

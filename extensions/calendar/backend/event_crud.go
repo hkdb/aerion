@@ -725,12 +725,12 @@ func serializeVEVENT(uid string, in EventInput) (string, error) {
 	event := ical.NewEvent()
 	event.Props.SetText(ical.PropUID, uid)
 	event.Props.SetDateTime(ical.PropDateTimeStamp, time.Now().UTC())
-	event.Props.SetText(ical.PropSummary, in.Summary)
+	event.Props.SetText(ical.PropSummary, icsText(in.Summary))
 	if in.Description != "" {
-		event.Props.SetText(ical.PropDescription, in.Description)
+		event.Props.SetText(ical.PropDescription, icsText(in.Description))
 	}
 	if in.Location != "" {
-		event.Props.SetText(ical.PropLocation, in.Location)
+		event.Props.SetText(ical.PropLocation, icsText(in.Location))
 	}
 
 	setEventStartEnd(event, in)
@@ -745,7 +745,7 @@ func serializeVEVENT(uid string, in EventInput) (string, error) {
 		trigger := ical.NewProp(ical.PropTrigger)
 		trigger.Value = fmt.Sprintf("-PT%dM", in.Reminder.OffsetMinutes)
 		alarm.Props.Add(trigger)
-		alarm.Props.SetText(ical.PropDescription, in.Summary)
+		alarm.Props.SetText(ical.PropDescription, icsText(in.Summary))
 		event.Component.Children = append(event.Component.Children, alarm)
 	}
 
