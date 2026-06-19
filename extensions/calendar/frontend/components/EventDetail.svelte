@@ -416,6 +416,16 @@
         </div>
       {/if}
 
+      <!-- Availability: only surfaced when Free (Busy is the default). -->
+      {#if event.transparency === 'free'}
+        <div>
+          <div class="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+            {$_('calendar.composer.availabilityLabel')}
+          </div>
+          <div class="text-foreground">{$_('calendar.composer.availability.free')}</div>
+        </div>
+      {/if}
+
       <!-- Repeats (skip if non-recurring) -->
       {#if event.rruleText && event.rruleText !== ''}
         <div>

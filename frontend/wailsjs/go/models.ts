@@ -893,6 +893,7 @@ export namespace backend {
 	    isAllDay: boolean;
 	    tzName?: string;
 	    rruleText?: string;
+	    transparency?: string;
 	    attendees?: Attendee[];
 	    organizer?: Organizer;
 	
@@ -916,6 +917,7 @@ export namespace backend {
 	        this.isAllDay = source["isAllDay"];
 	        this.tzName = source["tzName"];
 	        this.rruleText = source["rruleText"];
+	        this.transparency = source["transparency"];
 	        this.attendees = this.convertValues(source["attendees"], Attendee);
 	        this.organizer = this.convertValues(source["organizer"], Organizer);
 	    }
@@ -989,6 +991,7 @@ export namespace backend {
 	    dtendUnix: number;
 	    isAllDay?: boolean;
 	    tz?: string;
+	    transparency?: string;
 	    recurrence?: RecurrenceSpec;
 	    reminder?: ReminderSpec;
 	    attendees?: AttendeeInput[];
@@ -1009,6 +1012,7 @@ export namespace backend {
 	        this.dtendUnix = source["dtendUnix"];
 	        this.isAllDay = source["isAllDay"];
 	        this.tz = source["tz"];
+	        this.transparency = source["transparency"];
 	        this.recurrence = this.convertValues(source["recurrence"], RecurrenceSpec);
 	        this.reminder = this.convertValues(source["reminder"], ReminderSpec);
 	        this.attendees = this.convertValues(source["attendees"], AttendeeInput);
@@ -1049,6 +1053,7 @@ export namespace backend {
 	    isAllDay: boolean;
 	    tzName?: string;
 	    rruleText?: string;
+	    transparency?: string;
 	    attendees?: Attendee[];
 	    organizer?: Organizer;
 	    instanceStartUnix: number;
@@ -1075,6 +1080,7 @@ export namespace backend {
 	        this.isAllDay = source["isAllDay"];
 	        this.tzName = source["tzName"];
 	        this.rruleText = source["rruleText"];
+	        this.transparency = source["transparency"];
 	        this.attendees = this.convertValues(source["attendees"], Attendee);
 	        this.organizer = this.convertValues(source["organizer"], Organizer);
 	        this.instanceStartUnix = source["instanceStartUnix"];
@@ -1110,6 +1116,7 @@ export namespace backend {
 	    dtendUnix: number;
 	    isAllDay?: boolean;
 	    tz?: string;
+	    transparency?: string;
 	    recurrence?: RecurrenceSpec;
 	    reminder?: ReminderSpec;
 	    attendees?: AttendeeInput[];
@@ -1131,6 +1138,7 @@ export namespace backend {
 	        this.dtendUnix = source["dtendUnix"];
 	        this.isAllDay = source["isAllDay"];
 	        this.tz = source["tz"];
+	        this.transparency = source["transparency"];
 	        this.recurrence = this.convertValues(source["recurrence"], RecurrenceSpec);
 	        this.reminder = this.convertValues(source["reminder"], ReminderSpec);
 	        this.attendees = this.convertValues(source["attendees"], AttendeeInput);

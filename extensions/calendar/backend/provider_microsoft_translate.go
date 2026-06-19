@@ -44,6 +44,7 @@ type graphEvent struct {
 	ReminderMinutesBeforeStart  *int               `json:"reminderMinutesBeforeStart,omitempty"`
 	IsReminderOn                *bool              `json:"isReminderOn,omitempty"`
 	SeriesMasterID              string             `json:"seriesMasterId,omitempty"`
+	ShowAs                      string             `json:"showAs,omitempty"` // free|tentative|busy|oof|workingElsewhere|unknown
 	Type                        string             `json:"type,omitempty"` // "singleInstance" | "seriesMaster" | "exception" | "occurrence"
 	Status                      *graphEventStatus  `json:"@removed,omitempty"`
 	Attendees                   []graphAttendee    `json:"attendees,omitempty"`
@@ -168,6 +169,8 @@ func translateICSToGraphEvent(icsBlob string) (graphEvent, error) {
 	if loc := propText(&ev, ical.PropLocation); loc != "" {
 		out.Location = &graphLocation{DisplayName: loc}
 	}
+	// TRANSP → Graph showAs (canonical "free"/"busy" are valid showAs values).
+	out.ShowAs = transparencyFromICS(propText(&ev, icsPropTransp))
 
 	start, end, isAllDay, err := extractGraphTimes(&ev)
 	if err != nil {
@@ -523,6 +526,11 @@ func translateGraphEventToICS(ev graphEvent) (string, error) {
 	}
 	if ev.Location != nil && ev.Location.DisplayName != "" {
 		icalEv.Props.SetText(ical.PropLocation, icsText(ev.Location.DisplayName))
+	}
+	// Graph showAs → TRANSP. Only "free" maps to free; everything else
+	// (busy/tentative/oof/...) blocks availability in our 2-state model.
+	if strings.EqualFold(ev.ShowAs, "free") {
+		icalEv.Props.SetText(icsPropTransp, "TRANSPARENT")
 	}
 
 	isAllDay := ev.IsAllDay != nil && *ev.IsAllDay

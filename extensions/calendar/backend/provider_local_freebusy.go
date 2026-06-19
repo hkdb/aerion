@@ -64,6 +64,11 @@ func (a *API) queryLocalFreeBusy(_ context.Context, selfEmails []string, fromUni
 	to := time.Unix(toUnix, 0)
 	var blocks []FreeBusyBlock
 	for _, ev := range events {
+		// Free events don't block availability (iCal TRANSPARENT / showAs free
+		// / Google transparent).
+		if normTransparency(ev.Transparency) == "free" {
+			continue
+		}
 		// Overrides for this event aren't fetched; recurrence expansion
 		// without overrides is acceptable for free/busy (occurrence
 		// times don't change due to overrides much) and avoids an N+1

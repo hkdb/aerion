@@ -65,6 +65,7 @@
   let endTime = $state('')
   let location = $state('')
   let description = $state('')
+  let transparency = $state('busy') // 'busy' | 'free'
 
   let recurrenceFreq = $state('')
   let recurrenceEnd = $state('never')
@@ -340,6 +341,7 @@
     endDate = formatYMD(endInTz)
     endTime = formatHM(endInTz)
     parseRRule(ev.rruleText || '')
+    transparency = ev.transparency || 'busy'
     reminderChoice = 'none'
     // Attendees + organizer. backend.Attendee → backend.AttendeeInput
     // (shape-compatible; createFrom safely cherry-picks fields).
@@ -385,6 +387,7 @@
     summary = ''
     location = ''
     description = ''
+    transparency = 'busy'
     isAllDay = false
     startDate = formatYMD(refInTz)
     startTime = formatHM(refInTz)
@@ -527,6 +530,7 @@
       dtendUnix,
       isAllDay: isAllDay || undefined,
       tz: isAllDay ? undefined : calendarSettings.effectiveTimezone,
+      transparency,
       recurrence: buildRecurrenceSpec(),
       reminder: buildReminderSpec(),
       attendees: attendees.length > 0 ? attendees : undefined,
@@ -776,6 +780,19 @@
             />
           </div>
         {/if}
+      </div>
+
+      <div>
+        <Label>{$_('calendar.composer.availabilityLabel')}</Label>
+        <Select.Root value={transparency} onValueChange={(v) => { if (v) transparency = v }}>
+          <Select.Trigger class="h-9">
+            {transparency === 'free' ? $_('calendar.composer.availability.free') : $_('calendar.composer.availability.busy')}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="busy" label={$_('calendar.composer.availability.busy')} />
+            <Select.Item value="free" label={$_('calendar.composer.availability.free')} />
+          </Select.Content>
+        </Select.Root>
       </div>
 
       {#if errorMessage}

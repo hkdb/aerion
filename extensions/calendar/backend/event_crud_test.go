@@ -275,3 +275,38 @@ func TestSerializeVEVENT_CRLFContent(t *testing.T) {
 		t.Fatalf("serialized blob is not parseable: %v", perr)
 	}
 }
+
+// Free/Busy round-trips through TRANSP: free writes TRANSP:TRANSPARENT and reads
+// back "free"; busy omits TRANSP (iCal default OPAQUE) and reads back "busy".
+func TestSerializeVEVENT_Transparency(t *testing.T) {
+	start := time.Date(2026, 6, 5, 14, 0, 0, 0, time.UTC).Unix()
+	end := time.Date(2026, 6, 5, 15, 0, 0, 0, time.UTC).Unix()
+
+	freeBlob, err := serializeVEVENT("free@aerion", EventInput{
+		CalendarID: "c", Summary: "Lunch", DTStartUnix: start, DTEndUnix: end,
+		Transparency: "free",
+	})
+	if err != nil {
+		t.Fatalf("serialize free: %v", err)
+	}
+	if !strings.Contains(freeBlob, "TRANSP:TRANSPARENT") {
+		t.Errorf("free event should write TRANSP:TRANSPARENT:\n%s", freeBlob)
+	}
+	if p, _ := ParseCalendarObject(freeBlob); p.Master.Transparency != "free" {
+		t.Errorf("free round-trip = %q, want free", p.Master.Transparency)
+	}
+
+	busyBlob, err := serializeVEVENT("busy@aerion", EventInput{
+		CalendarID: "c", Summary: "Mtg", DTStartUnix: start, DTEndUnix: end,
+		Transparency: "busy",
+	})
+	if err != nil {
+		t.Fatalf("serialize busy: %v", err)
+	}
+	if strings.Contains(busyBlob, "TRANSP") {
+		t.Errorf("busy event should omit TRANSP:\n%s", busyBlob)
+	}
+	if p, _ := ParseCalendarObject(busyBlob); p.Master.Transparency != "busy" {
+		t.Errorf("busy round-trip = %q, want busy", p.Master.Transparency)
+	}
+}

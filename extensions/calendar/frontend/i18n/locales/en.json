@@ -300,6 +300,11 @@
       "descriptionLabel": "Description",
       "recurrenceLabel": "Repeat",
       "reminderLabel": "Reminder",
+      "availabilityLabel": "Show as",
+      "availability": {
+        "busy": "Busy",
+        "free": "Free"
+      },
       "errorSummaryRequired": "Title is required.",
       "errorCalendarRequired": "Please select a calendar.",
       "errorStartRequired": "Start date is required.",

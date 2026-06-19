@@ -280,6 +280,7 @@ func fillDenormalizedFieldsFromICS(ev *Event, blob string) {
 	ev.DTEndUnix = parsed.Master.DTEndUnix
 	ev.IsAllDay = parsed.Master.IsAllDay
 	ev.TZName = parsed.Master.TZName
+	ev.Transparency = parsed.Master.Transparency
 	ev.Attendees = parsed.Master.Attendees
 	ev.Organizer = parsed.Master.Organizer
 }

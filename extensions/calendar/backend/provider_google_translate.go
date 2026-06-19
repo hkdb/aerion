@@ -40,6 +40,7 @@ type googleEvent struct {
 	Summary           string           `json:"summary,omitempty"`
 	Description       string           `json:"description,omitempty"`
 	Location          string           `json:"location,omitempty"`
+	Transparency      string           `json:"transparency,omitempty"` // "opaque" (busy) | "transparent" (free)
 	Start             *googleTimePoint `json:"start,omitempty"`
 	End               *googleTimePoint `json:"end,omitempty"`
 	Recurrence        []string         `json:"recurrence,omitempty"`
@@ -127,6 +128,10 @@ func translateGoogleEventToICS(ev googleEvent) (string, error) {
 	}
 	if ev.Location != "" {
 		icalEv.Props.SetText(ical.PropLocation, ev.Location)
+	}
+	// Google transparency → TRANSP. "transparent" = free; "opaque"/"" = busy.
+	if strings.EqualFold(ev.Transparency, "transparent") {
+		icalEv.Props.SetText(icsPropTransp, "TRANSPARENT")
 	}
 
 	if err := setICSTimeFromGoogle(icalEv, ical.PropDateTimeStart, ev.Start); err != nil {
@@ -252,10 +257,15 @@ func translateICSToGoogleJSON(icsBlob string) (googleEvent, error) {
 	ev := events[0]
 
 	out := googleEvent{
-		ICalUID:     propText(&ev, ical.PropUID),
-		Summary:     propText(&ev, ical.PropSummary),
-		Description: propText(&ev, ical.PropDescription),
-		Location:    propText(&ev, ical.PropLocation),
+		ICalUID:      propText(&ev, ical.PropUID),
+		Summary:      propText(&ev, ical.PropSummary),
+		Description:  propText(&ev, ical.PropDescription),
+		Location:     propText(&ev, ical.PropLocation),
+		Transparency: "opaque",
+	}
+	// TRANSP → Google transparency (free = transparent, busy = opaque default).
+	if transparencyFromICS(propText(&ev, icsPropTransp)) == "free" {
+		out.Transparency = "transparent"
 	}
 
 	start, end, err := extractGoogleTimes(&ev)

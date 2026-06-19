@@ -147,12 +147,13 @@ func buildEvent(ev *ical.Event, rawICS string) (Event, error) {
 		Location:    propText(ev, ical.PropLocation),
 		DTStartUnix: dtstart.Unix(),
 		DTEndUnix:   dtend.Unix(),
-		IsAllDay:    isAllDay,
-		TZName:      tzName,
-		RRuleText:   rrule,
-		ICSBlob:     rawICS,
-		Attendees:   parseAttendeesFromVEVENT(ev),
-		Organizer:   parseOrganizerFromVEVENT(ev),
+		IsAllDay:     isAllDay,
+		TZName:       tzName,
+		RRuleText:    rrule,
+		Transparency: transparencyFromICS(propText(ev, icsPropTransp)),
+		ICSBlob:      rawICS,
+		Attendees:    parseAttendeesFromVEVENT(ev),
+		Organizer:    parseOrganizerFromVEVENT(ev),
 	}, nil
 }
 

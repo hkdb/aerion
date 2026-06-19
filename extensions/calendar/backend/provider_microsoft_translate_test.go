@@ -1,6 +1,9 @@
 package backend
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // graphRecurrenceToRRule must cover all 6 Microsoft Graph pattern types and the
 // range. The previous converter dropped relativeMonthly/relativeYearly (index →
@@ -92,5 +95,39 @@ func TestMicrosoftTranslate_CRLFContentEncodes(t *testing.T) {
 	}
 	if _, perr := ParseCalendarObject(blob); perr != nil {
 		t.Fatalf("translated blob is not parseable: %v", perr)
+	}
+}
+
+// Graph showAs ⇄ iCal TRANSP (2-state). showAs "free" → TRANSPARENT and back to
+// showAs "free"; anything else → busy.
+func TestMicrosoftTranslate_ShowAs(t *testing.T) {
+	mk := func(showAs string) graphEvent {
+		return graphEvent{
+			ICalUID: "u", Subject: "s", ShowAs: showAs,
+			Start: &graphTimePoint{DateTime: "2026-01-01T09:00:00.0000000", TimeZone: "UTC"},
+			End:   &graphTimePoint{DateTime: "2026-01-01T10:00:00.0000000", TimeZone: "UTC"},
+		}
+	}
+
+	freeBlob, err := translateGraphEventToICS(mk("free"))
+	if err != nil {
+		t.Fatalf("translate free: %v", err)
+	}
+	if !strings.Contains(freeBlob, "TRANSP:TRANSPARENT") {
+		t.Errorf("showAs=free should map to TRANSP:TRANSPARENT:\n%s", freeBlob)
+	}
+	if g, _ := translateICSToGraphEvent(freeBlob); g.ShowAs != "free" {
+		t.Errorf("free ICS → showAs %q, want free", g.ShowAs)
+	}
+
+	busyBlob, err := translateGraphEventToICS(mk("busy"))
+	if err != nil {
+		t.Fatalf("translate busy: %v", err)
+	}
+	if strings.Contains(busyBlob, "TRANSP:TRANSPARENT") {
+		t.Errorf("showAs=busy should not be TRANSPARENT:\n%s", busyBlob)
+	}
+	if g, _ := translateICSToGraphEvent(busyBlob); g.ShowAs != "busy" {
+		t.Errorf("busy ICS → showAs %q, want busy", g.ShowAs)
 	}
 }

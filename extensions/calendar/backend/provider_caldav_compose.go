@@ -223,6 +223,9 @@ func buildOverrideVEVENT(masterUID string, instanceTimeUnix int64, in EventInput
 	if in.Location != "" {
 		ev.Props.SetText(ical.PropLocation, in.Location)
 	}
+	if normTransparency(in.Transparency) == "free" {
+		ev.Props.SetText(icsPropTransp, "TRANSPARENT")
+	}
 
 	setEventStartEnd(ev, in)
 

@@ -52,6 +52,7 @@ type EventInput struct {
 	DTEndUnix   int64           `json:"dtendUnix"`
 	IsAllDay    bool            `json:"isAllDay,omitempty"`
 	TZName      string          `json:"tz,omitempty"`
+	Transparency string         `json:"transparency,omitempty"` // "busy" (default) | "free"
 	Recurrence  *RecurrenceSpec `json:"recurrence,omitempty"`
 	Reminder    *ReminderSpec   `json:"reminder,omitempty"`
 
@@ -138,10 +139,11 @@ func (a *API) CreateEvent(in EventInput) (string, error) {
 		DTStartUnix: in.DTStartUnix,
 		DTEndUnix:   in.DTEndUnix,
 		IsAllDay:    in.IsAllDay,
-		TZName:      in.TZName,
-		RRuleText:   rruleText(in.Recurrence),
-		ICSBlob:     icsBlob,
-		SendUpdates: in.SendUpdates, // transient write-time hint (Phase E)
+		TZName:       in.TZName,
+		RRuleText:    rruleText(in.Recurrence),
+		Transparency: normTransparency(in.Transparency),
+		ICSBlob:      icsBlob,
+		SendUpdates:  in.SendUpdates, // transient write-time hint (Phase E)
 		// ETag + Href empty: caldavProvider.PushEvent synthesizes the href
 		// from cal.URL + uid, and captures the server's returned ETag.
 	}
@@ -401,6 +403,7 @@ func (a *API) persistThisAndFutureUpdateLocally(master Event, in EventInput, res
 		DTEndUnix:       in.DTEndUnix,
 		IsAllDay:        in.IsAllDay,
 		RRuleText:       rruleText(in.Recurrence),
+		Transparency:    normTransparency(in.Transparency),
 		ICSBlob:         newICS,
 	}
 
@@ -557,6 +560,7 @@ func (a *API) updateAllAndPush(src Source, cal Calendar, master Event, in EventI
 	ev.IsAllDay = in.IsAllDay
 	ev.TZName = in.TZName
 	ev.RRuleText = rruleText(in.Recurrence)
+	ev.Transparency = normTransparency(in.Transparency)
 	ev.ICSBlob = icsBlob
 	ev.SendUpdates = in.SendUpdates // transient write-time hint (Phase E)
 	// Overwrite master's persisted attendees + organizer with the user's
@@ -720,6 +724,26 @@ func setEventStartEnd(event *ical.Event, in EventInput) {
 	event.Props.SetDateTime(ical.PropDateTimeEnd, time.Unix(in.DTEndUnix, 0).In(loc))
 }
 
+// icsPropTransp is the iCalendar TRANSP property name (go-ical has no constant).
+const icsPropTransp = "TRANSP"
+
+// normTransparency canonicalizes a free/busy value to "free" or "busy"
+// (default). Accepts the canonical words and the iCal TRANSP values.
+func normTransparency(t string) string {
+	if strings.EqualFold(t, "free") || strings.EqualFold(t, "TRANSPARENT") {
+		return "free"
+	}
+	return "busy"
+}
+
+// transparencyFromICS maps an iCal TRANSP value to canonical busy/free.
+func transparencyFromICS(transp string) string {
+	if strings.EqualFold(strings.TrimSpace(transp), "TRANSPARENT") {
+		return "free"
+	}
+	return "busy"
+}
+
 // serializeVEVENT builds a single-event VCALENDAR for events.ics_blob.
 func serializeVEVENT(uid string, in EventInput) (string, error) {
 	event := ical.NewEvent()
@@ -731,6 +755,11 @@ func serializeVEVENT(uid string, in EventInput) (string, error) {
 	}
 	if in.Location != "" {
 		event.Props.SetText(ical.PropLocation, icsText(in.Location))
+	}
+	// Free events carry TRANSP:TRANSPARENT; busy is the iCal default (OPAQUE),
+	// so we omit it.
+	if normTransparency(in.Transparency) == "free" {
+		event.Props.SetText(icsPropTransp, "TRANSPARENT")
 	}
 
 	setEventStartEnd(event, in)
