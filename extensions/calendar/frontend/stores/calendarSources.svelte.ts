@@ -267,7 +267,11 @@ function isWritable(calendarID: string): boolean {
   for (const src of sources) {
     const cals = calendarsBySource[src.id] || []
     for (const cal of cals) {
-      if (cal.id === calendarID) return src.writable === true
+      // Both the source AND the specific calendar must be writable: a writable
+      // account can still hold read-only calendars (holiday feeds, reader-shared
+      // Google/MS, no-write CalDAV). cal.writable !== false stays permissive for
+      // legacy rows missing the flag — matches calendarSettings.isWritableCalendar.
+      if (cal.id === calendarID) return src.writable === true && cal.writable !== false
     }
   }
   return false
