@@ -48,6 +48,7 @@ type Syncer struct {
 	getSourceToken   AccessTokenGetter // Gets OAuth token from standalone contact source
 	googleSyncer     *contact.GoogleContactsSyncer
 	microsoftSyncer  *contact.MicrosoftContactsSyncer
+	onSyncComplete   func(sourceID string) // optional: fired after a source syncs successfully
 	log              zerolog.Logger
 }
 
@@ -66,6 +67,14 @@ func NewSyncer(store *Store, credStore *credentials.Store) *Syncer {
 func (s *Syncer) SetAccessTokenGetters(accountTokenGetter, sourceTokenGetter AccessTokenGetter) {
 	s.getAccountToken = accountTokenGetter
 	s.getSourceToken = sourceTokenGetter
+}
+
+// SetSyncCompleteHandler registers a callback fired after a source finishes
+// syncing successfully (any path: manual, scheduler, or post-add). The host
+// wires this to a frontend event so the contact list live-refreshes when a
+// background sync lands new data.
+func (s *Syncer) SetSyncCompleteHandler(fn func(sourceID string)) {
+	s.onSyncComplete = fn
 }
 
 // SyncSource syncs contacts for a source based on its type (CardDAV, Google, Microsoft)
@@ -87,16 +96,24 @@ func (s *Syncer) SyncSource(sourceID string) error {
 	}
 
 	// Dispatch based on source type
+	var syncErr error
 	switch source.Type {
 	case SourceTypeCardDAV:
-		return s.syncCardDAV(source)
+		syncErr = s.syncCardDAV(source)
 	case SourceTypeGoogle:
-		return s.syncGoogle(source)
+		syncErr = s.syncGoogle(source)
 	case SourceTypeMicrosoft:
-		return s.syncMicrosoft(source)
+		syncErr = s.syncMicrosoft(source)
 	default:
 		return fmt.Errorf("unknown source type: %s", source.Type)
 	}
+	if syncErr != nil {
+		return syncErr
+	}
+	if s.onSyncComplete != nil {
+		s.onSyncComplete(sourceID)
+	}
+	return nil
 }
 
 // syncCardDAV syncs contacts from a CardDAV server
@@ -187,10 +204,10 @@ func (s *Syncer) syncGoogle(source *Source) error {
 
 	s.store.UpdateSourceSyncStatus(source.ID, "")
 	if result.IsFullSync {
-		s.log.Info().Str("sourceID", source.ID).Int("contacts", len(result.Contacts)).Msg("Google full sync completed")
-	} else {
-		s.log.Info().Str("sourceID", source.ID).Int("updated", len(result.Contacts)).Int("deleted", len(result.DeletedIDs)).Msg("Google incremental sync completed")
+		s.log.Info().Str("sourceID", source.ID).Int("contacts", len(result.Records)).Msg("Google full sync completed")
+		return nil
 	}
+	s.log.Info().Str("sourceID", source.ID).Int("updated", len(result.Records)).Int("deleted", len(result.DeletedIDs)).Msg("Google incremental sync completed")
 	return nil
 }
 
@@ -229,10 +246,10 @@ func (s *Syncer) syncMicrosoft(source *Source) error {
 
 	s.store.UpdateSourceSyncStatus(source.ID, "")
 	if result.IsFullSync {
-		s.log.Info().Str("sourceID", source.ID).Int("contacts", len(result.Contacts)).Msg("Microsoft full sync completed")
-	} else {
-		s.log.Info().Str("sourceID", source.ID).Int("updated", len(result.Contacts)).Int("deleted", len(result.DeletedIDs)).Msg("Microsoft incremental sync completed")
+		s.log.Info().Str("sourceID", source.ID).Int("contacts", len(result.Records)).Msg("Microsoft full sync completed")
+		return nil
 	}
+	s.log.Info().Str("sourceID", source.ID).Int("updated", len(result.Records)).Int("deleted", len(result.DeletedIDs)).Msg("Microsoft incremental sync completed")
 	return nil
 }
 
@@ -272,47 +289,47 @@ func (s *Syncer) getOrCreateOAuthAddressbook(source *Source) (*Addressbook, erro
 	return ab, nil
 }
 
-// storeOAuthContactsDelta stores contacts from an OAuth source using delta sync
+// storeOAuthContactsDelta stores contacts from an OAuth source (Google /
+// Microsoft) using the same multi-field record path as CardDAV. Records carry
+// name + emails + phones + addresses, and an email-less contact is still a
+// valid record (this is what makes phone-only contacts land instead of being
+// dropped). Change detection keys on (addressbook_id, href=RemoteID).
 func (s *Syncer) storeOAuthContactsDelta(ab *Addressbook, result *contact.SyncResult) error {
-	// If this is a full sync, delete all existing contacts first
-	if result.IsFullSync {
-		deleteErr := retryDBOperation(func() error {
-			return s.store.DeleteContactsForAddressbook(ab.ID)
-		}, 5, 100*time.Millisecond, s.log)
-		if deleteErr != nil {
-			s.log.Warn().Err(deleteErr).Msg("Failed to delete existing contacts after retries")
+	switch {
+	case result.IsFullSync:
+		// Full sync: clear all existing records for this addressbook first.
+		if err := retryDBOperation(func() error {
+			return s.store.DeleteRecordsForAddressbook(ab.ID)
+		}, 5, 100*time.Millisecond, s.log); err != nil {
+			s.log.Warn().Err(err).Msg("Failed to clear existing records after retries")
 		}
-	} else {
-		// Incremental sync: delete removed contacts
-		if len(result.DeletedIDs) > 0 {
-			s.log.Debug().Int("count", len(result.DeletedIDs)).Msg("Deleting removed OAuth contacts")
-			deleteErr := retryDBOperation(func() error {
-				return s.store.DeleteContactsByHrefs(ab.ID, result.DeletedIDs)
-			}, 5, 100*time.Millisecond, s.log)
-			if deleteErr != nil {
-				s.log.Warn().Err(deleteErr).Msg("Failed to delete removed contacts after retries")
-			}
+	case len(result.DeletedIDs) > 0:
+		// Incremental sync: delete the records the provider reported removed.
+		s.log.Debug().Int("count", len(result.DeletedIDs)).Msg("Deleting removed OAuth contacts")
+		if err := retryDBOperation(func() error {
+			return s.store.DeleteContactsByHrefs(ab.ID, result.DeletedIDs)
+		}, 5, 100*time.Millisecond, s.log); err != nil {
+			s.log.Warn().Err(err).Msg("Failed to delete removed records after retries")
 		}
 	}
 
-	// Insert/update contacts
-	if len(result.Contacts) > 0 {
-		contacts := make([]*Contact, 0, len(result.Contacts))
-		for _, sc := range result.Contacts {
-			contacts = append(contacts, &Contact{
+	if len(result.Records) > 0 {
+		entries := make([]RecordSyncEntry, 0, len(result.Records))
+		for _, sr := range result.Records {
+			if sr.Record == nil {
+				continue
+			}
+			entries = append(entries, RecordSyncEntry{
+				Record:        sr.Record,
 				AddressbookID: ab.ID,
-				Email:         sc.Email,
-				DisplayName:   sc.DisplayName,
-				Href:          sc.RemoteID, // Use RemoteID as href for change detection
-				ETag:          "",          // OAuth sources don't use ETags
+				Href:          sr.RemoteID, // provider id doubles as href for change detection
+				ETag:          sr.ETag,
 			})
 		}
-
-		upsertErr := retryDBOperation(func() error {
-			return s.store.UpsertContactsBatch(contacts)
-		}, 5, 100*time.Millisecond, s.log)
-		if upsertErr != nil {
-			return fmt.Errorf("failed to batch upsert contacts: %w", upsertErr)
+		if err := retryDBOperation(func() error {
+			return s.store.UpsertRecordsBatch(entries)
+		}, 5, 100*time.Millisecond, s.log); err != nil {
+			return fmt.Errorf("failed to batch upsert records: %w", err)
 		}
 	}
 

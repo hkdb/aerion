@@ -290,6 +290,26 @@ var migrations = []extensions.Migration{
 			ALTER TABLE calendar_sources ADD COLUMN organizer_identities TEXT NOT NULL DEFAULT '[]';
 		`,
 	},
+	{
+		Version: 10,
+		SQL: `
+			-- Per-event Free/Busy (iCal TRANSP / Graph showAs / Google
+			-- transparency). 'busy' = blocks availability (OPAQUE), 'free' =
+			-- doesn't (TRANSPARENT). DEFAULT 'busy' matches prior behavior where
+			-- every event blocked free/busy, so existing rows need no backfill.
+			ALTER TABLE events ADD COLUMN transparency TEXT NOT NULL DEFAULT 'busy';
+		`,
+	},
+	{
+		Version: 11,
+		SQL: `
+			-- Per-event visibility (iCal CLASS / Graph sensitivity / Google
+			-- visibility). 'public' (default) | 'private' | 'confidential'.
+			-- DEFAULT 'public' matches the iCal default CLASS, so existing rows
+			-- need no backfill.
+			ALTER TABLE events ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public';
+		`,
+	},
 }
 
 // Store wraps the per-extension DB for the Calendar extension. Lives in an
@@ -728,12 +748,20 @@ type Event struct {
 	ProviderEventID string `json:"providerEventId,omitempty"`
 	Summary         string `json:"summary"`
 	Description     string `json:"description,omitempty"`
+	// DescriptionHTML is the sanitized rich-text body. NOT a DB column: it
+	// rides in ics_blob as X-ALT-DESC;FMTTYPE=text/html (write side) and is
+	// extracted + sanitized at the serve layer (Calendar_ListEventsInRange)
+	// before being handed to the frontend. Empty falls back to plaintext
+	// Description rendering.
+	DescriptionHTML string `json:"descriptionHTML,omitempty"`
 	Location        string `json:"location,omitempty"`
 	DTStartUnix     int64  `json:"dtstartUnix"`
 	DTEndUnix       int64  `json:"dtendUnix"`
 	IsAllDay        bool   `json:"isAllDay"`
 	TZName          string `json:"tzName,omitempty"`
 	RRuleText       string `json:"rruleText,omitempty"`
+	Transparency    string `json:"transparency,omitempty"` // "busy" (default) | "free"; iCal TRANSP
+	Visibility      string `json:"visibility,omitempty"`   // "public" (default) | "private" | "confidential"; iCal CLASS
 	ICSBlob         string `json:"-"` // not exposed to frontend; used by rrule_expand
 
 	// Attendees + Organizer. Populated by the ICS parser on read; written
@@ -811,8 +839,8 @@ func (s *Store) UpsertEventTx(tx *sql.Tx, ev Event) error {
 			id, calendar_id, uid, etag, href, provider_event_id,
 			summary, description, location,
 			dtstart_unix, dtend_unix, is_all_day, tz_name,
-			rrule_text, ics_blob, attendees_json, organizer_json
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			rrule_text, transparency, visibility, ics_blob, attendees_json, organizer_json
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(calendar_id, uid) DO UPDATE SET
 			etag = excluded.etag,
 			href = excluded.href,
@@ -825,13 +853,15 @@ func (s *Store) UpsertEventTx(tx *sql.Tx, ev Event) error {
 			is_all_day = excluded.is_all_day,
 			tz_name = excluded.tz_name,
 			rrule_text = excluded.rrule_text,
+			transparency = excluded.transparency,
+			visibility = excluded.visibility,
 			ics_blob = excluded.ics_blob,
 			attendees_json = excluded.attendees_json,
 			organizer_json = excluded.organizer_json`,
 		ev.ID, ev.CalendarID, ev.UID, ev.ETag, ev.Href, ev.ProviderEventID,
 		ev.Summary, nullIfEmpty(ev.Description), nullIfEmpty(ev.Location),
 		ev.DTStartUnix, ev.DTEndUnix, boolToInt(ev.IsAllDay), nullIfEmpty(ev.TZName),
-		nullIfEmpty(ev.RRuleText), ev.ICSBlob, string(attendeesJSON), organizerJSON,
+		nullIfEmpty(ev.RRuleText), normTransparency(ev.Transparency), normVisibility(ev.Visibility), ev.ICSBlob, string(attendeesJSON), organizerJSON,
 	)
 	if err != nil {
 		return fmt.Errorf("upsert event: %w", err)
@@ -911,7 +941,7 @@ func (s *Store) GetEvent(id string) (*Event, error) {
 		SELECT id, calendar_id, uid, etag, href, provider_event_id,
 		       summary, COALESCE(description, ''), COALESCE(location, ''),
 		       dtstart_unix, dtend_unix, is_all_day, COALESCE(tz_name, ''),
-		       COALESCE(rrule_text, ''), ics_blob,
+		       COALESCE(rrule_text, ''), COALESCE(transparency, 'busy'), COALESCE(visibility, 'public'), ics_blob,
 		       attendees_json, organizer_json
 		FROM events WHERE id = ?`, id)
 	ev := &Event{}
@@ -922,7 +952,7 @@ func (s *Store) GetEvent(id string) (*Event, error) {
 		&ev.ID, &ev.CalendarID, &ev.UID, &ev.ETag, &ev.Href, &ev.ProviderEventID,
 		&ev.Summary, &ev.Description, &ev.Location,
 		&ev.DTStartUnix, &ev.DTEndUnix, &isAllDay, &ev.TZName,
-		&ev.RRuleText, &ev.ICSBlob, &attendeesJSON, &organizerJSON,
+		&ev.RRuleText, &ev.Transparency, &ev.Visibility, &ev.ICSBlob, &attendeesJSON, &organizerJSON,
 	); err != nil {
 		return nil, err
 	}
@@ -960,7 +990,7 @@ func (s *Store) ListEventsForExpansion(calendarIDs []string) ([]Event, error) {
 		SELECT id, calendar_id, uid, etag, href, provider_event_id,
 		       summary, COALESCE(description, ''), COALESCE(location, ''),
 		       dtstart_unix, dtend_unix, is_all_day, COALESCE(tz_name, ''),
-		       COALESCE(rrule_text, ''), ics_blob,
+		       COALESCE(rrule_text, ''), COALESCE(transparency, 'busy'), COALESCE(visibility, 'public'), ics_blob,
 		       attendees_json, organizer_json
 		FROM events WHERE calendar_id IN (%s)`,
 		strings.Join(placeholders, ","))
@@ -981,7 +1011,7 @@ func (s *Store) ListEventsForExpansion(calendarIDs []string) ([]Event, error) {
 			&ev.ID, &ev.CalendarID, &ev.UID, &ev.ETag, &ev.Href, &ev.ProviderEventID,
 			&ev.Summary, &ev.Description, &ev.Location,
 			&ev.DTStartUnix, &ev.DTEndUnix, &isAllDay, &ev.TZName,
-			&ev.RRuleText, &ev.ICSBlob, &attendeesJSON, &organizerJSON,
+			&ev.RRuleText, &ev.Transparency, &ev.Visibility, &ev.ICSBlob, &attendeesJSON, &organizerJSON,
 		); err != nil {
 			return nil, fmt.Errorf("scan event: %w", err)
 		}
@@ -1052,6 +1082,35 @@ func (s *Store) UpdateCalendarCtagTx(tx *sql.Tx, calendarID, ctag string, synced
 	)
 	if err != nil {
 		return fmt.Errorf("update calendar ctag: %w", err)
+	}
+	return nil
+}
+
+// ResetCalendarSyncStateForSource clears the stored sync token (ctag) for every
+// calendar of a source, forcing the next sync to re-pull from scratch. Backs
+// the per-source force-resync. Leaves last_synced_at intact (the resync that
+// follows updates it). No-op effect for providers that already enumerate fully
+// each sync (Microsoft, CalDAV); a true full re-pull for token-based ones.
+func (s *Store) ResetCalendarSyncStateForSource(sourceID string) error {
+	if _, err := s.DB().Exec(
+		`UPDATE calendars SET ctag = NULL WHERE source_id = ?`, sourceID,
+	); err != nil {
+		return fmt.Errorf("reset calendar sync state: %w", err)
+	}
+	return nil
+}
+
+// ClearEventETagsForSource blanks the stored etag on every event of a source's
+// calendars, so the next sync treats all events as changed and re-processes
+// them. Backs force-resync's heal path: providers that skip unchanged events by
+// etag (Microsoft, CalDAV) will re-pull + re-convert everything, picking up
+// translation/recurrence fixes for rows that were stored before the fix.
+func (s *Store) ClearEventETagsForSource(sourceID string) error {
+	if _, err := s.DB().Exec(
+		`UPDATE events SET etag = '' WHERE calendar_id IN (SELECT id FROM calendars WHERE source_id = ?)`,
+		sourceID,
+	); err != nil {
+		return fmt.Errorf("clear event etags: %w", err)
 	}
 	return nil
 }

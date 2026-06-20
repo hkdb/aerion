@@ -260,6 +260,7 @@
           <li>ALPHA: Added Contacts extension - shipped disabled</li>
           <li>ALPHA: Added Calendar extension - shipped disabled - #28</li>
           <li>Updated extension translations: Czech, German, Vietnamese, Chinese (CN, HK, TW)</li>
+          <li>Added shortcuts: V for View Message and D for Delete Message</li>
           <li>Added runtime config of client id/secret - #138</li>
           <li>Added force re-sync of contacts</li>
           <li>Added Vietnamese translation - PR #232</li>
@@ -280,6 +281,9 @@
           <li>Fixed duplicate inline image rendering</li>
           <li>Fixed post action blank conversation pane - #271</li>
           <li>Fixed separate smtp creds persistence - #270</li>
+          <li>Fixed print feature - #280</li>
+          <li>Fixed Windows links - #261</li>
+          <li>Hardened Windows URL/attachment opening - Reported by @freemans32</li>
           <li>Bumped flatpak build to Gnome 50 runtime</li>
         </ul>
       </description>

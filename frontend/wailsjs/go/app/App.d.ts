@@ -57,6 +57,8 @@ export function Calendar_DeleteSource(arg1:string):Promise<void>;
 
 export function Calendar_DismissAlarm(arg1:string):Promise<void>;
 
+export function Calendar_ForceSyncSource(arg1:string):Promise<void>;
+
 export function Calendar_GetEvent(arg1:string):Promise<backend.Event>;
 
 export function Calendar_GrantCalendarAccess(arg1:string,arg2:string,arg3:string):Promise<void>;

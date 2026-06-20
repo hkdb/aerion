@@ -10,6 +10,7 @@ import (
 
 	coreapi "github.com/hkdb/aerion/internal/core/api/v1"
 	"github.com/hkdb/aerion/internal/credentials"
+	"github.com/hkdb/aerion/internal/email"
 	"github.com/hkdb/aerion/internal/logging"
 	"github.com/hkdb/aerion/internal/notification"
 	"github.com/hkdb/aerion/internal/oauth2"
@@ -193,6 +194,7 @@ func (c *coreImpl) Notifications() coreapi.Notifications { return notificationsC
 func (c *coreImpl) Storage() coreapi.Storage             { return storageCoreImpl{app: c.app} }
 func (c *coreImpl) Events() coreapi.EventBus             { return c.app.coreEventBus() }
 func (c *coreImpl) Log() coreapi.Logger                  { return loggerCoreImpl{extensionID: c.extensionID} }
+func (c *coreImpl) HTML() coreapi.HTML                   { return htmlCoreImpl{sanitizer: sharedSanitizer} }
 
 // Extension returns the typed handle published by another extension via its
 // api.go, or (nil, false) if the extension is not loaded.
@@ -464,6 +466,26 @@ func (k stubKV) Set(key, value string) error          { return coreapi.ErrUnimpl
 func (k stubKV) Delete(key string) error              { return coreapi.ErrUnimplemented }
 func (k stubKV) List(prefix string) ([]string, error) { return nil, coreapi.ErrUnimplemented }
 
+// sharedSanitizer is the single bluemonday-backed HTML sanitizer reused for
+// all extensions' HTML() surface. bluemonday policies are safe for concurrent
+// Sanitize calls, and the policy is the same one mail uses, so extensions
+// inherit identical script/handler stripping + remote-image blocking.
+var sharedSanitizer = email.NewSanitizer()
+
+// htmlCoreImpl is the host implementation of coreapi.HTML. It delegates to the
+// existing internal/email sanitizer (no copied policy), blocking remote images
+// for privacy parity with the mail viewer.
+type htmlCoreImpl struct {
+	sanitizer *email.Sanitizer
+}
+
+func (h htmlCoreImpl) Sanitize(html string) string {
+	if h.sanitizer == nil {
+		return ""
+	}
+	return h.sanitizer.SanitizeWithRemoteImageBlocking(html)
+}
+
 // loggerCoreImpl routes Logger calls through the host's zerolog with an
 // extension tag so unified log output is filterable per-extension.
 type loggerCoreImpl struct {
@@ -529,3 +551,4 @@ var _ coreapi.Core = (*coreImpl)(nil)
 var _ coreapi.Auth = (*extensionAuth)(nil)
 var _ coreapi.Logger = loggerCoreImpl{}
 var _ coreapi.UI = uiCoreImpl{}
+var _ coreapi.HTML = htmlCoreImpl{}

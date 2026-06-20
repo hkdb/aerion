@@ -27,22 +27,11 @@ func NewMicrosoftContactsSyncer() *MicrosoftContactsSyncer {
 	}
 }
 
-// SyncContacts fetches all contacts from Microsoft Graph API (full sync).
-// Uses the /me/contacts endpoint with pagination.
-// The accessToken should be a valid Microsoft OAuth2 access token with Contacts.Read scope.
-func (s *MicrosoftContactsSyncer) SyncContacts(accessToken string) ([]SyncedContact, error) {
-	result, err := s.SyncContactsDelta(accessToken, "")
-	if err != nil {
-		return nil, err
-	}
-	return result.Contacts, nil
-}
-
 // SyncContactsDelta performs an incremental sync using Microsoft Graph delta queries.
 // If deltaLink is empty, performs a full sync and returns a deltaLink for future incremental syncs.
 // If the deltaLink is expired, automatically falls back to full sync.
 func (s *MicrosoftContactsSyncer) SyncContactsDelta(accessToken, deltaLink string) (*SyncResult, error) {
-	var allContacts []SyncedContact
+	var allRecords []SyncedRecord
 	var deletedIDs []string
 	isFullSync := deltaLink == ""
 
@@ -109,34 +98,28 @@ func (s *MicrosoftContactsSyncer) SyncContactsDelta(accessToken, deltaLink strin
 		}
 		resp.Body.Close()
 
-		// Convert to SyncedContact structs
-		for _, contact := range result.Value {
+		// Convert to full records (email optional — a phone-only contact is
+		// still a valid record).
+		for _, c := range result.Value {
 			// Check if this is a deleted contact
-			if contact.Removed != nil {
-				deletedIDs = append(deletedIDs, contact.ID)
+			if c.Removed != nil {
+				deletedIDs = append(deletedIDs, c.ID)
 				continue
 			}
-
-			if len(contact.EmailAddresses) == 0 {
+			rec := msContactToRecord(c)
+			if rec == nil {
 				continue
 			}
-
-			// Create one contact entry per email address
-			for _, email := range contact.EmailAddresses {
-				if email.Address == "" {
-					continue
-				}
-				allContacts = append(allContacts, SyncedContact{
-					Email:       email.Address,
-					DisplayName: contact.DisplayName,
-					RemoteID:    contact.ID,
-				})
-			}
+			allRecords = append(allRecords, SyncedRecord{
+				Record:   rec,
+				RemoteID: c.ID,
+				ETag:     c.ETag,
+			})
 		}
 
 		s.log.Debug().
 			Int("page_count", len(result.Value)).
-			Int("contacts_so_far", len(allContacts)).
+			Int("records_so_far", len(allRecords)).
 			Int("deleted_so_far", len(deletedIDs)).
 			Msg("Fetched Microsoft contacts page")
 
@@ -150,7 +133,7 @@ func (s *MicrosoftContactsSyncer) SyncContactsDelta(accessToken, deltaLink strin
 	}
 
 	syncResult := &SyncResult{
-		Contacts:      allContacts,
+		Records:       allRecords,
 		DeletedIDs:    deletedIDs,
 		NextSyncToken: finalDeltaLink, // Store deltaLink as sync token
 		IsFullSync:    isFullSync,
@@ -158,17 +141,75 @@ func (s *MicrosoftContactsSyncer) SyncContactsDelta(accessToken, deltaLink strin
 
 	if isFullSync {
 		s.log.Info().
-			Int("total_contacts", len(allContacts)).
+			Int("total_records", len(allRecords)).
 			Bool("has_delta_link", finalDeltaLink != "").
 			Msg("Microsoft contacts full sync completed")
-	} else {
-		s.log.Info().
-			Int("updated_contacts", len(allContacts)).
-			Int("deleted_contacts", len(deletedIDs)).
-			Msg("Microsoft contacts incremental sync completed")
+		return syncResult, nil
 	}
-
+	s.log.Info().
+		Int("updated_records", len(allRecords)).
+		Int("deleted_contacts", len(deletedIDs)).
+		Msg("Microsoft contacts incremental sync completed")
 	return syncResult, nil
+}
+
+// msContactToRecord maps a Graph contact into the shared multi-field Record.
+// Email is optional — a phone-only contact still yields a record. Returns nil
+// only when the contact carries no usable data at all (no name, email, or
+// phone) so it would be an empty row.
+func msContactToRecord(c msGraphDeltaContact) *Record {
+	rec := &Record{
+		Source:  "carddav",
+		Fn:      c.DisplayName,
+		NGiven:  c.GivenName,
+		NFamily: c.Surname,
+		Org:     c.CompanyName,
+		Title:   c.JobTitle,
+	}
+	for _, e := range c.EmailAddresses {
+		if e.Address == "" {
+			continue
+		}
+		rec.Emails = append(rec.Emails, RecordEmail{Email: e.Address})
+	}
+	for _, n := range c.HomePhones {
+		if n == "" {
+			continue
+		}
+		rec.Phones = append(rec.Phones, RecordPhone{Number: n, PhoneType: "home"})
+	}
+	for _, n := range c.BusinessPhones {
+		if n == "" {
+			continue
+		}
+		rec.Phones = append(rec.Phones, RecordPhone{Number: n, PhoneType: "work"})
+	}
+	if c.MobilePhone != "" {
+		rec.Phones = append(rec.Phones, RecordPhone{Number: c.MobilePhone, PhoneType: "cell"})
+	}
+	rec.Addresses = appendMSAddress(rec.Addresses, "home", c.HomeAddress)
+	rec.Addresses = appendMSAddress(rec.Addresses, "work", c.BusinessAddress)
+	rec.Addresses = appendMSAddress(rec.Addresses, "other", c.OtherAddress)
+
+	if rec.Fn == "" && len(rec.Emails) == 0 && len(rec.Phones) == 0 {
+		return nil
+	}
+	return rec
+}
+
+// appendMSAddress appends a structured address only when it carries any field.
+func appendMSAddress(addrs []RecordAddress, typ string, a msGraphAddress) []RecordAddress {
+	if a.Street == "" && a.City == "" && a.State == "" && a.PostalCode == "" && a.CountryOrRegion == "" {
+		return addrs
+	}
+	return append(addrs, RecordAddress{
+		AddrType: typ,
+		Street:   a.Street,
+		City:     a.City,
+		Region:   a.State,
+		Postcode: a.PostalCode,
+		Country:  a.CountryOrRegion,
+	})
 }
 
 // Microsoft Graph API contacts response structures
@@ -180,12 +221,25 @@ type msGraphDeltaResponse struct {
 	DeltaLink string                `json:"@odata.deltaLink"` // Final link for next incremental sync
 }
 
-// msGraphDeltaContact represents a contact from a delta sync, with optional removal info.
+// msGraphDeltaContact represents a contact from a delta sync, with optional
+// removal info. Fields mirror the default `/me/contacts/delta` projection
+// (delta forbids $select, so the server returns this full set).
 type msGraphDeltaContact struct {
-	ID             string               `json:"id"`
-	DisplayName    string               `json:"displayName"`
-	EmailAddresses []msGraphEmail       `json:"emailAddresses"`
-	Removed        *msGraphRemovedInfo  `json:"@removed,omitempty"` // Present when contact was deleted
+	ID              string              `json:"id"`
+	ETag            string              `json:"@odata.etag"`
+	DisplayName     string              `json:"displayName"`
+	GivenName       string              `json:"givenName"`
+	Surname         string              `json:"surname"`
+	CompanyName     string              `json:"companyName"`
+	JobTitle        string              `json:"jobTitle"`
+	EmailAddresses  []msGraphEmail      `json:"emailAddresses"`
+	HomePhones      []string            `json:"homePhones"`
+	BusinessPhones  []string            `json:"businessPhones"`
+	MobilePhone     string              `json:"mobilePhone"`
+	HomeAddress     msGraphAddress      `json:"homeAddress"`
+	BusinessAddress msGraphAddress      `json:"businessAddress"`
+	OtherAddress    msGraphAddress      `json:"otherAddress"`
+	Removed         *msGraphRemovedInfo `json:"@removed,omitempty"` // Present when contact was deleted
 }
 
 type msGraphRemovedInfo struct {
@@ -195,4 +249,12 @@ type msGraphRemovedInfo struct {
 type msGraphEmail struct {
 	Address string `json:"address"`
 	Name    string `json:"name"`
+}
+
+type msGraphAddress struct {
+	Street          string `json:"street"`
+	City            string `json:"city"`
+	State           string `json:"state"`
+	PostalCode      string `json:"postalCode"`
+	CountryOrRegion string `json:"countryOrRegion"`
 }

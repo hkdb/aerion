@@ -26,9 +26,10 @@ type Syncer struct {
 	store    *Store
 	secrets  coreapi.Secrets
 	events   coreapi.EventBus
-	auth     coreapi.Auth   // for googleProvider + microsoftProvider's OAuth client; may be nil
-	queue    *PendingQueue  // drains after each per-source sync; may be nil
+	auth     coreapi.Auth  // for googleProvider + microsoftProvider's OAuth client; may be nil
+	queue    *PendingQueue // drains after each per-source sync; may be nil
 	settings SettingsStore
+	log      coreapi.Logger // host logger, extension-tagged; for surfacing per-calendar sync failures
 
 	mu            sync.Mutex
 	sourceCancels map[string]context.CancelFunc // sourceID → cancel for its goroutine
@@ -48,7 +49,7 @@ type Syncer struct {
 // per-source goroutines + event subscriptions. auth and queue may be nil
 // (CalDAV + local sources sync without auth; the per-source Drain step
 // is skipped without a queue).
-func NewSyncer(store *Store, secrets coreapi.Secrets, events coreapi.EventBus, settings SettingsStore, auth coreapi.Auth, queue *PendingQueue) *Syncer {
+func NewSyncer(store *Store, secrets coreapi.Secrets, events coreapi.EventBus, settings SettingsStore, auth coreapi.Auth, queue *PendingQueue, log coreapi.Logger) *Syncer {
 	return &Syncer{
 		store:         store,
 		secrets:       secrets,
@@ -56,6 +57,7 @@ func NewSyncer(store *Store, secrets coreapi.Secrets, events coreapi.EventBus, s
 		auth:          auth,
 		queue:         queue,
 		settings:      settings,
+		log:           log,
 		sourceCancels: make(map[string]context.CancelFunc),
 		busy:          make(map[string]bool),
 	}
@@ -151,6 +153,22 @@ func (s *Syncer) SyncAllSources(ctx context.Context) error {
 	return nil
 }
 
+// ForceResyncSource clears every calendar's stored sync token (ctag) for the
+// source, then runs a normal sync — re-pulling all events from scratch. Backs
+// the per-source force-resync; mirrors contacts' force-sync.
+func (s *Syncer) ForceResyncSource(ctx context.Context, sourceID string) error {
+	if err := s.store.ResetCalendarSyncStateForSource(sourceID); err != nil {
+		return fmt.Errorf("reset calendar sync state: %w", err)
+	}
+	// Blank event etags so the sync re-processes every event (not just the ones
+	// the server reports changed) — the heal path for translation/recurrence
+	// fixes applied to already-stored rows.
+	if err := s.store.ClearEventETagsForSource(sourceID); err != nil {
+		return fmt.Errorf("clear event etags: %w", err)
+	}
+	return s.SyncSource(ctx, sourceID)
+}
+
 // SyncSource runs one sync pass against the given source. Returns the
 // first error encountered; also persists it on the source row + emits
 // a `calendar:source-error` event. Gate-checks via settings.IsExtensionEnabled
@@ -216,12 +234,19 @@ func (s *Syncer) syncSourceInner(ctx context.Context, sourceID string) error {
 		Secrets: s.secrets,
 		Events:  s.events,
 		Auth:    s.auth,
+		Log:     s.log,
 	})
 
 	calendars, err := s.store.ListCalendars(sourceID)
 	if err != nil {
 		return fmt.Errorf("list calendars: %w", err)
 	}
+
+	// Collect per-calendar failures so the source isn't reported as a clean
+	// success when some calendars failed (issue #278). One bad calendar still
+	// doesn't block the rest — successful ones commit their events inside
+	// SyncCalendar regardless.
+	var failed []string
 
 	for i, cal := range calendars {
 		if ctx.Err() != nil {
@@ -238,13 +263,14 @@ func (s *Syncer) syncSourceInner(ctx context.Context, sourceID string) error {
 			"totalCalendars":  len(calendars),
 		})
 		if err := provider.SyncCalendar(ctx, *src, cal); err != nil {
-			// One bad calendar shouldn't block the rest; log via the
-			// source-error event but keep going.
-			_ = s.events.Publish("calendar:source-error", map[string]any{
-				"sourceId":   sourceID,
-				"calendarId": cal.ID,
-				"message":    err.Error(),
-			})
+			// One bad calendar shouldn't block the rest, but record it so the
+			// source reflects partial failure instead of a false clean sync.
+			// The aggregated error is persisted + published by SyncSource (the
+			// caller); here we just log it (the durable diagnosis artifact) and
+			// collect it. No per-calendar event here — it would duplicate the
+			// aggregated calendar:source-error SyncSource emits.
+			s.log.Warn(fmt.Sprintf("calendar sync failed: source=%s calendar=%q: %v", src.Name, cal.DisplayName, err))
+			failed = append(failed, fmt.Sprintf("%s: %v", cal.DisplayName, err))
 		}
 	}
 
@@ -259,9 +285,17 @@ func (s *Syncer) syncSourceInner(ctx context.Context, sourceID string) error {
 	}
 
 	// Drain any pending writes that piled up while we were offline. Runs
-	// after sync so the queued replays see the latest server state.
+	// after sync so the queued replays see the latest server state. Done even
+	// on partial failure so a single bad calendar doesn't block offline edits
+	// for the rest of the source.
 	if s.queue != nil {
 		_ = s.queue.Drain(ctx, sourceID)
+	}
+
+	// Surface partial failure as a source-level error (issue #278) so SyncSource
+	// records last_error instead of stamping a false clean last_synced_at.
+	if len(failed) > 0 {
+		return fmt.Errorf("%d of %d calendars failed: %s", len(failed), len(calendars), strings.Join(failed, "; "))
 	}
 
 	return nil

@@ -99,6 +99,8 @@
 
   // State
   let conversation = $state<messageModels.Conversation | null>(null)
+  // Per-message EmailBody refs, used to pull each rendered body for printing.
+  let emailBodyRefs: Record<string, { getPrintableHtml(): Promise<string> }> = {}
   let loading = $state(false)
   let error = $state<string | null>(null)
 
@@ -960,8 +962,80 @@
     }
   }
 
-  function handlePrint() {
-    window.print()
+  function escapeHtmlText(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  }
+
+  function printRecipientsRow(label: string, raw: string | undefined): string {
+    const list = parseRecipients(raw)
+    if (list.length === 0) return ''
+    const people = list.map((r) => escapeHtmlText(formatEmailForCopy(r.name, r.email))).join(', ')
+    return `<tr><td class="lbl">${label}</td><td>${people}</td></tr>`
+  }
+
+  function buildPrintBlock(msg: messageModels.Message, bodyHtml: string): string {
+    const header = `<table class="hdr">
+      <tr><td class="lbl">From</td><td>${escapeHtmlText(formatEmailForCopy(msg.fromName, msg.fromEmail))}</td></tr>
+      ${printRecipientsRow('To', msg.toList)}
+      ${printRecipientsRow('Cc', msg.ccList)}
+      <tr><td class="lbl">Date</td><td>${escapeHtmlText(formatDate(msg.date))}</td></tr>
+    </table>`
+    return `<section class="msg">${header}<div class="body">${bodyHtml}</div></section>`
+  }
+
+  function printDocument(subject: string, blocks: string[]) {
+    const doc = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <style>
+        body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; font-size: 12px; line-height: 1.45; }
+        h1 { font-size: 15px; margin: 0 0 14px; }
+        .msg { margin-bottom: 20px; }
+        .msg + .msg { border-top: 2px solid #ddd; padding-top: 14px; }
+        .hdr { border-collapse: collapse; margin-bottom: 10px; font-size: 11px; }
+        .hdr td { vertical-align: top; padding: 1px 0; }
+        .hdr td.lbl { color: #555; font-weight: 600; padding-right: 12px; white-space: nowrap; }
+        .body { font-size: 12px; }
+        .body img { max-width: 100%; height: auto; }
+        @page { margin: 14mm; }
+      </style></head>
+      <body><h1>${escapeHtmlText(subject)}</h1>${blocks.join('')}</body></html>`
+
+    const frame = document.createElement('iframe')
+    frame.setAttribute('aria-hidden', 'true')
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;'
+    frame.srcdoc = doc
+    frame.onload = () => {
+      const win = frame.contentWindow
+      if (!win) {
+        frame.remove()
+        return
+      }
+      win.addEventListener('afterprint', () => setTimeout(() => frame.remove(), 500))
+      win.focus()
+      win.print()
+      // Fallback cleanup if afterprint never fires (some webviews)
+      setTimeout(() => frame.remove(), 60000)
+    }
+    document.body.appendChild(frame)
+  }
+
+  async function handlePrint() {
+    // Print only the messages currently rendered (those with an EmailBody).
+    const msgs = visibleMessages.filter((m) => emailBodyRefs[m.id])
+    if (msgs.length === 0) {
+      window.print()
+      return
+    }
+    const blocks: string[] = []
+    for (const m of msgs) {
+      let body: string
+      try {
+        body = await emailBodyRefs[m.id].getPrintableHtml()
+      } catch {
+        body = ''
+      }
+      blocks.push(buildPrintBlock(m, body))
+    }
+    printDocument(conversation?.subject ?? '', blocks)
   }
 
   // Read receipt handling
@@ -1695,6 +1769,7 @@
                           <div class="text-muted-foreground text-sm italic py-4">{$_('viewer.decryptingMessage')}</div>
                         {:else}
                           <EmailBody
+                            bind:this={emailBodyRefs[msg.id]}
                             messageId={msg.id}
                             accountId={msg.accountId}
                             bodyHtml={msg.hasPGP && pgpResults[msg.id] ? pgpResults[msg.id].bodyHtml : msg.hasSMIME && smimeResults[msg.id] ? smimeResults[msg.id].bodyHtml : msg.bodyHtml}

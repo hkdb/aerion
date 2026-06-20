@@ -33,10 +33,10 @@ type DiscoveredCalendar struct {
 // path plus the list of calendars found.
 //
 // Mirrors `internal/carddav/client.go::DiscoverAddressbooks` exactly:
-//   1. URL as-is (the user may have entered a full home-set path).
-//   2. `<scheme>://<host>/.well-known/caldav` (RFC 6764).
-//   3. Nextcloud paths (`/remote.php/dav`, `/remote.php/caldav`).
-//   4. Common paths (`/dav`, `/caldav`, `/principals/<username>`).
+//  1. URL as-is (the user may have entered a full home-set path).
+//  2. `<scheme>://<host>/.well-known/caldav` (RFC 6764).
+//  3. Nextcloud paths (`/remote.php/dav`, `/remote.php/caldav`).
+//  4. Common paths (`/dav`, `/caldav`, `/principals/<username>`).
 //
 // Each attempt does `FindCurrentUserPrincipal` → `FindCalendarHomeSet` →
 // `FindCalendars`. The first attempt that yields >0 calendars wins. On
@@ -84,9 +84,9 @@ func DiscoverCalendars(ctx context.Context, baseURL, username, password string) 
 
 	// Attempt 3 + 4: common paths.
 	commonPaths := []string{
-		"/remote.php/dav",                                          // Nextcloud / ownCloud
-		"/remote.php/caldav",                                       // older Nextcloud
-		fmt.Sprintf("/remote.php/dav/calendars/%s/", username),     // Nextcloud direct calendar home
+		"/remote.php/dav",    // Nextcloud / ownCloud
+		"/remote.php/caldav", // older Nextcloud
+		fmt.Sprintf("/remote.php/dav/calendars/%s/", username), // Nextcloud direct calendar home
 		"/dav",
 		"/caldav",
 		"/principals/" + username,
@@ -278,6 +278,88 @@ type davPrivilege struct {
 	Write        *struct{} `xml:"write"`
 	WriteContent *struct{} `xml:"write-content"`
 	Bind         *struct{} `xml:"bind"`
+}
+
+// calEvent is one CalDAV event extracted from a calendar-query REPORT: the
+// raw iCalendar text, its ETag, and its href.
+type calEvent struct {
+	rawICS string
+	etag   string
+	href   string
+}
+
+// calendar-query REPORT multistatus shape. getetag is in the DAV: namespace
+// and calendar-data in the CalDAV namespace, and a response may carry more
+// than one propstat (e.g. a 200 with the data + a 404 for absent props), so
+// we iterate propstats and take the one that actually holds calendar-data.
+type calQueryMultistatus struct {
+	XMLName   xml.Name           `xml:"DAV: multistatus"`
+	Responses []calQueryResponse `xml:"response"`
+}
+
+type calQueryResponse struct {
+	Href      string             `xml:"href"`
+	Propstats []calQueryPropstat `xml:"propstat"`
+}
+
+type calQueryPropstat struct {
+	Prop calQueryProp `xml:"prop"`
+}
+
+type calQueryProp struct {
+	ETag         string `xml:"getetag"`
+	CalendarData string `xml:"urn:ietf:params:xml:ns:caldav calendar-data"`
+}
+
+// queryCalendarEvents issues a Depth:1 calendar-query REPORT for VEVENTs
+// against calURL and returns one calEvent per response that carries non-empty
+// calendar-data.
+//
+// Unlike go-webdav's QueryCalendar — whose decoder aborts the whole list if a
+// single response has empty/unparseable calendar-data — this skips such
+// responses and keeps the rest. iCloud leads its REPORT with a self-
+// referential <response> for the collection itself carrying an empty
+// <calendar-data/>, which made go-webdav discard every event (issue #278).
+func queryCalendarEvents(ctx context.Context, httpClient webdav.HTTPClient, calURL string) ([]calEvent, error) {
+	body := `<?xml version="1.0" encoding="utf-8"?>
+<C:calendar-query xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:D="DAV:"><D:prop><C:calendar-data/><D:getetag/></D:prop><C:filter><C:comp-filter name="VCALENDAR"><C:comp-filter name="VEVENT"/></C:comp-filter></C:filter></C:calendar-query>`
+
+	req, err := http.NewRequestWithContext(ctx, "REPORT", calURL, strings.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("build REPORT request: %w", err)
+	}
+	req.Header.Set("Depth", "1")
+	req.Header.Set("Content-Type", "text/xml; charset=utf-8")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("REPORT request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("REPORT returned status %d", resp.StatusCode)
+	}
+
+	var ms calQueryMultistatus
+	if err := xml.NewDecoder(resp.Body).Decode(&ms); err != nil {
+		return nil, fmt.Errorf("decode multistatus: %w", err)
+	}
+
+	events := make([]calEvent, 0, len(ms.Responses))
+	for _, r := range ms.Responses {
+		for _, ps := range r.Propstats {
+			if strings.TrimSpace(ps.Prop.CalendarData) == "" {
+				continue // collection self-entry / propstat without data
+			}
+			events = append(events, calEvent{
+				rawICS: ps.Prop.CalendarData,
+				etag:   ps.Prop.ETag,
+				href:   r.Href,
+			})
+			break
+		}
+	}
+	return events, nil
 }
 
 // supportsVEVENT returns true when the calendar's

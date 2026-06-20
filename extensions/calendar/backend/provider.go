@@ -201,6 +201,9 @@ type ProviderDeps struct {
 	Secrets coreapi.Secrets
 	Events  coreapi.EventBus
 	Auth    coreapi.Auth
+	// Log is the host's extension-tagged logger (optional; nil = silent). Used
+	// for sync diagnostics.
+	Log coreapi.Logger
 }
 
 // ProviderForSource dispatches src.Type → Provider impl. Falls back to
@@ -212,7 +215,7 @@ func ProviderForSource(src Source, deps ProviderDeps) Provider {
 	case SourceTypeGoogle:
 		return googleProvider{store: deps.Store, auth: deps.Auth}
 	case SourceTypeMicrosoft:
-		return microsoftProvider{store: deps.Store, auth: deps.Auth}
+		return microsoftProvider{store: deps.Store, auth: deps.Auth, log: deps.Log}
 	}
 	return localProvider{}
 }

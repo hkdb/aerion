@@ -26,7 +26,8 @@
   import CalendarColorPickStage from './CalendarColorPickStage.svelte'
   import { applyDefaultsAfterAdd } from '$extensions/calendar/frontend/lib/defaultsApply'
   // @ts-ignore - wailsjs bindings
-  import { GetAccounts, Calendar_ListGoogleCalendarsForAccount, Calendar_AddGoogleSource, Calendar_GrantCalendarAccess } from '$wailsjs/go/app/App.js'
+  import { GetAccounts, Calendar_ListGoogleCalendarsForAccount, Calendar_AddGoogleSource } from '$wailsjs/go/app/App.js'
+  import GrantCalendarAccessButton from './GrantCalendarAccessButton.svelte'
   // @ts-ignore - wailsjs bindings
   import type { account, backend } from '$wailsjs/go/models'
 
@@ -47,7 +48,6 @@
   let loadingAccounts = $state(false)
   let loadingCalendars = $state(false)
   let submitting = $state(false)
-  let granting = $state(false)
   let errorMessage = $state('')
   let needsConsent = $state(false)
 
@@ -129,29 +129,6 @@
       }
     } finally {
       loadingCalendars = false
-    }
-  }
-
-  // grantAccess runs the incremental-consent OAuth flow to add Calendar
-  // scope to the selected Gmail account, then re-runs the calendar list
-  // fetch so the picker populates inline without forcing the user to
-  // dismiss + re-open the dialog.
-  async function grantAccess() {
-    if (!selectedAccountId || granting) return
-    const acct = accounts.find((a) => a.id === selectedAccountId)
-    if (!acct) return
-    granting = true
-    errorMessage = ''
-    try {
-      await Calendar_GrantCalendarAccess('google', selectedAccountId, acct.email)
-      // Consent granted; re-fetch the calendar list.
-      needsConsent = false
-      await onAccountChange()
-    } catch (err) {
-      const msg = (err as Error)?.message ?? String(err)
-      errorMessage = $_('calendar.settings.addGoogleConsentFailed', { values: { message: msg } })
-    } finally {
-      granting = false
     }
   }
 
@@ -296,9 +273,15 @@
       {#if needsConsent}
         <div class="rounded-md border border-yellow-400/40 bg-yellow-400/10 p-3 text-xs text-yellow-700 dark:text-yellow-300 space-y-2">
           <div>{$_('calendar.settings.addGoogleConsentNeeded')}</div>
-          <Button size="sm" variant="outline" onclick={grantAccess} disabled={granting}>
-            {#if granting}{$_('calendar.settings.addGoogleGranting')}{:else}{$_('calendar.settings.addGoogleGrantButton')}{/if}
-          </Button>
+          <GrantCalendarAccessButton
+            provider="google"
+            accountId={selectedAccountId}
+            email={accounts.find((a) => a.id === selectedAccountId)?.email ?? ''}
+            idleLabel={$_('calendar.settings.addGoogleGrantButton')}
+            busyLabel={$_('calendar.settings.addGoogleGranting')}
+            onSuccess={async () => { needsConsent = false; await onAccountChange() }}
+            onError={(m) => errorMessage = $_('calendar.settings.addGoogleConsentFailed', { values: { message: m } })}
+          />
         </div>
       {/if}
 

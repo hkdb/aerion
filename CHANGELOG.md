@@ -13,6 +13,7 @@
     - German
     - Vietnamese
     - Chinese - CN, HK, TW
+- Added shortcuts: V for View Message and D for Delete Message
 - Added runtime config of client id/secret - [#138](https://github.com/hkdb/aerion/issues/138)
 - Added force re-sync of contacts
 - Added Vietnamese translation - PR [#232](https://github.com/hkdb/aerion/pull/232)
@@ -33,6 +34,10 @@
 - Fixed duplicate inline image rendering
 - Fixed post action blank conversation pane - [#271](https://github.com/hkdb/aerion/issues/271)
 - Fixed separate smtp creds persistence - [#270](https://github.com/hkdb/aerion/issues/270)
+- Fixed plaintext reply/fwd - [#285](https://github.com/hkdb/aerion/issues/285)
+- Fixed print feature - [#280](https://github.com/hkdb/aerion/issues/280)
+- Fixed Windows links - [#261](https://github.com/hkdb/aerion/issues/261)
+- Hardened Windows URL/attachment opening - Reported by @freemans32
 - Bumped flatpak build to Gnome 50 runtime
 
 

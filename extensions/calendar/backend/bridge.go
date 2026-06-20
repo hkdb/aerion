@@ -132,7 +132,7 @@ func (b *CalendarBridge) ensureInit() error {
 		auth := b.deps.Core.Auth()
 		queue := NewPendingQueue(store, secrets, auth, b.deps.Core.Events())
 		b.api = NewAPI(store, secrets, auth, queue)
-		b.syncer = NewSyncer(store, secrets, b.deps.Core.Events(), b.deps.SettingsStore, auth, queue)
+		b.syncer = NewSyncer(store, secrets, b.deps.Core.Events(), b.deps.SettingsStore, auth, queue, b.deps.Core.Log())
 		b.syncer.Start()
 		b.alarms = NewAlarmScheduler(store, b.deps.Core.Notifications(), b.deps.Core.Events(), b.deps.Core.Log())
 		b.alarms.Start(context.Background())
@@ -374,6 +374,22 @@ func (b *CalendarBridge) Calendar_SyncAllSources() error {
 	return b.syncer.SyncAllSources(ctx)
 }
 
+// Calendar_ForceSyncSource clears the source's stored sync tokens, then runs a
+// full sync — re-pulling every event from scratch. Mirrors contacts'
+// ForceSyncContactSource; used to recover events missed by an earlier
+// incremental/windowed sync.
+func (b *CalendarBridge) Calendar_ForceSyncSource(sourceID string) error {
+	if !b.gateEnabled() {
+		return nil
+	}
+	if err := b.ensureInit(); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	return b.syncer.ForceResyncSource(ctx, sourceID)
+}
+
 // Calendar_ListEventsInRange is the workhorse query for calendar views.
 // Expands recurring events into concrete occurrences within [fromUnix,
 // toUnix]. Honors per-calendar visibility (invisible calendars are
@@ -427,6 +443,12 @@ func (b *CalendarBridge) Calendar_ListEventsInRange(calendarIDs []string, fromUn
 			// Skip the bad event rather than aborting the whole query.
 			continue
 		}
+		// NOTE: DescriptionHTML is deliberately NOT populated here. This is
+		// the hot path (re-run on every view change + every sync-complete),
+		// and decoding each event's ICS blob + sanitizing per call is far too
+		// expensive. The grid never renders bodies; the only consumers of the
+		// rich body (detail view + composer edit) both load via
+		// Calendar_GetEvent, which does the extract + sanitize for one event.
 		out = append(out, instances...)
 	}
 	return out, nil
@@ -441,7 +463,25 @@ func (b *CalendarBridge) Calendar_GetEvent(eventID string) (*Event, error) {
 	if err := b.ensureInit(); err != nil {
 		return nil, err
 	}
-	return b.api.store.GetEvent(eventID)
+	ev, err := b.api.store.GetEvent(eventID)
+	if err != nil || ev == nil {
+		return ev, err
+	}
+	ev.DescriptionHTML = b.deps.Core.HTML().Sanitize(richBodyOf(ev))
+	return ev, nil
+}
+
+// richBodyOf returns the event body to render: X-ALT-DESC (Aerion-authored
+// rich text) when present, else the denormalized DESCRIPTION column — which
+// already holds the full body (Exchange/Graph put HTML straight in there).
+//
+// Crucially we use ev.Description (the column), NOT a re-parse of ev.ICSBlob:
+// go-ical truncates long folded DESCRIPTION values (an 1858-char Exchange body
+// came back as 264 chars, cut mid-<style>, which the sanitizer then stripped to
+// nothing). The column is stored full + unescaped at sync time. Always
+// sanitized + rendered as HTML downstream — same as the mail viewer.
+func richBodyOf(ev *Event) string {
+	return ev.Description
 }
 
 // Calendar_SetCalendarVisible toggles a calendar's visibility in the UI.

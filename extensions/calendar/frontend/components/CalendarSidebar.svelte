@@ -14,6 +14,7 @@
   import Icon from '@iconify/svelte'
   import SidebarFrame from '$lib/components/kit/SidebarFrame.svelte'
   import SidebarFooter from '$lib/components/kit/SidebarFooter.svelte'
+  import SidebarSyncStatus from '$lib/components/kit/SidebarSyncStatus.svelte'
   import AddCalendarMenu from './AddCalendarMenu.svelte'
   import { calendarSources } from '$extensions/calendar/frontend/stores/calendarSources.svelte'
   import { onMount, onDestroy } from 'svelte'
@@ -148,20 +149,14 @@
   {#snippet footer()}
     <SidebarFooter>
       {#snippet leading()}
-        {#if calendarSources.isAnySyncing}
-          <Icon icon="mdi:sync" class="w-4 h-4 shrink-0 animate-spin" />
-          <span class="truncate">{syncingLabel}</span>
-        {/if}
-        {#if !calendarSources.isAnySyncing && currentError !== ''}
-          <Icon icon="mdi:alert-circle" class="w-4 h-4 shrink-0 text-destructive" />
-          <span class="truncate text-destructive" title={currentError}>
-            {$_('calendar.sidebar.syncError')}
-          </span>
-        {/if}
-        {#if !calendarSources.isAnySyncing && currentError === ''}
-          <Icon icon="mdi:sync" class="w-4 h-4 shrink-0" />
-          <span class="truncate">{lastSyncedLabel}</span>
-        {/if}
+        <SidebarSyncStatus
+          syncing={calendarSources.isAnySyncing}
+          idleLabel={lastSyncedLabel}
+          syncingLabel={syncingLabel}
+          errorLabel={currentError !== '' ? $_('calendar.sidebar.syncError') : undefined}
+          errorDetail={currentError || undefined}
+          onSync={() => calendarSources.syncAll()}
+        />
       {/snippet}
       {#snippet trailing()}
         <button

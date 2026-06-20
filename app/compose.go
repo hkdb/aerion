@@ -746,18 +746,26 @@ func (a *App) PrepareReply(messageID, mode string) (*smtp.ComposeMessage, error)
 	// The frontend can unblock them if the sender is in the image allowlist.
 	quotedHTML = email.BlockRemoteImages(quotedHTML)
 
+	// Plaintext quote source: prefer the original's text part, but fall back to
+	// deriving it from HTML so HTML-only originals still produce a real quote
+	// (msg.BodyText is empty for HTML-only mail). Consumed by the plaintext composer.
+	quotedText := msg.BodyText
+	if strings.TrimSpace(quotedText) == "" && msg.BodyHTML != "" {
+		quotedText = email.ExtractPlainTextFromHTML(msg.BodyHTML)
+	}
+
 	var htmlBody, textBody string
 	if mode == "forward" {
 		// Forward format
 		htmlBody = fmt.Sprintf("<p></p><p></p><p>---------- Forwarded message ----------<br>From: %s<br>Subject: %s<br>Date: %s<br>To: %s</p><p></p>%s",
 			escapeHTML(sender), escapeHTML(msg.Subject), escapeHTML(dateStr), escapeHTML(msg.ToList), quotedHTML)
 		textBody = fmt.Sprintf("\n\n---------- Forwarded message ----------\nFrom: %s\nSubject: %s\nDate: %s\nTo: %s\n\n%s",
-			sender, msg.Subject, dateStr, msg.ToList, msg.BodyText)
+			sender, msg.Subject, dateStr, msg.ToList, quotedText)
 	} else {
 		// Reply format
 		citation := fmt.Sprintf("On %s, %s wrote:", dateStr, sender)
 		htmlBody = fmt.Sprintf("<p></p><p></p><p>%s</p><blockquote type=\"cite\">%s</blockquote>", escapeHTML(citation), quotedHTML)
-		textBody = fmt.Sprintf("\n\n%s\n%s", citation, quoteText(msg.BodyText))
+		textBody = fmt.Sprintf("\n\n%s\n%s", citation, quoteText(quotedText))
 	}
 
 	// Build References header per RFC 5322:

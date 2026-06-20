@@ -53,6 +53,14 @@ const (
 type microsoftProvider struct {
 	store *Store
 	auth  coreapi.Auth
+	log   coreapi.Logger // optional; nil = silent
+}
+
+// debugf emits a debug line via the host logger when one is wired.
+func (p microsoftProvider) debugf(format string, args ...any) {
+	if p.log != nil {
+		p.log.Debug(fmt.Sprintf(format, args...))
+	}
 }
 
 func (microsoftProvider) Capabilities() Capabilities {
@@ -83,7 +91,14 @@ func (p microsoftProvider) httpClient(src Source) (*http.Client, error) {
 // (extensions/contacts/backend/microsoft_write.go).
 func doGraphRequest(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Prefer", microsoftPreferTZ)
+	// Combine the timezone preference with any Prefer the caller already set
+	// (e.g. odata.maxpagesize on the events delta). RFC 7240 allows multiple
+	// comma-separated preference tokens; a bare Set would clobber the caller's.
+	prefer := microsoftPreferTZ
+	if existing := req.Header.Get("Prefer"); existing != "" {
+		prefer = existing + ", " + microsoftPreferTZ
+	}
+	req.Header.Set("Prefer", prefer)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -114,7 +129,9 @@ func doGraphRequest(ctx context.Context, client *http.Client, req *http.Request)
 	if req.Body != nil {
 		// Caller should pre-buffer the body so retry is safe; in practice
 		// our PushEvent uses bytes.NewReader which auto-seeks.
-		if seeker, ok := req.Body.(interface{ Seek(int64, int) (int64, error) }); ok {
+		if seeker, ok := req.Body.(interface {
+			Seek(int64, int) (int64, error)
+		}); ok {
 			_, _ = seeker.Seek(0, 0)
 		}
 		retryReq.Body = req.Body
@@ -153,139 +170,311 @@ func parseGraphRetryAfter(v string) time.Duration {
 
 // --- Sync ------------------------------------------------------------------
 
-// SyncCalendar fetches new+changed events from Microsoft Graph using the
-// delta endpoint. Uses @odata.deltaLink stored in calendars.ctag for
-// incremental sync.
+// SyncCalendar syncs a Microsoft 365 calendar using the events collection +
+// client-side recurrence expansion — the model mature Exchange clients use.
+//
+// Microsoft Graph v1.0 has no un-windowed event delta: calendarView/delta is
+// date-bounded (and returns server-expanded occurrences), and the unbounded
+// /me/events/delta is beta-only (unsupported in production). So we enumerate the
+// events collection, which returns "single instance meetings and series masters"
+// (not expanded occurrences, not date-windowed); each master carries its
+// recurrence rule, which we convert to RRULE and expand client-side.
+//
+// One paginated call returns full event objects — no per-event detail fetch (an
+// N+1 that crawled on large read-only calendars). We re-convert every event each
+// pass (no etag short-circuit) so a fix to the recurrence converter self-heals
+// previously-mis-stored rows on the next sync. The reconcile is non-destructive:
+// it keys on the stable master/single iCalUId and never deletes against an empty
+// list. The ctag column is unused (NULL), as for CalDAV. (Modified/cancelled
+// occurrences are layered on in a follow-up.)
 func (p microsoftProvider) SyncCalendar(ctx context.Context, src Source, cal Calendar) error {
 	client, err := p.httpClient(src)
 	if err != nil {
 		return err
 	}
 
-	// Start from stored deltaLink, or build the initial delta URL.
-	startURL := cal.Ctag
-	if startURL == "" {
-		startURL = microsoftGraphBase + "/me/calendars/" + url.PathEscape(cal.URL) +
-			"/events/delta?$top=" + fmt.Sprintf("%d", microsoftSyncLimit)
-	}
-
-	nextDeltaLink := ""
-	pageURL := startURL
-	for {
+	// $top forces a large page size: Prefer:odata.maxpagesize isn't reliably
+	// honored on the events collection (it paged at ~10), which made large
+	// read-only calendars crawl. nextLink carries $top through the pages.
+	pageURL := microsoftGraphBase + "/me/calendars/" + url.PathEscape(cal.URL) +
+		fmt.Sprintf("/events?$top=%d", microsoftSyncLimit)
+	var rows []graphEvent
+	for pageURL != "" {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		page, err := p.fetchDeltaPage(ctx, client, pageURL)
+		page, err := p.fetchEventsPage(ctx, client, pageURL)
 		if err != nil {
 			return err
 		}
+		rows = append(rows, page.Value...)
+		pageURL = page.NextLink
+	}
 
-		if err := p.persistEventsPage(cal, page.Value); err != nil {
-			return err
-		}
+	localETags, err := p.store.ListEventETags(cal.ID)
+	if err != nil {
+		return fmt.Errorf("list local etags: %w", err)
+	}
+	plan := planEventSync(rows, localETags)
 
-		if page.NextLink != "" {
-			pageURL = page.NextLink
+	// Convert masters + singles. Series masters additionally get their modified
+	// instances (RECURRENCE-ID overrides) and cancellations (EXDATE) from a
+	// per-master fetch. Unparseable events are skipped (not fatal) and stay
+	// "seen", so the reconcile won't delete them.
+	type processedEvent struct {
+		ev        Event
+		overrides []EventOverride
+		isMaster  bool
+	}
+	out := make([]processedEvent, 0, len(plan.process))
+	translateFail := 0
+	for _, r := range plan.process {
+		ev, terr := p.graphEventToStored(cal, r)
+		if terr != nil {
+			translateFail++
 			continue
 		}
-		nextDeltaLink = page.DeltaLink
-		break
+		pe := processedEvent{ev: ev, isMaster: strings.EqualFold(r.Type, "seriesMaster")}
+		if pe.isMaster {
+			pe.ev, pe.overrides = p.applyMasterExceptions(ctx, client, cal, r.ID, pe.ev)
+		}
+		out = append(out, pe)
 	}
+	p.debugf("ms-sync calendar=%q fetched=%d changed=%d upserts=%d deletes=%d translateFail=%d",
+		cal.DisplayName, len(rows), len(plan.process), len(out), len(plan.deletes), translateFail)
 
-	if nextDeltaLink == "" {
-		return nil
-	}
 	return p.store.WithTx(func(tx *sql.Tx) error {
-		return p.store.UpdateCalendarCtagTx(tx, cal.ID, nextDeltaLink, time.Now().Unix())
+		for _, pe := range out {
+			if err := p.store.UpsertEventTx(tx, pe.ev); err != nil {
+				return err
+			}
+			if !pe.isMaster {
+				continue
+			}
+			// Clear + rewrite this master's overrides (mirrors CalDAV) so removed
+			// exceptions don't linger.
+			if _, err := tx.Exec(`DELETE FROM event_recurrence_overrides WHERE event_id = ?`, pe.ev.ID); err != nil {
+				return fmt.Errorf("clear overrides: %w", err)
+			}
+			for _, ov := range pe.overrides {
+				if err := p.store.UpsertOverrideTx(tx, pe.ev.ID, ov.RecurrenceIDUnix, ov.ICSBlob); err != nil {
+					return err
+				}
+			}
+		}
+		// Non-destructive reconcile: delete only local events absent from the
+		// full server list, and never when the list came back empty (treat a
+		// zero-row pull as suspect rather than wiping the calendar).
+		if plan.seenAny {
+			for _, uid := range plan.deletes {
+				if err := p.store.DeleteEventByUIDTx(tx, cal.ID, uid); err != nil {
+					return err
+				}
+			}
+		}
+		return p.store.UpdateCalendarCtagTx(tx, cal.ID, "", time.Now().Unix())
 	})
 }
 
-type graphDeltaResponse struct {
-	Value     []graphEvent `json:"value"`
-	NextLink  string       `json:"@odata.nextLink,omitempty"`
-	DeltaLink string       `json:"@odata.deltaLink,omitempty"`
+// applyMasterExceptions folds a series master's modified + cancelled instances
+// into the stored master: cancellations become EXDATE on the blob, modified
+// instances become RECURRENCE-ID overrides. Best-effort — on any fetch/parse
+// error the master syncs unchanged (occurrences at their default times).
+func (p microsoftProvider) applyMasterExceptions(ctx context.Context, client *http.Client, cal Calendar, eventID string, ev Event) (Event, []EventOverride) {
+	md, err := p.fetchMasterDetail(ctx, client, eventID)
+	if err != nil || md == nil {
+		p.debugf("ms-sync master detail failed: calendar=%q: %v", cal.DisplayName, err)
+		return ev, nil
+	}
+
+	// Cancellations → EXDATE on the master blob.
+	for _, oid := range md.CancelledOccurrences {
+		occUnix, ok := cancelledOccurrenceUnix(oid, ev.DTStartUnix)
+		if !ok {
+			continue
+		}
+		if nb, e := addEXDATE(ev.ICSBlob, occUnix); e == nil {
+			ev.ICSBlob = nb
+		}
+	}
+
+	// Modified instances → RECURRENCE-ID overrides keyed by the original start.
+	var overrides []EventOverride
+	for _, ex := range md.ExceptionOccurrences {
+		recID, perr := parseGraphDateTime(ex.OriginalStart)
+		if perr != nil || ex.Start == nil || ex.End == nil {
+			continue
+		}
+		if ex.ICalUID == "" {
+			ex.ICalUID = ev.UID // override-blob UID is irrelevant to applyOverride
+		}
+		blob, terr := translateGraphEventToICS(ex)
+		if terr != nil {
+			continue
+		}
+		overrides = append(overrides, EventOverride{
+			RecurrenceIDUnix: recID.UTC().Unix(),
+			ICSBlob:          blob,
+		})
+	}
+	return ev, overrides
 }
 
-func (p microsoftProvider) fetchDeltaPage(ctx context.Context, client *http.Client, pageURL string) (*graphDeltaResponse, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
+// fetchMasterDetail GETs a series master with its modified instances expanded and
+// its cancelled-instance ids selected.
+func (p microsoftProvider) fetchMasterDetail(ctx context.Context, client *http.Client, eventID string) (*graphEvent, error) {
+	u := microsoftGraphBase + "/me/events/" + url.PathEscape(eventID) +
+		"?$select=id,cancelledOccurrences" +
+		"&$expand=exceptionOccurrences($select=originalStart,start,end,subject,body,bodyPreview,location,isAllDay)"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, fmt.Errorf("build delta request: %w", err)
+		return nil, fmt.Errorf("build master detail request: %w", err)
 	}
 	resp, err := doGraphRequest(ctx, client, req)
 	if err != nil {
-		return nil, fmt.Errorf("graph delta: %w", err)
+		return nil, fmt.Errorf("graph master detail: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return nil, fmt.Errorf("graph delta %d %s: %s",
+		return nil, fmt.Errorf("graph master detail %d %s: %s",
 			resp.StatusCode, resp.Status, strings.TrimSpace(string(body)))
 	}
 
-	var out graphDeltaResponse
+	var md graphEvent
+	if err := json.NewDecoder(resp.Body).Decode(&md); err != nil {
+		return nil, fmt.Errorf("decode master detail: %w", err)
+	}
+	return &md, nil
+}
+
+// cancelledOccurrenceUnix derives a cancelled occurrence's instant from its
+// occurrenceId ("OID.{masterId}.{yyyy-MM-dd}") combined with the master's start
+// time-of-day (UTC) — matching how the RRULE expands occurrences. Returns false
+// if the trailing date can't be parsed.
+func cancelledOccurrenceUnix(occurrenceID string, masterStartUnix int64) (int64, bool) {
+	i := strings.LastIndex(occurrenceID, ".")
+	if i < 0 || i+1 >= len(occurrenceID) {
+		return 0, false
+	}
+	d, err := time.Parse("2006-01-02", occurrenceID[i+1:])
+	if err != nil {
+		return 0, false
+	}
+	ms := time.Unix(masterStartUnix, 0).UTC()
+	occ := time.Date(d.Year(), d.Month(), d.Day(), ms.Hour(), ms.Minute(), ms.Second(), 0, time.UTC)
+	return occ.Unix(), true
+}
+
+type graphEventsResponse struct {
+	Value    []graphEvent `json:"value"`
+	NextLink string       `json:"@odata.nextLink,omitempty"`
+}
+
+// fetchEventsPage GETs one page of a Microsoft Graph events collection.
+func (p microsoftProvider) fetchEventsPage(ctx context.Context, client *http.Client, pageURL string) (*graphEventsResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build events request: %w", err)
+	}
+	// Request a large page size via Prefer. @odata.nextLink follow-ups already
+	// carry their own page state.
+	req.Header.Set("Prefer", "odata.maxpagesize="+fmt.Sprintf("%d", microsoftSyncLimit))
+	resp, err := doGraphRequest(ctx, client, req)
+	if err != nil {
+		return nil, fmt.Errorf("graph events: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("graph events %d %s: %s",
+			resp.StatusCode, resp.Status, strings.TrimSpace(string(body)))
+	}
+
+	var out graphEventsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("decode delta: %w", err)
+		return nil, fmt.Errorf("decode events: %w", err)
 	}
 	return &out, nil
 }
 
-// persistEventsPage upserts master events from the delta response.
-// Exception/occurrence events (those with seriesMasterId) are skipped
-// — per-instance sync lands in a follow-up alongside CalDAV's VCALENDAR
-// composition helper.
-func (p microsoftProvider) persistEventsPage(cal Calendar, items []graphEvent) error {
-	return p.store.WithTx(func(tx *sql.Tx) error {
-		for _, item := range items {
-			if item.SeriesMasterID != "" {
-				// Exception/occurrence — skip in Chunk 4.
-				continue
-			}
-			if item.Status != nil {
-				// Delta-removed entry.
-				if item.ICalUID == "" {
-					continue
-				}
-				if err := p.store.DeleteEventByUIDTx(tx, cal.ID, item.ICalUID); err != nil {
-					return err
-				}
-				continue
-			}
-			blob, err := translateGraphEventToICS(item)
-			if err != nil {
-				// Skip malformed events rather than abort the whole sync.
-				continue
-			}
+// eventSyncPlan is the pure decision of an events-collection sync pass: which
+// new/changed (master/single) rows to convert + upsert, and which local UIDs to
+// delete.
+type eventSyncPlan struct {
+	process []graphEvent // new/changed masters + single instances (etag differs)
+	deletes []string     // local UIDs no longer present server-side
+	seenAny bool         // false when the server list was empty → suppress deletes
+}
 
-			eventID := uuid.New().String()
-			if existing, lerr := p.lookupEventIDByUID(cal.ID, item.ICalUID); lerr == nil && existing != "" {
-				eventID = existing
-			}
-
-			ev := Event{
-				ID:              eventID,
-				CalendarID:      cal.ID,
-				UID:             item.ICalUID,
-				ETag:            item.ETag,
-				ProviderEventID: item.ID,
-				Summary:         item.Subject,
-				Description:     bodyContent(item.Body),
-				Location:        locationDisplayName(item.Location),
-				ICSBlob:         blob,
-			}
-			fillDenormalizedFieldsFromICS(&ev, blob)
-			if item.Recurrence != nil {
-				if rrule := graphRecurrenceToRRule(item.Recurrence); rrule != "" {
-					ev.RRuleText = rrule
-				}
-			}
-
-			if err := p.store.UpsertEventTx(tx, ev); err != nil {
-				return err
-			}
+// planEventSync partitions a full events-collection listing against local state.
+// Exceptions (seriesMasterId set) are ignored — they're synced via their master,
+// not as standalone rows. A row is queued for processing when it's new/etag-
+// changed OR a series master: masters always re-process because their modified/
+// cancelled instances can change without bumping the master's own etag, while
+// single instances (the bulk, e.g. read-only holidays) keep the etag skip and
+// stay fast. EVERY master/single present is recorded as "seen" so a present-but-
+// unchanged event is never deleted. seenAny gates the delete pass so an
+// empty/failed listing can't wipe the calendar.
+func planEventSync(rows []graphEvent, localETags map[string]string) eventSyncPlan {
+	seen := make(map[string]struct{}, len(rows))
+	var plan eventSyncPlan
+	for _, r := range rows {
+		if r.SeriesMasterID != "" || r.ICalUID == "" {
+			continue
 		}
-		return nil
-	})
+		if _, dup := seen[r.ICalUID]; dup {
+			continue
+		}
+		seen[r.ICalUID] = struct{}{}
+		et, ok := localETags[r.ICalUID]
+		changed := !ok || et == "" || et != r.ETag
+		if strings.EqualFold(r.Type, "seriesMaster") || changed {
+			plan.process = append(plan.process, r)
+		}
+	}
+	plan.seenAny = len(seen) > 0
+	for uid := range localETags {
+		if _, ok := seen[uid]; !ok {
+			plan.deletes = append(plan.deletes, uid)
+		}
+	}
+	return plan
+}
+
+// graphEventToStored translates a Graph event into a stored Event, preserving
+// the existing row's ID when the UID is already known.
+func (p microsoftProvider) graphEventToStored(cal Calendar, item graphEvent) (Event, error) {
+	blob, err := translateGraphEventToICS(item)
+	if err != nil {
+		return Event{}, err
+	}
+
+	eventID := uuid.New().String()
+	if existing, lerr := p.lookupEventIDByUID(cal.ID, item.ICalUID); lerr == nil && existing != "" {
+		eventID = existing
+	}
+
+	ev := Event{
+		ID:              eventID,
+		CalendarID:      cal.ID,
+		UID:             item.ICalUID,
+		ETag:            item.ETag,
+		ProviderEventID: item.ID,
+		Summary:         item.Subject,
+		Description:     bodyContent(item.Body),
+		Location:        locationDisplayName(item.Location),
+		ICSBlob:         blob,
+	}
+	fillDenormalizedFieldsFromICS(&ev, blob)
+	if item.Recurrence != nil {
+		if rrule := graphRecurrenceToRRule(item.Recurrence); rrule != "" {
+			ev.RRuleText = rrule
+		}
+	}
+	return ev, nil
 }
 
 func (p microsoftProvider) lookupEventIDByUID(calendarID, uid string) (string, error) {
@@ -686,7 +875,7 @@ func (p microsoftProvider) findInstanceID(ctx context.Context, client *http.Clie
 			resp.StatusCode, resp.Status, strings.TrimSpace(string(body)))
 	}
 
-	var page graphDeltaResponse // {value: [...]}
+	var page graphEventsResponse // {value: [...]}
 	if derr := json.NewDecoder(resp.Body).Decode(&page); derr != nil {
 		return "", fmt.Errorf("decode instances: %w", derr)
 	}

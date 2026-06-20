@@ -44,16 +44,22 @@ import (
 // non-empty → write with `TZID=<TZName>` parameter so other CalDAV clients
 // label the event in that zone instead of UTC.
 type EventInput struct {
-	CalendarID  string          `json:"calendarId"`
-	Summary     string          `json:"summary"`
-	Description string          `json:"description,omitempty"`
-	Location    string          `json:"location,omitempty"`
-	DTStartUnix int64           `json:"dtstartUnix"`
-	DTEndUnix   int64           `json:"dtendUnix"`
-	IsAllDay    bool            `json:"isAllDay,omitempty"`
-	TZName      string          `json:"tz,omitempty"`
-	Recurrence  *RecurrenceSpec `json:"recurrence,omitempty"`
-	Reminder    *ReminderSpec   `json:"reminder,omitempty"`
+	CalendarID  string `json:"calendarId"`
+	Summary     string `json:"summary"`
+	Description string `json:"description,omitempty"`
+	// DescriptionHTML is the rich-text body authored in the composer. When
+	// non-empty it's written into ics_blob as X-ALT-DESC;FMTTYPE=text/html;
+	// Description carries the plaintext fallback (editor's getText()).
+	DescriptionHTML string          `json:"descriptionHTML,omitempty"`
+	Location        string          `json:"location,omitempty"`
+	DTStartUnix     int64           `json:"dtstartUnix"`
+	DTEndUnix       int64           `json:"dtendUnix"`
+	IsAllDay        bool            `json:"isAllDay,omitempty"`
+	TZName          string          `json:"tz,omitempty"`
+	Transparency    string          `json:"transparency,omitempty"` // "busy" (default) | "free"
+	Visibility      string          `json:"visibility,omitempty"`   // "public" (default) | "private" | "confidential"
+	Recurrence      *RecurrenceSpec `json:"recurrence,omitempty"`
+	Reminder        *ReminderSpec   `json:"reminder,omitempty"`
 
 	// Attendees + Organizer. Optional — local single-user events typically
 	// have neither. Phase E adds SendUpdates to control invitation delivery
@@ -129,19 +135,21 @@ func (a *API) CreateEvent(in EventInput) (string, error) {
 	}
 
 	ev := Event{
-		ID:          uuid.NewString(),
-		CalendarID:  in.CalendarID,
-		UID:         uid,
-		Summary:     in.Summary,
-		Description: in.Description,
-		Location:    in.Location,
-		DTStartUnix: in.DTStartUnix,
-		DTEndUnix:   in.DTEndUnix,
-		IsAllDay:    in.IsAllDay,
-		TZName:      in.TZName,
-		RRuleText:   rruleText(in.Recurrence),
-		ICSBlob:     icsBlob,
-		SendUpdates: in.SendUpdates, // transient write-time hint (Phase E)
+		ID:           uuid.NewString(),
+		CalendarID:   in.CalendarID,
+		UID:          uid,
+		Summary:      in.Summary,
+		Description:  in.Description,
+		Location:     in.Location,
+		DTStartUnix:  in.DTStartUnix,
+		DTEndUnix:    in.DTEndUnix,
+		IsAllDay:     in.IsAllDay,
+		TZName:       in.TZName,
+		RRuleText:    rruleText(in.Recurrence),
+		Transparency: normTransparency(in.Transparency),
+		Visibility:   normVisibility(in.Visibility),
+		ICSBlob:      icsBlob,
+		SendUpdates:  in.SendUpdates, // transient write-time hint (Phase E)
 		// ETag + Href empty: caldavProvider.PushEvent synthesizes the href
 		// from cal.URL + uid, and captures the server's returned ETag.
 	}
@@ -401,6 +409,8 @@ func (a *API) persistThisAndFutureUpdateLocally(master Event, in EventInput, res
 		DTEndUnix:       in.DTEndUnix,
 		IsAllDay:        in.IsAllDay,
 		RRuleText:       rruleText(in.Recurrence),
+		Transparency:    normTransparency(in.Transparency),
+		Visibility:      normVisibility(in.Visibility),
 		ICSBlob:         newICS,
 	}
 
@@ -557,6 +567,8 @@ func (a *API) updateAllAndPush(src Source, cal Calendar, master Event, in EventI
 	ev.IsAllDay = in.IsAllDay
 	ev.TZName = in.TZName
 	ev.RRuleText = rruleText(in.Recurrence)
+	ev.Transparency = normTransparency(in.Transparency)
+	ev.Visibility = normVisibility(in.Visibility)
 	ev.ICSBlob = icsBlob
 	ev.SendUpdates = in.SendUpdates // transient write-time hint (Phase E)
 	// Overwrite master's persisted attendees + organizer with the user's
@@ -720,17 +732,128 @@ func setEventStartEnd(event *ical.Event, in EventInput) {
 	event.Props.SetDateTime(ical.PropDateTimeEnd, time.Unix(in.DTEndUnix, 0).In(loc))
 }
 
+// icsPropTransp / icsPropClass are iCalendar property names go-ical lacks
+// constants for.
+const (
+	icsPropTransp   = "TRANSP"
+	icsPropClass    = "CLASS"
+	icsPropAltDesc  = "X-ALT-DESC"
+	icsParamFmtType = "FMTTYPE"
+)
+
+// normTransparency canonicalizes a free/busy value to "free" or "busy"
+// (default). Accepts the canonical words and the iCal TRANSP values.
+func normTransparency(t string) string {
+	if strings.EqualFold(t, "free") || strings.EqualFold(t, "TRANSPARENT") {
+		return "free"
+	}
+	return "busy"
+}
+
+// transparencyFromICS maps an iCal TRANSP value to canonical busy/free.
+func transparencyFromICS(transp string) string {
+	if strings.EqualFold(strings.TrimSpace(transp), "TRANSPARENT") {
+		return "free"
+	}
+	return "busy"
+}
+
+// normVisibility canonicalizes a visibility value to public|private|confidential
+// (default public).
+func normVisibility(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "private":
+		return "private"
+	case "confidential":
+		return "confidential"
+	}
+	return "public"
+}
+
+// visibilityFromICS maps an iCal CLASS value to canonical visibility. PUBLIC and
+// anything unrecognized → public (the iCal default).
+func visibilityFromICS(class string) string {
+	switch strings.ToUpper(strings.TrimSpace(class)) {
+	case "PRIVATE":
+		return "private"
+	case "CONFIDENTIAL":
+		return "confidential"
+	}
+	return "public"
+}
+
+// icsClassValue maps canonical visibility → iCal CLASS value, or "" for public
+// (PUBLIC is the iCal default, so we omit it).
+func icsClassValue(visibility string) string {
+	switch normVisibility(visibility) {
+	case "private":
+		return "PRIVATE"
+	case "confidential":
+		return "CONFIDENTIAL"
+	}
+	return ""
+}
+
+// setAltDescHTML writes an X-ALT-DESC;FMTTYPE=text/html property carrying the
+// rich-text body. No-op when html is empty. SetText handles iCal escaping so
+// the value round-trips through go-ical's encoder/decoder.
+func setAltDescHTML(props ical.Props, html string) {
+	if strings.TrimSpace(html) == "" {
+		return
+	}
+	prop := ical.NewProp(icsPropAltDesc)
+	prop.SetText(icsText(html))
+	prop.Params.Set(icsParamFmtType, "text/html")
+	props.Set(prop)
+}
+
+// extractAltDescHTML returns the master VEVENT's X-ALT-DESC HTML (unescaped),
+// or "" if absent/unparseable.
+func extractAltDescHTML(blob string) string {
+	ev := masterEvent(blob)
+	if ev == nil {
+		return ""
+	}
+	return propTextDecoded(ev, icsPropAltDesc)
+}
+
+// masterEvent decodes a single-event blob and returns the first VEVENT, or nil.
+func masterEvent(blob string) *ical.Event {
+	if strings.TrimSpace(blob) == "" {
+		return nil
+	}
+	cal, err := ical.NewDecoder(strings.NewReader(blob)).Decode()
+	if err != nil || len(cal.Events()) == 0 {
+		return nil
+	}
+	ev := cal.Events()[0]
+	return &ev
+}
+
 // serializeVEVENT builds a single-event VCALENDAR for events.ics_blob.
 func serializeVEVENT(uid string, in EventInput) (string, error) {
 	event := ical.NewEvent()
 	event.Props.SetText(ical.PropUID, uid)
 	event.Props.SetDateTime(ical.PropDateTimeStamp, time.Now().UTC())
-	event.Props.SetText(ical.PropSummary, in.Summary)
+	event.Props.SetText(ical.PropSummary, icsText(in.Summary))
 	if in.Description != "" {
-		event.Props.SetText(ical.PropDescription, in.Description)
+		event.Props.SetText(ical.PropDescription, icsText(in.Description))
 	}
+	// Rich-text body: X-ALT-DESC;FMTTYPE=text/html alongside the plaintext
+	// DESCRIPTION. Outlook/iCloud honor X-ALT-DESC; plaintext stays the
+	// fallback for clients (and FTS) that ignore it.
+	setAltDescHTML(event.Props, in.DescriptionHTML)
 	if in.Location != "" {
-		event.Props.SetText(ical.PropLocation, in.Location)
+		event.Props.SetText(ical.PropLocation, icsText(in.Location))
+	}
+	// Free events carry TRANSP:TRANSPARENT; busy is the iCal default (OPAQUE),
+	// so we omit it.
+	if normTransparency(in.Transparency) == "free" {
+		event.Props.SetText(icsPropTransp, "TRANSPARENT")
+	}
+	// CLASS:PRIVATE / CONFIDENTIAL; public is the iCal default, so omitted.
+	if cls := icsClassValue(in.Visibility); cls != "" {
+		event.Props.SetText(icsPropClass, cls)
 	}
 
 	setEventStartEnd(event, in)
@@ -745,7 +868,7 @@ func serializeVEVENT(uid string, in EventInput) (string, error) {
 		trigger := ical.NewProp(ical.PropTrigger)
 		trigger.Value = fmt.Sprintf("-PT%dM", in.Reminder.OffsetMinutes)
 		alarm.Props.Add(trigger)
-		alarm.Props.SetText(ical.PropDescription, in.Summary)
+		alarm.Props.SetText(ical.PropDescription, icsText(in.Summary))
 		event.Component.Children = append(event.Component.Children, alarm)
 	}
 

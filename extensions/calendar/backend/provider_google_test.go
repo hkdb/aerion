@@ -445,3 +445,69 @@ func TestGoogleProvider_DeleteRemote_NoProviderEventID(t *testing.T) {
 		t.Errorf("DeleteRemote should not contact server when ProviderEventID is empty")
 	}
 }
+
+// Google transparency ⇄ iCal TRANSP (2-state). "transparent" → TRANSPARENT and
+// back to "transparent"; "opaque"/"" → busy/opaque.
+func TestGoogleTranslate_Transparency(t *testing.T) {
+	mk := func(transp string) googleEvent {
+		return googleEvent{
+			ICalUID: "g-transp@aerion-google", Status: "confirmed", Summary: "s",
+			Transparency: transp,
+			Start:        &googleTimePoint{DateTime: "2026-06-10T14:00:00Z", TimeZone: "UTC"},
+			End:          &googleTimePoint{DateTime: "2026-06-10T15:00:00Z", TimeZone: "UTC"},
+		}
+	}
+
+	freeBlob, err := translateGoogleEventToICS(mk("transparent"))
+	if err != nil {
+		t.Fatalf("translate transparent: %v", err)
+	}
+	if !strings.Contains(freeBlob, "TRANSP:TRANSPARENT") {
+		t.Errorf("transparency=transparent should map to TRANSP:TRANSPARENT:\n%s", freeBlob)
+	}
+	if g, _ := translateICSToGoogleJSON(freeBlob); g.Transparency != "transparent" {
+		t.Errorf("free ICS → transparency %q, want transparent", g.Transparency)
+	}
+
+	busyBlob, err := translateGoogleEventToICS(mk("opaque"))
+	if err != nil {
+		t.Fatalf("translate opaque: %v", err)
+	}
+	if strings.Contains(busyBlob, "TRANSP:TRANSPARENT") {
+		t.Errorf("transparency=opaque should not be TRANSPARENT:\n%s", busyBlob)
+	}
+	if g, _ := translateICSToGoogleJSON(busyBlob); g.Transparency != "opaque" {
+		t.Errorf("busy ICS → transparency %q, want opaque", g.Transparency)
+	}
+}
+
+// Google visibility ⇄ iCal CLASS (3-state). public maps to "default" (inherit).
+func TestGoogleTranslate_Visibility(t *testing.T) {
+	mk := func(vis string) googleEvent {
+		return googleEvent{
+			ICalUID: "g@aerion", Status: "confirmed", Summary: "s", Visibility: vis,
+			Start: &googleTimePoint{DateTime: "2026-06-10T14:00:00Z", TimeZone: "UTC"},
+			End:   &googleTimePoint{DateTime: "2026-06-10T15:00:00Z", TimeZone: "UTC"},
+		}
+	}
+	cases := []struct{ vis, wantClass, wantVis string }{
+		{"default", "", "default"},
+		{"private", "CLASS:PRIVATE", "private"},
+		{"confidential", "CLASS:CONFIDENTIAL", "confidential"},
+	}
+	for _, c := range cases {
+		blob, err := translateGoogleEventToICS(mk(c.vis))
+		if err != nil {
+			t.Fatalf("translate %s: %v", c.vis, err)
+		}
+		if c.wantClass == "" && strings.Contains(blob, "CLASS:") {
+			t.Errorf("%s should omit CLASS:\n%s", c.vis, blob)
+		}
+		if c.wantClass != "" && !strings.Contains(blob, c.wantClass) {
+			t.Errorf("%s → %s missing:\n%s", c.vis, c.wantClass, blob)
+		}
+		if g, _ := translateICSToGoogleJSON(blob); g.Visibility != c.wantVis {
+			t.Errorf("%s round-trip visibility = %q, want %q", c.vis, g.Visibility, c.wantVis)
+		}
+	}
+}

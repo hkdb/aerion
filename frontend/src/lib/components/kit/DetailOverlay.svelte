@@ -28,6 +28,7 @@
   import { cubicOut } from 'svelte/easing'
   import Icon from '@iconify/svelte'
   import { isResponsive } from '$lib/stores/layout.svelte'
+  import { isDialogGuardActive } from '$lib/stores/dialogGuard'
 
   interface Props {
     open: boolean
@@ -58,6 +59,10 @@
   function handleKeyDown(e: KeyboardEvent) {
     if (!open) return
     if (e.key !== 'Escape') return
+    // A modal dialog (composer, confirm, scope picker, …) is open on top — let
+    // it consume Esc and close itself. Without this the overlay's capture
+    // handler fires first and tears the overlay down, blanking the detail pane.
+    if (isDialogGuardActive()) return
     if (focused) {
       e.preventDefault()
       e.stopPropagation()

@@ -20,10 +20,15 @@ func (stubCore) UI() UI                       { return stubUI{} }
 func (stubCore) Storage() Storage             { return stubStorage{} }
 func (stubCore) Events() EventBus             { return stubEvents{} }
 func (stubCore) Log() Logger                  { return stubLogger{} }
+func (stubCore) HTML() HTML                   { return stubHTML{} }
 func (stubCore) Extension(id string) (any, bool) {
 	_ = id
 	return nil, false
 }
+
+type stubHTML struct{}
+
+func (stubHTML) Sanitize(s string) string { return s }
 
 type stubLogger struct{}
 
@@ -34,15 +39,15 @@ func (stubLogger) Error(string) {}
 
 type stubMail struct{}
 
-func (stubMail) ListMessages(MessageFilter) ([]Message, error)             { return nil, ErrUnimplemented }
-func (stubMail) GetMessage(string, bool) (*Message, error)                  { return nil, ErrUnimplemented }
-func (stubMail) ListFolders(string) ([]Folder, error)                       { return nil, ErrUnimplemented }
-func (stubMail) GetSpecialFolder(string, FolderKind) (*Folder, error)       { return nil, ErrUnimplemented }
-func (stubMail) MoveMessage(string, string) error                           { return ErrUnimplemented }
-func (stubMail) Archive(string) error                                       { return ErrUnimplemented }
-func (stubMail) Trash(string) error                                         { return ErrUnimplemented }
-func (stubMail) SetFlags(string, Flags) error                               { return ErrUnimplemented }
-func (stubMail) AppendMessage(string, string, []byte, Flags) error          { return ErrUnimplemented }
+func (stubMail) ListMessages(MessageFilter) ([]Message, error)        { return nil, ErrUnimplemented }
+func (stubMail) GetMessage(string, bool) (*Message, error)            { return nil, ErrUnimplemented }
+func (stubMail) ListFolders(string) ([]Folder, error)                 { return nil, ErrUnimplemented }
+func (stubMail) GetSpecialFolder(string, FolderKind) (*Folder, error) { return nil, ErrUnimplemented }
+func (stubMail) MoveMessage(string, string) error                     { return ErrUnimplemented }
+func (stubMail) Archive(string) error                                 { return ErrUnimplemented }
+func (stubMail) Trash(string) error                                   { return ErrUnimplemented }
+func (stubMail) SetFlags(string, Flags) error                         { return ErrUnimplemented }
+func (stubMail) AppendMessage(string, string, []byte, Flags) error    { return ErrUnimplemented }
 func (stubMail) SubscribeToMailEvents([]MailEventType) (<-chan MailEvent, Unsubscribe, error) {
 	return nil, func() {}, ErrUnimplemented
 }
@@ -65,8 +70,8 @@ func (stubContacts) ListSources() ([]ContactSource, error) {
 func (stubContacts) LinkAccountSource(string, string, int) (string, error) {
 	return "", ErrUnimplemented
 }
-func (stubContacts) SyncSource(string) error      { return ErrUnimplemented }
-func (stubContacts) SyncAllSources() error        { return ErrUnimplemented }
+func (stubContacts) SyncSource(string) error              { return ErrUnimplemented }
+func (stubContacts) SyncAllSources() error                { return ErrUnimplemented }
 func (stubContacts) SetSourceWritable(string, bool) error { return ErrUnimplemented }
 func (stubContacts) CreateContact(ContactCreateInput) (string, error) {
 	return "", ErrUnimplemented
@@ -81,7 +86,7 @@ type stubAuth struct{}
 
 func (stubAuth) HTTPClient(string, []AuthScope) (*http.Client, error) { return nil, ErrUnimplemented }
 func (stubAuth) IMAPClient(string, []string) (IMAPClient, error)      { return nil, ErrUnimplemented }
-func (stubAuth) SMTPClient(string) (SMTPClient, error)                 { return nil, ErrUnimplemented }
+func (stubAuth) SMTPClient(string) (SMTPClient, error)                { return nil, ErrUnimplemented }
 func (stubAuth) StartIncrementalConsent(StartIncrementalConsentRequest) error {
 	return ErrUnimplemented
 }
@@ -92,10 +97,16 @@ func (stubNotifications) Show(NotifyRequest) error { return ErrUnimplemented }
 
 type stubUI struct{}
 
-func (stubUI) RegisterRailTab(RailTabRequest) (Unregister, error)               { return func() {}, ErrUnimplemented }
-func (stubUI) RegisterSettingsTab(SettingsTabRequest) (Unregister, error)       { return func() {}, ErrUnimplemented }
-func (stubUI) RegisterContextMenuItem(ContextMenuRequest) (Unregister, error)   { return func() {}, ErrUnimplemented }
-func (stubUI) RegisterInboxView(InboxViewRequest) (Unregister, error)            { return func() {}, ErrUnimplemented }
+func (stubUI) RegisterRailTab(RailTabRequest) (Unregister, error) { return func() {}, ErrUnimplemented }
+func (stubUI) RegisterSettingsTab(SettingsTabRequest) (Unregister, error) {
+	return func() {}, ErrUnimplemented
+}
+func (stubUI) RegisterContextMenuItem(ContextMenuRequest) (Unregister, error) {
+	return func() {}, ErrUnimplemented
+}
+func (stubUI) RegisterInboxView(InboxViewRequest) (Unregister, error) {
+	return func() {}, ErrUnimplemented
+}
 func (stubUI) RegisterAccountSetupHook(AccountSetupHookRequest) (Unregister, error) {
 	return func() {}, ErrUnimplemented
 }
@@ -103,9 +114,9 @@ func (stubUI) OpenURL(string) error { return ErrUnimplemented }
 
 type stubStorage struct{}
 
-func (stubStorage) KV(string) KVStore         { return stubKV{} }
-func (stubStorage) Secrets(string) Secrets    { return stubSecrets{} }
-func (stubStorage) HostSecrets() HostSecrets  { return stubHostSecrets{} }
+func (stubStorage) KV(string) KVStore        { return stubKV{} }
+func (stubStorage) Secrets(string) Secrets   { return stubSecrets{} }
+func (stubStorage) HostSecrets() HostSecrets { return stubHostSecrets{} }
 
 type stubHostSecrets struct{}
 
@@ -113,22 +124,24 @@ func (stubHostSecrets) Get(string) (string, error) { return "", nil }
 
 type stubKV struct{}
 
-func (stubKV) Get(string) (string, error)        { return "", ErrUnimplemented }
-func (stubKV) Set(string, string) error          { return ErrUnimplemented }
-func (stubKV) Delete(string) error               { return ErrUnimplemented }
-func (stubKV) List(string) ([]string, error)     { return nil, ErrUnimplemented }
+func (stubKV) Get(string) (string, error)    { return "", ErrUnimplemented }
+func (stubKV) Set(string, string) error      { return ErrUnimplemented }
+func (stubKV) Delete(string) error           { return ErrUnimplemented }
+func (stubKV) List(string) ([]string, error) { return nil, ErrUnimplemented }
 
 type stubSecrets struct{}
 
-func (stubSecrets) Set(string, string) error { return ErrUnimplemented }
+func (stubSecrets) Set(string, string) error   { return ErrUnimplemented }
 func (stubSecrets) Get(string) (string, error) { return "", ErrUnimplemented }
-func (stubSecrets) Delete(string) error      { return ErrUnimplemented }
-func (stubSecrets) DeleteAll() error         { return ErrUnimplemented }
+func (stubSecrets) Delete(string) error        { return ErrUnimplemented }
+func (stubSecrets) DeleteAll() error           { return ErrUnimplemented }
 
 type stubEvents struct{}
 
-func (stubEvents) Publish(string, any) error                              { return ErrUnimplemented }
-func (stubEvents) Subscribe(string, func(any)) (Unsubscribe, error)       { return func() {}, ErrUnimplemented }
+func (stubEvents) Publish(string, any) error { return ErrUnimplemented }
+func (stubEvents) Subscribe(string, func(any)) (Unsubscribe, error) {
+	return func() {}, ErrUnimplemented
+}
 
 // TestCoreInterfaceShape asserts the stubs assigned at compile time satisfy
 // every interface in this package. If anyone changes a method signature, the
@@ -143,6 +156,7 @@ func TestCoreInterfaceShape(t *testing.T) {
 	_ = c.UI()
 	_ = c.Storage()
 	_ = c.Events()
+	_ = c.HTML()
 	if _, ok := c.Extension("nonexistent"); ok {
 		t.Fatal("stubCore.Extension should return false for any id")
 	}

@@ -18,6 +18,7 @@
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
+  import RichTextEditor from '$lib/components/kit/RichTextEditor.svelte'
   import Icon from '@iconify/svelte'
   import { toasts } from '$lib/stores/toast'
   import { dialogGuardOpen, dialogGuardClose } from '$lib/stores/dialogGuard'
@@ -65,6 +66,17 @@
   let endTime = $state('')
   let location = $state('')
   let description = $state('')
+  // descriptionHTML carries the rich-text body; description holds its plaintext
+  // fallback (from the editor's getText()).
+  let descriptionHTML = $state('')
+  // Seed for the rich-text editor. $derived (not $state) so it's correct
+  // synchronously from `existing` BEFORE the editor mounts — the editor reads
+  // it once in onMount; no reactive content-syncing.
+  let initialBody = $derived(
+    mode === 'edit' && existing ? existing.descriptionHTML || existing.description || '' : '',
+  )
+  let transparency = $state('busy') // 'busy' | 'free'
+  let visibility = $state('public') // 'public' | 'private' | 'confidential'
 
   let recurrenceFreq = $state('')
   let recurrenceEnd = $state('never')
@@ -322,6 +334,7 @@
     summary = ev.summary || ''
     location = ev.location || ''
     description = ev.description || ''
+    descriptionHTML = ev.descriptionHTML || ''
     isAllDay = !!ev.isAllDay
     const startInTz = toZonedTime(new Date(ev.dtstartUnix * 1000), tz)
     const endInTz = toZonedTime(new Date(ev.dtendUnix * 1000), tz)
@@ -340,6 +353,8 @@
     endDate = formatYMD(endInTz)
     endTime = formatHM(endInTz)
     parseRRule(ev.rruleText || '')
+    transparency = ev.transparency || 'busy'
+    visibility = ev.visibility || 'public'
     reminderChoice = 'none'
     // Attendees + organizer. backend.Attendee → backend.AttendeeInput
     // (shape-compatible; createFrom safely cherry-picks fields).
@@ -385,6 +400,9 @@
     summary = ''
     location = ''
     description = ''
+    descriptionHTML = ''
+    transparency = 'busy'
+    visibility = 'public'
     isAllDay = false
     startDate = formatYMD(refInTz)
     startTime = formatHM(refInTz)
@@ -522,11 +540,14 @@
       calendarId,
       summary: summary.trim(),
       description: description.trim() || undefined,
+      descriptionHTML: descriptionHTML || undefined,
       location: location.trim() || undefined,
       dtstartUnix,
       dtendUnix,
       isAllDay: isAllDay || undefined,
       tz: isAllDay ? undefined : calendarSettings.effectiveTimezone,
+      transparency,
+      visibility,
       recurrence: buildRecurrenceSpec(),
       reminder: buildReminderSpec(),
       attendees: attendees.length > 0 ? attendees : undefined,
@@ -613,6 +634,20 @@
   }
 </script>
 
+<!-- Close on Esc ourselves (same as the mail composer). bits-ui's own Esc
+     isn't reliably closing this dialog when the rich-text editor is mounted,
+     and DetailOverlay yields Esc to us via its dialogGuard check. Only act on
+     our own Esc, and not while a nested dialog (scope/invitations) is open. -->
+<svelte:window
+  onkeydown={(e) => {
+    if (!open) return
+    if (e.key !== 'Escape') return
+    if (sendInvitationsOpen) return
+    e.preventDefault()
+    close()
+  }}
+/>
+
 <Dialog.Root bind:open onOpenChange={(v) => { if (!v) close() }}>
   <Dialog.Content class="max-w-lg">
     <Dialog.Header>
@@ -689,13 +724,19 @@
       </div>
 
       <div>
-        <Label for="cal-composer-description">{$_('calendar.composer.descriptionLabel')}</Label>
-        <textarea
-          id="cal-composer-description"
-          bind:value={description}
+        <Label>{$_('calendar.composer.descriptionLabel')}</Label>
+        <RichTextEditor
+          value={initialBody}
           disabled={submitting}
-          class="w-full h-20 px-2 py-1 text-sm border border-border rounded bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
-        ></textarea>
+          placeholder={$_('calendar.composer.descriptionLabel')}
+          onChange={(html, text) => {
+            // Save the editor's HTML as the description so the detail view
+            // renders it (the same {@html} path used for synced HTML events).
+            // text drives the empty check so a blank editor stores "".
+            description = text.trim() ? html : ''
+            descriptionHTML = text.trim() ? html : ''
+          }}
+        />
       </div>
 
       <AttendeesSection
@@ -776,6 +817,33 @@
             />
           </div>
         {/if}
+      </div>
+
+      <div>
+        <Label>{$_('calendar.composer.availabilityLabel')}</Label>
+        <Select.Root value={transparency} onValueChange={(v) => { if (v) transparency = v }}>
+          <Select.Trigger class="h-9">
+            {transparency === 'free' ? $_('calendar.composer.availability.free') : $_('calendar.composer.availability.busy')}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="busy" label={$_('calendar.composer.availability.busy')} />
+            <Select.Item value="free" label={$_('calendar.composer.availability.free')} />
+          </Select.Content>
+        </Select.Root>
+      </div>
+
+      <div>
+        <Label>{$_('calendar.composer.visibilityLabel')}</Label>
+        <Select.Root value={visibility} onValueChange={(v) => { if (v) visibility = v }}>
+          <Select.Trigger class="h-9">
+            {$_('calendar.composer.visibility.' + visibility)}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="public" label={$_('calendar.composer.visibility.public')} />
+            <Select.Item value="private" label={$_('calendar.composer.visibility.private')} />
+            <Select.Item value="confidential" label={$_('calendar.composer.visibility.confidential')} />
+          </Select.Content>
+        </Select.Root>
       </div>
 
       {#if errorMessage}

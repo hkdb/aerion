@@ -32,6 +32,30 @@ import (
 // the fields Aerion reads/writes are modeled; the rest are ignored. JSON
 // tags use omitempty so PATCH payloads only carry the fields we actually
 // touched.
+// googleVisibilityToCanonical maps Google visibility → canonical visibility.
+// "default"/"public"/"" → public.
+func googleVisibilityToCanonical(v string) string {
+	switch strings.ToLower(v) {
+	case "private":
+		return "private"
+	case "confidential":
+		return "confidential"
+	}
+	return "public"
+}
+
+// visibilityToGoogle maps canonical visibility → Google visibility. public →
+// "default" (inherit the calendar's visibility rather than force public).
+func visibilityToGoogle(v string) string {
+	switch normVisibility(v) {
+	case "private":
+		return "private"
+	case "confidential":
+		return "confidential"
+	}
+	return "default"
+}
+
 type googleEvent struct {
 	ID                string           `json:"id,omitempty"`
 	ICalUID           string           `json:"iCalUID,omitempty"`
@@ -40,6 +64,8 @@ type googleEvent struct {
 	Summary           string           `json:"summary,omitempty"`
 	Description       string           `json:"description,omitempty"`
 	Location          string           `json:"location,omitempty"`
+	Transparency      string           `json:"transparency,omitempty"` // "opaque" (busy) | "transparent" (free)
+	Visibility        string           `json:"visibility,omitempty"`   // "default"|"public"|"private"|"confidential"
 	Start             *googleTimePoint `json:"start,omitempty"`
 	End               *googleTimePoint `json:"end,omitempty"`
 	Recurrence        []string         `json:"recurrence,omitempty"`
@@ -127,6 +153,14 @@ func translateGoogleEventToICS(ev googleEvent) (string, error) {
 	}
 	if ev.Location != "" {
 		icalEv.Props.SetText(ical.PropLocation, ev.Location)
+	}
+	// Google transparency → TRANSP. "transparent" = free; "opaque"/"" = busy.
+	if strings.EqualFold(ev.Transparency, "transparent") {
+		icalEv.Props.SetText(icsPropTransp, "TRANSPARENT")
+	}
+	// Google visibility → CLASS (public/default omitted).
+	if cls := icsClassValue(googleVisibilityToCanonical(ev.Visibility)); cls != "" {
+		icalEv.Props.SetText(icsPropClass, cls)
 	}
 
 	if err := setICSTimeFromGoogle(icalEv, ical.PropDateTimeStart, ev.Start); err != nil {
@@ -252,11 +286,18 @@ func translateICSToGoogleJSON(icsBlob string) (googleEvent, error) {
 	ev := events[0]
 
 	out := googleEvent{
-		ICalUID:     propText(&ev, ical.PropUID),
-		Summary:     propText(&ev, ical.PropSummary),
-		Description: propText(&ev, ical.PropDescription),
-		Location:    propText(&ev, ical.PropLocation),
+		ICalUID:      propText(&ev, ical.PropUID),
+		Summary:      propText(&ev, ical.PropSummary),
+		Description:  propText(&ev, ical.PropDescription),
+		Location:     propText(&ev, ical.PropLocation),
+		Transparency: "opaque",
 	}
+	// TRANSP → Google transparency (free = transparent, busy = opaque default).
+	if transparencyFromICS(propText(&ev, icsPropTransp)) == "free" {
+		out.Transparency = "transparent"
+	}
+	// CLASS → Google visibility.
+	out.Visibility = visibilityToGoogle(visibilityFromICS(propText(&ev, icsPropClass)))
 
 	start, end, err := extractGoogleTimes(&ev)
 	if err != nil {

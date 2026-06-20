@@ -24,13 +24,16 @@ func (a *App) initContactsExtension() {
 	// extension identity for Auth routing.
 	contactsCore := newCoreForExtension(a, a.contactsExt)
 
+	// Single emitter for all contacts:* frontend events (conflict, changed).
+	emit := func(eventName string, payload any) {
+		wailsRuntime.EventsEmit(a.ctx, eventName, payload)
+	}
+
 	a.ContactsBridge = extcontactsbe.NewContactsBridge(extcontactsbe.ContactsBridgeDeps{
 		SettingsStore: a.settingsStore,
 		Paths:         a.paths,
 		DB:            a.db,
-		Emitter: func(eventName string, payload any) {
-			wailsRuntime.EventsEmit(a.ctx, eventName, payload)
-		},
+		Emitter:       emit,
 		// CardDAV passwords flow through Core.Storage().HostSecrets()
 		// (Pattern B — core owns the lifecycle; extension reads). No
 		// per-credential closure injection needed; the bridge constructs
@@ -49,6 +52,17 @@ func (a *App) initContactsExtension() {
 		// contacts-only OAuth flow.
 		GetStandaloneSourceToken: a.getValidContactSourceOAuthToken,
 	})
+
+	// Live-refresh the contact list after any source sync (background
+	// scheduler, post-add, or manual). The core carddav syncer fires a generic
+	// completion callback; this host-wiring file translates it into the
+	// extension's `contacts:changed` frontend event, reusing the same Emitter
+	// as contacts:conflict. (carddavSyncer is constructed earlier in Startup.)
+	if a.carddavSyncer != nil {
+		a.carddavSyncer.SetSyncCompleteHandler(func(sourceID string) {
+			emit("contacts:changed", map[string]string{"sourceId": sourceID})
+		})
+	}
 
 	// All OAuth slot resolution lives in internal/oauth2/core_provider.go
 	// now — google-contacts and microsoft-contacts are owned there. The

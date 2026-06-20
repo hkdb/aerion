@@ -250,3 +250,133 @@ func TestValidateInput(t *testing.T) {
 		t.Error("both UntilUnix and Count accepted")
 	}
 }
+
+// Regression (#278): a multi-line subject/description/location (CRLF) typed in
+// the composer must serialize. go-ical's encoder rejects raw CR/LF; icsText
+// normalizes them so editing such an event doesn't fail with
+// "serialize event: ical: failed to encode property value: contains a CR or LF".
+func TestSerializeVEVENT_CRLFContent(t *testing.T) {
+	start := time.Date(2026, 6, 5, 14, 0, 0, 0, time.UTC).Unix()
+	end := time.Date(2026, 6, 5, 15, 0, 0, 0, time.UTC).Unix()
+
+	blob, err := serializeVEVENT("crlf@aerion-local", EventInput{
+		CalendarID:  "cal1",
+		Summary:     "Standup\r\nweekly",
+		Description: "agenda:\r\n- one\r\n- two\r\n",
+		Location:    "Room\r\n42",
+		DTStartUnix: start,
+		DTEndUnix:   end,
+		Reminder:    &ReminderSpec{OffsetMinutes: 10},
+	})
+	if err != nil {
+		t.Fatalf("serializeVEVENT failed on CRLF content: %v", err)
+	}
+	if _, perr := ParseCalendarObject(blob); perr != nil {
+		t.Fatalf("serialized blob is not parseable: %v", perr)
+	}
+}
+
+// Free/Busy round-trips through TRANSP: free writes TRANSP:TRANSPARENT and reads
+// back "free"; busy omits TRANSP (iCal default OPAQUE) and reads back "busy".
+func TestSerializeVEVENT_Transparency(t *testing.T) {
+	start := time.Date(2026, 6, 5, 14, 0, 0, 0, time.UTC).Unix()
+	end := time.Date(2026, 6, 5, 15, 0, 0, 0, time.UTC).Unix()
+
+	freeBlob, err := serializeVEVENT("free@aerion", EventInput{
+		CalendarID: "c", Summary: "Lunch", DTStartUnix: start, DTEndUnix: end,
+		Transparency: "free",
+	})
+	if err != nil {
+		t.Fatalf("serialize free: %v", err)
+	}
+	if !strings.Contains(freeBlob, "TRANSP:TRANSPARENT") {
+		t.Errorf("free event should write TRANSP:TRANSPARENT:\n%s", freeBlob)
+	}
+	if p, _ := ParseCalendarObject(freeBlob); p.Master.Transparency != "free" {
+		t.Errorf("free round-trip = %q, want free", p.Master.Transparency)
+	}
+
+	busyBlob, err := serializeVEVENT("busy@aerion", EventInput{
+		CalendarID: "c", Summary: "Mtg", DTStartUnix: start, DTEndUnix: end,
+		Transparency: "busy",
+	})
+	if err != nil {
+		t.Fatalf("serialize busy: %v", err)
+	}
+	if strings.Contains(busyBlob, "TRANSP") {
+		t.Errorf("busy event should omit TRANSP:\n%s", busyBlob)
+	}
+	if p, _ := ParseCalendarObject(busyBlob); p.Master.Transparency != "busy" {
+		t.Errorf("busy round-trip = %q, want busy", p.Master.Transparency)
+	}
+}
+
+// Visibility round-trips through iCal CLASS: public omits CLASS (the default),
+// private/confidential write CLASS and read back.
+func TestSerializeVEVENT_Visibility(t *testing.T) {
+	start := time.Date(2026, 6, 5, 14, 0, 0, 0, time.UTC).Unix()
+	end := time.Date(2026, 6, 5, 15, 0, 0, 0, time.UTC).Unix()
+	cases := []struct{ in, wantClass, want string }{
+		{"public", "", "public"},
+		{"private", "CLASS:PRIVATE", "private"},
+		{"confidential", "CLASS:CONFIDENTIAL", "confidential"},
+	}
+	for _, c := range cases {
+		blob, err := serializeVEVENT("vis@aerion", EventInput{
+			CalendarID: "c", Summary: "s", DTStartUnix: start, DTEndUnix: end,
+			Visibility: c.in,
+		})
+		if err != nil {
+			t.Fatalf("serialize %s: %v", c.in, err)
+		}
+		if c.wantClass == "" && strings.Contains(blob, "CLASS:") {
+			t.Errorf("%s should omit CLASS:\n%s", c.in, blob)
+		}
+		if c.wantClass != "" && !strings.Contains(blob, c.wantClass) {
+			t.Errorf("%s should write %s:\n%s", c.in, c.wantClass, blob)
+		}
+		if p, _ := ParseCalendarObject(blob); p.Master.Visibility != c.want {
+			t.Errorf("%s round-trip = %q, want %q", c.in, p.Master.Visibility, c.want)
+		}
+	}
+}
+
+// A rich-text body writes X-ALT-DESC;FMTTYPE=text/html alongside the plaintext
+// DESCRIPTION, and extractAltDescHTML reads the HTML back. Empty HTML omits the
+// property entirely.
+func TestSerializeVEVENT_DescriptionHTML(t *testing.T) {
+	start := time.Date(2026, 6, 5, 14, 0, 0, 0, time.UTC).Unix()
+	end := time.Date(2026, 6, 5, 15, 0, 0, 0, time.UTC).Unix()
+	html := "<p>Bring <strong>laptop</strong></p>"
+
+	blob, err := serializeVEVENT("html@aerion", EventInput{
+		CalendarID: "c", Summary: "Mtg", DTStartUnix: start, DTEndUnix: end,
+		Description: "Bring laptop", DescriptionHTML: html,
+	})
+	if err != nil {
+		t.Fatalf("serialize: %v", err)
+	}
+	if !strings.Contains(blob, "X-ALT-DESC") || !strings.Contains(blob, "FMTTYPE=text/html") {
+		t.Errorf("expected X-ALT-DESC;FMTTYPE=text/html:\n%s", blob)
+	}
+	if !strings.Contains(blob, "DESCRIPTION:Bring laptop") {
+		t.Errorf("expected plaintext DESCRIPTION fallback:\n%s", blob)
+	}
+	if got := extractAltDescHTML(blob); got != html {
+		t.Errorf("extractAltDescHTML = %q, want %q", got, html)
+	}
+
+	plainBlob, err := serializeVEVENT("plain@aerion", EventInput{
+		CalendarID: "c", Summary: "Mtg", DTStartUnix: start, DTEndUnix: end,
+		Description: "Bring laptop",
+	})
+	if err != nil {
+		t.Fatalf("serialize plain: %v", err)
+	}
+	if strings.Contains(plainBlob, "X-ALT-DESC") {
+		t.Errorf("no HTML should omit X-ALT-DESC:\n%s", plainBlob)
+	}
+	if got := extractAltDescHTML(plainBlob); got != "" {
+		t.Errorf("extractAltDescHTML on plain blob = %q, want empty", got)
+	}
+}

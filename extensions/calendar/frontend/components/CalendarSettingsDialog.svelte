@@ -23,7 +23,9 @@
   import { calendarSettings } from '$extensions/calendar/frontend/stores/calendarSettings.svelte'
   import AddCalDAVSourceDialog from './AddCalDAVSourceDialog.svelte'
   // @ts-ignore - wailsjs bindings
-  import { Calendar_SetSyncInterval, Calendar_DeleteCalendar, Calendar_SetOrganizerIdentity, Calendar_ReprobeCalDAVOrganizerIdentities, Calendar_RenameSource } from '$wailsjs/go/app/App.js'
+  import { Calendar_SetSyncInterval, Calendar_DeleteCalendar, Calendar_SetOrganizerIdentity, Calendar_ReprobeCalDAVOrganizerIdentities, Calendar_RenameSource, GetAccounts } from '$wailsjs/go/app/App.js'
+  import GrantCalendarAccessButton from './GrantCalendarAccessButton.svelte'
+  import { logger } from '$extensions/calendar/frontend/lib/logger'
   import { Input } from '$lib/components/ui/input'
   import TimezonePicker from './TimezonePicker.svelte'
   // @ts-ignore - wailsjs bindings
@@ -113,6 +115,10 @@
   let deleteTarget = $state<backend.Source | null>(null)
   let deleting = $state(false)
   let syncingSourceID = $state<string | null>(null)
+  // Pending force-resync confirmation + in-flight flag.
+  let forceTarget = $state<backend.Source | null>(null)
+  let forceSyncing = $state(false)
+  let emailByAccountId = $state<Record<string, string>>({})
 
   // Per-source organizer-email edits. Keyed by source.id; populated when
   // the user starts typing so we don't track every CalDAV row in memory
@@ -276,6 +282,22 @@
     }
   }
 
+  async function handleConfirmForceResync() {
+    if (!forceTarget) return
+    forceSyncing = true
+    const name = forceTarget.name
+    try {
+      await calendarSources.forceSyncSource(forceTarget.id)
+      toasts.success($_('calendar.toast.forceResyncDone', { values: { name } }))
+      forceTarget = null
+    } catch (err) {
+      const msg = (err as Error)?.message ?? String(err)
+      toasts.error(msg)
+    } finally {
+      forceSyncing = false
+    }
+  }
+
   async function handleConfirmDelete() {
     if (!deleteTarget) return
     deleting = true
@@ -317,9 +339,35 @@
     if (open) {
       dialogGuardOpen()
       void calendarSources.load()
+      void loadReauthState()
       return () => dialogGuardClose()
     }
   })
+
+  // Loads the account emails the per-source Reauthorize button needs
+  // (GrantCalendarAccessButton requires the expected email).
+  async function loadReauthState() {
+    try {
+      const accts = (await GetAccounts()) || []
+      const map: Record<string, string> = {}
+      for (const a of accts) map[a.id] = a.email
+      emailByAccountId = map
+    } catch (e) {
+      logger.warn(`reauth: load accounts failed: ${e}`)
+    }
+  }
+
+  // Reauthorize applies to every OAuth (Google/Microsoft) source: regardless
+  // of which client creds the slot uses, the token lives in the calendar slot
+  // and is refreshed by re-running this consent. CalDAV sources use passwords.
+  function showReauth(src: backend.Source): boolean {
+    switch (src.type) {
+      case 'google':
+      case 'microsoft':
+        return true
+    }
+    return false
+  }
 
   // The currently-bound interval per source is a derived map so each
   // Select.Root has a stable bound value.
@@ -480,6 +528,20 @@
                   </Select.Content>
                 </Select.Root>
 
+                {#if showReauth(src)}
+                  <GrantCalendarAccessButton
+                    provider={src.type as 'google' | 'microsoft'}
+                    accountId={src.accountId ?? ''}
+                    email={emailByAccountId[src.accountId ?? ''] ?? ''}
+                    idleLabel={$_('account.reauthorize')}
+                    busyLabel={$_('calendar.settings.addGoogleGranting')}
+                    providerIcon
+                    class="h-8"
+                    onSuccess={() => { toasts.success($_('account.oauthReauthorized')); void calendarSources.load() }}
+                    onError={(m) => toasts.error($_('calendar.settings.addGoogleConsentFailed', { values: { message: m } }))}
+                  />
+                {/if}
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -493,6 +555,21 @@
                     <Icon icon="mdi:sync" class="w-3.5 h-3.5" />
                   {/if}
                   <span class="ml-1">{$_('calendar.settings.syncNow')}</span>
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onclick={() => { forceTarget = src }}
+                  disabled={syncingSourceID !== null || forceSyncing}
+                  class="h-8"
+                  title={$_('calendar.settings.forceResync')}
+                >
+                  {#if forceSyncing && forceTarget?.id === src.id}
+                    <Icon icon="mdi:loading" class="w-3.5 h-3.5 animate-spin" />
+                  {:else}
+                    <Icon icon="mdi:refresh-auto" class="w-3.5 h-3.5" />
+                  {/if}
                 </Button>
 
                 <Button
@@ -768,6 +845,16 @@
   onCancel={() => { deleteTarget = null }}
 />
 
+<ConfirmDialog
+  open={forceTarget !== null}
+  title={forceTarget ? $_('calendar.settings.forceResyncConfirmTitle', { values: { name: forceTarget.name } }) : ''}
+  description={$_('calendar.settings.forceResyncConfirmDescription')}
+  confirmLabel={$_('calendar.settings.forceResync')}
+  cancelLabel={$_('calendar.common.cancel')}
+  loading={forceSyncing}
+  onConfirm={handleConfirmForceResync}
+  onCancel={() => { forceTarget = null }}
+/>
 <ConfirmDialog
   open={deleteCalendarTarget !== null}
   title={deleteCalendarTarget ? $_('calendar.settings.deleteCalendarConfirmTitle', { values: { name: deleteCalendarTarget.displayName } }) : ''}

@@ -155,10 +155,14 @@ func (a *App) GetOAuthCredsChoices(configID, extensionID string) (OAuthCredsChoi
 		})
 	}
 
-	// Mail-reuse option ("Aerion - Google"): only when the extension's
-	// manifest declares first_party_uses_core_for_scopes for THIS provider
-	// AND the mail slot has shipped creds. Mail's own settings call us
-	// with extensionID="" and skip this whole branch.
+	// Mail-reuse option ("Aerion - Google"): use Aerion's mail client
+	// id/secret for THIS extension slot (via the slot alias). This is purely
+	// about which client app mints the slot's tokens — the tokens still live
+	// in the extension's own slot and need their own consent. It is therefore
+	// independent of first_party_uses_core_for_scopes (token ROUTING), which
+	// is empty for Calendar. Offered for any first-party Google extension slot
+	// when the mail slot has shipped creds. Mail's own settings call us with
+	// extensionID="" and skip this branch.
 	//
 	// Skipped entirely for Microsoft — `microsoft-contacts` and
 	// `microsoft-calendar` are core-registered aliases of `microsoft-mail`
@@ -167,17 +171,13 @@ func (a *App) GetOAuthCredsChoices(configID, extensionID string) (OAuthCredsChoi
 	// duplicate of the "Aerion - Microsoft" shipped choice already added
 	// above.
 	if extensionID != "" && providerFromConfigID(configID) == "google" {
-		if a.extensionDeclaresCoreScopesForProvider(extensionID, "google") {
-			const mailSlot = "google-mail"
-			if mailSlot != configID {
-				_, mailHasShipped := oauth2.ShippedClientConfigForID(mailSlot)
-				if mailHasShipped {
-					out.Choices = append(out.Choices, OAuthCredsChoice{
-						ID:    "aerion-mail",
-						Label: "Aerion - Google",
-					})
-				}
-			}
+		const mailSlot = "google-mail"
+		_, mailHasShipped := oauth2.ShippedClientConfigForID(mailSlot)
+		if mailSlot != configID && mailHasShipped {
+			out.Choices = append(out.Choices, OAuthCredsChoice{
+				ID:    "aerion-mail",
+				Label: "Aerion - Google",
+			})
 		}
 	}
 
@@ -268,42 +268,6 @@ func (a *App) resolveCurrentChoice(configID string) string {
 		return "aerion-mail"
 	}
 	return "aerion-shipped"
-}
-
-// extensionDeclaresCoreScopesForProvider returns true iff the extension's
-// manifest carries first_party_uses_core_for_scopes entries for the given
-// provider. Provider-detection is heuristic — Google scopes are URLs under
-// googleapis.com, Microsoft scopes use bare names like Contacts.Read.
-func (a *App) extensionDeclaresCoreScopesForProvider(extensionID, provider string) bool {
-	for _, ext := range a.knownExtensions {
-		m := ext.Manifest()
-		if m.ID != extensionID {
-			continue
-		}
-		if m.OAuth == nil {
-			return false
-		}
-		for _, scope := range m.OAuth.FirstPartyUsesCoreForScopes {
-			if scopeBelongsToProvider(scope, provider) {
-				return true
-			}
-		}
-		return false
-	}
-	return false
-}
-
-// scopeBelongsToProvider classifies an OAuth scope string by provider.
-// Google scopes are URLs hosted under googleapis.com; Microsoft Graph
-// scopes are bare strings like "Contacts.Read" or "Calendars.ReadWrite".
-func scopeBelongsToProvider(scope, provider string) bool {
-	switch provider {
-	case "google":
-		return strings.Contains(scope, "googleapis.com")
-	case "microsoft":
-		return !strings.Contains(scope, "googleapis.com")
-	}
-	return false
 }
 
 // providerFromConfigID strips the well-known prefix from a slot id.

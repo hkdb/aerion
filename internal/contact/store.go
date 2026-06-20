@@ -993,8 +993,14 @@ func UpsertRecordTx(tx DBOrTx, rec *Record) error {
 				nameOverridden = 1
 			}
 		}
+		// OR IGNORE: a single contact can legitimately list the same address
+		// twice (common in MS365 exports; also two case/whitespace variants that
+		// normalize to the same value). Without this the duplicate trips the
+		// PRIMARY KEY(record_id, email) and fails the record — which, mid-batch,
+		// drops it from the sync. Mirrors the sibling sub-tables
+		// (phones/urls/impps/categories) and the legacy UpsertContact.
 		if _, err := tx.Exec(`
-			INSERT INTO contact_emails (record_id, email, email_type, is_primary, send_count, last_used, name_overridden)
+			INSERT OR IGNORE INTO contact_emails (record_id, email, email_type, is_primary, send_count, last_used, name_overridden)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
 		`, rec.ID, email, nullableString(e.EmailType), isPrimary, sendCount, lastUsed, nameOverridden); err != nil {
 			return fmt.Errorf("insert contact_emails: %w", err)

@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/emersion/go-webdav"
-	extcaldav "github.com/emersion/go-webdav/caldav"
 
 	coreapi "github.com/hkdb/aerion/internal/core/api/v1"
 	"github.com/hkdb/aerion/internal/kit/davutil"
@@ -57,26 +56,19 @@ func (p caldavProvider) SyncCalendar(ctx context.Context, src Source, cal Calend
 		davutil.NewHTTPClient(60*time.Second),
 		src.Username, password,
 	)
-	client, err := extcaldav.NewClient(httpClient, src.URL)
+	// Read events via our own tolerant calendar-query REPORT parse rather
+	// than go-webdav's QueryCalendar, which aborts the whole list if any one
+	// response has empty/unparseable calendar-data (iCloud's self-referential
+	// collection entry triggered exactly that — issue #278).
+	//
+	// cal.URL is stored as a (usually relative) DAV href; resolve it against
+	// the source base before requesting — the same way the write path does
+	// (absoluteHref). go-webdav's client used to do this resolution for us.
+	eventsURL, err := absoluteHref(src.URL, cal.URL)
 	if err != nil {
-		return fmt.Errorf("new caldav client: %w", err)
+		return fmt.Errorf("resolve calendar URL for %q: %w", cal.DisplayName, err)
 	}
-
-	query := &extcaldav.CalendarQuery{
-		CompRequest: extcaldav.CalendarCompRequest{
-			Name:     "VCALENDAR",
-			AllProps: true,
-			AllComps: true,
-		},
-		CompFilter: extcaldav.CompFilter{
-			Name: "VCALENDAR",
-			Comps: []extcaldav.CompFilter{
-				{Name: "VEVENT"},
-			},
-		},
-	}
-
-	objects, err := client.QueryCalendar(ctx, cal.URL, query)
+	events, err := queryCalendarEvents(ctx, httpClient, eventsURL)
 	if err != nil {
 		return fmt.Errorf("query calendar %q: %w", cal.DisplayName, err)
 	}
@@ -87,24 +79,20 @@ func (p caldavProvider) SyncCalendar(ctx context.Context, src Source, cal Calend
 		parsed *ParsedObject
 		rawICS string
 	}
-	server := make(map[string]serverEntry, len(objects))
-	for _, obj := range objects {
-		if obj.Data == nil {
+	server := make(map[string]serverEntry, len(events))
+	for _, e := range events {
+		if e.rawICS == "" {
 			continue
 		}
-		rawICS, encErr := encodeICS(obj.Data)
-		if encErr != nil {
-			continue
-		}
-		parsed, perr := ParseCalendarObject(rawICS)
+		parsed, perr := ParseCalendarObject(e.rawICS)
 		if perr != nil {
-			continue
+			continue // skip a malformed event, keep the rest
 		}
 		server[parsed.Master.UID] = serverEntry{
-			etag:   obj.ETag,
-			href:   obj.Path,
+			etag:   e.etag,
+			href:   e.href,
 			parsed: parsed,
-			rawICS: rawICS,
+			rawICS: e.rawICS,
 		}
 	}
 

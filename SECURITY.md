@@ -71,5 +71,4 @@ Aerion includes the following security measures:
 ## Known Limitations
 
 - Aerion is currently in early stage active development
-- Security audits have not yet been performed by third parties
 - Use at your own risk for sensitive communications

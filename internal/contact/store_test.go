@@ -400,3 +400,38 @@ func TestCreate_GeneratesUUID(t *testing.T) {
 		t.Errorf("expected UUID record id, got %q", id)
 	}
 }
+
+// Regression for #278: a contact that lists the same address twice (e.g. an
+// MS365 export, or two case variants normalizing to the same value) must not
+// fail the record on the contact_emails PRIMARY KEY(record_id, email).
+func TestUpsertRecord_DuplicateEmailDeduped(t *testing.T) {
+	db := openTestDB(t)
+	store := NewStore(db.DB)
+
+	rec := &Record{
+		ID:     "rec-dup",
+		Source: "carddav",
+		Fn:     "Dup Dave",
+		Emails: []RecordEmail{
+			{Email: "dave@example.com"},
+			{Email: "Dave@example.com"}, // case variant -> normalizes to the same address
+		},
+	}
+	if err := store.UpsertRecord(rec); err != nil {
+		t.Fatalf("UpsertRecord with a duplicate email should not error: %v", err)
+	}
+
+	got, err := store.GetRecord("rec-dup")
+	if err != nil {
+		t.Fatalf("GetRecord: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected record, got nil")
+	}
+	if len(got.Emails) != 1 {
+		t.Fatalf("want 1 deduped email row, got %d: %+v", len(got.Emails), got.Emails)
+	}
+	if got.Emails[0].Email != "dave@example.com" {
+		t.Errorf("email = %q, want normalized dave@example.com", got.Emails[0].Email)
+	}
+}
