@@ -340,3 +340,43 @@ func TestSerializeVEVENT_Visibility(t *testing.T) {
 		}
 	}
 }
+
+// A rich-text body writes X-ALT-DESC;FMTTYPE=text/html alongside the plaintext
+// DESCRIPTION, and extractAltDescHTML reads the HTML back. Empty HTML omits the
+// property entirely.
+func TestSerializeVEVENT_DescriptionHTML(t *testing.T) {
+	start := time.Date(2026, 6, 5, 14, 0, 0, 0, time.UTC).Unix()
+	end := time.Date(2026, 6, 5, 15, 0, 0, 0, time.UTC).Unix()
+	html := "<p>Bring <strong>laptop</strong></p>"
+
+	blob, err := serializeVEVENT("html@aerion", EventInput{
+		CalendarID: "c", Summary: "Mtg", DTStartUnix: start, DTEndUnix: end,
+		Description: "Bring laptop", DescriptionHTML: html,
+	})
+	if err != nil {
+		t.Fatalf("serialize: %v", err)
+	}
+	if !strings.Contains(blob, "X-ALT-DESC") || !strings.Contains(blob, "FMTTYPE=text/html") {
+		t.Errorf("expected X-ALT-DESC;FMTTYPE=text/html:\n%s", blob)
+	}
+	if !strings.Contains(blob, "DESCRIPTION:Bring laptop") {
+		t.Errorf("expected plaintext DESCRIPTION fallback:\n%s", blob)
+	}
+	if got := extractAltDescHTML(blob); got != html {
+		t.Errorf("extractAltDescHTML = %q, want %q", got, html)
+	}
+
+	plainBlob, err := serializeVEVENT("plain@aerion", EventInput{
+		CalendarID: "c", Summary: "Mtg", DTStartUnix: start, DTEndUnix: end,
+		Description: "Bring laptop",
+	})
+	if err != nil {
+		t.Fatalf("serialize plain: %v", err)
+	}
+	if strings.Contains(plainBlob, "X-ALT-DESC") {
+		t.Errorf("no HTML should omit X-ALT-DESC:\n%s", plainBlob)
+	}
+	if got := extractAltDescHTML(plainBlob); got != "" {
+		t.Errorf("extractAltDescHTML on plain blob = %q, want empty", got)
+	}
+}

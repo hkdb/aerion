@@ -887,6 +887,7 @@ export namespace backend {
 	    providerEventId?: string;
 	    summary: string;
 	    description?: string;
+	    descriptionHTML?: string;
 	    location?: string;
 	    dtstartUnix: number;
 	    dtendUnix: number;
@@ -912,6 +913,7 @@ export namespace backend {
 	        this.providerEventId = source["providerEventId"];
 	        this.summary = source["summary"];
 	        this.description = source["description"];
+	        this.descriptionHTML = source["descriptionHTML"];
 	        this.location = source["location"];
 	        this.dtstartUnix = source["dtstartUnix"];
 	        this.dtendUnix = source["dtendUnix"];
@@ -988,6 +990,7 @@ export namespace backend {
 	    calendarId: string;
 	    summary: string;
 	    description?: string;
+	    descriptionHTML?: string;
 	    location?: string;
 	    dtstartUnix: number;
 	    dtendUnix: number;
@@ -1010,6 +1013,7 @@ export namespace backend {
 	        this.calendarId = source["calendarId"];
 	        this.summary = source["summary"];
 	        this.description = source["description"];
+	        this.descriptionHTML = source["descriptionHTML"];
 	        this.location = source["location"];
 	        this.dtstartUnix = source["dtstartUnix"];
 	        this.dtendUnix = source["dtendUnix"];
@@ -1051,6 +1055,7 @@ export namespace backend {
 	    providerEventId?: string;
 	    summary: string;
 	    description?: string;
+	    descriptionHTML?: string;
 	    location?: string;
 	    dtstartUnix: number;
 	    dtendUnix: number;
@@ -1079,6 +1084,7 @@ export namespace backend {
 	        this.providerEventId = source["providerEventId"];
 	        this.summary = source["summary"];
 	        this.description = source["description"];
+	        this.descriptionHTML = source["descriptionHTML"];
 	        this.location = source["location"];
 	        this.dtstartUnix = source["dtstartUnix"];
 	        this.dtendUnix = source["dtendUnix"];
@@ -1117,6 +1123,7 @@ export namespace backend {
 	    calendarId: string;
 	    summary: string;
 	    description?: string;
+	    descriptionHTML?: string;
 	    location?: string;
 	    dtstartUnix: number;
 	    dtendUnix: number;
@@ -1140,6 +1147,7 @@ export namespace backend {
 	        this.calendarId = source["calendarId"];
 	        this.summary = source["summary"];
 	        this.description = source["description"];
+	        this.descriptionHTML = source["descriptionHTML"];
 	        this.location = source["location"];
 	        this.dtstartUnix = source["dtstartUnix"];
 	        this.dtendUnix = source["dtendUnix"];

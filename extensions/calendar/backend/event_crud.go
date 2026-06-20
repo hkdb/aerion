@@ -44,18 +44,22 @@ import (
 // non-empty → write with `TZID=<TZName>` parameter so other CalDAV clients
 // label the event in that zone instead of UTC.
 type EventInput struct {
-	CalendarID  string          `json:"calendarId"`
-	Summary     string          `json:"summary"`
-	Description string          `json:"description,omitempty"`
-	Location    string          `json:"location,omitempty"`
-	DTStartUnix int64           `json:"dtstartUnix"`
-	DTEndUnix   int64           `json:"dtendUnix"`
-	IsAllDay    bool            `json:"isAllDay,omitempty"`
-	TZName      string          `json:"tz,omitempty"`
-	Transparency string         `json:"transparency,omitempty"` // "busy" (default) | "free"
-	Visibility  string          `json:"visibility,omitempty"`   // "public" (default) | "private" | "confidential"
-	Recurrence  *RecurrenceSpec `json:"recurrence,omitempty"`
-	Reminder    *ReminderSpec   `json:"reminder,omitempty"`
+	CalendarID  string `json:"calendarId"`
+	Summary     string `json:"summary"`
+	Description string `json:"description,omitempty"`
+	// DescriptionHTML is the rich-text body authored in the composer. When
+	// non-empty it's written into ics_blob as X-ALT-DESC;FMTTYPE=text/html;
+	// Description carries the plaintext fallback (editor's getText()).
+	DescriptionHTML string          `json:"descriptionHTML,omitempty"`
+	Location        string          `json:"location,omitempty"`
+	DTStartUnix     int64           `json:"dtstartUnix"`
+	DTEndUnix       int64           `json:"dtendUnix"`
+	IsAllDay        bool            `json:"isAllDay,omitempty"`
+	TZName          string          `json:"tz,omitempty"`
+	Transparency    string          `json:"transparency,omitempty"` // "busy" (default) | "free"
+	Visibility      string          `json:"visibility,omitempty"`   // "public" (default) | "private" | "confidential"
+	Recurrence      *RecurrenceSpec `json:"recurrence,omitempty"`
+	Reminder        *ReminderSpec   `json:"reminder,omitempty"`
 
 	// Attendees + Organizer. Optional — local single-user events typically
 	// have neither. Phase E adds SendUpdates to control invitation delivery
@@ -131,15 +135,15 @@ func (a *API) CreateEvent(in EventInput) (string, error) {
 	}
 
 	ev := Event{
-		ID:          uuid.NewString(),
-		CalendarID:  in.CalendarID,
-		UID:         uid,
-		Summary:     in.Summary,
-		Description: in.Description,
-		Location:    in.Location,
-		DTStartUnix: in.DTStartUnix,
-		DTEndUnix:   in.DTEndUnix,
-		IsAllDay:    in.IsAllDay,
+		ID:           uuid.NewString(),
+		CalendarID:   in.CalendarID,
+		UID:          uid,
+		Summary:      in.Summary,
+		Description:  in.Description,
+		Location:     in.Location,
+		DTStartUnix:  in.DTStartUnix,
+		DTEndUnix:    in.DTEndUnix,
+		IsAllDay:     in.IsAllDay,
 		TZName:       in.TZName,
 		RRuleText:    rruleText(in.Recurrence),
 		Transparency: normTransparency(in.Transparency),
@@ -731,8 +735,10 @@ func setEventStartEnd(event *ical.Event, in EventInput) {
 // icsPropTransp / icsPropClass are iCalendar property names go-ical lacks
 // constants for.
 const (
-	icsPropTransp = "TRANSP"
-	icsPropClass  = "CLASS"
+	icsPropTransp   = "TRANSP"
+	icsPropClass    = "CLASS"
+	icsPropAltDesc  = "X-ALT-DESC"
+	icsParamFmtType = "FMTTYPE"
 )
 
 // normTransparency canonicalizes a free/busy value to "free" or "busy"
@@ -788,6 +794,42 @@ func icsClassValue(visibility string) string {
 	return ""
 }
 
+// setAltDescHTML writes an X-ALT-DESC;FMTTYPE=text/html property carrying the
+// rich-text body. No-op when html is empty. SetText handles iCal escaping so
+// the value round-trips through go-ical's encoder/decoder.
+func setAltDescHTML(props ical.Props, html string) {
+	if strings.TrimSpace(html) == "" {
+		return
+	}
+	prop := ical.NewProp(icsPropAltDesc)
+	prop.SetText(icsText(html))
+	prop.Params.Set(icsParamFmtType, "text/html")
+	props.Set(prop)
+}
+
+// extractAltDescHTML returns the master VEVENT's X-ALT-DESC HTML (unescaped),
+// or "" if absent/unparseable.
+func extractAltDescHTML(blob string) string {
+	ev := masterEvent(blob)
+	if ev == nil {
+		return ""
+	}
+	return propTextDecoded(ev, icsPropAltDesc)
+}
+
+// masterEvent decodes a single-event blob and returns the first VEVENT, or nil.
+func masterEvent(blob string) *ical.Event {
+	if strings.TrimSpace(blob) == "" {
+		return nil
+	}
+	cal, err := ical.NewDecoder(strings.NewReader(blob)).Decode()
+	if err != nil || len(cal.Events()) == 0 {
+		return nil
+	}
+	ev := cal.Events()[0]
+	return &ev
+}
+
 // serializeVEVENT builds a single-event VCALENDAR for events.ics_blob.
 func serializeVEVENT(uid string, in EventInput) (string, error) {
 	event := ical.NewEvent()
@@ -797,6 +839,10 @@ func serializeVEVENT(uid string, in EventInput) (string, error) {
 	if in.Description != "" {
 		event.Props.SetText(ical.PropDescription, icsText(in.Description))
 	}
+	// Rich-text body: X-ALT-DESC;FMTTYPE=text/html alongside the plaintext
+	// DESCRIPTION. Outlook/iCloud honor X-ALT-DESC; plaintext stays the
+	// fallback for clients (and FTS) that ignore it.
+	setAltDescHTML(event.Props, in.DescriptionHTML)
 	if in.Location != "" {
 		event.Props.SetText(ical.PropLocation, icsText(in.Location))
 	}

@@ -31,25 +31,27 @@ import (
 // graphEvent is the JSON shape for /me/events resource. Only fields
 // Aerion reads/writes are modeled.
 type graphEvent struct {
-	ID                          string             `json:"id,omitempty"`
-	ICalUID                     string             `json:"iCalUId,omitempty"` // Graph's mixed-case key
-	ETag                        string             `json:"@odata.etag,omitempty"`
-	Subject                     string             `json:"subject,omitempty"`
-	Body                        *graphBody         `json:"body,omitempty"`
-	Location                    *graphLocation     `json:"location,omitempty"`
-	Start                       *graphTimePoint    `json:"start,omitempty"`
-	End                         *graphTimePoint    `json:"end,omitempty"`
-	IsAllDay                    *bool              `json:"isAllDay,omitempty"`
-	Recurrence                  *graphRecurrence   `json:"recurrence"`
-	ReminderMinutesBeforeStart  *int               `json:"reminderMinutesBeforeStart,omitempty"`
-	IsReminderOn                *bool              `json:"isReminderOn,omitempty"`
-	SeriesMasterID              string             `json:"seriesMasterId,omitempty"`
-	ShowAs                      string             `json:"showAs,omitempty"`      // free|tentative|busy|oof|workingElsewhere|unknown
-	Sensitivity                 string             `json:"sensitivity,omitempty"` // normal|personal|private|confidential
-	Type                        string             `json:"type,omitempty"` // "singleInstance" | "seriesMaster" | "exception" | "occurrence"
-	Status                      *graphEventStatus  `json:"@removed,omitempty"`
-	Attendees                   []graphAttendee    `json:"attendees,omitempty"`
-	Organizer                   *graphRecipient    `json:"organizer,omitempty"`
+	ID          string     `json:"id,omitempty"`
+	ICalUID     string     `json:"iCalUId,omitempty"` // Graph's mixed-case key
+	ETag        string     `json:"@odata.etag,omitempty"`
+	Subject     string     `json:"subject,omitempty"`
+	Body        *graphBody `json:"body,omitempty"`
+	BodyPreview string     `json:"bodyPreview,omitempty"` // Graph's plaintext preview of Body
+
+	Location                   *graphLocation    `json:"location,omitempty"`
+	Start                      *graphTimePoint   `json:"start,omitempty"`
+	End                        *graphTimePoint   `json:"end,omitempty"`
+	IsAllDay                   *bool             `json:"isAllDay,omitempty"`
+	Recurrence                 *graphRecurrence  `json:"recurrence"`
+	ReminderMinutesBeforeStart *int              `json:"reminderMinutesBeforeStart,omitempty"`
+	IsReminderOn               *bool             `json:"isReminderOn,omitempty"`
+	SeriesMasterID             string            `json:"seriesMasterId,omitempty"`
+	ShowAs                     string            `json:"showAs,omitempty"`      // free|tentative|busy|oof|workingElsewhere|unknown
+	Sensitivity                string            `json:"sensitivity,omitempty"` // normal|personal|private|confidential
+	Type                       string            `json:"type,omitempty"`        // "singleInstance" | "seriesMaster" | "exception" | "occurrence"
+	Status                     *graphEventStatus `json:"@removed,omitempty"`
+	Attendees                  []graphAttendee   `json:"attendees,omitempty"`
+	Organizer                  *graphRecipient   `json:"organizer,omitempty"`
 	// OriginalStart is set on an exception/occurrence: the original (pre-edit)
 	// instance start = the RECURRENCE-ID. UTC ISO-8601.
 	OriginalStart string `json:"originalStart,omitempty"`
@@ -60,8 +62,10 @@ type graphEvent struct {
 }
 
 // graphAttendee is Graph's per-attendee shape:
-//   { emailAddress: { address, name }, type: "required"|"optional"|"resource",
-//     status: { response, time } }
+//
+//	{ emailAddress: { address, name }, type: "required"|"optional"|"resource",
+//	  status: { response, time } }
+//
 // status.response: none|organizer|tentativelyAccepted|accepted|declined|notResponded.
 type graphAttendee struct {
 	EmailAddress graphEmailAddress    `json:"emailAddress"`
@@ -123,9 +127,9 @@ type graphPattern struct {
 }
 
 type graphRange struct {
-	Type                string `json:"type"` // endDate | noEnd | numbered
-	StartDate           string `json:"startDate,omitempty"`           // YYYY-MM-DD
-	EndDate             string `json:"endDate,omitempty"`             // YYYY-MM-DD
+	Type                string `json:"type"`                // endDate | noEnd | numbered
+	StartDate           string `json:"startDate,omitempty"` // YYYY-MM-DD
+	EndDate             string `json:"endDate,omitempty"`   // YYYY-MM-DD
 	NumberOfOccurrences int    `json:"numberOfOccurrences,omitempty"`
 	RecurrenceTimeZone  string `json:"recurrenceTimeZone,omitempty"`
 }
@@ -164,8 +168,16 @@ func translateICSToGraphEvent(icsBlob string) (graphEvent, error) {
 		Subject: propText(&ev, ical.PropSummary),
 	}
 
-	if descr := propText(&ev, ical.PropDescription); descr != "" {
-		out.Body = &graphBody{ContentType: "text", Content: descr}
+	// Rich-text body: X-ALT-DESC (HTML) wins over plaintext DESCRIPTION so
+	// Outlook keeps formatting; plain DESCRIPTION is the text fallback. Decoded
+	// (unescaped) so Graph/Outlook don't receive iCal "\;"/"\n" artifacts.
+	if html := propTextDecoded(&ev, icsPropAltDesc); html != "" {
+		out.Body = &graphBody{ContentType: "html", Content: html}
+	}
+	if out.Body == nil {
+		if descr := propTextDecoded(&ev, ical.PropDescription); descr != "" {
+			out.Body = &graphBody{ContentType: "text", Content: descr}
+		}
 	}
 	if loc := propText(&ev, ical.PropLocation); loc != "" {
 		out.Location = &graphLocation{DisplayName: loc}
@@ -546,8 +558,20 @@ func translateGraphEventToICS(ev graphEvent) (string, error) {
 	if ev.Subject != "" {
 		icalEv.Props.SetText(ical.PropSummary, icsText(ev.Subject))
 	}
-	if ev.Body != nil && ev.Body.Content != "" {
-		icalEv.Props.SetText(ical.PropDescription, icsText(ev.Body.Content))
+	// Graph body → DESCRIPTION (+ X-ALT-DESC for HTML). HTML bodies keep
+	// their markup in X-ALT-DESC and use Graph's plaintext bodyPreview for
+	// DESCRIPTION (avoids us stripping tags); text bodies go straight to
+	// DESCRIPTION.
+	if ev.Body != nil {
+		switch {
+		case strings.EqualFold(ev.Body.ContentType, "html") && ev.Body.Content != "":
+			setAltDescHTML(icalEv.Props, ev.Body.Content)
+			if ev.BodyPreview != "" {
+				icalEv.Props.SetText(ical.PropDescription, icsText(ev.BodyPreview))
+			}
+		case ev.Body.Content != "":
+			icalEv.Props.SetText(ical.PropDescription, icsText(ev.Body.Content))
+		}
 	}
 	if ev.Location != nil && ev.Location.DisplayName != "" {
 		icalEv.Props.SetText(ical.PropLocation, icsText(ev.Location.DisplayName))

@@ -10,8 +10,8 @@ import (
 
 	"github.com/hkdb/aerion/internal/carddav"
 	"github.com/hkdb/aerion/internal/contact"
-	"github.com/hkdb/aerion/internal/credentials"
 	coreapi "github.com/hkdb/aerion/internal/core/api/v1"
+	"github.com/hkdb/aerion/internal/credentials"
 	"github.com/hkdb/aerion/internal/database"
 )
 
@@ -32,6 +32,7 @@ func (f fakeCore) UI() coreapi.UI                       { return nil }
 func (f fakeCore) Storage() coreapi.Storage             { return fakeStorage(f) }
 func (f fakeCore) Events() coreapi.EventBus             { return nil }
 func (f fakeCore) Log() coreapi.Logger                  { return nil }
+func (f fakeCore) HTML() coreapi.HTML                   { return nil }
 func (f fakeCore) Extension(id string) (any, bool)      { return nil, false }
 
 type fakeStorage struct{ creds *credentials.Store }

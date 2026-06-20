@@ -748,6 +748,12 @@ type Event struct {
 	ProviderEventID string `json:"providerEventId,omitempty"`
 	Summary         string `json:"summary"`
 	Description     string `json:"description,omitempty"`
+	// DescriptionHTML is the sanitized rich-text body. NOT a DB column: it
+	// rides in ics_blob as X-ALT-DESC;FMTTYPE=text/html (write side) and is
+	// extracted + sanitized at the serve layer (Calendar_ListEventsInRange)
+	// before being handed to the frontend. Empty falls back to plaintext
+	// Description rendering.
+	DescriptionHTML string `json:"descriptionHTML,omitempty"`
 	Location        string `json:"location,omitempty"`
 	DTStartUnix     int64  `json:"dtstartUnix"`
 	DTEndUnix       int64  `json:"dtendUnix"`

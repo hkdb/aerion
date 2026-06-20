@@ -325,7 +325,7 @@ func (p microsoftProvider) applyMasterExceptions(ctx context.Context, client *ht
 func (p microsoftProvider) fetchMasterDetail(ctx context.Context, client *http.Client, eventID string) (*graphEvent, error) {
 	u := microsoftGraphBase + "/me/events/" + url.PathEscape(eventID) +
 		"?$select=id,cancelledOccurrences" +
-		"&$expand=exceptionOccurrences($select=originalStart,start,end,subject,body,location,isAllDay)"
+		"&$expand=exceptionOccurrences($select=originalStart,start,end,subject,body,bodyPreview,location,isAllDay)"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("build master detail request: %w", err)

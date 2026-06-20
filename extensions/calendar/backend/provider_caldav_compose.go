@@ -220,6 +220,7 @@ func buildOverrideVEVENT(masterUID string, instanceTimeUnix int64, in EventInput
 	if in.Description != "" {
 		ev.Props.SetText(ical.PropDescription, in.Description)
 	}
+	setAltDescHTML(ev.Props, in.DescriptionHTML)
 	if in.Location != "" {
 		ev.Props.SetText(ical.PropLocation, in.Location)
 	}

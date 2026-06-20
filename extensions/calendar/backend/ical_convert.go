@@ -141,12 +141,12 @@ func buildEvent(ev *ical.Event, rawICS string) (Event, error) {
 	// queries (NULL = non-recurring).
 
 	return Event{
-		UID:         uid,
-		Summary:     propText(ev, ical.PropSummary),
-		Description: propText(ev, ical.PropDescription),
-		Location:    propText(ev, ical.PropLocation),
-		DTStartUnix: dtstart.Unix(),
-		DTEndUnix:   dtend.Unix(),
+		UID:          uid,
+		Summary:      propText(ev, ical.PropSummary),
+		Description:  propText(ev, ical.PropDescription),
+		Location:     propText(ev, ical.PropLocation),
+		DTStartUnix:  dtstart.Unix(),
+		DTEndUnix:    dtend.Unix(),
 		IsAllDay:     isAllDay,
 		TZName:       tzName,
 		RRuleText:    rrule,
@@ -196,12 +196,28 @@ func buildOverride(ev *ical.Event) (EventOverride, error) {
 	}, nil
 }
 
-// propText returns the trimmed Value of a property, or "" when the prop is
-// absent. Convenience wrapper to keep the parser cleaner.
+// propText returns the trimmed raw Value of a property, or "" when absent.
+// Raw (not iCal-unescaped) on purpose: callers include RRULE, whose commas are
+// RECUR part-separators — Prop.Text() would comma-split them. For human-facing
+// TEXT bodies (DESCRIPTION, X-ALT-DESC) use propTextDecoded instead.
 func propText(ev *ical.Event, name string) string {
 	p := ev.Props.Get(name)
 	if p == nil {
 		return ""
+	}
+	return strings.TrimSpace(p.Value)
+}
+
+// propTextDecoded returns a TEXT property iCal-unescaped (\n \, \; \\ → literal)
+// via Prop.Text(). Use only for genuine TEXT properties — NOT RRULE/RECUR
+// values, where Text()'s comma-splitting would corrupt the value.
+func propTextDecoded(ev *ical.Event, name string) string {
+	p := ev.Props.Get(name)
+	if p == nil {
+		return ""
+	}
+	if t, err := p.Text(); err == nil {
+		return strings.TrimSpace(t)
 	}
 	return strings.TrimSpace(p.Value)
 }

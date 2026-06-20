@@ -132,6 +132,64 @@ func TestMicrosoftTranslate_ShowAs(t *testing.T) {
 	}
 }
 
+// Graph HTML body ⇄ iCal X-ALT-DESC. An HTML body lands in X-ALT-DESC with the
+// plaintext bodyPreview in DESCRIPTION; writing back sends body.contentType=html
+// carrying the X-ALT-DESC markup. A text body uses DESCRIPTION only.
+func TestMicrosoftTranslate_HTMLBody(t *testing.T) {
+	htmlBody := "<p>Bring <b>laptop</b></p>"
+	src := graphEvent{
+		ICalUID:     "html@example.com",
+		Subject:     "s",
+		Body:        &graphBody{ContentType: "html", Content: htmlBody},
+		BodyPreview: "Bring laptop",
+		Start:       &graphTimePoint{DateTime: "2026-01-01T09:00:00.0000000", TimeZone: "UTC"},
+		End:         &graphTimePoint{DateTime: "2026-01-01T10:00:00.0000000", TimeZone: "UTC"},
+	}
+	blob, err := translateGraphEventToICS(src)
+	if err != nil {
+		t.Fatalf("translate html body: %v", err)
+	}
+	if !strings.Contains(blob, "X-ALT-DESC") {
+		t.Errorf("html body should produce X-ALT-DESC:\n%s", blob)
+	}
+	if !strings.Contains(blob, "DESCRIPTION:Bring laptop") {
+		t.Errorf("html body should put bodyPreview in DESCRIPTION:\n%s", blob)
+	}
+	if got := extractAltDescHTML(blob); got != htmlBody {
+		t.Errorf("extractAltDescHTML = %q, want %q", got, htmlBody)
+	}
+
+	// Write back: X-ALT-DESC → body.contentType=html.
+	g, err := translateICSToGraphEvent(blob)
+	if err != nil {
+		t.Fatalf("translate back: %v", err)
+	}
+	if g.Body == nil || g.Body.ContentType != "html" {
+		t.Fatalf("expected html body on write-back, got %+v", g.Body)
+	}
+	if g.Body.Content != htmlBody {
+		t.Errorf("write-back body = %q, want %q", g.Body.Content, htmlBody)
+	}
+
+	// A plaintext body uses DESCRIPTION only (no X-ALT-DESC), write-back text.
+	textSrc := graphEvent{
+		ICalUID: "text@example.com", Subject: "s",
+		Body:  &graphBody{ContentType: "text", Content: "just text"},
+		Start: &graphTimePoint{DateTime: "2026-01-01T09:00:00.0000000", TimeZone: "UTC"},
+		End:   &graphTimePoint{DateTime: "2026-01-01T10:00:00.0000000", TimeZone: "UTC"},
+	}
+	textBlob, err := translateGraphEventToICS(textSrc)
+	if err != nil {
+		t.Fatalf("translate text body: %v", err)
+	}
+	if strings.Contains(textBlob, "X-ALT-DESC") {
+		t.Errorf("text body should omit X-ALT-DESC:\n%s", textBlob)
+	}
+	if tg, _ := translateICSToGraphEvent(textBlob); tg.Body == nil || tg.Body.ContentType != "text" {
+		t.Errorf("text body write-back should stay text, got %+v", tg.Body)
+	}
+}
+
 // Graph sensitivity ⇄ iCal CLASS (3-state).
 func TestMicrosoftTranslate_Sensitivity(t *testing.T) {
 	mk := func(sens string) graphEvent {

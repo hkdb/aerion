@@ -20,6 +20,7 @@ type Core interface {
 	Storage() Storage
 	Events() EventBus
 	Log() Logger
+	HTML() HTML
 
 	// Extension returns the typed handle published by another extension via
 	// its api.go interface, or (nil, false) if the extension is not enabled

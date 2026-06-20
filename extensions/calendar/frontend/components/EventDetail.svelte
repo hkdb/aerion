@@ -451,14 +451,15 @@
         </div>
       {/if}
 
-      <!-- About (skip if empty) -->
-      {#if event.description && event.description !== ''}
+      <!-- About (skip if empty). Sanitized host-side (Core.HTML().Sanitize)
+           before it reaches here — rendered as HTML like the mail viewer. -->
+      {#if event.descriptionHTML && event.descriptionHTML !== ''}
         <div>
           <div class="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
             {$_('calendar.detail.aboutLabel')}
           </div>
-          <div class="text-foreground whitespace-pre-wrap break-words text-sm">
-            <Linkified text={event.description} />
+          <div class="cal-about-html text-foreground break-words text-sm">
+            {@html event.descriptionHTML}
           </div>
         </div>
       {/if}
@@ -540,3 +541,31 @@
   loading={deleting}
   onConfirm={performDelete}
 />
+
+<style>
+  .cal-about-html :global(p) {
+    margin: 0 0 0.5rem;
+  }
+  .cal-about-html :global(p:last-child) {
+    margin-bottom: 0;
+  }
+  .cal-about-html :global(ul),
+  .cal-about-html :global(ol) {
+    margin: 0 0 0.5rem;
+    padding-left: 1.25rem;
+  }
+  .cal-about-html :global(ul) {
+    list-style: disc;
+  }
+  .cal-about-html :global(ol) {
+    list-style: decimal;
+  }
+  .cal-about-html :global(a) {
+    color: hsl(var(--primary));
+    text-decoration: underline;
+  }
+  .cal-about-html :global(b),
+  .cal-about-html :global(strong) {
+    font-weight: 600;
+  }
+</style>

@@ -443,6 +443,12 @@ func (b *CalendarBridge) Calendar_ListEventsInRange(calendarIDs []string, fromUn
 			// Skip the bad event rather than aborting the whole query.
 			continue
 		}
+		// NOTE: DescriptionHTML is deliberately NOT populated here. This is
+		// the hot path (re-run on every view change + every sync-complete),
+		// and decoding each event's ICS blob + sanitizing per call is far too
+		// expensive. The grid never renders bodies; the only consumers of the
+		// rich body (detail view + composer edit) both load via
+		// Calendar_GetEvent, which does the extract + sanitize for one event.
 		out = append(out, instances...)
 	}
 	return out, nil
@@ -457,7 +463,25 @@ func (b *CalendarBridge) Calendar_GetEvent(eventID string) (*Event, error) {
 	if err := b.ensureInit(); err != nil {
 		return nil, err
 	}
-	return b.api.store.GetEvent(eventID)
+	ev, err := b.api.store.GetEvent(eventID)
+	if err != nil || ev == nil {
+		return ev, err
+	}
+	ev.DescriptionHTML = b.deps.Core.HTML().Sanitize(richBodyOf(ev))
+	return ev, nil
+}
+
+// richBodyOf returns the event body to render: X-ALT-DESC (Aerion-authored
+// rich text) when present, else the denormalized DESCRIPTION column — which
+// already holds the full body (Exchange/Graph put HTML straight in there).
+//
+// Crucially we use ev.Description (the column), NOT a re-parse of ev.ICSBlob:
+// go-ical truncates long folded DESCRIPTION values (an 1858-char Exchange body
+// came back as 264 chars, cut mid-<style>, which the sanitizer then stripped to
+// nothing). The column is stored full + unescaped at sync time. Always
+// sanitized + rendered as HTML downstream — same as the mail viewer.
+func richBodyOf(ev *Event) string {
+	return ev.Description
 }
 
 // Calendar_SetCalendarVisible toggles a calendar's visibility in the UI.
