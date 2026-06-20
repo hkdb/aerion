@@ -318,7 +318,9 @@
     "failedToReauthorize": "Échec de la ré-autorisation du compte.",
     "oauthExpired": "{name} : Jeton OAuth expiré. Veuillez ré-autoriser dans les paramètres du compte.",
     "failedToDeleteIdentity": "Échec de la suppression de l'identité.",
-    "linkOpened": "Lien ouvert dans le navigateur"
+    "linkOpened": "Lien ouvert dans le navigateur",
+    "contactSourceForceSynced": "Source de contacts resynchronisée depuis le serveur",
+    "contactSourceForceSyncFailed": "Échec de la resynchronisation forcée"
   },
   "settings": {
     "title": "Paramètres",
@@ -338,7 +340,17 @@
     "composerFormat": "Format de message par défaut",
     "composerFormatRich": "Texte enrichi",
     "composerFormatPlain": "Texte brut",
-    "composerFormatDescription": "Les nouveaux messages utiliseront ce format par défaut. Vous pouvez toujours changer par message."
+    "composerFormatDescription": "Les nouveaux messages utiliseront ce format par défaut. Vous pouvez toujours changer par message.",
+    "extensions": "Extensions",
+    "extensionsCoreHeading": "Extensions principales",
+    "extensionsCoreDescription": "Extensions intégrées que vous pouvez activer ou désactiver.",
+    "extensionsEnabled": "Activée",
+    "extensionsDisabled": "Désactivée",
+    "extensionsEnable": "Activer",
+    "extensionsDisable": "Désactiver",
+    "extensionsCapabilities": "Fonctionnalités",
+    "extensionsVersion": "Version",
+    "extensionsNone": "Aucune extension disponible dans cette version."
   },
   "settingsGeneral": {
     "display": "Affichage",
@@ -411,7 +423,8 @@
     "addAccount": "Ajouter un compte",
     "moveUp": "Vers le haut",
     "moveDown": "Vers le bas",
-    "editAccount": "Modifier le compte"
+    "editAccount": "Modifier le compte",
+    "deleteAccount": "Supprimer le compte"
   },
   "settingsAbout": {
     "version": "Version {version}",
@@ -548,7 +561,18 @@
     "certFingerprint": "Empreinte :",
     "certExpires": "Expire le :",
     "removeTrustedCert": "Retirer le certificat de confiance",
-    "removeTrustedCertDescription": "Ce certificat ne sera plus approuvé. Vous devrez peut-être l'accepter à nouveau lors de la prochaine connexion."
+    "removeTrustedCertDescription": "Ce certificat ne sera plus approuvé. Vous devrez peut-être l'accepter à nouveau lors de la prochaine connexion.",
+    "usernameRequired": "Nom d'utilisateur requis",
+    "noOutgoingServer": "Pas de serveur sortant",
+    "noOutgoingServerHelp": "Désactive l'envoi pour ce compte. L'adresse n'apparaîtra pas dans le menu Expéditeur du compositeur. Les réponses aux messages reçus ici utilisent l'identité sélectionnée ou le compte d'envoi par défaut.",
+    "replyForwardWith": "Répondre/Transférer avec",
+    "replyForwardWithHelp": "Identité à pré-sélectionner dans le compositeur lors d'une réponse ou d'un transfert.",
+    "replyForwardWithDefault": "Compte d'envoi par défaut",
+    "smtpAuthentication": "Authentification SMTP",
+    "smtpUseSameAsIncoming": "Identique au serveur entrant",
+    "smtpUsernamePlaceholder": "utilisateur-smtp@exemple.com",
+    "smtpPasswordPlaceholder": "Mot de passe SMTP",
+    "smtpCredsNote": "Si vous définissez un nom d'utilisateur et mot de passe différents pour SMTP, vous pouvez les modifier dans la section \"Authentification SMTP\" de l'onglet \"Serveur\"."
   },
   "identity": {
     "emailAddresses": "Adresses e-mail",
@@ -746,7 +770,12 @@
     "update": "Mettre à jour",
     "linked": "lié",
     "autoName": "Contacts {name}",
-    "minutesFallback": "{value} minutes"
+    "minutesFallback": "{value} minutes",
+    "forceSync": "Forcer la synchronisation",
+    "forceSyncConfirmTitle": "Forcer la synchronisation de \"{name}\" ?",
+    "forceSyncConfirmDescription": "Récupère tous les contacts de \"{name}\" depuis le serveur. Cela complète les champs manquants (téléphone, adresse, organisation, notes, etc.) pour les contacts synchronisés avec une ancienne version d'Aerion. Peut prendre quelques minutes pour les grands carnets d'adresses.",
+    "enableWriteAccess": "Activer l'accès en écriture",
+    "enableWriteAccessDescription": "Autoriser la modification, la création et la suppression de contacts sur ce serveur CardDAV. Utilise les identifiants ci-dessus."
   },
   "certificate": {
     "title": "Certificat non approuvé",
@@ -883,17 +912,24 @@
   },
   "oauth": {
     "writeAccessPicker": {
-      "title": "Enable write access",
-      "description": "Choose the {provider} account to authorize for write access on {sourceName}.",
+      "title": "Activer l'accès en écriture",
+      "description": "Choisissez le compte {provider} à autoriser pour l'accès en écriture sur {sourceName}.",
       "providerGoogle": "Google",
       "providerMicrosoft": "Microsoft",
-      "loadFailed": "Failed to load accounts: {message}",
-      "emptyHeading": "No {provider} accounts found.",
-      "emptyHint": "Add a {provider} account in Mail (Settings → Accounts) or Contacts (Settings → Contacts → Add source) first, then return here.",
-      "cancel": "Cancel",
-      "continue": "Continue",
-      "successToast": "Write access enabled for {name}",
-      "failureToast": "Failed to enable write access: {message}"
+      "loadFailed": "Échec du chargement des comptes : {message}",
+      "emptyHeading": "Aucun compte {provider} trouvé.",
+      "emptyHint": "Ajoutez d'abord un compte {provider} dans Mail (Paramètres → Comptes) ou Contacts (Paramètres → Contacts → Ajouter une source), puis revenez ici.",
+      "cancel": "Annuler",
+      "continue": "Continuer",
+      "successToast": "Accès en écriture activé pour {name}",
+      "failureToast": "Échec de l'activation de l'accès en écriture : {message}"
     }
+  },
+  "oauthMissing": {
+    "title": "Identifiants OAuth manquants",
+    "intro": "Cette version ne contient pas les identifiants OAuth Aerion pour :",
+    "implication": "Cela signifie que les fournisseurs avec des identifiants manquants ne fonctionneront pas correctement. Vous n'avez probablement pas installé Aerion depuis une source officielle.",
+    "installInstruction": "Pour installer Aerion depuis une source officielle, voir :",
+    "dontShowAgain": "Ne plus afficher"
   }
 }
