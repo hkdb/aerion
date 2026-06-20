@@ -259,7 +259,7 @@
           <li>Added Extension infrastructure</li>
           <li>ALPHA: Added Contacts extension - shipped disabled</li>
           <li>ALPHA: Added Calendar extension - shipped disabled - #28</li>
-          <li>Updated extension translations: Czech, German, Vietnamese, Chinese (CN, HK, TW)</li>
+          <li>Updated extension translations: Czech, French, German, Italian, Vietnamese, Chinese (CN, HK, TW)</li>
           <li>Added shortcuts: V for View Message and D for Delete Message</li>
           <li>Added runtime config of client id/secret - #138</li>
           <li>Added force re-sync of contacts</li>

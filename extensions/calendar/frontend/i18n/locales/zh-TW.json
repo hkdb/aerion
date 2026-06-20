@@ -109,7 +109,8 @@
       "organizerEmailInvalid": "請輸入有效的電子郵件地址。"
     },
     "toast": {
-      "sourceDeleted": "已移除 {name}"
+      "sourceDeleted": "已移除 {name}",
+      "forceResyncDone": "已重新同步 {name}"
     },
     "detail": {
       "noTitle": "（無標題）",
@@ -165,6 +166,9 @@
       "lastSync": "{time}前同步",
       "lastSyncNever": "從未同步",
       "syncNow": "立即同步",
+      "forceResync": "強制重新同步",
+      "forceResyncConfirmTitle": "強制重新同步 {name}？",
+      "forceResyncConfirmDescription": "清除已儲存的同步狀態，並從伺服器重新拉取所有活動。如果有活動缺失，請使用此功能。這可能比一般同步耗時更長。",
       "deleteConfirmTitle": "移除 {name}？",
       "deleteConfirmDescription": "來自此來源的所有日曆和活動都將從本機移除。CalDAV 伺服器不受影響。",
       "defaultsSection": "新活動的預設設定",
@@ -296,6 +300,17 @@
       "descriptionLabel": "描述",
       "recurrenceLabel": "重複",
       "reminderLabel": "提醒",
+      "availabilityLabel": "顯示為",
+      "availability": {
+        "busy": "忙碌",
+        "free": "空閒"
+      },
+      "visibilityLabel": "可見性",
+      "visibility": {
+        "public": "公開",
+        "private": "私密",
+        "confidential": "機密"
+      },
       "errorSummaryRequired": "標題為必填欄位。",
       "errorCalendarRequired": "請選擇一個日曆。",
       "errorStartRequired": "開始日期為必填欄位。",

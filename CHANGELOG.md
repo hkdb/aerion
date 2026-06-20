@@ -10,7 +10,9 @@
 - ALPHA: Added Calendar extension - shipped disabled - [#28](https://github.com/hkdb/aerion/issues/28)
 - Updated extension translations:
     - Czech
+    - French
     - German
+    - Italian
     - Vietnamese
     - Chinese - CN, HK, TW
 - Added shortcuts: V for View Message and D for Delete Message

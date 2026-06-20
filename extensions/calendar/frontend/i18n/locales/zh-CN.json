@@ -109,7 +109,8 @@
       "organizerEmailInvalid": "请输入有效的电子邮件地址。"
     },
     "toast": {
-      "sourceDeleted": "已移除 {name}"
+      "sourceDeleted": "已移除 {name}",
+      "forceResyncDone": "已重新同步 {name}"
     },
     "detail": {
       "noTitle": "（无标题）",
@@ -165,6 +166,9 @@
       "lastSync": "{time}前同步",
       "lastSyncNever": "从未同步",
       "syncNow": "立即同步",
+      "forceResync": "强制重新同步",
+      "forceResyncConfirmTitle": "强制重新同步 {name}？",
+      "forceResyncConfirmDescription": "清除已存储的同步状态，并从服务器重新拉取所有活动。如果有活动缺失，请使用此功能。这可能比普通同步耗时更长。",
       "deleteConfirmTitle": "移除 {name}？",
       "deleteConfirmDescription": "来自此来源的所有日历和活动都将从本地移除。CalDAV 服务器不受影响。",
       "defaultsSection": "新活动的默认设置",
@@ -296,6 +300,17 @@
       "descriptionLabel": "描述",
       "recurrenceLabel": "重复",
       "reminderLabel": "提醒",
+      "availabilityLabel": "显示为",
+      "availability": {
+        "busy": "忙碌",
+        "free": "空闲"
+      },
+      "visibilityLabel": "可见性",
+      "visibility": {
+        "public": "公开",
+        "private": "私密",
+        "confidential": "机密"
+      },
       "errorSummaryRequired": "标题为必填项。",
       "errorCalendarRequired": "请选择一个日历。",
       "errorStartRequired": "开始日期为必填项。",
