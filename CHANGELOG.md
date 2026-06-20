@@ -40,6 +40,7 @@
 - Fixed print feature - [#280](https://github.com/hkdb/aerion/issues/280)
 - Fixed Windows links - [#261](https://github.com/hkdb/aerion/issues/261)
 - Hardened Windows URL/attachment opening - Reported by @freemans32
+- Fixed mail with no body + attachment - [#293](https://github.com/hkdb/aerion/issues/293)
 - Bumped flatpak build to Gnome 50 runtime
 
 

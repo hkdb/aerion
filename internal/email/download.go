@@ -43,6 +43,16 @@ func (d *AttachmentDownloader) ExtractAttachmentContent(raw []byte, targetFilena
 		return d.findAttachmentInMultipart(mr, targetFilename)
 	}
 
+	// Single-part message: the whole entity may itself be the attachment.
+	if getFilename(entity) == targetFilename {
+		content, err := io.ReadAll(entity.Body)
+		if err != nil {
+			return nil, err
+		}
+		transferEncoding := strings.ToLower(entity.Header.Get("Content-Transfer-Encoding"))
+		return decodeContent(content, transferEncoding), nil
+	}
+
 	return nil, fmt.Errorf("attachment not found: %s", targetFilename)
 }
 
