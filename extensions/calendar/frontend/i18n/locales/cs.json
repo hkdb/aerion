@@ -109,7 +109,8 @@
       "organizerEmailInvalid": "Zadejte platnou e-mailovou adresu."
     },
     "toast": {
-      "sourceDeleted": "{name} byl odstraněn"
+      "sourceDeleted": "{name} byl odstraněn",
+      "forceResyncDone": "{name} byl znovu synchronizován"
     },
     "detail": {
       "noTitle": "(bez názvu)",
@@ -165,6 +166,9 @@
       "lastSync": "Synchronizováno před {time}",
       "lastSyncNever": "Nikdy nesynchronizováno",
       "syncNow": "Synchronizovat nyní",
+      "forceResync": "Vynutit resynchronizaci",
+      "forceResyncConfirmTitle": "Vynutit resynchronizaci {name}?",
+      "forceResyncConfirmDescription": "Vymaže uložený stav synchronizace a znovu načte všechny události ze serveru. Použijte, pokud některé události chybí. Může to trvat déle než běžná synchronizace.",
       "deleteConfirmTitle": "Odebrat {name}?",
       "deleteConfirmDescription": "Všechny kalendáře a události z tohoto zdroje budou lokálně odstraněny. Server CalDAV nebude nijak ovlivněn.",
       "defaultsSection": "Výchozí nastavení pro nové události",
@@ -296,6 +300,17 @@
       "descriptionLabel": "Popis",
       "recurrenceLabel": "Opakování",
       "reminderLabel": "Připomenutí",
+      "availabilityLabel": "Zobrazit jako",
+      "availability": {
+        "busy": "Zaneprázdněn",
+        "free": "Volný"
+      },
+      "visibilityLabel": "Viditelnost",
+      "visibility": {
+        "public": "Veřejné",
+        "private": "Soukromé",
+        "confidential": "Důvěrné"
+      },
       "errorSummaryRequired": "Název je povinný.",
       "errorCalendarRequired": "Vyberte prosím kalendář.",
       "errorStartRequired": "Datum začátku je povinné.",
