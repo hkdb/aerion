@@ -109,7 +109,8 @@
       "organizerEmailInvalid": "Geben Sie eine gültige E-Mail-Adresse ein."
     },
     "toast": {
-      "sourceDeleted": "{name} entfernt"
+      "sourceDeleted": "{name} entfernt",
+      "forceResyncDone": "{name} neu synchronisiert"
     },
     "detail": {
       "noTitle": "(kein Titel)",
@@ -165,6 +166,9 @@
       "lastSync": "Vor {time} synchronisiert",
       "lastSyncNever": "Nie synchronisiert",
       "syncNow": "Jetzt synchronisieren",
+      "forceResync": "Synchronisierung erzwingen",
+      "forceResyncConfirmTitle": "Synchronisierung von „{name}“ erzwingen?",
+      "forceResyncConfirmDescription": "Löscht den gespeicherten Synchronisierungsstatus und ruft alle Ereignisse erneut vom Server ab. Verwenden Sie dies, wenn Ereignisse fehlen. Es kann länger dauern als eine normale Synchronisierung.",
       "deleteConfirmTitle": "„{name}“ entfernen?",
       "deleteConfirmDescription": "Alle Kalender und Ereignisse aus dieser Quelle werden lokal gelöscht. Der CalDAV-Server ist davon nicht betroffen.",
       "defaultsSection": "Standardwerte für neue Ereignisse",
@@ -296,6 +300,17 @@
       "descriptionLabel": "Beschreibung",
       "recurrenceLabel": "Wiederholen",
       "reminderLabel": "Erinnerung",
+      "availabilityLabel": "Anzeigen als",
+      "availability": {
+        "busy": "Beschäftigt",
+        "free": "Frei"
+      },
+      "visibilityLabel": "Sichtbarkeit",
+      "visibility": {
+        "public": "Öffentlich",
+        "private": "Privat",
+        "confidential": "Vertraulich"
+      },
       "errorSummaryRequired": "Der Titel ist erforderlich.",
       "errorCalendarRequired": "Bitte wählen Sie einen Kalender aus.",
       "errorStartRequired": "Das Startdatum ist erforderlich.",
