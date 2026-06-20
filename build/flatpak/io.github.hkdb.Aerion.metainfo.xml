@@ -283,6 +283,7 @@
           <li>Fixed separate smtp creds persistence - #270</li>
           <li>Fixed print feature - #280</li>
           <li>Fixed Windows links - #261</li>
+          <li>Hardened Windows URL/attachment opening - Reported by @freemans32</li>
           <li>Bumped flatpak build to Gnome 50 runtime</li>
         </ul>
       </description>

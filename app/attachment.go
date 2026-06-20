@@ -237,7 +237,11 @@ func (a *App) openFile(path string) error {
 	case "darwin":
 		cmd = exec.Command("open", path)
 	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", path)
+		// ShellExecute, not `cmd /c start`: cmd re-parses `&`/`|`/`^` in the
+		// path as command separators, so an attachment filename like
+		// `x&calc.pdf` would inject commands (same class as issue #261).
+		// ShellExecute passes the path as a single arg with no shell re-parse.
+		return platform.OpenPathWindows(path)
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
