@@ -252,7 +252,7 @@
 <!-- Force Re-sync Confirmation Dialog -->
 <ConfirmDialog
   bind:open={showForceSyncConfirm}
-  title={$_('contactSource.forceSyncConfirmTitle')}
+  title={$_('contactSource.forceSyncConfirmTitle', { values: { name: forceSyncTarget?.name || '' } })}
   description={$_('contactSource.forceSyncConfirmDescription', { values: { name: forceSyncTarget?.name || '' } })}
   confirmLabel={$_('contactSource.forceSync')}
   cancelLabel={$_('common.cancel')}
