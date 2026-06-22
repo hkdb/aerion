@@ -1,7 +1,7 @@
 # CHANGELOG
 
 
-**v0.3.0 - 06-16-2026**
+**v0.3.0 - 06-23-2026**
 ---
 
 - Prepared CardDav infra for extensibility

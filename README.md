@@ -106,6 +106,7 @@ Aerion is CASA Tier 2 Certified by Google's preferred [authorized assessor](http
 - 2026-03-11 ~ Microsoft Verified
 - 2026-04-16 ~ CASA Tier 2 Certified
 - 2025-04-25 ~ Google Verified
+- 2026-06-22 ~ Extension System + Contacts + Calendar (ALPHA)
 
 
 ### 🧑🏻‍💻 Roadmap

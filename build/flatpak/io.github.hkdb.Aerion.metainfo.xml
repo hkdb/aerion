@@ -252,7 +252,7 @@
   </provides>
 
   <releases>
-    <release version="0.3.0" date="2026-06-16">
+    <release version="0.3.0" date="2026-06-23">
       <description>
         <ul>
           <li>Prepared CardDav infra for extensibility</li>
