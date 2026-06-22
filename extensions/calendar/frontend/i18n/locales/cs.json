@@ -166,9 +166,9 @@
       "lastSync": "Synchronizováno před {time}",
       "lastSyncNever": "Nikdy nesynchronizováno",
       "syncNow": "Synchronizovat nyní",
-      "forceResync": "Vynutit resynchronizaci",
-      "forceResyncConfirmTitle": "Vynutit resynchronizaci {name}?",
-      "forceResyncConfirmDescription": "Vymaže uložený stav synchronizace a znovu načte všechny události ze serveru. Použijte, pokud některé události chybí. Může to trvat déle než běžná synchronizace.",
+      "forceResync": "Vynutit opětovnou synchronizaci",
+      "forceResyncConfirmTitle": "Vynutit opětovnou synchronizaci {name}?",
+      "forceResyncConfirmDescription": "Vymaže uložený stav synchronizace a znovu načte všechny události ze serveru. Použijte, pokud některé události chybí. Tato operace může trvat déle než běžná synchronizace.",
       "deleteConfirmTitle": "Odebrat {name}?",
       "deleteConfirmDescription": "Všechny kalendáře a události z tohoto zdroje budou lokálně odstraněny. Server CalDAV nebude nijak ovlivněn.",
       "defaultsSection": "Výchozí nastavení pro nové události",
@@ -281,8 +281,8 @@
       "findATimeTitle": "Najít čas, který vyhovuje všem",
       "findATimeDescription": "Kliknutím na časový slot nastavíte začátek události ({tz}).",
       "noData": "(bez údajů)",
-      "busy": "Zaneprázdněn",
-      "free": "Volný"
+      "busy": "Zaneprázdněn(a)",
+      "free": "K dispozici"
     },
     "composer": {
       "titleCreate": "Nová událost",
@@ -300,10 +300,10 @@
       "descriptionLabel": "Popis",
       "recurrenceLabel": "Opakování",
       "reminderLabel": "Připomenutí",
-      "availabilityLabel": "Zobrazit jako",
+      "availabilityLabel": "Zobrazit mě jako",
       "availability": {
-        "busy": "Zaneprázdněn",
-        "free": "Volný"
+        "busy": "Zaneprázdněn(a)",
+        "free": "K dispozici"
       },
       "visibilityLabel": "Viditelnost",
       "visibility": {
