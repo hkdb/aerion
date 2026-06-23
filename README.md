@@ -53,11 +53,14 @@ Although Linux is a first-class citizen here, it also works on:
     - Yahoo 
     - Proton Mail (via Proton Bridge)
     - iCloud Mail 
+    - Mailfence
+    - Murena
     - Fastmail 🧪
     - Zoho Mail 🧪
     - AOL Mail 🧪
     - GMX Mail 
     - Mail.com 🧪
+    - Mailbox.org
 - Unified Inbox (Color Code Accounts)
 - Conversation Threads
 - Basic Removal of Tracking Elements in Mail Content
@@ -69,6 +72,9 @@ Although Linux is a first-class citizen here, it also works on:
 - Auto-Sync when system wakes from suspend
 - Multiple color themes (More to come...)
 - PGP & S/MIME support
+- 1st party extension system with the following shipped:
+    - Calendar (ALPHA) - Disabled by Default
+    - Contacts (ALPHA) - Disabled by Default
 - [Keyboard Shortcuts](docs/KEYBOARD_SHORTCUTS.md)
 
 
@@ -100,6 +106,7 @@ Aerion is CASA Tier 2 Certified by Google's preferred [authorized assessor](http
 - 2026-03-11 ~ Microsoft Verified
 - 2026-04-16 ~ CASA Tier 2 Certified
 - 2025-04-25 ~ Google Verified
+- 2026-06-22 ~ Extension System + Contacts + Calendar (ALPHA)
 
 
 ### 🧑🏻‍💻 Roadmap
@@ -107,9 +114,6 @@ Aerion is CASA Tier 2 Certified by Google's preferred [authorized assessor](http
 
 Confirmed future features:
 
-- Extension/Plugin system with the following shipped disabled:
-    - Calendar
-    - Contacts
 - Post quantum ready encryption
 - Add Mailfence and Startmail templates in add account flow for easier setup
 

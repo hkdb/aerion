@@ -224,12 +224,18 @@
           var images = e.data.images;
           var replaced = 0;
           Object.keys(images).forEach(function(cid) {
-            var img = document.querySelector('img[data-cid="' + cid + '"]');
-            if (img) {
+            // querySelectorAll (not querySelector): a body can legitimately
+            // reference the same cid: from multiple <img> tags — e.g. the
+            // composer emits cid:c1 twice when the user pastes the same
+            // image twice and the dedup collapses both into one inline
+            // attachment. Single-querySelector would leave every <img>
+            // except the first stuck on the loading placeholder.
+            var imgs = document.querySelectorAll('img[data-cid="' + cid + '"]');
+            imgs.forEach(function(img) {
               img.src = images[cid];
               img.removeAttribute('data-cid');
               replaced++;
-            }
+            });
           });
           if (replaced > 0) {
             attachImageHandlers();
@@ -237,6 +243,11 @@
             setTimeout(sendHeight, 150);
             setTimeout(sendHeight, 300);
           }
+        }
+        if (e.data?.type === 'request-print-html') {
+          var clone = document.body.cloneNode(true);
+          clone.querySelectorAll('script').forEach(function(s){ s.remove(); });
+          window.parent.postMessage({ type: 'print-html', html: clone.innerHTML }, '*');
         }
       });
 
@@ -497,6 +508,35 @@ ${processedHtml}
         images: { ...images }
       }, '*')
     }
+  }
+
+  // Returns the message body as printable HTML. The body iframe is sandboxed
+  // WITHOUT allow-same-origin, so its DOM isn't readable from here — instead we
+  // ask the iframe's own script (over the existing postMessage channel) to hand
+  // back its rendered body, with images exactly as displayed (inline resolved,
+  // remote in their loaded/blocked state, so printing fires no trackers). Falls
+  // back to the plain-text render when there's no iframe.
+  export function getPrintableHtml(): Promise<string> {
+    const win = iframeElement?.contentWindow
+    if (!win) {
+      return Promise.resolve(bodyText ? `<div style="white-space:pre-wrap">${linkifyText(bodyText)}</div>` : '')
+    }
+    return new Promise<string>((resolve) => {
+      let settled = false
+      const onMsg = (ev: MessageEvent) => {
+        if (ev.source !== win || ev.data?.type !== 'print-html') return
+        settled = true
+        window.removeEventListener('message', onMsg)
+        resolve(ev.data.html || '')
+      }
+      window.addEventListener('message', onMsg)
+      win.postMessage({ type: 'request-print-html' }, '*')
+      setTimeout(() => {
+        if (settled) return
+        window.removeEventListener('message', onMsg)
+        resolve('')
+      }, 1500)
+    })
   }
 
   function loadImages() {

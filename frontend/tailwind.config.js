@@ -4,6 +4,9 @@ export default {
   content: [
     './src/**/*.{html,js,svelte,ts}',
     './index.html',
+    // Extensions live outside frontend/. Their frontend assets need scanning
+    // so Tailwind's JIT compiler emits the classes they use.
+    '../extensions/**/frontend/**/*.{html,js,svelte,ts}',
   ],
   theme: {
     extend: {

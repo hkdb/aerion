@@ -142,8 +142,9 @@ func (e *Engine) parseMessageBodyInternal(raw []byte, messageID string) *ParsedB
 
 	if mr != nil {
 		e.parseMultipartBody(mr, result, messageID)
-	} else {
-		e.parseSinglePartBody(entity, result)
+	}
+	if mr == nil {
+		e.parseSinglePartBody(entity, result, messageID)
 	}
 
 	e.log.Debug().
@@ -287,7 +288,7 @@ func (e *Engine) parseMultipartBody(mr gomessage.MultipartReader, result *Parsed
 }
 
 // parseSinglePartBody parses a single-part message body
-func (e *Engine) parseSinglePartBody(entity *gomessage.Entity, result *ParsedBody) {
+func (e *Engine) parseSinglePartBody(entity *gomessage.Entity, result *ParsedBody, messageID string) {
 	contentType, params, _ := mime.ParseMediaType(entity.Header.Get("Content-Type"))
 	e.log.Debug().Str("contentType", contentType).Str("charset", params["charset"]).Msg("Processing single-part message")
 
@@ -298,6 +299,23 @@ func (e *Engine) parseSinglePartBody(entity *gomessage.Entity, result *ParsedBod
 		e.log.Warn().Str("cte", cte).Msg("Non-standard Content-Transfer-Encoding in single-part, marking unsafe")
 		result.UnsafeContent = true
 		result.BodyText = "This message uses non-standard encoding and cannot be displayed safely."
+		return
+	}
+
+	// A single-part body can itself be an attachment (e.g. a DMARC report whose whole
+	// body is application/zip). Mirror parseMultipartBody's classification so it becomes a
+	// downloadable attachment instead of raw text dumped into the body.
+	disposition, dispParams, _ := mime.ParseMediaType(entity.Header.Get("Content-Disposition"))
+	contentID := strings.Trim(entity.Header.Get("Content-ID"), "<>")
+	isNonTextBody := contentType != "" && !strings.HasPrefix(contentType, "text/") &&
+		!isSignaturePart(contentType)
+	if disposition == "attachment" || isNonTextBody {
+		result.HasAttachments = true
+		isInline := disposition == "inline" || contentID != ""
+		att := e.extractAttachmentMetadata(entity, messageID, contentType, dispParams, contentID, isInline)
+		if att != nil {
+			result.Attachments = append(result.Attachments, att)
+		}
 		return
 	}
 

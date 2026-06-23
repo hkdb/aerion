@@ -156,6 +156,20 @@ func (db *DB) Path() string {
 	return db.path
 }
 
+// ErrSchemaTooNew is returned by Migrate when the database's recorded migration
+// version is HIGHER than the highest migration this build knows about. This
+// happens when a user downgrades Aerion after a newer version applied a
+// forward-only migration. Callers (App.Startup) surface a friendly dialog
+// pointing the user at docs/SQL_ROLLBACK.md.
+type ErrSchemaTooNew struct {
+	DBVersion    int
+	BuildVersion int
+}
+
+func (e *ErrSchemaTooNew) Error() string {
+	return fmt.Sprintf("database schema version %d is newer than this Aerion build (max known: %d). See https://github.com/hkdb/aerion/blob/main/docs/SQL_ROLLBACK.md", e.DBVersion, e.BuildVersion)
+}
+
 // Migrate runs all pending migrations
 func (db *DB) Migrate() error {
 	// Create migrations table if not exists
@@ -173,6 +187,18 @@ func (db *DB) Migrate() error {
 	err := db.QueryRow("SELECT COALESCE(MAX(version), 0) FROM migrations").Scan(&currentVersion)
 	if err != nil {
 		return fmt.Errorf("failed to get current migration version: %w", err)
+	}
+
+	// Schema-version gate: refuse if the DB was written by a newer Aerion. The
+	// DB has migrations this build doesn't know how to interpret — opening it
+	// would query columns/tables in an unexpected shape and likely corrupt
+	// autocomplete or crash. Surface a typed error the app can catch.
+	maxKnown := 0
+	if len(migrations) > 0 {
+		maxKnown = migrations[len(migrations)-1].Version
+	}
+	if currentVersion > maxKnown {
+		return &ErrSchemaTooNew{DBVersion: currentVersion, BuildVersion: maxKnown}
 	}
 
 	// Apply migrations

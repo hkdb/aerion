@@ -7,140 +7,23 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/emersion/go-vcard"
 	"github.com/emersion/go-webdav"
 	"github.com/emersion/go-webdav/carddav"
+	"github.com/hkdb/aerion/internal/kit/davutil"
 	"github.com/hkdb/aerion/internal/logging"
 	"github.com/rs/zerolog"
 )
 
-// xmlFixTransport wraps an http.RoundTripper to normalize WebDAV XML responses:
-// 1. DAV:getlastmodified — converts numeric timezone offsets (e.g., +0000) to GMT format.
-//    Some servers (e.g., Purelymail) return RFC 1123Z dates which http.ParseTime() cannot parse.
-// 2. DAV:getetag — adds quotes around unquoted ETag values.
-//    Some servers (e.g., mailbox.org) return unquoted ETags which go-webdav's strconv.Unquote() rejects.
-type xmlFixTransport struct {
-	base http.RoundTripper
-}
-
-var getlastmodifiedRe = regexp.MustCompile(
-	`(<[^>]*getlastmodified[^>]*>)\s*([^<]+?)\s*(</[^>]*getlastmodified[^>]*>)`,
-)
-
-var getetagRe = regexp.MustCompile(
-	`(<[^>]*getetag[^>]*>)\s*([^<]+?)\s*(</[^>]*getetag[^>]*>)`,
-)
-
-func (t *xmlFixTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	resp, err := t.base.RoundTrip(req)
-	if err != nil {
-		return resp, err
-	}
-
-	ct := resp.Header.Get("Content-Type")
-	if !strings.Contains(ct, "xml") && !strings.Contains(ct, "text/xml") {
-		return resp, nil
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		return nil, fmt.Errorf("xmlFixTransport: failed to read body: %w", err)
-	}
-
-	// Fix 1: Normalize getlastmodified date formats
-	fixed := getlastmodifiedRe.ReplaceAllFunc(body, func(match []byte) []byte {
-		sub := getlastmodifiedRe.FindSubmatch(match)
-		if len(sub) < 4 {
-			return match
-		}
-		dateStr := strings.TrimSpace(string(sub[2]))
-		return fixDateValue(sub[1], dateStr, sub[3])
-	})
-
-	// Fix 2: Quote unquoted getetag values
-	fixed = getetagRe.ReplaceAllFunc(fixed, func(match []byte) []byte {
-		sub := getetagRe.FindSubmatch(match)
-		if len(sub) < 4 {
-			return match
-		}
-		etagStr := strings.TrimSpace(string(sub[2]))
-		return fixETagValue(sub[1], etagStr, sub[3])
-	})
-
-	resp.Body = io.NopCloser(bytes.NewReader(fixed))
-	resp.ContentLength = int64(len(fixed))
-	return resp, nil
-}
-
-// fixETagValue normalizes an ETag value for go-webdav's strconv.Unquote().
-// Handles: literal quotes, XML-entity-encoded quotes (&quot;), weak ETags (W/), unquoted values.
-// Operates on raw XML bytes (before XML entity resolution).
-func fixETagValue(prefix []byte, etagStr string, suffix []byte) []byte {
-	var buf bytes.Buffer
-	buf.Write(prefix)
-
-	cleaned := etagStr
-
-	// Strip weak ETag prefix if present
-	if strings.HasPrefix(cleaned, "W/") || strings.HasPrefix(cleaned, "w/") {
-		cleaned = cleaned[2:]
-	}
-
-	// Already quoted with literal quotes — leave as-is
-	if strings.HasPrefix(cleaned, `"`) && strings.HasSuffix(cleaned, `"`) && len(cleaned) >= 2 {
-		buf.WriteString(cleaned)
-		buf.Write(suffix)
-		return buf.Bytes()
-	}
-
-	// Quoted with XML-entity-encoded quotes (&quot;...&quot;) — leave as-is
-	// The XML parser will resolve these to literal quotes before go-webdav sees them.
-	if strings.HasPrefix(cleaned, "&quot;") && strings.HasSuffix(cleaned, "&quot;") {
-		buf.WriteString(cleaned)
-		buf.Write(suffix)
-		return buf.Bytes()
-	}
-
-	// Truly unquoted — wrap in literal quotes
-	cleaned = strings.Trim(cleaned, `"`)
-	buf.WriteByte('"')
-	buf.WriteString(cleaned)
-	buf.WriteByte('"')
-	buf.Write(suffix)
-	return buf.Bytes()
-}
-
-// fixDateValue converts an RFC 1123Z date to RFC 1123 (GMT) format.
-// If the value is not RFC 1123Z, it is returned unchanged.
-func fixDateValue(prefix []byte, dateStr string, suffix []byte) []byte {
-	t, err := time.Parse(time.RFC1123Z, dateStr)
-	if err != nil {
-		// Not RFC 1123Z — leave unchanged
-		var buf bytes.Buffer
-		buf.Write(prefix)
-		buf.WriteString(dateStr)
-		buf.Write(suffix)
-		return buf.Bytes()
-	}
-	var buf bytes.Buffer
-	buf.Write(prefix)
-	buf.WriteString(t.UTC().Format(http.TimeFormat))
-	buf.Write(suffix)
-	return buf.Bytes()
-}
-
-// newHTTPClient creates an HTTP client with the XML-fix transport applied.
+// newHTTPClient builds an HTTP client with the WebDAV xmlfix transport
+// applied. Both this package and calendar's CalDAV provider use the same
+// shared shape — see internal/kit/davutil. The local helper stays as a
+// thin alias so existing call sites don't churn.
 func newHTTPClient(timeout time.Duration) *http.Client {
-	base := http.DefaultTransport
-	return &http.Client{
-		Timeout:   timeout,
-		Transport: &xmlFixTransport{base: base},
-	}
+	return davutil.NewHTTPClient(timeout)
 }
 
 // Client wraps the CardDAV client with discovery and convenience methods
@@ -342,8 +225,9 @@ func resolveURL(baseURL, path string) string {
 	return base.ResolveReference(ref).String()
 }
 
-// FetchContacts fetches all contacts from an addressbook
-func (c *Client) FetchContacts(addressbookPath string) ([]ParsedContact, error) {
+// FetchContacts fetches all contacts from an addressbook. Returns one
+// ParsedRecord per vCard (no per-email fan-out).
+func (c *Client) FetchContacts(addressbookPath string) ([]*ParsedRecord, error) {
 	ctx := context.Background()
 	c.log.Debug().Str("path", addressbookPath).Msg("Fetching contacts")
 
@@ -375,76 +259,405 @@ func (c *Client) FetchContacts(addressbookPath string) ([]ParsedContact, error) 
 
 	c.log.Debug().Int("count", len(addressObjects)).Msg("Fetched address objects")
 
-	var contacts []ParsedContact
+	records := make([]*ParsedRecord, 0, len(addressObjects))
 	for _, obj := range addressObjects {
 		parsed := parseVCard(obj)
-		contacts = append(contacts, parsed...)
+		if parsed == nil {
+			continue
+		}
+		records = append(records, parsed)
 	}
 
-	c.log.Info().Int("contacts", len(contacts)).Str("path", addressbookPath).Msg("Parsed contacts from addressbook")
-	return contacts, nil
+	c.log.Info().Int("records", len(records)).Str("path", addressbookPath).Msg("Parsed records from addressbook")
+	return records, nil
 }
 
-// ParsedContact represents a contact parsed from vCard data
-type ParsedContact struct {
-	Href        string
-	ETag        string
-	Email       string
-	DisplayName string
+// ParsedRecord is the full vCard parse result — one ParsedRecord per vCard,
+// carrying all standard fields the Phase 2b.2.a multi-field schema can hold.
+// Replaces the legacy ParsedContact (one-per-email fan-out shape).
+//
+// VCardRaw stores the re-encoded vCard body for round-trip preservation: when
+// 2b.2.b adds write paths, we parse vcard_raw to surface unknown properties
+// and mutate only the known field set.
+type ParsedRecord struct {
+	Href     string
+	ETag     string
+	VCardRaw string
+
+	FN       string
+	NGiven   string
+	NFamily  string
+
+	Emails    []ParsedEmail
+	Phones    []ParsedPhone
+	Addresses []ParsedAddress
+	URLs      []ParsedURL
+	IMPPs     []ParsedIMPP
+
+	Org      string
+	Title    string
+	Note     string
+	Bday     string
+	Nickname string
+
+	Categories []string
+
+	// Photo fields (Phase 2b.2.b.2). Flat-scalar pattern matching Org/Title.
+	// At most one of {PhotoData + PhotoMediaType} OR PhotoURL is populated.
+	PhotoData      string // base64-encoded image bytes (inline embed)
+	PhotoMediaType string // e.g. "image/jpeg"
+	PhotoURL       string // vCard PHOTO URL-ref (not fetched in this phase)
 }
 
-// parseVCard parses a vCard and extracts contacts (one per email address)
-func parseVCard(obj carddav.AddressObject) []ParsedContact {
+// ParsedEmail is one EMAIL property on a vCard, with its first TYPE param.
+type ParsedEmail struct {
+	Value     string
+	Type      string
+	IsPrimary bool
+}
+
+// ParsedPhone is one TEL property.
+type ParsedPhone struct {
+	Value     string
+	Type      string
+	IsPrimary bool
+}
+
+// ParsedAddress is one ADR property, with structured parts.
+type ParsedAddress struct {
+	Type     string
+	Street   string
+	City     string
+	Region   string
+	Postcode string
+	Country  string
+}
+
+// ParsedURL is one URL property.
+type ParsedURL struct {
+	Value string
+	Type  string
+}
+
+// ParsedIMPP is one IMPP (instant-messaging) property.
+type ParsedIMPP struct {
+	Handle string
+	Type   string
+}
+
+// parseVCard returns one ParsedRecord per vCard (no per-email fan-out).
+// Returns nil when the address object has no Card data.
+func parseVCard(obj carddav.AddressObject) *ParsedRecord {
 	if obj.Card == nil {
 		return nil
 	}
-
 	card := obj.Card
 
-	// Get display name
-	displayName := ""
+	rec := &ParsedRecord{
+		Href: obj.Path,
+		ETag: obj.ETag,
+	}
+
+	// FN + N
 	if fn := card.PreferredValue(vcard.FieldFormattedName); fn != "" {
-		displayName = fn
-	} else if n := card.Name(); n != nil {
-		parts := []string{}
-		if n.GivenName != "" {
-			parts = append(parts, n.GivenName)
+		rec.FN = strings.TrimSpace(fn)
+	}
+	if n := card.Name(); n != nil {
+		rec.NGiven = strings.TrimSpace(n.GivenName)
+		rec.NFamily = strings.TrimSpace(n.FamilyName)
+		if rec.FN == "" {
+			parts := []string{}
+			if rec.NGiven != "" {
+				parts = append(parts, rec.NGiven)
+			}
+			if rec.NFamily != "" {
+				parts = append(parts, rec.NFamily)
+			}
+			rec.FN = strings.Join(parts, " ")
 		}
-		if n.FamilyName != "" {
-			parts = append(parts, n.FamilyName)
-		}
-		displayName = strings.Join(parts, " ")
 	}
 
-	// Get all email addresses
-	emails := card.Values(vcard.FieldEmail)
-	if len(emails) == 0 {
-		return nil
-	}
-
-	var contacts []ParsedContact
-	for _, email := range emails {
-		email = strings.TrimSpace(email)
-		if email == "" {
+	// EMAIL (multi)
+	for i, f := range card[vcard.FieldEmail] {
+		val := strings.TrimSpace(f.Value)
+		if val == "" {
 			continue
 		}
-
-		contacts = append(contacts, ParsedContact{
-			Href:        obj.Path,
-			ETag:        obj.ETag,
-			Email:       email,
-			DisplayName: displayName,
+		rec.Emails = append(rec.Emails, ParsedEmail{
+			Value:     val,
+			Type:      firstFieldType(f),
+			IsPrimary: i == 0,
 		})
 	}
 
-	return contacts
+	// TEL (multi)
+	for i, f := range card[vcard.FieldTelephone] {
+		val := strings.TrimSpace(f.Value)
+		if val == "" {
+			continue
+		}
+		rec.Phones = append(rec.Phones, ParsedPhone{
+			Value:     val,
+			Type:      firstFieldType(f),
+			IsPrimary: i == 0,
+		})
+	}
+
+	// ADR (multi, structured)
+	for _, addr := range card.Addresses() {
+		t := ""
+		if addr.Field != nil {
+			t = firstFieldType(addr.Field)
+		}
+		rec.Addresses = append(rec.Addresses, ParsedAddress{
+			Type:     t,
+			Street:   strings.TrimSpace(addr.StreetAddress),
+			City:     strings.TrimSpace(addr.Locality),
+			Region:   strings.TrimSpace(addr.Region),
+			Postcode: strings.TrimSpace(addr.PostalCode),
+			Country:  strings.TrimSpace(addr.Country),
+		})
+	}
+
+	// URL (multi)
+	for _, f := range card[vcard.FieldURL] {
+		val := strings.TrimSpace(f.Value)
+		if val == "" {
+			continue
+		}
+		rec.URLs = append(rec.URLs, ParsedURL{Value: val, Type: firstFieldType(f)})
+	}
+
+	// IMPP (multi)
+	for _, f := range card[vcard.FieldIMPP] {
+		val := strings.TrimSpace(f.Value)
+		if val == "" {
+			continue
+		}
+		rec.IMPPs = append(rec.IMPPs, ParsedIMPP{Handle: val, Type: firstFieldType(f)})
+	}
+
+	// Single-value scalars.
+	rec.Org = strings.TrimSpace(card.PreferredValue(vcard.FieldOrganization))
+	rec.Title = strings.TrimSpace(card.PreferredValue(vcard.FieldTitle))
+	rec.Note = strings.TrimSpace(card.PreferredValue(vcard.FieldNote))
+	rec.Bday = strings.TrimSpace(card.PreferredValue(vcard.FieldBirthday))
+	rec.Nickname = strings.TrimSpace(card.PreferredValue(vcard.FieldNickname))
+
+	// CATEGORIES (multi).
+	rec.Categories = card.Categories()
+
+	// PHOTO — single-value field with two possible shapes:
+	//   - Inline base64: vCard 3.0 dialect is `PHOTO;ENCODING=b;TYPE=JPEG:<base64>`
+	//     (the encoding param can be "b", "B", or "base64"; the TYPE is the
+	//     image format). vCard 4.0 dialect is a data URI:
+	//     `PHOTO:data:image/jpeg;base64,<base64>`.
+	//   - URL ref: `PHOTO;VALUE=URI:http://...` (vCard 3) or
+	//     `PHOTO:http://...` (vCard 4).
+	// We populate PhotoData + PhotoMediaType for inline OR PhotoURL for refs.
+	// All-empty = no photo. URL-ref photos are parsed but not fetched in this
+	// phase — Avatar falls back to initials with a "(linked from server)" caption.
+	if pf := card.Get(vcard.FieldPhoto); pf != nil {
+		val := strings.TrimSpace(pf.Value)
+		if val != "" {
+			isBase64Encoding := false
+			if pf.Params != nil {
+				enc := strings.ToLower(strings.TrimSpace(pf.Params.Get("ENCODING")))
+				if enc == "b" || enc == "base64" {
+					isBase64Encoding = true
+				}
+				// vCard 4.0 uses MEDIATYPE or VALUE=URI rather than ENCODING=b.
+				if v := strings.ToLower(strings.TrimSpace(pf.Params.Get("VALUE"))); v == "uri" {
+					rec.PhotoURL = val
+				}
+			}
+			if rec.PhotoURL == "" {
+				switch {
+				case strings.HasPrefix(val, "data:") && strings.Contains(val, ";base64,"):
+					// vCard 4.0 data URI: data:image/jpeg;base64,<base64>
+					idx := strings.Index(val, ";base64,")
+					mediaType := strings.TrimPrefix(val[:idx], "data:")
+					rec.PhotoMediaType = strings.TrimSpace(mediaType)
+					rec.PhotoData = strings.TrimSpace(val[idx+len(";base64,"):])
+				case strings.HasPrefix(val, "http://") || strings.HasPrefix(val, "https://"):
+					// Bare URL value (no VALUE=URI param needed).
+					rec.PhotoURL = val
+				case isBase64Encoding:
+					// vCard 3.0 inline: TYPE param carries the format suffix.
+					rec.PhotoData = val
+					if pf.Params != nil {
+						if t := strings.TrimSpace(pf.Params.Get("TYPE")); t != "" {
+							rec.PhotoMediaType = "image/" + strings.ToLower(t)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Re-encode the card for vcard_raw round-trip preservation.
+	var buf bytes.Buffer
+	if err := vcard.NewEncoder(&buf).Encode(card); err == nil {
+		rec.VCardRaw = buf.String()
+	}
+
+	return rec
+}
+
+// firstFieldType returns the first TYPE parameter on a Field (lowercased so
+// downstream consumers don't deal with HOME vs home variance). Returns "" when
+// the field has no TYPE param.
+func firstFieldType(f *vcard.Field) string {
+	if f == nil || f.Params == nil {
+		return ""
+	}
+	types := f.Params.Types()
+	if len(types) == 0 {
+		return ""
+	}
+	return strings.ToLower(types[0])
+}
+
+// ErrPreconditionFailed signals a CardDAV PUT/DELETE 412 — the server's
+// current ETag for the resource doesn't match the If-Match header we sent.
+// Callers (the extension API) re-fetch the server's current state and surface
+// a typed conflict event to the UI rather than discarding the user's edit
+// silently.
+type ErrPreconditionFailed struct {
+	Href       string
+	ServerETag string // best-effort: server may not send a new ETag with the 412
+}
+
+func (e *ErrPreconditionFailed) Error() string {
+	return fmt.Sprintf("carddav: precondition failed for %s (server etag: %q)", e.Href, e.ServerETag)
+}
+
+// PutContact writes a vCard to the server at href under the given addressbook
+// path. If-Match honors the caller-supplied ETag (exact match — 412 on
+// mismatch). Returns the server's new ETag from the response (best-effort —
+// returns "" if the server doesn't echo one; the next sync will pick it up).
+//
+// addressbookPath should be the addressbook's path relative to the base URL
+// (the same value stored on contact_source_addressbooks.path). href is the
+// full vCard resource path (typically "<addressbookPath>/<uuid>.vcf").
+//
+// Reuses the existing httpClient + basic-auth wrapping established at client
+// construction so xmlFixTransport normalization applies to any error-body
+// XML, and basic auth flows through automatically.
+func (c *Client) PutContact(addressbookPath, href, ifMatchETag string, ifNoneMatchAny bool, card []byte) (string, error) {
+	fullURL := resolveURL(c.baseURL, href)
+	httpClient := webdav.HTTPClientWithBasicAuth(
+		newHTTPClient(60*time.Second),
+		c.username, c.password,
+	)
+
+	req, err := http.NewRequest(http.MethodPut, fullURL, bytes.NewReader(card))
+	if err != nil {
+		return "", fmt.Errorf("build PUT request: %w", err)
+	}
+	req.Header.Set("Content-Type", "text/vcard; charset=utf-8")
+	// Create-not-update semantics (ifNoneMatchAny) and update-with-exact-etag
+	// semantics (ifMatchETag) are mutually exclusive — callers should pass one
+	// or neither, never both. If both are set, If-Match wins to match the
+	// historical update behavior.
+	if ifMatchETag != "" {
+		req.Header.Set("If-Match", quotedETag(ifMatchETag))
+	} else if ifNoneMatchAny {
+		req.Header.Set("If-None-Match", "*")
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("PUT %s: %w", fullURL, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusPreconditionFailed {
+		return "", &ErrPreconditionFailed{Href: href, ServerETag: resp.Header.Get("ETag")}
+	}
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return "", fmt.Errorf("PUT %s: unexpected status %d: %s", fullURL, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return strings.Trim(resp.Header.Get("ETag"), `"`), nil
+}
+
+// DeleteContact removes a vCard from the server at href. If-Match honors
+// the caller-supplied ETag (exact match — 412 on mismatch). 204 / 200 / 404
+// all count as success (404 is idempotent — the resource is gone either way).
+func (c *Client) DeleteContact(addressbookPath, href, ifMatchETag string) error {
+	fullURL := resolveURL(c.baseURL, href)
+	httpClient := webdav.HTTPClientWithBasicAuth(
+		newHTTPClient(60*time.Second),
+		c.username, c.password,
+	)
+
+	req, err := http.NewRequest(http.MethodDelete, fullURL, nil)
+	if err != nil {
+		return fmt.Errorf("build DELETE request: %w", err)
+	}
+	if ifMatchETag != "" {
+		req.Header.Set("If-Match", quotedETag(ifMatchETag))
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("DELETE %s: %w", fullURL, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusPreconditionFailed {
+		return &ErrPreconditionFailed{Href: href, ServerETag: resp.Header.Get("ETag")}
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		// Already gone — treat as success (idempotent).
+		return nil
+	}
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("DELETE %s: unexpected status %d: %s", fullURL, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
+}
+
+// FetchContactByPath fetches a single vCard from the server by its href via
+// addressbook-multiget. Used by the 412-recovery path: after a precondition
+// failure we re-fetch the server's current state, sync locally, and surface
+// the conflict to the UI.
+func (c *Client) FetchContactByPath(addressbookPath, href string) (*ParsedRecord, error) {
+	fullPath := resolveURL(c.baseURL, addressbookPath)
+	httpClient := webdav.HTTPClientWithBasicAuth(
+		newHTTPClient(60*time.Second),
+		c.username, c.password,
+	)
+	abClient, err := carddav.NewClient(httpClient, fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("build addressbook client: %w", err)
+	}
+	records, err := c.fetchContactsByPath(abClient, addressbookPath, []string{href})
+	if err != nil {
+		return nil, err
+	}
+	if len(records) == 0 {
+		return nil, nil
+	}
+	return records[0], nil
+}
+
+// quotedETag ensures the ETag value is wrapped in literal quotes, the form
+// required by RFC 7232 If-Match. Strips any existing surrounding quotes first
+// so re-quoting is idempotent.
+func quotedETag(etag string) string {
+	etag = strings.TrimSpace(etag)
+	etag = strings.Trim(etag, `"`)
+	return `"` + etag + `"`
 }
 
 // SyncResult represents the result of an incremental sync
 type SyncResult struct {
 	SyncToken string          // New sync token to store
-	Updated   []ParsedContact // Contacts that were added/modified
-	Deleted   []string        // Hrefs of contacts that were deleted
+	Updated   []*ParsedRecord // Records that were added/modified (one entry per vCard)
+	Deleted   []string        // Hrefs of records that were deleted
 }
 
 // SyncAddressbook performs an incremental sync using sync-collection
@@ -510,23 +723,27 @@ func (c *Client) SyncAddressbook(addressbookPath, syncToken string) (*SyncResult
 		}
 
 		if hasCardData {
-			// Parse contacts directly from sync response
+			// Parse records directly from sync response.
 			for _, obj := range syncResp.Updated {
 				parsed := parseVCard(obj)
-				result.Updated = append(result.Updated, parsed...)
+				if parsed == nil {
+					continue
+				}
+				result.Updated = append(result.Updated, parsed)
 			}
-		} else {
-			// Need to fetch full card data using multiget
+		}
+		if !hasCardData {
+			// Need to fetch full card data using multiget.
 			paths := make([]string, len(syncResp.Updated))
 			for i, obj := range syncResp.Updated {
 				paths[i] = obj.Path
 			}
 
-			contacts, err := c.fetchContactsByPath(abClient, addressbookPath, paths)
+			records, err := c.fetchContactsByPath(abClient, addressbookPath, paths)
 			if err != nil {
-				return nil, fmt.Errorf("failed to fetch updated contacts: %w", err)
+				return nil, fmt.Errorf("failed to fetch updated records: %w", err)
 			}
-			result.Updated = contacts
+			result.Updated = records
 		}
 	}
 
@@ -539,8 +756,9 @@ func (c *Client) SyncAddressbook(addressbookPath, syncToken string) (*SyncResult
 	return result, nil
 }
 
-// fetchContactsByPath fetches contacts by their paths using addressbook-multiget
-func (c *Client) fetchContactsByPath(client *carddav.Client, addressbookPath string, paths []string) ([]ParsedContact, error) {
+// fetchContactsByPath fetches records by their paths using addressbook-multiget.
+// Returns one ParsedRecord per vCard.
+func (c *Client) fetchContactsByPath(client *carddav.Client, addressbookPath string, paths []string) ([]*ParsedRecord, error) {
 	if len(paths) == 0 {
 		return nil, nil
 	}
@@ -548,7 +766,7 @@ func (c *Client) fetchContactsByPath(client *carddav.Client, addressbookPath str
 	ctx := context.Background()
 	c.log.Debug().
 		Int("count", len(paths)).
-		Msg("Fetching contacts by path using multiget")
+		Msg("Fetching records by path using multiget")
 
 	multiGet := &carddav.AddressBookMultiGet{
 		Paths: paths,
@@ -562,13 +780,15 @@ func (c *Client) fetchContactsByPath(client *carddav.Client, addressbookPath str
 		return nil, fmt.Errorf("multiget failed: %w", err)
 	}
 
-	var contacts []ParsedContact
+	records := make([]*ParsedRecord, 0, len(addressObjects))
 	for _, obj := range addressObjects {
 		parsed := parseVCard(obj)
-		contacts = append(contacts, parsed...)
+		if parsed == nil {
+			continue
+		}
+		records = append(records, parsed)
 	}
-
-	return contacts, nil
+	return records, nil
 }
 
 // TestConnection tests the connection to the CardDAV server

@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/hkdb/aerion/internal/account"
-	"github.com/hkdb/aerion/internal/carddav"
 	"github.com/hkdb/aerion/internal/certificate"
 	"github.com/hkdb/aerion/internal/contact"
 	"github.com/hkdb/aerion/internal/credentials"
 	"github.com/hkdb/aerion/internal/database"
 	"github.com/hkdb/aerion/internal/draft"
+	"github.com/hkdb/aerion/internal/email"
 	"github.com/hkdb/aerion/internal/folder"
 	"github.com/hkdb/aerion/internal/imap"
 	"github.com/hkdb/aerion/internal/ipc"
@@ -168,23 +168,9 @@ func (c *ComposerApp) Startup(ctx context.Context) {
 		}
 	}()
 
-	// Initialize CardDAV search for contact autocomplete (reads from shared DB)
-	carddavStore := carddav.NewStore(db.DB)
-	c.contactStore.SetCardDAVSearchFunc(func(query string, limit int) ([]*contact.Contact, error) {
-		contacts, err := carddavStore.SearchContacts(query, limit)
-		if err != nil {
-			return nil, err
-		}
-		result := make([]*contact.Contact, len(contacts))
-		for i, cdContact := range contacts {
-			result[i] = &contact.Contact{
-				Email:       cdContact.Email,
-				DisplayName: cdContact.DisplayName,
-				Source:      "carddav",
-			}
-		}
-		return result, nil
-	})
+	// Removed in 2b.2.a: contactStore.Search now natively walks both local and
+	// carddav contacts via the unified contact_records schema. The carddav
+	// store and search-bridge wiring is no longer needed here.
 
 	c.draftStore = draft.NewStore(db)
 	c.settingsStore = settings.NewStore(db)
@@ -954,16 +940,24 @@ func (c *ComposerApp) buildReplyMessage(msg *message.Message, mode string) *smtp
 		sender = msg.FromName + " <" + msg.FromEmail + ">"
 	}
 
+	// Plaintext quote source: prefer the original's text part, but fall back to
+	// deriving it from HTML so HTML-only originals still produce a real quote
+	// (msg.BodyText is empty for HTML-only mail).
+	quotedText := msg.BodyText
+	if strings.TrimSpace(quotedText) == "" && msg.BodyHTML != "" {
+		quotedText = email.ExtractPlainTextFromHTML(msg.BodyHTML)
+	}
+
 	var htmlBody, textBody string
 	if mode == "forward" {
 		htmlBody = fmt.Sprintf("<br><br>---------- Forwarded message ----------<br>From: %s<br>Subject: %s<br>Date: %s<br>To: %s<br><br>%s",
 			escapeHTML(sender), escapeHTML(msg.Subject), escapeHTML(dateStr), escapeHTML(msg.ToList), msg.BodyHTML)
 		textBody = fmt.Sprintf("\n\n---------- Forwarded message ----------\nFrom: %s\nSubject: %s\nDate: %s\nTo: %s\n\n%s",
-			sender, msg.Subject, dateStr, msg.ToList, msg.BodyText)
+			sender, msg.Subject, dateStr, msg.ToList, quotedText)
 	} else {
 		citation := fmt.Sprintf("On %s, %s wrote:", dateStr, sender)
 		htmlBody = fmt.Sprintf("<br><br>%s<br><blockquote type=\"cite\">%s</blockquote>", escapeHTML(citation), msg.BodyHTML)
-		textBody = fmt.Sprintf("\n\n%s\n%s", citation, quoteText(msg.BodyText))
+		textBody = fmt.Sprintf("\n\n%s\n%s", citation, quoteText(quotedText))
 	}
 
 	return &smtp.ComposeMessage{

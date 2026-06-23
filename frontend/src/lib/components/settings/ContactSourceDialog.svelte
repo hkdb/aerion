@@ -44,6 +44,7 @@
   let password = $state('')
   let syncInterval = $state(60)
 
+
   // Discovery state
   let discovering = $state(false)
   let discoveredAddressbooks = $state<carddav.AddressbookInfo[]>([])
@@ -122,7 +123,7 @@
         loadExistingAddressbooks()
       }
     } else if (open && !editSource) {
-      // Reset for new source
+      // Reset for new source.
       name = ''
       url = ''
       username = ''
@@ -302,6 +303,12 @@
           username,
           password,
           enabled: true,
+          // New CardDAV sources default to writable=true at creation. Users
+          // toggle off later via Contacts extension settings → Write Access.
+          // UpdateSource ignores this field on edits, so it doesn't clobber
+          // an existing source's flag — the extension settings is the only
+          // place that actually changes it post-create.
+          writable: true,
           sync_interval: syncInterval,
           enabled_addressbooks: Array.from(selectedAddressbooks),
         }
@@ -309,14 +316,17 @@
         if (editSource) {
           await UpdateContactSource(editSource.id, config)
           addToast({ type: 'success', message: $_('toast.contactSourceUpdated') })
-        } else {
+        }
+        if (!editSource) {
           await AddContactSource(config)
           addToast({ type: 'success', message: $_('toast.contactSourceAdded') })
         }
-      } else {
+      }
+      if (sourceType !== 'carddav') {
         // Google or Microsoft source
         if (editSource && isEditingOAuthSource) {
-          // Editing existing OAuth source - just update name and sync interval
+          // Editing existing OAuth source — name + sync interval only.
+          // Writable is managed in Contacts extension settings, not here.
           const config = {
             name,
             type: editSource.type as 'google' | 'microsoft',
@@ -324,6 +334,9 @@
             username: '',
             password: '',
             enabled: true,
+            // Preserve existing writable; UpdateSource ignores this field
+            // anyway but keep the config shape correct.
+            writable: !!editSource.writable,
             sync_interval: syncInterval,
             enabled_addressbooks: [],
           }
@@ -420,7 +433,10 @@
       </Tabs.Root>
     {/if}
 
-    <div class="space-y-4 py-4">
+    <!-- Body scroll wrapper. Without max-h + overflow, mobile viewports can't
+         reach the footer Save/Cancel. Footer stays outside this div so it
+         stays pinned at the bottom regardless of body scroll position. -->
+    <div class="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-1">
       {#if sourceType === 'carddav'}
         <!-- CardDAV Form -->
         <div class="space-y-2">
@@ -527,6 +543,11 @@
               </Select.Content>
             </Select.Root>
           </div>
+
+          <!-- Writable toggle moved out of the source-edit dialog into the
+               Contacts extension settings (Settings → Extensions → Contacts
+               → Write Access) for symmetric Enable/Disable + OAuth-consent
+               handling across all source types. -->
         {/if}
 
       {:else}
@@ -557,6 +578,11 @@
               </Select.Content>
             </Select.Root>
           </div>
+
+          <!-- Writable toggle lives in the Contacts extension settings now
+               (Settings → Extensions → Contacts → Write Access). Same UI
+               handles both enable (CardDAV: flag flip; Google/MS: OAuth
+               consent) and disable for all source types. -->
 
         {:else}
           <!-- New OAuth source -->

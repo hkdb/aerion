@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/emersion/go-imap/v2"
@@ -103,7 +104,7 @@ func NewClient(config ClientConfig) *Client {
 
 // Connect establishes a connection to the IMAP server and logs in
 func (c *Client) Connect() error {
-	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
+	addr := net.JoinHostPort(c.config.Host, strconv.Itoa(c.config.Port))
 
 	c.log.Debug().
 		Str("host", c.config.Host).
@@ -601,6 +602,19 @@ func (c *Client) SelectMailbox(ctx context.Context, name string) (*Mailbox, erro
 
 	c.log.Debug().Str("mailbox", name).Msg("Selecting mailbox")
 
+	// Enable CONDSTORE on SELECT when the server supports it. This makes the
+	// server report HIGHESTMODSEQ in the SELECT response and lets subsequent
+	// FETCH (CHANGEDSINCE) calls return only the UIDs whose flags changed
+	// since the last sync — instead of fetching flags for every UID every
+	// cycle (which scales O(mailbox-size) per sync).
+	// Per RFC 7162 §3.1, enabling CONDSTORE without a follow-up CHANGEDSINCE/
+	// UNCHANGEDSINCE is a no-op on the wire — so this is safe for every
+	// caller of SelectMailbox, not just the flag-sync path.
+	var selectOpts *imap.SelectOptions
+	if c.SupportsCondStore() {
+		selectOpts = &imap.SelectOptions{CondStore: true}
+	}
+
 	// Run Wait() in a goroutine to allow context cancellation
 	type selectResult struct {
 		data *imap.SelectData
@@ -608,7 +622,7 @@ func (c *Client) SelectMailbox(ctx context.Context, name string) (*Mailbox, erro
 	}
 	resultCh := make(chan selectResult, 1)
 	go func() {
-		data, err := c.client.Select(name, nil).Wait()
+		data, err := c.client.Select(name, selectOpts).Wait()
 		resultCh <- selectResult{data, err}
 	}()
 

@@ -272,6 +272,8 @@
     "settingsSaved": "Settings saved",
     "undone": "Undone: {description}",
     "contactSourceSynced": "Contact source synced",
+    "contactSourceForceSynced": "Contact source re-synced from server",
+    "contactSourceForceSyncFailed": "Force re-sync failed",
     "contactSourceDeleted": "Contact source deleted",
     "contactSourceAdded": "Contact source added",
     "contactSourceUpdated": "Contact source updated",
@@ -327,6 +329,16 @@
     "accounts": "Accounts",
     "contacts": "Contacts",
     "about": "About",
+    "extensions": "Extensions",
+    "extensionsCoreHeading": "Core extensions",
+    "extensionsCoreDescription": "Built-in extensions you can enable or disable.",
+    "extensionsEnabled": "Enabled",
+    "extensionsDisabled": "Disabled",
+    "extensionsEnable": "Enable",
+    "extensionsDisable": "Disable",
+    "extensionsCapabilities": "Capabilities",
+    "extensionsVersion": "Version",
+    "extensionsNone": "No extensions are available in this build.",
     "images": "Images",
     "composer": "Composer",
     "composerMode": "Default compose mode",
@@ -411,7 +423,8 @@
     "addAccount": "Add Account",
     "moveUp": "Move up",
     "moveDown": "Move down",
-    "editAccount": "Edit account"
+    "editAccount": "Edit account",
+    "deleteAccount": "Delete account"
   },
   "settingsAbout": {
     "version": "Version {version}",
@@ -538,9 +551,20 @@
     "emailRequired": "Email is required",
     "invalidEmail": "Invalid email format",
     "passwordRequired": "Password is required",
+    "usernameRequired": "Username is required",
     "imapHostRequired": "IMAP host is required",
     "smtpHostRequired": "SMTP host is required",
     "invalidPort": "Invalid port",
+    "noOutgoingServer": "No outgoing server",
+    "noOutgoingServerHelp": "Disables sending for this account. The address won't appear in the composer's From dropdown. Replies on messages received here use your selected identity or default sending account.",
+    "replyForwardWith": "Reply/Forward with",
+    "replyForwardWithHelp": "Identity to pre-select in the composer when replying to or forwarding messages received here.",
+    "replyForwardWithDefault": "Default sending account",
+    "smtpAuthentication": "SMTP authentication",
+    "smtpUseSameAsIncoming": "Same as incoming server",
+    "smtpUsernamePlaceholder": "smtp-user@example.com",
+    "smtpPasswordPlaceholder": "SMTP password",
+    "smtpCredsNote": "If you set a different username and password for SMTP, you can modify it in the \"SMTP authentication\" section in the \"Server\" tab.",
     "trustedCertificates": "Trusted Certificates",
     "trustedCertsHelp": "Manually trusted TLS certificates for this account's servers.",
     "loadingCerts": "Loading certificates...",
@@ -707,6 +731,9 @@
     "editSource": "Edit Contact Source",
     "deleteTitle": "Delete Contact Source",
     "deleteConfirmName": "Delete \"{name}\"? This will remove all synced contacts from this source.",
+    "forceSync": "Force re-sync",
+    "forceSyncConfirmTitle": "Force re-sync \"{name}\"?",
+    "forceSyncConfirmDescription": "Re-fetch every contact from \"{name}\" from the server. This backfills fields (phone, address, organization, notes, etc.) that may be missing for contacts originally synced under an older Aerion version. May take a few minutes for large addressbooks.",
     "name": "Name",
     "namePlaceholder": "e.g., Nextcloud, Work, Personal",
     "serverUrl": "Server URL",
@@ -746,7 +773,9 @@
     "update": "Update",
     "linked": "linked",
     "autoName": "{name} Contacts",
-    "minutesFallback": "{value} minutes"
+    "minutesFallback": "{value} minutes",
+    "enableWriteAccess": "Enable write access to this source",
+    "enableWriteAccessDescription": "Allow editing, creating, and deleting contacts on this CardDAV server. Uses the credentials above."
   },
   "certificate": {
     "title": "Untrusted Certificate",
@@ -771,6 +800,13 @@
     "termsOfUse": "Terms of Use",
     "agreeLabel": "I have read and agree to the Terms of Use and Privacy Policy",
     "accept": "Accept & Continue"
+  },
+  "oauthMissing": {
+    "title": "OAuth credentials missing",
+    "intro": "This build is missing Aerion OAuth credentials for:",
+    "implication": "This means the providers that have missing credentials will not work properly. This is likely because you did not install Aerion from an official source.",
+    "installInstruction": "To install Aerion from an official source, see:",
+    "dontShowAgain": "Don't show this again"
   },
   "dialog": {
     "deletePermanently": "Delete Permanently?",
@@ -880,5 +916,20 @@
     "noDomains": "No domains in the allowlist. Use \"Always Load > For domain\" in the email viewer to add domains.",
     "removeButton": "Remove from allowlist",
     "removed": "Removed from allowlist"
+  },
+  "oauth": {
+    "writeAccessPicker": {
+      "title": "Enable write access",
+      "description": "Choose the {provider} account to authorize for write access on {sourceName}.",
+      "providerGoogle": "Google",
+      "providerMicrosoft": "Microsoft",
+      "loadFailed": "Failed to load accounts: {message}",
+      "emptyHeading": "No {provider} accounts found.",
+      "emptyHint": "Add a {provider} account in Mail (Settings → Accounts) or Contacts (Settings → Contacts → Add source) first, then return here.",
+      "cancel": "Cancel",
+      "continue": "Continue",
+      "successToast": "Write access enabled for {name}",
+      "failureToast": "Failed to enable write access: {message}"
+    }
   }
 }

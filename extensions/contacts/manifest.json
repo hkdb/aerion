@@ -1,0 +1,22 @@
+{
+  "id": "contacts",
+  "name": "Contacts",
+  "version": "0.1.0",
+  "description": "Browse and edit contacts from your accounts (CardDAV, Google, Microsoft). Local-contact editing in v0.3.x; provider write capability rolling out incrementally.",
+  "author": "Aerion",
+  "minAerionVersion": "0.3.0",
+  "capabilities": [
+    "contacts.read",
+    "contacts.write",
+    "ui.rail-tab",
+    "ui.account-setup-hook",
+    "ui.settings-tab"
+  ],
+  "oauth": {
+    "first_party_uses_core_for_scopes": [
+      "https://www.googleapis.com/auth/contacts.readonly",
+      "Contacts.Read",
+      "Contacts.ReadBasic"
+    ]
+  }
+}

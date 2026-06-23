@@ -47,6 +47,21 @@ func (a *App) AddAccount(config account.AccountConfig) (*account.Account, error)
 		}
 	}
 
+	// Store SMTP-specific password when the account uses separate SMTP
+	// credentials (signalled by a non-empty SMTPUsername). Empty
+	// SMTPPassword is silently ignored — "Same as incoming server" keeps
+	// the SMTP keyring slot empty so the send path falls through to the
+	// IMAP password.
+	if config.SMTPUsername != "" && config.SMTPPassword != "" {
+		if err := a.credStore.SetSMTPPassword(acc.ID, config.SMTPPassword); err != nil {
+			log.Error().Err(err).Str("account_id", acc.ID).Msg("Failed to store SMTP password")
+			if delErr := a.accountStore.Delete(acc.ID); delErr != nil {
+				log.Warn().Err(delErr).Str("account_id", acc.ID).Msg("Failed to roll back account after SMTP password storage failure")
+			}
+			return nil, fmt.Errorf("failed to store SMTP password: %w", err)
+		}
+	}
+
 	// Scale database connection pool for new account
 	a.updateDBConnectionPool()
 
@@ -215,6 +230,21 @@ func (a *App) UpdateAccount(id string, config account.AccountConfig) (*account.A
 		if err := a.credStore.SetPassword(id, config.Password); err != nil {
 			log.Error().Err(err).Str("account_id", id).Msg("Failed to update password")
 			return nil, fmt.Errorf("failed to update password: %w", err)
+		}
+	}
+
+	// Update SMTP-specific password. SMTPUsername=="" means "Same as
+	// incoming server" — drop any previously stored SMTP password so the
+	// send path falls through to the IMAP credential. SMTPUsername!=""
+	// with a non-empty SMTPPassword writes the new value; blank password
+	// on edit means "keep the existing one."
+	if config.SMTPUsername == "" {
+		_ = a.credStore.DeleteSMTPPassword(id)
+	}
+	if config.SMTPUsername != "" && config.SMTPPassword != "" {
+		if err := a.credStore.SetSMTPPassword(id, config.SMTPPassword); err != nil {
+			log.Error().Err(err).Str("account_id", id).Msg("Failed to update SMTP password")
+			return nil, fmt.Errorf("failed to update SMTP password: %w", err)
 		}
 	}
 

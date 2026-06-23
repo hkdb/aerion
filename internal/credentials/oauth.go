@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hkdb/aerion/internal/oauth2"
 	gokeyring "github.com/zalando/go-keyring"
 )
 
@@ -17,6 +18,7 @@ type OAuthTokens struct {
 	ExpiresAt    time.Time `json:"expiresAt"`    // Stored in DB
 	Scopes       []string  `json:"scopes"`       // Stored in DB
 }
+
 
 // IsExpired returns true if the access token has expired
 func (t *OAuthTokens) IsExpired() bool {
@@ -50,15 +52,22 @@ func (s *Store) SetOAuthTokens(accountID string, tokens *OAuthTokens) error {
 		return fmt.Errorf("failed to marshal scopes: %w", err)
 	}
 
+	// Derive client_config_id from provider for legacy callers. New code paths
+	// should use SetOAuthTokensForClientConfig for explicit selection.
+	clientConfigID := oauth2.ClientConfigIDForProvider(tokens.Provider)
+	if clientConfigID == "" {
+		return fmt.Errorf("cannot derive client_config_id for provider %q", tokens.Provider)
+	}
+
 	_, err = s.db.Exec(`
-		INSERT INTO oauth_tokens (account_id, provider, expires_at, scopes, updated_at)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-		ON CONFLICT(account_id) DO UPDATE SET
+		INSERT INTO oauth_tokens (account_id, client_config_id, provider, expires_at, scopes, updated_at)
+		VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(account_id, client_config_id) DO UPDATE SET
 			provider = excluded.provider,
 			expires_at = excluded.expires_at,
 			scopes = excluded.scopes,
 			updated_at = CURRENT_TIMESTAMP
-	`, accountID, tokens.Provider, tokens.ExpiresAt, string(scopesJSON))
+	`, accountID, clientConfigID, tokens.Provider, tokens.ExpiresAt, string(scopesJSON))
 
 	if err != nil {
 		return fmt.Errorf("failed to store OAuth metadata: %w", err)
@@ -73,7 +82,18 @@ func (s *Store) SetOAuthTokens(accountID string, tokens *OAuthTokens) error {
 	return nil
 }
 
-// GetOAuthTokens retrieves OAuth tokens for an account
+// GetOAuthTokens retrieves the mail OAuth tokens for an account.
+//
+// This is the legacy single-config accessor that predates the per-(account,
+// client_config) token storage. Today there can be multiple oauth_tokens rows
+// per account (one per slot — google-mail, google-contacts, google-calendar,
+// etc.), so we filter to the canonical mail slot here. Callers that need a
+// specific extension slot should use GetOAuthTokensForClientConfig.
+//
+// Without this filter the Scan would pick whichever row SQLite returned first
+// and the provider column would hold an extension slot ID
+// (e.g. "google-calendar"), which then breaks downstream provider routing in
+// the Auth Broker.
 func (s *Store) GetOAuthTokens(accountID string) (*OAuthTokens, error) {
 	// Get metadata from database
 	var provider string
@@ -84,6 +104,7 @@ func (s *Store) GetOAuthTokens(accountID string) (*OAuthTokens, error) {
 		SELECT provider, expires_at, scopes
 		FROM oauth_tokens
 		WHERE account_id = ?
+		  AND client_config_id IN ('google-mail', 'microsoft-mail')
 	`, accountID).Scan(&provider, &expiresAt, &scopesJSON)
 
 	if err == sql.ErrNoRows {
@@ -153,17 +174,21 @@ func (s *Store) DeleteOAuthTokens(accountID string) error {
 }
 
 // UpdateOAuthAccessToken updates just the access token and expiry (after refresh)
+// for the account's mail tokens. Per-extension slots have their own update path
+// in UpdateOAuthAccessTokenForClientConfig (oauth_clientconfig.go).
 func (s *Store) UpdateOAuthAccessToken(accountID, accessToken string, expiresAt time.Time) error {
 	// Store new access token
 	if err := s.setOAuthAccessToken(accountID, accessToken); err != nil {
 		return fmt.Errorf("failed to store access token: %w", err)
 	}
 
-	// Update expiry in database
+	// Update expiry in database — restrict to the mail row so we don't
+	// clobber expiries for extension slots that share account_id.
 	_, err := s.db.Exec(`
-		UPDATE oauth_tokens 
-		SET expires_at = ?, updated_at = CURRENT_TIMESTAMP 
+		UPDATE oauth_tokens
+		SET expires_at = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE account_id = ?
+		  AND client_config_id IN ('google-mail', 'microsoft-mail')
 	`, expiresAt, accountID)
 
 	if err != nil {
@@ -178,11 +203,16 @@ func (s *Store) UpdateOAuthAccessToken(accountID, accessToken string, expiresAt 
 	return nil
 }
 
-// GetOAuthProvider returns the OAuth provider for an account, or empty string if not OAuth
+// GetOAuthProvider returns the OAuth provider for an account, or empty string
+// if not OAuth. Reads the mail row specifically — extension-slot rows carry
+// per-slot provider names (e.g. "google-calendar") that would otherwise
+// confuse provider-name comparisons in callers.
 func (s *Store) GetOAuthProvider(accountID string) (string, error) {
 	var provider string
 	err := s.db.QueryRow(
-		"SELECT provider FROM oauth_tokens WHERE account_id = ?",
+		`SELECT provider FROM oauth_tokens
+		 WHERE account_id = ?
+		   AND client_config_id IN ('google-mail', 'microsoft-mail')`,
 		accountID,
 	).Scan(&provider)
 
@@ -353,15 +383,25 @@ func (s *Store) SetContactSourceOAuthTokens(sourceID string, tokens *OAuthTokens
 		return fmt.Errorf("failed to marshal scopes: %w", err)
 	}
 
+	// Derive client_config_id from provider. Contact sources keep source_id as
+	// their PK (a source has at most one set of tokens), so this column is
+	// informational/routing-only — used by the Auth Broker when an extension
+	// later wants to discover which OAuth client backs this source.
+	clientConfigID := oauth2.ClientConfigIDForProvider(tokens.Provider)
+	if clientConfigID == "" {
+		return fmt.Errorf("cannot derive client_config_id for provider %q", tokens.Provider)
+	}
+
 	_, err = s.db.Exec(`
-		INSERT INTO contact_source_oauth (source_id, provider, expires_at, scopes, updated_at)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+		INSERT INTO contact_source_oauth (source_id, client_config_id, provider, expires_at, scopes, updated_at)
+		VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 		ON CONFLICT(source_id) DO UPDATE SET
+			client_config_id = excluded.client_config_id,
 			provider = excluded.provider,
 			expires_at = excluded.expires_at,
 			scopes = excluded.scopes,
 			updated_at = CURRENT_TIMESTAMP
-	`, sourceID, tokens.Provider, tokens.ExpiresAt, string(scopesJSON))
+	`, sourceID, clientConfigID, tokens.Provider, tokens.ExpiresAt, string(scopesJSON))
 
 	if err != nil {
 		return fmt.Errorf("failed to store contact source OAuth metadata: %w", err)

@@ -176,6 +176,8 @@
   // Plain text mode toggle (default from user setting, can be toggled per-message)
   let isPlainTextMode = $state(getComposerFormat() === 'plain')
   let plainTextContent = $state('')  // Store plain text when in plain text mode
+  let plainTextRef = $state<HTMLTextAreaElement | null>(null)  // textarea element (plain text mode)
+  let initialRichBody = ''  // original reply/forward rich body (images restored), for plain->rich reprocess
 
   // Component refs
   let toolbarRef = $state<{ focus: () => void } | null>(null)
@@ -450,8 +452,15 @@
         const dataUrl = canvas.toDataURL('image/png')
         const base64Data = dataUrl.split(',')[1]
 
-        // Replace non-standard src with data URL in the HTML string
-        result = result.replaceAll(src, dataUrl)
+        // If the same canvas-extracted content was already registered
+        // (e.g. user pasted the same screenshot twice), reuse that cid —
+        // the viewer is what handles same-cid resolution (see
+        // EmailBody.svelte querySelectorAll fix).
+        const dup = inlineImages.find(i => i.dataUrl === dataUrl)
+        if (dup) {
+          result = result.replaceAll(src, dup.dataUrl)
+          continue
+        }
 
         const cid = generateCID()
         inlineImages = [...inlineImages, {
@@ -461,6 +470,7 @@
           data: base64Data,
           filename: `pasted-image${inlineImageCounter}.png`,
         }]
+        result = result.replaceAll(src, dataUrl)
       } catch {
         continue
       }
@@ -706,21 +716,40 @@
   onMount(async () => {
     // Load identities — try cross-account first (main window), fall back to single-account (detached)
     try {
+      // When replying or forwarding on a no-outgoing account, honor that
+      // account's configured Reply/Forward-with identity (if any). Captured
+      // from the pre-filter list because no-outgoing accounts are removed
+      // before the picker sees them.
+      let replyForwardIdentity: account.Identity | null = null
+
       if (api.getAllAccountIdentities) {
         const groups = await api.getAllAccountIdentities()
-        allGroups = groups || []
+        const sourceGroup = (groups || []).find(g => g.account?.id === accountId)
+        // Exclude receive-only accounts: their identities can't actually
+        // be used as a From address, so they don't belong in the picker.
+        allGroups = (groups || []).filter(g => !g.account?.noOutgoingServer)
         identities = allGroups.flatMap(g => g.identities || [])
+
+        const sourceReplyForwardId = sourceGroup?.account?.noOutgoingServer
+          ? ((sourceGroup.account as any).replyForwardIdentityId || '')
+          : ''
+        if (sourceReplyForwardId) {
+          replyForwardIdentity = identities.find(i => i.id === sourceReplyForwardId) || null
+        }
       }
       if (!api.getAllAccountIdentities) {
         // Detached window — single account only
         identities = await api.getIdentities(accountId)
       }
 
-      // Select identity: match reply recipient or use default for the initial account
+      // Select identity: explicit recipient match wins; then the source
+      // account's Reply/Forward-with preference (no-outgoing accounts
+      // only); then this account's default identity; then the first
+      // available identity as the ultimate fallback.
       const matchedIdentity = selectIdentityForReply()
       const accountIdentities = identities.filter(i => i.accountId === accountId)
       const defaultIdentity = accountIdentities.find(i => i.isDefault) || accountIdentities[0]
-      const selectedIdentity = matchedIdentity || defaultIdentity || identities[0]
+      const selectedIdentity = matchedIdentity || replyForwardIdentity || defaultIdentity || identities[0]
       if (selectedIdentity) {
         selectedIdentityId = selectedIdentity.id
       }
@@ -744,17 +773,9 @@
       }
     }
 
-    // Initialize TipTap editor
-    if (editorElement) {
-      editor = createComposerEditor(editorElement, {
-        onUpdate: scheduleDraftSave,
-        onPasteImage: handleInlineImageFile,
-        onDropImage: handleInlineImageFile,
-        onDropFile: handleDroppedFile,
-        onDropFilePaths: handleDroppedFilePaths,
-        onShiftTab: () => document.getElementById('composer-subject')?.focus(),
-      })
-    }
+    // Initialize TipTap editor (no-op in plain text mode — its element isn't
+    // mounted yet; created lazily when the user switches to rich text).
+    ensureEditor()
 
     // Initialize from initialMessage if provided (reply/forward)
     if (initialMessage) {
@@ -788,6 +809,13 @@
       switch (mode) {
         case 'reply':
         case 'reply-all':
+          // Plain text mode shows a textarea (the editor is hidden), so focus
+          // that — cursor at the top, above the quoted original.
+          if (isPlainTextMode) {
+            plainTextRef?.focus()
+            plainTextRef?.setSelectionRange(0, 0)
+            break
+          }
           editor?.commands.focus('start')
           break
         default:
@@ -1029,6 +1057,18 @@
       editor.commands.setContent(stripParagraphStyles(htmlBody))
       // Move cursor to beginning (before the quoted content)
       editor.commands.focus('start')
+    }
+
+    // Keep the original rich quote/forward body (images already restored) so a
+    // later plain -> rich switch can reprocess the original instead of the
+    // lossy plain-text conversion (which permanently drops images).
+    initialRichBody = htmlBody
+
+    // Plaintext mode shows a textarea bound to plainTextContent (not the editor),
+    // so seed it with the backend's plaintext quote — otherwise replies/forwards
+    // open with an empty body when the composer defaults to plaintext.
+    if (isPlainTextMode) {
+      plainTextContent = initialMessage.text_body || ''
     }
 
     // Check for blocked remote images in quoted content.
@@ -1288,18 +1328,51 @@
     input.click()
   }
 
-  // Toggle between rich text and plain text mode
+  // Create the TipTap editor on demand. No-op if it already exists or its
+  // element isn't mounted yet — it isn't while the composer is in plain text
+  // mode, since the editor <div> lives in the {:else} branch.
+  function ensureEditor() {
+    if (editor || !editorElement) return
+    editor = createComposerEditor(editorElement, {
+      onUpdate: scheduleDraftSave,
+      onPasteImage: handleInlineImageFile,
+      onDropImage: handleInlineImageFile,
+      onDropFile: handleDroppedFile,
+      onDropFilePaths: handleDroppedFilePaths,
+      onShiftTab: () => document.getElementById('composer-subject')?.focus(),
+    })
+  }
+
+  // Toggle between rich text and plain text mode. Both surfaces stay mounted
+  // (the template toggles visibility), so the editor is always live and
+  // setContent lands reliably — no async, no teardown, no race.
   function togglePlainTextMode() {
-    if (isPlainTextMode) {
-      // Switching from plain text to rich text
-      const html = plainTextToHtml(plainTextContent)
-      editor?.commands.setContent(html)
-      isPlainTextMode = false
-    } else {
-      // Switching from rich text to plain text
+    // Rich -> plain
+    if (!isPlainTextMode) {
       plainTextContent = htmlToPlainText(editor?.getHTML() || '')
       isPlainTextMode = true
+      scheduleDraftSave()
+      return
     }
+    // Plain -> rich. Plain text can't carry images, and converting the degraded
+    // plain text back to HTML would drop them permanently. So for a FRESH
+    // reply/forward, REPROCESS the original: keep the user's typed intro but
+    // restore the original rich quote/forward body (with images). Skipped for
+    // drafts (whose saved body already includes the intro) and when the quote
+    // boundary is gone, to avoid duplicating the body — those fall back to a
+    // straight plain-text conversion.
+    const FWD_SEPARATOR = '---------- Forwarded message ----------'
+    const hasQuote = /^.*wrote:\s*$/m.test(plainTextContent) || plainTextContent.includes(FWD_SEPARATOR)
+    let html: string
+    if (!draftId && initialRichBody && hasQuote) {
+      const intro = getUserComposedText().trim()
+      html = (intro ? plainTextToHtml(intro) : '') + initialRichBody
+    } else {
+      html = plainTextToHtml(plainTextContent)
+    }
+    editor?.commands.setContent(stripParagraphStyles(html))
+    isPlainTextMode = false
+    editor?.commands.focus('start')
     scheduleDraftSave()
   }
 
@@ -1392,6 +1465,19 @@
 
     try {
       const dataUrl = await readFileAsDataUrl(file)
+
+      // Dedup by content (dataUrl): same image pasted twice produces a
+      // single inlineImage entry, so the sent MIME has one inline
+      // attachment instead of leaving the second cid orphaned. The editor
+      // still gets a second <img> with the same dataUrl src — the viewer
+      // side is what handles same-cid resolution (see EmailBody.svelte).
+      const existing = inlineImages.find(i => i.dataUrl === dataUrl)
+      if (existing) {
+        editor?.chain().focus().setImage({ src: existing.dataUrl, alt: existing.filename }).run()
+        scheduleDraftSave()
+        return
+      }
+
       const cid = generateCID()
 
       // Extract base64 data and content type from data URL
@@ -1469,6 +1555,15 @@
           }
           // Insert as inline image
           const dataUrl = `data:${att.contentType};base64,${att.data}`
+
+          // Dedup by content; mirrors handleInlineImageFile. Same image
+          // dropped twice ⇒ one inline attachment (no orphan cid in MIME).
+          const existing = inlineImages.find(i => i.dataUrl === dataUrl)
+          if (existing) {
+            editor?.chain().focus().setImage({ src: existing.dataUrl, alt: existing.filename }).run()
+            continue
+          }
+
           const cid = generateCID()
           inlineImages = [...inlineImages, {
             cid,
@@ -1932,16 +2027,18 @@
 
     <!-- Editor -->
     <div class="flex-1 overflow-auto bg-white dark:bg-zinc-900">
-      {#if isPlainTextMode}
-        <textarea
-          bind:value={plainTextContent}
-          placeholder={$_('composer.writePlaceholder')}
-          class="w-full h-full p-3 bg-transparent resize-none focus:outline-none font-mono text-sm"
-          oninput={scheduleDraftSave}
-        ></textarea>
-      {:else}
-        <div bind:this={editorElement} class="h-full"></div>
-      {/if}
+      <!-- Both surfaces stay mounted; we toggle visibility instead of using
+           {#if}/{:else}. Unmounting the editor <div> orphaned the TipTap
+           instance, so a later switch back to rich text wrote into a dead
+           editor and the body vanished. -->
+      <textarea
+        bind:this={plainTextRef}
+        bind:value={plainTextContent}
+        placeholder={$_('composer.writePlaceholder')}
+        class="w-full h-full p-3 bg-transparent resize-none focus:outline-none font-mono text-sm {isPlainTextMode ? '' : 'hidden'}"
+        oninput={scheduleDraftSave}
+      ></textarea>
+      <div bind:this={editorElement} class="h-full {isPlainTextMode ? 'hidden' : ''}"></div>
     </div>
 
     <!-- Attachments List -->

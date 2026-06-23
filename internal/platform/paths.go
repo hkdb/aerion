@@ -121,6 +121,7 @@ func (p *Paths) EnsureDirectories() error {
 		filepath.Join(p.Data, "search"),
 		filepath.Join(p.Data, "attachments"),
 		filepath.Join(p.Data, "keys"),
+		filepath.Join(p.Data, "extensions"),
 		p.Cache,
 		filepath.Join(p.Cache, "avatars"),
 		filepath.Join(p.Cache, "bodies"),
@@ -163,4 +164,11 @@ func (p *Paths) ConfigFilePath() string {
 // AttachmentsPath returns the path to the attachments directory
 func (p *Paths) AttachmentsPath() string {
 	return filepath.Join(p.Data, "attachments")
+}
+
+// ExtensionsDir returns the root directory containing per-extension SQLite
+// databases at <ExtensionsDir>/<name>/data.db. Each extension owns its own
+// subdirectory; cross-extension data access goes through the v1 Core API.
+func (p *Paths) ExtensionsDir() string {
+	return filepath.Join(p.Data, "extensions")
 }

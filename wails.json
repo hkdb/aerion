@@ -9,7 +9,7 @@
   "info": {
     "companyName": "Aerion",
     "productName": "Aerion",
-    "productVersion": "0.2.5",
+    "productVersion": "0.3.0",
     "copyright": "Copyright 2024-2025",
     "comments": "A modern, cross-platform email client",
     "protocols": [

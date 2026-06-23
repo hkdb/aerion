@@ -14,7 +14,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
 
       - name: Set up Node.js
@@ -36,9 +36,13 @@ jobs:
         run: cd frontend && npm ci && npm run build
 
       - name: Run Go linter
-        uses: golangci/golangci-lint-action@v6
+        # golangci-lint v2 is required: the v1 line ended at v1.64.8, which
+        # is built with Go 1.24 and refuses to lint a module targeting
+        # go 1.25.0 (forced by our golang.org/x/* deps). action@v8 installs
+        # the v2 series; pinned for reproducible CI.
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: latest
+          version: v2.12.2
 
       - name: Run frontend linter
         run: cd frontend && npm run lint
@@ -73,7 +77,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
 
       - name: Set up Node.js

@@ -134,6 +134,37 @@ export function createKeyboardState() {
   }
 }
 
+/**
+ * Pane navigation registry — lets the global keyboard handler dispatch
+ * Alt+J/K (and similar pane-targeted shortcuts) to whichever component
+ * currently owns a given slot. Mail's panes don't use this (they're wired
+ * directly via concrete refs in App.svelte); extension kit components
+ * DO register on mount so Alt+J/K navigates the kit's SourceSidebar /
+ * ListPane uniformly with how Alt+J/K navigates mail's folder list.
+ */
+export interface PaneNavTarget {
+  navigateNext?: () => void
+  navigatePrev?: () => void
+  activate?: () => void
+  /** Move keyboard focus to this pane's search input (Ctrl+S). */
+  focusSearch?: () => void
+}
+
+const paneNavTargets: Partial<Record<FocusablePane, PaneNavTarget>> = {}
+
+export function registerPaneNav(slot: FocusablePane, target: PaneNavTarget): () => void {
+  paneNavTargets[slot] = target
+  return () => {
+    if (paneNavTargets[slot] === target) {
+      delete paneNavTargets[slot]
+    }
+  }
+}
+
+export function getPaneNav(slot: FocusablePane): PaneNavTarget | undefined {
+  return paneNavTargets[slot]
+}
+
 // Composer open state — used to suppress viewer shortcuts (Delete/Backspace)
 // during the composer's mount→focus race, where a keystroke can fire before
 // TipTap claims focus and would otherwise trash the focused message.

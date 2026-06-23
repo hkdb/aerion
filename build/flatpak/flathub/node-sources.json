@@ -1618,6 +1618,13 @@
     },
     {
         "type": "file",
+        "url": "https://registry.npmjs.org/date-fns-tz/-/date-fns-tz-3.2.0.tgz",
+        "sha512": "b20f07aa84c4ba571b6db5577a0f38bb952796c41af064b941732a8e3608852e1a6c45552885307b4fe5fd486b65d29a2ff5b979664d95b4de10888e5d372c05",
+        "dest-filename": "07aa84c4ba571b6db5577a0f38bb952796c41af064b941732a8e3608852e1a6c45552885307b4fe5fd486b65d29a2ff5b979664d95b4de10888e5d372c05",
+        "dest": "flatpak-node/npm-cache/_cacache/content-v2/sha512/b2/0f"
+    },
+    {
+        "type": "file",
         "url": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
         "sha512": "446c305a7c10be455f6af295b76d8518bc3ec5849dcc04709b4aeee83853540dee994e6165cdbc57790ee2cb6062bcab4e52e9baf808f468a28e5b408cd6dca8",
         "dest-filename": "305a7c10be455f6af295b76d8518bc3ec5849dcc04709b4aeee83853540dee994e6165cdbc57790ee2cb6062bcab4e52e9baf808f468a28e5b408cd6dca8",
@@ -4765,6 +4772,12 @@
         "contents": "26a3388bd97ace6e38650ac0d510edac90a549e4\t{\"key\": \"make-fetch-happen:request-cache:https://registry.npmjs.org/date-fns/-/date-fns-4.1.0.tgz\",\"integrity\": \"sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==\",\"time\": 0,\"size\": 0,\"metadata\": {\"url\": \"https://registry.npmjs.org/date-fns/-/date-fns-4.1.0.tgz\",\"reqHeaders\": {},\"resHeaders\": {}}}",
         "dest-filename": "d2003e49388595a15227832734200e8fd8fecf9172507e01cdeae0dec073",
         "dest": "flatpak-node/npm-cache/_cacache/index-v5/91/89"
+    },
+    {
+        "type": "inline",
+        "contents": "705db3cce7205ae45458906b0e8e04b28703d0e0\t{\"key\": \"make-fetch-happen:request-cache:https://registry.npmjs.org/date-fns-tz/-/date-fns-tz-3.2.0.tgz\",\"integrity\": \"sha512-sg8HqoTEulcbbbVXeg84u5UnlsQa8GS5QXMqjjYIhS4abEVVKIUwe0/l/UhrZdKaL/W5eWZNlbTeEIiOXTcsBQ==\",\"time\": 0,\"size\": 0,\"metadata\": {\"url\": \"https://registry.npmjs.org/date-fns-tz/-/date-fns-tz-3.2.0.tgz\",\"reqHeaders\": {},\"resHeaders\": {}}}",
+        "dest-filename": "5ea973d8ad66e2eda37073da85daaf93c9961652be281657a19543382fb8",
+        "dest": "flatpak-node/npm-cache/_cacache/index-v5/2c/0e"
     },
     {
         "type": "inline",

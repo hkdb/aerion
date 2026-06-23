@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as AlertDialog from '$lib/components/ui/alert-dialog'
   import Icon from '@iconify/svelte'
+  import { dialogGuardOpen, dialogGuardClose } from '$lib/stores/dialogGuard'
 
   interface Props {
     open: boolean                    // bindable
@@ -27,6 +28,23 @@
   }: Props = $props()
 
   let closedByButton = false
+
+  // Register/unregister with the dialog guard whenever the open state flips.
+  // The guard is what makes App.svelte's global key handler step out of the
+  // way — without it, mail's Enter/Space dispatcher calls e.preventDefault()
+  // on dialog buttons (they're not inside a `[data-pane="..."]` ancestor) and
+  // the user can't activate Confirm/Cancel via keyboard.
+  let guarded = false
+  $effect(() => {
+    if (open && !guarded) {
+      dialogGuardOpen()
+      guarded = true
+    }
+    if (!open && guarded) {
+      dialogGuardClose()
+      guarded = false
+    }
+  })
 
   function handleOpenChange(isOpen: boolean) {
     open = isOpen

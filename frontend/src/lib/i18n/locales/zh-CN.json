@@ -272,6 +272,8 @@
     "settingsSaved": "设置已保存",
     "undone": "已撤销：{description}",
     "contactSourceSynced": "联系人来源已同步",
+    "contactSourceForceSynced": "已从服务器重新同步联系人来源",
+    "contactSourceForceSyncFailed": "强制重新同步失败",
     "contactSourceDeleted": "联系人来源已删除",
     "contactSourceAdded": "联系人来源已添加",
     "contactSourceUpdated": "联系人来源已更新",
@@ -327,6 +329,16 @@
     "accounts": "账户",
     "contacts": "联系人",
     "about": "关于",
+    "extensions": "扩展",
+    "extensionsCoreHeading": "核心扩展",
+    "extensionsCoreDescription": "您可以启用或禁用的内置扩展。",
+    "extensionsEnabled": "已启用",
+    "extensionsDisabled": "已禁用",
+    "extensionsEnable": "启用",
+    "extensionsDisable": "禁用",
+    "extensionsCapabilities": "功能",
+    "extensionsVersion": "版本",
+    "extensionsNone": "此版本中没有可用的扩展。",
     "images": "图片",
     "composer": "撰写",
     "composerMode": "默认撰写模式",
@@ -411,7 +423,8 @@
     "addAccount": "添加账户",
     "moveUp": "上移",
     "moveDown": "下移",
-    "editAccount": "编辑账户"
+    "editAccount": "编辑账户",
+    "deleteAccount": "删除账户"
   },
   "settingsAbout": {
     "version": "版本 {version}",
@@ -538,9 +551,20 @@
     "emailRequired": "电子邮件为必填",
     "invalidEmail": "电子邮件格式无效",
     "passwordRequired": "密码为必填",
+    "usernameRequired": "用户名为必填项",
     "imapHostRequired": "IMAP 主机为必填",
     "smtpHostRequired": "SMTP 主机为必填",
     "invalidPort": "端口无效",
+    "noOutgoingServer": "无发件服务器",
+    "noOutgoingServerHelp": "停用此账户的发送功能。该地址不会出现在撰写邮件的“发件人”下拉菜单中。回复在此收到的邮件时，将使用您所选的身份或默认发送账户。",
+    "replyForwardWith": "回复/转发时使用",
+    "replyForwardWithHelp": "回复或转发在此收到的邮件时，在撰写邮件中预先选择的身份。",
+    "replyForwardWithDefault": "默认发送账户",
+    "smtpAuthentication": "SMTP 身份验证",
+    "smtpUseSameAsIncoming": "与收件服务器相同",
+    "smtpUsernamePlaceholder": "smtp-user@example.com",
+    "smtpPasswordPlaceholder": "SMTP 密码",
+    "smtpCredsNote": "如果您为 SMTP 设置了不同的用户名和密码，可以在“服务器”选项卡的“SMTP 身份验证”部分进行修改。",
     "trustedCertificates": "受信任的证书",
     "trustedCertsHelp": "此账户服务器手动信任的 TLS 证书。",
     "loadingCerts": "正在加载证书...",
@@ -707,6 +731,9 @@
     "editSource": "编辑联系人来源",
     "deleteTitle": "删除联系人来源",
     "deleteConfirmName": "删除“{name}”？这将移除此来源的所有已同步联系人。",
+    "forceSync": "强制重新同步",
+    "forceSyncConfirmTitle": "强制重新同步“{name}”？",
+    "forceSyncConfirmDescription": "从服务器重新获取“{name}”中的每个联系人。这会补全在旧版 Aerion 下同步的联系人可能缺失的字段（电话、地址、组织、备注等）。对于较大的通讯录，可能需要几分钟。",
     "name": "名称",
     "namePlaceholder": "例如：Nextcloud、工作、个人",
     "serverUrl": "服务器 URL",
@@ -746,6 +773,8 @@
     "update": "更新",
     "autoName": "{name} 联系人",
     "minutesFallback": "{value} 分钟",
+    "enableWriteAccess": "启用对此来源的写入权限",
+    "enableWriteAccessDescription": "允许在此 CardDAV 服务器上编辑、创建和删除联系人。使用上面的凭据。",
     "linked": "已关联"
   },
   "certificate": {
@@ -771,6 +800,13 @@
     "termsOfUse": "使用条款",
     "agreeLabel": "我已阅读并同意使用条款和隐私政策",
     "accept": "接受并继续"
+  },
+  "oauthMissing": {
+    "title": "缺少 OAuth 凭据",
+    "intro": "此版本缺少以下服务的 Aerion OAuth 凭据：",
+    "implication": "这意味着缺少凭据的提供商将无法正常工作。这很可能是因为您未从官方来源安装 Aerion。",
+    "installInstruction": "要从官方来源安装 Aerion，请参阅：",
+    "dontShowAgain": "不再显示"
   },
   "dialog": {
     "deletePermanently": "永久删除？",
@@ -880,5 +916,20 @@
     "noDomains": "允许列表中没有任何域名。在邮件查看器中使用「始终加载 > 针对域名」来添加域名。",
     "removeButton": "从允许列表中移除",
     "removed": "已从允许列表中移除"
+  },
+  "oauth": {
+    "writeAccessPicker": {
+      "title": "Enable write access",
+      "description": "Choose the {provider} account to authorize for write access on {sourceName}.",
+      "providerGoogle": "Google",
+      "providerMicrosoft": "Microsoft",
+      "loadFailed": "Failed to load accounts: {message}",
+      "emptyHeading": "No {provider} accounts found.",
+      "emptyHint": "Add a {provider} account in Mail (Settings → Accounts) or Contacts (Settings → Contacts → Add source) first, then return here.",
+      "cancel": "Cancel",
+      "continue": "Continue",
+      "successToast": "Write access enabled for {name}",
+      "failureToast": "Failed to enable write access: {message}"
+    }
   }
 }

@@ -21,6 +21,7 @@ type Source struct {
 	Username     string     `json:"username"`     // CardDAV username (empty for OAuth sources)
 	AccountID    *string    `json:"account_id,omitempty"` // Linked email account ID (for OAuth sources using account's token)
 	Enabled      bool       `json:"enabled"`
+	Writable     bool       `json:"writable"` // Phase 2b: write capability flag (opt-in per source)
 	SyncInterval int        `json:"sync_interval"` // Minutes (0 = manual only)
 	LastSyncedAt *time.Time `json:"last_synced_at,omitempty"`
 	LastError    string     `json:"last_error,omitempty"`
@@ -40,6 +41,7 @@ type SourceConfig struct {
 	Password     string     `json:"password"` // CardDAV password, only used for create/update, not stored in DB
 	AccountID    string     `json:"account_id,omitempty"` // Linked email account ID (for OAuth sources)
 	Enabled      bool       `json:"enabled"`
+	Writable     bool       `json:"writable"`
 	SyncInterval int        `json:"sync_interval"`
 
 	// Addressbooks to enable (paths) - only used for CardDAV sources

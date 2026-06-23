@@ -203,13 +203,22 @@ func (m *Manager) CancelAuthFlow() {
 	m.activeSession = nil
 }
 
-// RefreshToken uses a refresh token to obtain a new access token
+// RefreshToken uses a refresh token to obtain a new access token. Provider is
+// resolved by name (back-compat path used by legacy callers). New code paths
+// that need a specific client_config_id should call RefreshTokenWithProvider
+// with a config obtained via GetProviderForClientConfig.
 func (m *Manager) RefreshToken(providerName, refreshToken string) (*TokenResponse, error) {
 	provider, err := GetProvider(providerName)
 	if err != nil {
 		return nil, err
 	}
+	return m.RefreshTokenWithProvider(provider, refreshToken)
+}
 
+// RefreshTokenWithProvider runs the OAuth2 refresh flow against the given
+// ProviderConfig. Used by the extension Auth Broker to refresh tokens issued
+// under non-mail client configurations (e.g., google-extensions).
+func (m *Manager) RefreshTokenWithProvider(provider ProviderConfig, refreshToken string) (*TokenResponse, error) {
 	data := url.Values{
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {refreshToken},
@@ -258,7 +267,7 @@ func (m *Manager) RefreshToken(providerName, refreshToken string) (*TokenRespons
 	}
 
 	m.log.Debug().
-		Str("provider", providerName).
+		Str("provider", provider.Name).
 		Int("expires_in", tokens.ExpiresIn).
 		Msg("Token refreshed successfully")
 
@@ -394,8 +403,34 @@ func buildAuthURL(provider ProviderConfig, state, codeChallenge string, port int
 		"state":                 {state},
 		"code_challenge":        {codeChallenge},
 		"code_challenge_method": {"S256"},
-		"access_type":           {"offline"}, // Request refresh token (Google)
-		"prompt":                {"consent"}, // Force consent to get refresh token
+	}
+	// Provider-specific prompt / refresh-token behavior.
+	//
+	// Google: needs access_type=offline + prompt=consent on every grant —
+	// without prompt=consent, Google won't return a refresh token if the
+	// same user has previously consented to this client.
+	//
+	// Microsoft: refresh tokens come from the `offline_access` scope
+	// (already in the provider's Scopes list), NOT from a prompt parameter.
+	// access_type is a Google-only parameter; Microsoft ignores it.
+	// prompt=consent is actively HARMFUL on Microsoft in tenants with
+	// admin-consent policies: it overrides Microsoft's cached admin grant
+	// and re-runs the consent decision, which surfaces as the "admin
+	// approval required" screen for end users even after the admin has
+	// already approved the app. prompt=select_account keeps the account
+	// picker behavior (necessary when users have multiple Microsoft
+	// sessions cached) without forcing the consent screen.
+	switch {
+	case strings.HasPrefix(provider.Name, "google"):
+		params.Set("access_type", "offline")
+		params.Set("prompt", "consent")
+	case strings.HasPrefix(provider.Name, "microsoft"):
+		params.Set("prompt", "select_account")
+	}
+	if provider.LoginHint != "" {
+		// Pre-fill the account picker — Google and Microsoft both honor
+		// this. Empty = the user picks an account fresh.
+		params.Set("login_hint", provider.LoginHint)
 	}
 
 	authURL := provider.AuthURL + "?" + params.Encode()

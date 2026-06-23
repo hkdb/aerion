@@ -10,14 +10,23 @@
   import Composer from './lib/components/composer/Composer.svelte'
   import ToastContainer from './lib/components/ui/toast/ToastContainer.svelte'
   import TermsDialog from './lib/components/TermsDialog.svelte'
+  import OAuthMissingDialog from './lib/components/OAuthMissingDialog.svelte'
+  import WhatsNewDialog from './lib/components/WhatsNewDialog.svelte'
   import CertificateDialog from './lib/components/settings/CertificateDialog.svelte'
+  import ExtensionSettingsDialog from './lib/components/settings/ExtensionSettingsDialog.svelte'
+  import ExtensionRail from './lib/components/rail/ExtensionRail.svelte'
+  import ContactsPane from '$extensions/contacts/frontend/components/ContactsPane.svelte'
+  import CalendarPane from '$extensions/calendar/frontend/components/CalendarPane.svelte'
+  import { refreshExtensionRegistry, getRailTabs } from '$lib/stores/extensionRegistry.svelte'
+  import { KEY } from '$lib/keyboard/shortcuts'
   import * as AlertDialog from '$lib/components/ui/alert-dialog'
   import { accountStore } from '$lib/stores/accounts.svelte'
   import { addToast } from '$lib/stores/toast'
   import { loadSettings, getThemeMode, getShowTitleBar, getNativeTitleBar, getComposerMode, getMailtoMode } from '$lib/stores/settings.svelte'
   import { loadImageAllowlist } from '$lib/stores/imageAllowlist.svelte'
   import { initTheme, applyThemeFromMode, handleSystemThemeEvent, handleMediaQueryChange } from '$lib/stores/theme.svelte'
-  import { loadUIState, saveUIState, paneConstraints } from '$lib/stores/uiState.svelte'
+  import { loadUIState, saveUIState, paneConstraints, getActiveExtension, setActiveExtension } from '$lib/stores/uiState.svelte'
+  import { setPendingDeepLink } from '$lib/stores/extensionDeepLink.svelte'
   import {
     type FocusablePane,
     getFocusedPane,
@@ -26,19 +35,25 @@
     focusNextPane,
     isPaneFlashing,
     isInputElement,
-    setComposerOpen
+    setComposerOpen,
+    getPaneNav
   } from '$lib/stores/keyboard.svelte'
   import { isDialogGuardActive } from '$lib/stores/dialogGuard'
+  import { dispatchExtensionShortcut } from '$lib/stores/extensionShortcuts.svelte'
   import { initLayout, getLayoutMode, getResponsiveView, showViewer, hideViewer, showSidebar, hideSidebar, isResponsive } from '$lib/stores/layout.svelte'
   // @ts-ignore - wailsjs path
-  import { PrepareReply, GetPendingMailto, GetDraft, MarkAsRead, MarkAsUnread, Star, Unstar, Archive, MarkAsSpam, MarkAsNotSpam, Undo, GetTermsAccepted, SetTermsAccepted, RefreshWindowConstraints, AcceptCertificate, GetStartHiddenActive, CloseWindow, QuitApp, OpenComposerWindow, GetSystemTheme, NotifyStartupComplete } from '../wailsjs/go/app/App.js'
+  import { PrepareReply, GetPendingMailto, GetDraft, MarkAsRead, MarkAsUnread, Star, Unstar, Archive, MarkAsSpam, MarkAsNotSpam, Undo, GetTermsAccepted, SetTermsAccepted, RefreshWindowConstraints, AcceptCertificate, GetStartHiddenActive, CloseWindow, QuitApp, OpenComposerWindow, GetSystemTheme, NotifyStartupComplete, GetOAuthBuildStatus, GetOAuthWarningDisabled, SetOAuthWarningDisabled, GetLastSeenVersion, SetLastSeenVersion, GetAppInfo } from '../wailsjs/go/app/App.js'
   // @ts-ignore - wailsjs path
   import { smtp, folder, certificate } from '../wailsjs/go/models'
   // @ts-ignore - wailsjs runtime
-  import { WindowShow, EventsOn } from '../wailsjs/runtime/runtime'
+  import { WindowShow, WindowHide, EventsOn } from '../wailsjs/runtime/runtime'
   import { _ } from '$lib/i18n'
 
-  // Component refs for keyboard navigation
+  // Component refs for keyboard navigation. Plain `let` (not $state) is
+  // intentional: svelte-check warns "Changing its value will not correctly
+  // trigger updates" but nothing here actually reads these refs in a reactive
+  // context — they're only used inside event handlers. Making them $state
+  // added bookkeeping cost (visible in idle-CPU profiling) without any benefit.
   let sidebarRef: Sidebar | null = null
   let messageListRef: MessageList | null = null
   let viewerRef: ConversationViewer | null = null
@@ -133,6 +148,16 @@
   // Terms acceptance state
   let showTermsDialog = $state(false)
 
+  // Launch-time OAuth credentials warning state
+  let showOAuthMissingDialog = $state(false)
+  let oauthBuildStatus = $state({ google: true, microsoft: true, googleTesting: true })
+  let pendingOAuthWarning = $state(false)
+
+  // What's New (per-version) dialog state
+  let showWhatsNewDialog = $state(false)
+  let whatsNewVersion = $state('')
+  let pendingWhatsNew = $state(false)
+
   // Certificate TOFU state (for background sync cert errors)
   let showCertDialog = $state(false)
   let pendingCertificate = $state<certificate.CertificateInfo | null>(null)
@@ -161,6 +186,48 @@
       console.error('Failed to save terms acceptance:', err)
     }
   }
+
+  // OAuth warning dismiss — optionally persists the opt-out so the warning
+  // stops firing on future launches even when credentials remain missing.
+  async function dismissOAuthWarning(dontShowAgain: boolean) {
+    if (dontShowAgain) {
+      try {
+        await SetOAuthWarningDisabled(true)
+      } catch (err) {
+        console.error('Failed to persist OAuth warning preference:', err)
+      }
+    }
+    showOAuthMissingDialog = false
+  }
+
+  // What's New acknowledgement — records the current version as seen.
+  // Called ONLY on explicit OK click; ESC/outside-click leaves the version
+  // unrecorded so the dialog fires again on next launch.
+  async function acknowledgeWhatsNew() {
+    try {
+      await SetLastSeenVersion(whatsNewVersion)
+    } catch (err) {
+      console.error('Failed to persist last-seen version:', err)
+    }
+    showWhatsNewDialog = false
+  }
+
+  // Reactive sequencing: Terms → OAuth warning → What's New.
+  // Each gates on the previous being closed so users see them one at a
+  // time, never stacked.
+  $effect(() => {
+    if (!showTermsDialog && pendingOAuthWarning && !showOAuthMissingDialog) {
+      showOAuthMissingDialog = true
+      pendingOAuthWarning = false
+    }
+  })
+
+  $effect(() => {
+    if (!showTermsDialog && !showOAuthMissingDialog && pendingWhatsNew && !showWhatsNewDialog) {
+      showWhatsNewDialog = true
+      pendingWhatsNew = false
+    }
+  })
 
   // Certificate TOFU handlers for background sync
   async function handleBgCertAcceptOnce() {
@@ -227,6 +294,11 @@
       // Find folder info for display
       const folderInfo = findFolderById(data.accountId, data.folderId)
 
+      // Switch the rail back to mail in case the user was on an extension
+      // tab when the notification fired — without this the message-list
+      // state below would update but stay hidden behind the extension pane.
+      setActiveExtension('mail')
+
       // Navigate to the folder (use 'unified' source to highlight under Unified Inbox)
       selectedAccountId = data.accountId
       selectedFolderId = data.folderId
@@ -254,6 +326,17 @@
         selectedConversationAccountId: data.accountId,
         selectedConversationFolderId: data.folderId,
       })
+    })
+
+    // Generic extension-routed notification clicks. The host switches the
+    // rail tab here AND stashes the path in a pending-deep-link buffer.
+    // The target extension's pane drains the buffer on mount (it isn't
+    // mounted yet at the moment we set the tab). Extension-specific path
+    // parsing lives in each extension's own pane component.
+    EventsOn('extension:open', (data: { extensionId: string; path: string }) => {
+      if (!data.extensionId) return
+      if (data.path) setPendingDeepLink(data.extensionId, data.path)
+      setActiveExtension(data.extensionId)
     })
 
     // Listen for window show requests (from single-instance activation, notification clicks)
@@ -320,8 +403,49 @@
       showTermsDialog = true
     }
 
+    // OAuth credentials warning: surface missing provider creds on every
+    // launch unless the user has explicitly opted out. The dialog shows
+    // all three providers with a missing/present indicator, so the
+    // trigger fires when ANY of them is missing. Actual opening is
+    // deferred via $effect so Terms can resolve first.
+    try {
+      const status = await GetOAuthBuildStatus()
+      const anyMissing = !status.google || !status.microsoft || !status.googleTesting
+      if (anyMissing) {
+        const disabled = await GetOAuthWarningDisabled()
+        if (!disabled) {
+          oauthBuildStatus = status
+          pendingOAuthWarning = true
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check OAuth build status:', err)
+    }
+
+    // What's New: fire whenever the stored last-seen version differs from
+    // the current build's version — including the empty-string case so
+    // existing users upgrading to v0.3.0 (or anyone whose DB predates the
+    // last_seen_version key) see the release announcement on first launch.
+    // The version isn't recorded until the user explicitly clicks OK in
+    // the dialog (see acknowledgeWhatsNew); ESC/outside-click leaves it
+    // unrecorded so the dialog fires again next launch.
+    try {
+      const appInfo = await GetAppInfo()
+      const lastSeen = await GetLastSeenVersion()
+      if (lastSeen !== appInfo.version) {
+        whatsNewVersion = appInfo.version
+        pendingWhatsNew = true
+      }
+    } catch (err) {
+      console.error('Failed to check What\'s New state:', err)
+    }
+
     // Load persisted UI state
     const uiState = await loadUIState()
+
+    // Load extension registry (enabled extensions, rail tabs) so the rail can
+    // render synchronously when the layout mounts.
+    await refreshExtensionRegistry()
 
     // Restore pane widths (already validated/clamped by loadUIState)
     sidebarWidth = uiState.sidebarWidth
@@ -361,9 +485,25 @@
       handleMediaQueryChange(e.matches)
     })
 
-    // Show window after UI is ready (prevents white flash on startup)
-    // Skip if starting hidden in background mode
+    // App is fully initialized — dismiss the inline boot splash from
+    // index.html. The CSS transition fades it out; we remove the element
+    // shortly after to free the DOM. Done BEFORE the start-hidden check
+    // so users in background mode don't see the splash linger on screen
+    // before the window hides.
+    const splash = document.getElementById('boot-splash')
+    if (splash) {
+      splash.hidden = true
+      setTimeout(() => splash.remove(), 250)
+    }
+
+    // main.ts called WindowShow() at module load so the splash was visible
+    // during slow startup work (migrations etc.). If the user has start-
+    // hidden background mode, undo that now. Otherwise the window is already
+    // visible — calling WindowShow again is harmless.
     const shouldStartHidden = await GetStartHiddenActive()
+    if (shouldStartHidden) {
+      WindowHide()
+    }
     if (!shouldStartHidden) {
       WindowShow()
     }
@@ -728,6 +868,19 @@
     // (especially Ctrl+A) should target dialog inputs, not the background.
     if (isDialogGuardActive()) return
 
+    // Extension shortcut dispatch: when the active rail pane is NOT mail, let
+    // the extension's registered shortcuts run first. dispatchExtensionShortcut
+    // returns true when a handler matched — in that case we treat the event as
+    // handled and skip mail's downstream dispatch. Skipped while typing in an
+    // input element (consistent with mail's inInput guard below) so extension
+    // shortcuts don't fire from inside text fields. See [[extension-sdk-pattern]]
+    // and frontend/src/lib/stores/extensionShortcuts.svelte.ts.
+    if (!inInput && dispatchExtensionShortcut(e)) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
+
     // When composer is open, only handle Escape (composer handles its own shortcuts)
     if (showComposer) {
       // Block compose/reply shortcuts that might conflict
@@ -738,14 +891,72 @@
       return
     }
 
-    // Handle Ctrl/Cmd shortcuts (global, always work)
+    // Handle Ctrl/Cmd shortcuts.
+    //
+    // Layout: GLOBAL cases first (fire regardless of which rail pane is active),
+    // then a guard that returns when an extension is the active rail pane, then
+    // MAIL-DOMAIN cases (fire only on mail). The kit's components (extension UI)
+    // handle their own list/sidebar shortcuts via local tabindex+keydown +
+    // stopPropagation, so those events never reach this handler in the first
+    // place. The guard catches the case where Ctrl+R / Ctrl+K / etc. fire
+    // with no kit pane DOM-focused but an extension is the active rail pane —
+    // we don't want those acting on the (hidden) mail UI.
+    const isMailActive = () => getActiveExtension() === 'mail'
     if (e.ctrlKey || e.metaKey) {
+      // GLOBAL Ctrl/Cmd shortcuts — fire regardless of active rail pane.
       switch (e.key.toLowerCase()) {
         case 'q':
           e.preventDefault()
           handleQuit()
           return
+        case 'tab':
+        case '`': {
+          // Cycle through rail items: Mail + enabled extensions.
+          // Ctrl+Tab        → forward
+          // Ctrl+`          → backward
+          // (Ctrl+Shift+Tab is intercepted by webkit2gtk before the
+          //  keydown event reaches us, so we use Ctrl+` for backward.)
+          e.preventDefault()
+          const tabs = getRailTabs()
+          const order = ['mail', ...tabs.map(t => t.extensionId)]
+          if (order.length <= 1) return // only Mail — nothing to cycle
+          const current = getActiveExtension()
+          const idx = order.indexOf(current)
+          const step = e.key === '`' ? -1 : 1
+          const next = (idx + step + order.length) % order.length
+          setActiveExtension(order[next])
+          return
+        }
+      }
+
+      // Ctrl+S (no shift) — focus the active pane's search input.
+      // Mail dispatches to messageListRef; extensions dispatch via the
+      // pane-nav registry. Ctrl+Shift+S (sync folder) is mail-only and
+      // stays in the mail-domain switch below.
+      if (e.key.toLowerCase() === 's' && !e.shiftKey) {
+        e.preventDefault()
+        if (isMailActive()) {
+          messageListRef?.toggleSearchFocus()
+          setFocusedPane('messageList')
+          return
+        }
+        getPaneNav('messageList')?.focusSearch?.()
+        setFocusedPane('messageList')
+        return
+      }
+
+      // Below: MAIL-DOMAIN Ctrl/Cmd shortcuts. Guarded so they no-op when an
+      // extension is the active rail pane (otherwise Ctrl+R would silently
+      // reply to the hidden mail thread while the user is browsing contacts).
+      if (!isMailActive()) return
+
+      // MAIL-DOMAIN Ctrl/Cmd cases (guarded above).
+      switch (e.key.toLowerCase()) {
         case 'n':
+          // Ctrl/Cmd+N — new mail composer. Mail-domain only: when an
+          // extension rail is active (e.g., calendar), that extension's
+          // shortcut registry handles Ctrl+N before we reach the global
+          // switch, opening its own "new X" dialog.
           e.preventDefault()
           handleCompose()
           return
@@ -777,15 +988,11 @@
           return
         }
         case 's':
+          // Ctrl+S (no shift) is handled globally above. Only Ctrl+Shift+S
+          // (sync current folder) is mail-domain and lives here.
+          if (!e.shiftKey) return
           e.preventDefault()
-          if (e.shiftKey) {
-            // Ctrl-Shift-S: Toggle sync current folder (start sync or cancel if already running)
-            messageListRef?.toggleFolderSync()
-          } else {
-            // Ctrl-S: Focus search
-            messageListRef?.toggleSearchFocus()
-            setFocusedPane('messageList')
-          }
+          messageListRef?.toggleFolderSync()
           return
         case 'a':
           if (e.shiftKey) {
@@ -903,51 +1110,72 @@
     if (e.altKey) {
       // Pane navigation is meaningless in focus mode (other panes hidden)
       if (focusMode !== 'off') return
-      switch (e.key) {
-        case 'ArrowLeft':
-        case 'h':
-          e.preventDefault()
-          if (isResponsive()) {
-            const view = getResponsiveView()
-            const mode = getLayoutMode()
-            if (view === 'viewer') {
-              hideViewer()
-              return
-            }
-            if (mode === 'narrow' && view === 'default') {
-              showSidebar()
-              return
-            }
+
+      // Pane focus cycling (shared predicate — kit's pane components react to
+      // the same focusedPane store, so cycling works uniformly across mail
+      // and extensions).
+      if (KEY.PANE_FOCUS_PREV(e)) {
+        e.preventDefault()
+        if (isResponsive()) {
+          const view = getResponsiveView()
+          const mode = getLayoutMode()
+          if (view === 'viewer') {
+            hideViewer()
+            return
           }
-          focusPreviousPane()
-          return
-        case 'ArrowRight':
-        case 'l':
-          e.preventDefault()
-          if (isResponsive()) {
-            const view = getResponsiveView()
-            const mode = getLayoutMode()
-            if (mode === 'narrow' && view === 'sidebar') {
-              hideSidebar()
-              return
-            }
-            if (view === 'default' && selectedThreadId) {
-              showViewer()
-              return
-            }
+          if (mode === 'narrow' && view === 'default') {
+            showSidebar()
+            return
           }
-          focusNextPane()
-          return
-        case 'ArrowUp':
-        case 'k':
-          e.preventDefault()
+        }
+        focusPreviousPane()
+        return
+      }
+      if (KEY.PANE_FOCUS_NEXT(e)) {
+        e.preventDefault()
+        if (isResponsive()) {
+          const view = getResponsiveView()
+          const mode = getLayoutMode()
+          if (mode === 'narrow' && view === 'sidebar') {
+            hideSidebar()
+            return
+          }
+          if (view === 'default' && selectedThreadId) {
+            showViewer()
+            return
+          }
+        }
+        focusNextPane()
+        return
+      }
+
+      // Sidebar item navigation (Alt+Up/Down/J/K). Dispatches to mail's
+      // concrete ref when mail is active; otherwise to the kit pane that
+      // registered as 'sidebar' via registerPaneNav. This way extensions
+      // get the same "global Alt+J/K navigates the sidebar regardless of
+      // which pane is currently DOM-focused" behavior mail has.
+      if (KEY.SIDEBAR_PREV(e)) {
+        e.preventDefault()
+        if (isMailActive()) {
           sidebarRef?.selectPreviousFolder()
           return
-        case 'ArrowDown':
-        case 'j':
-          e.preventDefault()
+        }
+        getPaneNav('sidebar')?.navigatePrev?.()
+        return
+      }
+      if (KEY.SIDEBAR_NEXT(e)) {
+        e.preventDefault()
+        if (isMailActive()) {
           sidebarRef?.selectNextFolder()
           return
+        }
+        getPaneNav('sidebar')?.navigateNext?.()
+        return
+      }
+
+      // Alt+Enter — mail sidebar expand/collapse. Keep inline switch for
+      // single residual case.
+      switch (e.key) {
         case 'Enter':
           // Toggle expand/collapse for focused account header or selected folder with children
           if (sidebarRef?.hasFocusedAccount()) {
@@ -993,38 +1221,50 @@
       return
     }
 
-    // Handle pane-focused navigation shortcuts
+    // Handle pane-focused navigation shortcuts.
+    //
+    // Mail-domain: these run for the mail UI's focused pane. The kit's
+    // components handle their own list/sidebar navigation via local
+    // keydown + stopPropagation (so the events never reach this handler).
+    // Guard for safety in case an event slips through while an extension
+    // is the active rail pane.
+    if (KEY.LIST_PREV(e) || KEY.LIST_PREV_CHECK(e)) {
+      if (!isMailActive()) return
+      e.preventDefault()
+      if (focusedPane === 'sidebar') {
+        sidebarRef?.selectPreviousFolder()
+      } else if (focusedPane === 'messageList') {
+        if (e.shiftKey) {
+          messageListRef?.selectPreviousWithCheck()
+        } else {
+          messageListRef?.selectPrevious()
+        }
+      } else if (focusedPane === 'viewer') {
+        viewerRef?.scrollUp()
+      }
+      return
+    }
+    if (KEY.LIST_NEXT(e) || KEY.LIST_NEXT_CHECK(e)) {
+      if (!isMailActive()) return
+      e.preventDefault()
+      if (focusedPane === 'sidebar') {
+        sidebarRef?.selectNextFolder()
+      } else if (focusedPane === 'messageList') {
+        if (e.shiftKey) {
+          messageListRef?.selectNextWithCheck()
+        } else {
+          messageListRef?.selectNext()
+        }
+      } else if (focusedPane === 'viewer') {
+        viewerRef?.scrollDown()
+      }
+      return
+    }
+
+    // Enter and Space — domain-specific button-vs-pane disambiguation logic
+    // stays as inline switch (kit components handle their own Enter/Space
+    // locally so they don't depend on this dispatch).
     switch (e.key) {
-      case 'ArrowUp':
-      case 'k':
-        e.preventDefault()
-        if (focusedPane === 'sidebar') {
-          sidebarRef?.selectPreviousFolder()
-        } else if (focusedPane === 'messageList') {
-          if (e.shiftKey) {
-            messageListRef?.selectPreviousWithCheck()
-          } else {
-            messageListRef?.selectPrevious()
-          }
-        } else if (focusedPane === 'viewer') {
-          viewerRef?.scrollUp()
-        }
-        return
-      case 'ArrowDown':
-      case 'j':
-        e.preventDefault()
-        if (focusedPane === 'sidebar') {
-          sidebarRef?.selectNextFolder()
-        } else if (focusedPane === 'messageList') {
-          if (e.shiftKey) {
-            messageListRef?.selectNextWithCheck()
-          } else {
-            messageListRef?.selectNext()
-          }
-        } else if (focusedPane === 'viewer') {
-          viewerRef?.scrollDown()
-        }
-        return
       case 'Enter':
         // Only let buttons handle Enter if they're in the focused pane
         // This prevents sidebar buttons from intercepting Enter when messageList is focused
@@ -1076,6 +1316,13 @@
 
     // Single-key shortcuts
     switch (e.key) {
+      case 'v':
+        // Open the keyboard-focused conversation in the viewer (alias of Enter)
+        if (focusedPane === 'messageList') {
+          e.preventDefault()
+          messageListRef?.openSelected()
+        }
+        return
       case 's':
         if (messageListRef?.hasCheckedMessages()) {
           handleBulkToggleStar(messageListRef.getCheckedMessageIds(), messageListRef.getCheckedHasUnstarred())
@@ -1112,6 +1359,7 @@
         focusedMessageIdInFocus = targetId
         return
       }
+      case 'd': // alias of Delete: move focused/checked message(s) to Trash
       case 'Backspace':
       case 'Delete': {
         if (focusedPane === 'viewer' && viewerRef?.hasFocusedMessage()) {
@@ -1244,6 +1492,22 @@
 
   <!-- Main Content -->
   <div class="flex flex-1 min-h-0 overflow-hidden relative">
+    <ExtensionRail />
+
+    {#if getActiveExtension() === 'contacts'}
+      <ContactsPane />
+    {/if}
+
+    {#if getActiveExtension() === 'calendar'}
+      <CalendarPane />
+    {/if}
+
+    <!-- Mail layout is ALWAYS mounted; only its visibility is toggled when an
+         extension takes over the pane. Unmounting+remounting the mail tree on
+         every extension switch was leaking state (zombie listeners) and pinning
+         the main thread on the second mount. display:contents keeps the flex
+         children as direct flex items so the layout doesn't shift. -->
+    <div style:display={getActiveExtension() === 'mail' ? 'contents' : 'none'}>
     <!-- Sidebar (Folder List) -->
     <aside
       class="{getLayoutMode() === 'narrow' ? `responsive-sidebar-overlay w-72 border-r border-border bg-background ${getResponsiveView() === 'sidebar' ? 'responsive-sidebar-visible' : ''}` : 'flex-shrink-0 border-r border-border bg-muted/30'}"
@@ -1358,6 +1622,7 @@
         onToggleMessageFocus={toggleMessageFocus}
       />
     </main>
+    </div>
   </div>
 </div>
 
@@ -1368,6 +1633,9 @@
 
 <!-- Toast notifications -->
 <ToastContainer />
+
+<!-- Per-extension settings dialog dispatcher (Settings → Extensions → Edit) -->
+<ExtensionSettingsDialog />
 
 <!-- Composer Modal -->
 {#if showComposer && composerAccountId}
@@ -1394,6 +1662,23 @@
 
 <!-- Terms Acceptance Dialog -->
 <TermsDialog bind:open={showTermsDialog} onAccept={handleTermsAccepted} />
+
+<!-- Launch-time OAuth credentials warning. Shows on every launch when one
+     or more provider credentials weren't compiled in, unless the user
+     opts out via "Don't show again". -->
+<OAuthMissingDialog
+  bind:open={showOAuthMissingDialog}
+  oauthStatus={oauthBuildStatus}
+  onDismiss={dismissOAuthWarning}
+/>
+
+<!-- Per-version release announcement. OK click records acknowledgement;
+     closing without OK leaves the version unrecorded so the dialog
+     fires again next launch. -->
+<WhatsNewDialog
+  bind:open={showWhatsNewDialog}
+  onAcknowledge={acknowledgeWhatsNew}
+/>
 
 <!-- Certificate TOFU Dialog (for background sync cert errors) -->
 <CertificateDialog

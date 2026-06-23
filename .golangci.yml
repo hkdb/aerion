@@ -1,5 +1,4 @@
-run:
-  timeout: 5m
+version: "2"
 
 linters:
   disable:
@@ -8,18 +7,49 @@ linters:
     # bindings or kept as deliberate API surface. Revisit once we have
     # explicit tagging for Wails-exported methods.
     - unused
+  settings:
+    staticcheck:
+      # Keep the bug (SA*) and simplification (S*) checks v1 enforced,
+      # but drop the quickfix (QF*) and stylecheck (ST*) categories that
+      # golangci-lint v2 newly turns on by default. This keeps the v2
+      # upgrade behavior-equivalent to v1 instead of surfacing a wall of
+      # pre-existing style nits on unrelated PRs.
+      checks:
+        - all
+        - -QF*
+        - -ST*
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      # CardDAV interop carries deliberate workarounds for non-compliant
+      # servers. Skip lint enforcement here so cleanup edits do not
+      # regress those compatibility paths.
+      - linters:
+          - errcheck
+          - ineffassign
+          - staticcheck
+        path: internal/carddav/
+      - linters:
+          - errcheck
+        path: app/carddav.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      # Vendored Go sources shipped inside JS tooling (e.g. flatted) are
+      # not ours to lint. v1 skipped node_modules by default; restore it.
+      - frontend/node_modules
 
-issues:
-  exclude-rules:
-    # CardDAV interop carries deliberate workarounds for non-compliant
-    # servers. Skip lint enforcement here so cleanup edits do not regress
-    # those compatibility paths.
-    - path: internal/carddav/
-      linters:
-        - errcheck
-        - staticcheck
-        - gosimple
-        - ineffassign
-    - path: app/carddav.go
-      linters:
-        - errcheck
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - frontend/node_modules

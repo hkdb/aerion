@@ -25,6 +25,10 @@
     syncPeriodDays: string
     /** Auth type from account */
     authType: string
+    /** Whether the editing account uses the generic provider (controls
+     *  whether to hint about the separate SMTP credentials UI on the
+     *  Server tab). */
+    isGenericProvider: boolean
     /** Validation errors */
     errors: Record<string, string>
     /** Whether re-authorization is in progress */
@@ -51,6 +55,7 @@
     password = $bindable(),
     syncPeriodDays = $bindable(),
     authType,
+    isGenericProvider,
     errors,
     reauthorizing = false,
     reauthorizeSuccess = false,
@@ -222,6 +227,12 @@
           <p class="text-sm text-destructive">{errors.password}</p>
         {/if}
       </div>
+
+      {#if isGenericProvider}
+        <p class="text-xs text-muted-foreground">
+          {$_('account.smtpCredsNote')}
+        </p>
+      {/if}
     {/if}
   </div>
 

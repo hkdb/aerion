@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/smtp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -99,7 +100,7 @@ func NewClient(config ClientConfig) *Client {
 
 // Connect establishes a connection to the SMTP server
 func (c *Client) Connect() error {
-	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
+	addr := net.JoinHostPort(c.config.Host, strconv.Itoa(c.config.Port))
 
 	c.log.Debug().
 		Str("host", c.config.Host).

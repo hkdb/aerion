@@ -898,7 +898,7 @@ func (s *Store) GetMessagesWithoutBody(folderID string, limit int, sinceDate tim
 			WHERE folder_id = ? AND (
 				body_fetched = 0 OR
 				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			)
+			) AND body_failed = 0
 			ORDER BY date DESC
 			LIMIT ?
 		`
@@ -909,7 +909,7 @@ func (s *Store) GetMessagesWithoutBody(folderID string, limit int, sinceDate tim
 			WHERE folder_id = ? AND (
 				body_fetched = 0 OR
 				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			) AND (date >= ? OR date < '1970-01-01')
+			) AND body_failed = 0 AND (date >= ? OR date < '1970-01-01')
 			ORDER BY date DESC
 			LIMIT ?
 		`
@@ -954,7 +954,7 @@ func (s *Store) GetMessagesWithoutBodyAndSize(folderID string, limit int, sinceD
 			WHERE folder_id = ? AND (
 				body_fetched = 0 OR
 				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			)
+			) AND body_failed = 0
 			ORDER BY date DESC
 			LIMIT ?
 		`
@@ -965,7 +965,7 @@ func (s *Store) GetMessagesWithoutBodyAndSize(folderID string, limit int, sinceD
 			WHERE folder_id = ? AND (
 				body_fetched = 0 OR
 				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			) AND (date >= ? OR date < '1970-01-01')
+			) AND body_failed = 0 AND (date >= ? OR date < '1970-01-01')
 			ORDER BY date DESC
 			LIMIT ?
 		`
@@ -1002,7 +1002,7 @@ func (s *Store) CountMessagesWithoutBody(folderID string, sinceDate time.Time) (
 			`SELECT COUNT(*) FROM messages WHERE folder_id = ? AND (
 				body_fetched = 0 OR
 				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			)`,
+			) AND body_failed = 0`,
 			folderID,
 		).Scan(&count)
 	} else {
@@ -1010,7 +1010,7 @@ func (s *Store) CountMessagesWithoutBody(folderID string, sinceDate time.Time) (
 			`SELECT COUNT(*) FROM messages WHERE folder_id = ? AND (
 				body_fetched = 0 OR
 				(body_fetched = 1 AND smime_encrypted = 0 AND pgp_encrypted = 0 AND (body_text IS NULL OR body_text = '') AND (body_html IS NULL OR body_html = ''))
-			) AND (date >= ? OR date < '1970-01-01')`,
+			) AND body_failed = 0 AND (date >= ? OR date < '1970-01-01')`,
 			folderID, sinceDate,
 		).Scan(&count)
 	}
@@ -1274,10 +1274,31 @@ func (s *Store) ListConversationsByFolder(folderID string, offset, limit int, so
 		orderClause = "ORDER BY latest_date ASC"
 	}
 
+	// Pre-fetch folder type so we can pick the right participants
+	// aggregation. Sent and Drafts folders should surface the recipient
+	// list ("who you wrote to") instead of the sender (always self).
+	// Mirrors the inline folder-type lookup in GetConversation. Lookup
+	// errors are intentionally swallowed: an empty folderType falls
+	// through to the existing sender-based behavior, so the list never
+	// breaks on a metadata hiccup.
+	var folderType string
+	_ = s.db.QueryRow("SELECT folder_type FROM folders WHERE id = ?", folderID).Scan(&folderType)
+	useToList := folderType == "sent" || folderType == "drafts"
+
+	// participantsExpr is byte-identical to the historical query for
+	// every folder except sent/drafts. The sent/drafts branch
+	// aggregates per-message to_list JSON arrays into a nested array
+	// that parseAggregatedToListJSON flattens + dedupes in Go (DISTINCT
+	// doesn't work across nested-array values in SQLite).
+	participantsExpr := `json_group_array(DISTINCT json_object('name', from_name, 'email', from_email))`
+	if useToList {
+		participantsExpr = `json_group_array(json(to_list))`
+	}
+
 	// Get conversations grouped by thread_id, ordered by date
 	// Use GROUP_CONCAT to get all message IDs in a single query
-	query := `
-		SELECT 
+	query := fmt.Sprintf(`
+		SELECT
 			COALESCE(thread_id, id) as conv_thread_id,
 			MIN(subject) as subject,
 			MAX(snippet) as snippet,
@@ -1288,14 +1309,14 @@ func (s *Store) ListConversationsByFolder(folderID string, offset, limit int, so
 			MAX(date) as latest_date,
 			GROUP_CONCAT(id) as message_ids,
 			MAX(CASE WHEN smime_encrypted = 1 OR pgp_encrypted = 1 THEN 1 ELSE 0 END) as is_encrypted,
-			json_group_array(DISTINCT json_object('name', from_name, 'email', from_email)) as participants_json
+			%s as participants_json
 		FROM messages
 		WHERE folder_id = ?
-		GROUP BY COALESCE(thread_id, id)` +
-		filterHavingClause(filter, "") + `
-		` + orderClause + `
+		GROUP BY COALESCE(thread_id, id)`+
+		filterHavingClause(filter, "")+`
+		`+orderClause+`
 		LIMIT ? OFFSET ?
-	`
+	`, participantsExpr)
 
 	rows, err := s.db.Query(query, folderID, limit, offset)
 	if err != nil {
@@ -1341,7 +1362,12 @@ func (s *Store) ListConversationsByFolder(folderID string, offset, limit int, so
 		}
 
 		if participantsJSON.Valid {
-			c.Participants = parseParticipantsJSON(participantsJSON.String)
+			if useToList {
+				c.Participants = parseAggregatedToListJSON(participantsJSON.String)
+			}
+			if !useToList {
+				c.Participants = parseParticipantsJSON(participantsJSON.String)
+			}
 		}
 
 		conversations = append(conversations, c)
@@ -1371,6 +1397,40 @@ func parseParticipantsJSON(s string) []Address {
 		}
 		seen[r.Email] = true
 		participants = append(participants, Address{Name: r.Name, Email: r.Email})
+	}
+	return participants
+}
+
+// parseAggregatedToListJSON parses the nested array produced by
+// `json_group_array(json(to_list))` — one outer entry per message in the
+// conversation, each containing that message's parsed to_list array.
+// Flattens to a deduplicated Address slice keyed by lowercased email.
+//
+// Used by ListConversationsByFolder when the folder type is sent or
+// drafts so the row's "who" column reflects recipients rather than the
+// always-self sender.
+func parseAggregatedToListJSON(s string) []Address {
+	if s == "" || s == "[]" {
+		return nil
+	}
+	var nested [][]struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+	if err := json.Unmarshal([]byte(s), &nested); err != nil {
+		return nil
+	}
+	participants := make([]Address, 0)
+	seen := make(map[string]bool)
+	for _, inner := range nested {
+		for _, r := range inner {
+			key := strings.ToLower(r.Email)
+			if key == "" || seen[key] {
+				continue
+			}
+			seen[key] = true
+			participants = append(participants, Address{Name: r.Name, Email: r.Email})
+		}
 	}
 	return participants
 }
@@ -1844,6 +1904,38 @@ func (s *Store) UpdateFlagsBatch(ids []string, isRead, isStarred *bool) error {
 	return nil
 }
 
+// MarkBodyFailed flags messages whose body fetch+parse produced no usable content
+// so they are excluded from future body-fetch queries (GetMessagesWithoutBody and
+// friends). Idempotent: re-flagging an already-flagged row is a no-op. The flag
+// survives across sessions; clear it via a one-off migration if a future parser
+// improvement should retry these messages.
+//
+// Without this persistent flag, an unparseable message stays empty in the local
+// DB, GetMessagesWithoutBody picks it up next sync, IMAP FETCH runs again, parse
+// fails again — forever. See migration v39.
+func (s *Store) MarkBodyFailed(messageIDs []string) error {
+	if len(messageIDs) == 0 {
+		return nil
+	}
+
+	placeholders := make([]string, len(messageIDs))
+	args := make([]interface{}, len(messageIDs))
+	for i, id := range messageIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(
+		"UPDATE messages SET body_failed = 1 WHERE id IN (%s)",
+		strings.Join(placeholders, ", "),
+	)
+
+	if _, err := s.db.Exec(query, args...); err != nil {
+		return fmt.Errorf("failed to mark messages body-failed: %w", err)
+	}
+	return nil
+}
+
 // MoveMessages updates the folder_id for multiple messages.
 //
 // Design note — temp UIDs:
@@ -1973,6 +2065,33 @@ func (s *Store) DeleteBatch(ids []string) error {
 }
 
 // GetByIDs retrieves multiple messages by their IDs
+// SpansMultipleAccounts returns true when the given message IDs belong
+// to two or more different accounts. Cheap (single SELECT COUNT
+// DISTINCT against the indexed account_id column) — used by bulk-action
+// callers in app/actions.go to decide between the single-account fast
+// path and the cross-account partition+dispatch path. A nil/short input
+// returns false without hitting the DB.
+func (s *Store) SpansMultipleAccounts(ids []string) (bool, error) {
+	if len(ids) < 2 {
+		return false, nil
+	}
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	query := fmt.Sprintf(
+		"SELECT COUNT(DISTINCT account_id) FROM messages WHERE id IN (%s)",
+		strings.Join(placeholders, ", "),
+	)
+	var n int
+	if err := s.db.QueryRow(query, args...).Scan(&n); err != nil {
+		return false, fmt.Errorf("failed to check account span: %w", err)
+	}
+	return n > 1, nil
+}
+
 func (s *Store) GetByIDs(ids []string) ([]*Message, error) {
 	if len(ids) == 0 {
 		return nil, nil

@@ -17,6 +17,7 @@
   import ImagesTab from './ImagesTab.svelte'
   import AccountsTab from './AccountsTab.svelte'
   import ContactsTab from './ContactsTab.svelte'
+  import ExtensionsTab from './ExtensionsTab.svelte'
   import AboutTab from './AboutTab.svelte'
 
   interface Props {
@@ -235,7 +236,7 @@
 </script>
 
 <Dialog.Root bind:open onOpenChange={handleOpenChange}>
-  <Dialog.Content class="max-w-2xl" preventCloseAutoFocus onInteractOutside={(e) => e.preventDefault()}>
+  <Dialog.Content class="max-w-3xl" preventCloseAutoFocus onInteractOutside={(e) => e.preventDefault()}>
     <Dialog.Header>
       <Dialog.Title>{$_('settings.title')}</Dialog.Title>
       <Dialog.Description>
@@ -249,7 +250,7 @@
       </div>
     {:else}
       <Tabs.Root bind:value={activeTab} class="w-full">
-        <Tabs.List class="grid w-full grid-cols-6">
+        <Tabs.List class="grid w-full grid-cols-7">
           <Tabs.Trigger value="general" class="flex items-center gap-2">
             <span class="inline-flex w-4 h-4 items-center justify-center shrink-0"><Icon icon="lucide:settings-2" width="16" height="16" /></span>
             {$_('settings.general')}
@@ -269,6 +270,10 @@
           <Tabs.Trigger value="contacts" class="flex items-center gap-2">
             <span class="inline-flex w-4 h-4 items-center justify-center shrink-0"><Icon icon="lucide:contact" width="16" height="16" /></span>
             {$_('settings.contacts')}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="extensions" class="flex items-center gap-2">
+            <span class="inline-flex w-4 h-4 items-center justify-center shrink-0"><Icon icon="lucide:puzzle" width="16" height="16" /></span>
+            {$_('settings.extensions')}
           </Tabs.Trigger>
           <Tabs.Trigger value="about" class="flex items-center gap-2">
             <span class="inline-flex w-4 h-4 items-center justify-center shrink-0"><Icon icon="lucide:info" width="16" height="16" /></span>
@@ -329,6 +334,10 @@
 
           <Tabs.Content value="contacts" class="mt-0">
             <ContactsTab />
+          </Tabs.Content>
+
+          <Tabs.Content value="extensions" class="mt-0">
+            <ExtensionsTab />
           </Tabs.Content>
 
           <Tabs.Content value="about" class="mt-0">

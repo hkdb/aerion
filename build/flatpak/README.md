@@ -36,9 +36,9 @@ flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flat
 Install required runtimes and SDKs:
 
 ```bash
-flatpak install flathub org.gnome.Platform//49 org.gnome.Sdk//49
-flatpak install flathub org.freedesktop.Sdk.Extension.golang//24.08
-flatpak install flathub org.freedesktop.Sdk.Extension.node24//24.08
+flatpak install flathub org.gnome.Platform//50 org.gnome.Sdk//50
+flatpak install flathub org.freedesktop.Sdk.Extension.golang//25.08
+flatpak install flathub org.freedesktop.Sdk.Extension.node24//25.08
 ```
 
 ## Building Locally

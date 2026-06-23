@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -266,7 +267,7 @@ func (ic *IdleConnection) ensureConnected(ctx context.Context) error {
 		},
 	}
 
-	addr := fmt.Sprintf("%s:%d", creds.Host, creds.Port)
+	addr := net.JoinHostPort(creds.Host, strconv.Itoa(creds.Port))
 	var client *imapclient.Client
 
 	// IDLE connections use a longer read timeout (slightly beyond the IDLE cycle)

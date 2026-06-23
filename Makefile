@@ -8,12 +8,13 @@
 # OAuth credentials are loaded from .env or .env.local files
 # See .env.example for required variables
 
-.PHONY: all build build-linux dev generate clean test lint help \
+.PHONY: all build build-linux dev dev-race generate clean test lint help \
         install uninstall install-linux uninstall-linux \
         install-darwin uninstall-darwin build-windows-installer flatpak flatpak-dev
 
-# Load environment variables from .env files
-# .env.local takes precedence over .env
+# Load environment variables from .env files.
+# .env.local overrides .env. All OAuth credentials live in the root .env —
+# extension packages no longer carry their own OAuth client vars.
 -include .env
 -include .env.local
 export
@@ -21,10 +22,31 @@ export
 # Go module path
 MODULE := github.com/hkdb/aerion
 
-# Build flags for injecting OAuth credentials at compile time
+# Build flags for injecting OAuth credentials at compile time.
+#
+#   GOOGLE_CLIENT_ID/SECRET   — mail's Google-verified client. Also backs
+#                               first-party extensions for any scopes their
+#                               manifest declares in
+#                               first_party_uses_core_for_scopes (today:
+#                               contacts.readonly). Surfaced as
+#                               "Aerion - Google" in the picker.
+#   MICROSOFT_CLIENT_ID       — mail's Azure AD app registration. Also
+#                               backs microsoft-contacts and
+#                               microsoft-calendar (Microsoft Graph
+#                               doesn't gate scopes behind verification).
+#                               Surfaced as "Aerion - Microsoft".
+#   GOOGLE_TESTING_CLIENT_ID/SECRET — shared un-Google-verified test
+#                               project for extensions that need broader
+#                               scopes than the mail project carries
+#                               (contacts.readwrite, full Calendar).
+#                               Single client backs google-contacts AND
+#                               google-calendar slots. Surfaced as
+#                               "Aerion - Google (Testing)".
 LDFLAGS := -X '$(MODULE)/internal/oauth2.GoogleClientID=$(GOOGLE_CLIENT_ID)' \
            -X '$(MODULE)/internal/oauth2.GoogleClientSecret=$(GOOGLE_CLIENT_SECRET)' \
-           -X '$(MODULE)/internal/oauth2.MicrosoftClientID=$(MICROSOFT_CLIENT_ID)'
+           -X '$(MODULE)/internal/oauth2.MicrosoftClientID=$(MICROSOFT_CLIENT_ID)' \
+           -X '$(MODULE)/internal/oauth2.GoogleTestingClientID=$(GOOGLE_TESTING_CLIENT_ID)' \
+           -X '$(MODULE)/internal/oauth2.GoogleTestingClientSecret=$(GOOGLE_TESTING_CLIENT_SECRET)'
 
 # Wails build tags
 BUILD_TAGS := webkit2_41
@@ -77,6 +99,15 @@ flatpak-dev:
 dev:
 	@echo "Starting Aerion in development mode..."
 	wails dev -ldflags "$(LDFLAGS)" -tags $(BUILD_TAGS)
+
+# Run in development mode with Go's race detector enabled. Builds significantly
+# slower and adds ~5-10x runtime overhead, but instruments every memory access
+# and prints exactly which line + goroutines collide on any unsynchronized
+# shared-memory access. Use this when chasing a suspected data race —
+# reproduce the crash and the detector report points right at it.
+dev-race:
+	@echo "Starting Aerion in development mode with -race..."
+	wails dev -ldflags "$(LDFLAGS)" -tags $(BUILD_TAGS) -race
 
 # Generate Wails TypeScript bindings
 generate:

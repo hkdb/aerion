@@ -1,0 +1,17 @@
+{
+  "id": "calendar",
+  "name": "Calendar",
+  "version": "0.1.0",
+  "description": "View and (later) edit calendar events from CalDAV, Google Calendar, and Microsoft 365. Phase 1 ships read-only CalDAV.",
+  "author": "Aerion",
+  "minAerionVersion": "0.3.0",
+  "capabilities": [
+    "calendar.read",
+    "calendar.write",
+    "ui.rail-tab",
+    "ui.settings-tab"
+  ],
+  "oauth": {
+    "first_party_uses_core_for_scopes": []
+  }
+}

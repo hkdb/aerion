@@ -5,8 +5,8 @@ import {
   GetContactSourceErrors,
   SyncContactSource,
   SyncAllContactSources,
+  ForceSyncContactSource,
   DeleteContactSource,
-  ClearContactSourceError,
   GetLinkedAccountsForContactSync,
   LinkAccountContactSource,
   StartContactsOnlyOAuthFlow,
@@ -55,6 +55,21 @@ function createContactSourcesStore() {
     }
   }
 
+  // forceSyncSource clears the per-addressbook sync tokens on the
+  // backend so the next sync returns every vCard from the server. Used
+  // to backfill multi-field data (phone, address, org, notes, etc.) for
+  // contacts originally synced under the legacy v0.2.x schema where the
+  // old parser only stored email + display name.
+  async function forceSyncSource(sourceId: string) {
+    try {
+      await ForceSyncContactSource(sourceId)
+      await load()
+    } catch (err) {
+      console.error('Failed to force-sync contact source:', err)
+      throw err
+    }
+  }
+
   async function syncAll() {
     try {
       await SyncAllContactSources()
@@ -71,16 +86,6 @@ function createContactSourcesStore() {
       await load()
     } catch (err) {
       console.error('Failed to delete contact source:', err)
-      throw err
-    }
-  }
-
-  async function clearError(sourceId: string) {
-    try {
-      await ClearContactSourceError(sourceId)
-      await load()
-    } catch (err) {
-      console.error('Failed to clear contact source error:', err)
       throw err
     }
   }
@@ -133,24 +138,35 @@ function createContactSourcesStore() {
     CancelContactSourceOAuthFlow()
   }
 
+  // isSourceWritable reports whether a CardDAV source has its writable flag
+  // enabled. Used by the Contacts extension to gate Edit/Delete buttons on
+  // per-source write capability. Unknown sourceIds (e.g., the "aerion" local
+  // store, which isn't in this list) return false — callers OR with their
+  // own local-source check.
+  function isSourceWritable(sourceId: string | undefined): boolean {
+    if (!sourceId) return false
+    const s = sources.find(s => s.id === sourceId)
+    return !!s?.writable
+  }
+
   return {
     get sources() { return sources },
     get errors() { return errors },
     get loading() { return loading },
     get hasErrors() { return errors.length > 0 },
-    get errorCount() { return errors.length },
 
     load,
     refresh,
     syncSource,
+    forceSyncSource,
     syncAll,
     deleteSource,
-    clearError,
     getLinkedAccounts,
     linkAccount,
     startOAuthFlow,
     completeOAuthSetup,
     cancelOAuthFlow,
+    isSourceWritable,
   }
 }
 

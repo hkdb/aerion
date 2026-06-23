@@ -9,7 +9,13 @@
     "baseUrl": ".",
     "paths": {
       "$lib/*": ["src/lib/*"],
-      "$/*": ["src/*"]
+      "$/*": ["src/*"],
+      "$extensions/*": ["../extensions/*"],
+      "$wailsjs/*": ["wailsjs/*"],
+      "@iconify/*": ["node_modules/@iconify/*"],
+      "svelte": ["node_modules/svelte/src/runtime/index"],
+      "svelte/*": ["node_modules/svelte/*"],
+      "svelte-i18n": ["node_modules/svelte-i18n"]
     },
     "allowJs": true,
     "checkJs": true,
@@ -22,7 +28,9 @@
     "src/**/*.d.ts",
     "src/**/*.ts",
     "src/**/*.js",
-    "src/**/*.svelte"
+    "src/**/*.svelte",
+    "../extensions/**/frontend/**/*.ts",
+    "../extensions/**/frontend/**/*.svelte"
   ],
   "references": [
     {

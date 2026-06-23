@@ -30,9 +30,9 @@ fi
 
 # Check if runtimes are installed
 echo "Checking for required runtimes..."
-if ! flatpak list --runtime | grep -q "org.gnome.Platform.*49"; then
-    echo "GNOME Platform 49 not found. Installing..."
-    flatpak install -y --user flathub org.gnome.Platform//49 org.gnome.Sdk//49
+if ! flatpak list --runtime | grep -q "org.gnome.Platform.*50"; then
+    echo "GNOME Platform 50 not found. Installing..."
+    flatpak install -y --user flathub org.gnome.Platform//50 org.gnome.Sdk//50
 fi
 
 echo "All runtimes installed"

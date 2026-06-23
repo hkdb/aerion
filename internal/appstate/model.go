@@ -21,4 +21,9 @@ type UIState struct {
 	ExpandedAccounts     map[string]bool `json:"expandedAccounts"`     // accountID -> isExpanded (default: true)
 	UnifiedInboxExpanded bool            `json:"unifiedInboxExpanded"` // Unified Inbox section (default: true)
 	CollapsedFolders     map[string]bool `json:"collapsedFolders"`     // folderID -> isCollapsed (default: false/absent)
+
+	// Active extension pane: "mail" (default) or an extension id like "contacts".
+	// The frontend uses this to decide whether to render Mail or an extension's
+	// pane after the rail is shown. Missing field -> Mail.
+	ActiveExtension string `json:"activeExtension,omitempty"`
 }

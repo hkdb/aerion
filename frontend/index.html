@@ -14,9 +14,72 @@
           background-color: #030712; /* Dark mode: hsl(224 71.4% 4.1%) */
         }
       }
+
+      /* Boot splash. Visible from the moment the window first paints, until
+         the Svelte app is initialized (App.svelte removes this element after
+         its onMount completes). Prevents the "is Aerion crashed?" perception
+         during long startup work like database migrations on first upgrade
+         from a much older version. Inline because it must render BEFORE the
+         JS bundle parses. */
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        background-color: #ffffff;
+        color: #111827;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        transition: opacity 200ms ease-out;
+      }
+      @media (prefers-color-scheme: dark) {
+        #boot-splash {
+          background-color: #030712;
+          color: #e5e7eb;
+        }
+      }
+      #boot-splash[hidden] {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #boot-splash .boot-title {
+        font-size: 1.75rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      #boot-splash .boot-subtitle {
+        font-size: 0.875rem;
+        opacity: 0.7;
+      }
+      #boot-splash .boot-spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid currentColor;
+        border-top-color: transparent;
+        border-radius: 50%;
+        opacity: 0.6;
+        animation: boot-spin 0.9s linear infinite;
+      }
+      @keyframes boot-spin {
+        to { transform: rotate(360deg); }
+      }
     </style>
   </head>
   <body>
+    <!--
+      Boot splash sits above #app, visible until removed by App.svelte after
+      initialization. Plain HTML (no Svelte) so it renders the instant the
+      WebView shows the window — before the JS bundle parses, before i18n
+      loads, before any Wails method round-trips.
+    -->
+    <div id="boot-splash" role="status" aria-live="polite" aria-label="Aerion is starting">
+      <div class="boot-title">Aerion</div>
+      <div class="boot-spinner" aria-hidden="true"></div>
+      <div class="boot-subtitle">Starting up…</div>
+    </div>
     <div id="app"></div>
     <script type="module" src="./src/main.ts"></script>
   </body>
