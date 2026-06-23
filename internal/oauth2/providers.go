@@ -4,14 +4,18 @@ import "fmt"
 
 // ProviderConfig defines OAuth2 endpoints and settings for a provider
 type ProviderConfig struct {
-	Name         string   // Provider identifier: "google", "microsoft"
-	DisplayName  string   // Human-readable name
-	AuthURL      string   // Authorization endpoint
-	TokenURL     string   // Token exchange endpoint
-	Scopes       []string // Required OAuth scopes
-	ClientID     string   // OAuth client ID
-	ClientSecret string   // OAuth client secret (may be empty for public clients)
-	LoginHint    string   // Optional: pre-fill the account picker (`login_hint`).
+	Name             string   // Provider identifier: "google", "microsoft"
+	DisplayName      string   // Human-readable name
+	AuthURL          string   // Authorization endpoint
+	TokenURL         string   // Token exchange endpoint
+	Scopes           []string // Required OAuth scopes
+	ClientID         string   // OAuth client ID
+	ClientSecret     string   // OAuth client secret (may be empty for public clients)
+	UserinfoEndpoint string   // Optional: userinfo endpoint (OIDC). Set for custom
+	//                         providers discovered via OIDC so the account email can
+	//                         be fetched. Shipped providers (google/microsoft) leave
+	//                         this empty and use their hardcoded userinfo URLs.
+	LoginHint string // Optional: pre-fill the account picker (`login_hint`).
 	//                       Used by the Contacts extension's write-access flow
 	//                       to constrain the user to a specific email address
 	//                       matching an existing read account. Empty = no hint.
@@ -88,7 +92,7 @@ func GoogleCalendarProvider() ProviderConfig {
 		Scopes: []string{
 			"https://www.googleapis.com/auth/calendar",       // Full Calendar API access (read + write)
 			"https://www.googleapis.com/auth/userinfo.email", // Get user's email address
-			"openid",                                         // OpenID Connect
+			"openid", // OpenID Connect
 		},
 		ClientID:     GoogleClientID,
 		ClientSecret: GoogleClientSecret,
@@ -124,9 +128,9 @@ func MicrosoftContactsOnlyProvider() ProviderConfig {
 		TokenURL:    "https://login.microsoftonline.com/common/oauth2/v2.0/token",
 		Scopes: []string{
 			"https://graph.microsoft.com/Contacts.Read", // Contacts read access
-			"offline_access",                            // Refresh tokens
-			"openid",                                    // OpenID Connect
-			"email",                                     // Get user's email address
+			"offline_access", // Refresh tokens
+			"openid",         // OpenID Connect
+			"email",          // Get user's email address
 		},
 		ClientID:     MicrosoftClientID,
 		ClientSecret: "", // Public client, no secret needed

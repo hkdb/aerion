@@ -164,6 +164,7 @@ func (s *Store) DeleteAllCredentials(accountID string) error {
 	_ = s.DeletePassword(accountID)
 	_ = s.DeleteSMTPPassword(accountID)
 	_ = s.DeleteOAuthTokens(accountID)
+	_ = s.DeleteCustomOAuthProvider(accountID)
 	return nil
 }
 

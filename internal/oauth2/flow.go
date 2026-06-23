@@ -340,12 +340,15 @@ func (m *Manager) getUserEmail(provider ProviderConfig, tokens *TokenResponse) (
 		}
 	}
 
-	// Fall back to userinfo endpoint
+	// Fall back to userinfo endpoint. Custom (OIDC-discovered) providers supply their
+	// own endpoint; shipped providers use their well-known URLs.
 	var userinfoURL string
-	switch provider.Name {
-	case "google":
+	switch {
+	case provider.UserinfoEndpoint != "":
+		userinfoURL = provider.UserinfoEndpoint
+	case provider.Name == "google":
 		userinfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
-	case "microsoft":
+	case provider.Name == "microsoft":
 		userinfoURL = "https://graph.microsoft.com/v1.0/me"
 	default:
 		return "", fmt.Errorf("userinfo not supported for provider: %s", provider.Name)

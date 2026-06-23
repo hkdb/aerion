@@ -76,7 +76,7 @@ func (ops *composeOps) getValidOAuthToken(ctx context.Context, accountID string)
 		Msg("OAuth token expiring soon, refreshing")
 
 	// Refresh the token
-	newTokenResp, err := ops.oauth2Manager.RefreshToken(tokens.Provider, tokens.RefreshToken)
+	newTokenResp, err := ops.refreshOAuthToken(accountID, tokens)
 	if err != nil {
 		log.Error().Err(err).
 			Str("account_id", accountID).
@@ -113,6 +113,36 @@ func (ops *composeOps) getValidOAuthToken(ctx context.Context, accountID string)
 		Msg("OAuth token refreshed successfully")
 
 	return tokens, nil
+}
+
+// refreshOAuthToken obtains a new access token using the stored refresh token,
+// resolving the provider config by name for shipped providers (Google/Microsoft) or
+// from per-account storage for custom ("bring your own app") providers — whose
+// endpoints/creds oauth2.GetProvider can't supply. The default branch is unchanged from
+// the prior inline call, so shipped accounts behave exactly as before.
+func (ops *composeOps) refreshOAuthToken(accountID string, tokens *credentials.OAuthTokens) (*oauth2.TokenResponse, error) {
+	if tokens.Provider != customOAuthProviderName {
+		return ops.oauth2Manager.RefreshToken(tokens.Provider, tokens.RefreshToken)
+	}
+
+	cfg, ok, err := ops.credStore.GetCustomOAuthProvider(accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load custom OAuth provider: %w", err)
+	}
+	if !ok {
+		return nil, fmt.Errorf("custom OAuth provider config missing for account")
+	}
+
+	provider := oauth2.ProviderConfig{
+		Name:             customOAuthProviderName,
+		AuthURL:          cfg.AuthURL,
+		TokenURL:         cfg.TokenURL,
+		UserinfoEndpoint: cfg.UserinfoEndpoint,
+		Scopes:           cfg.Scopes,
+		ClientID:         cfg.ClientID,
+		ClientSecret:     cfg.ClientSecret,
+	}
+	return ops.oauth2Manager.RefreshTokenWithProvider(provider, tokens.RefreshToken)
 }
 
 // getIMAPCredentials returns IMAP credentials for an account.

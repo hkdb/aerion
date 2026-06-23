@@ -23,6 +23,12 @@ type OAuthStatus struct {
 	NeedsReauth bool      `json:"needsReauth"` // Whether re-authorization is required
 }
 
+// customOAuthProviderName is the oauth_tokens.provider value used for generic IMAP
+// accounts that authenticate via a user-supplied ("bring your own app") OAuth provider.
+// oauth2.GetProvider rejects it on purpose — the refresh and reauth paths rebuild the
+// provider config from credentials.Store.GetCustomOAuthProvider instead.
+const customOAuthProviderName = "custom"
+
 // ============================================================================
 // OAuth2 API - Exposed to frontend via Wails bindings
 // ============================================================================
@@ -226,39 +232,184 @@ func (a *App) CompleteOAuthAccountSetup(provider, email, accountName, displayNam
 	return acc, nil
 }
 
-// SaveOAuthTokens stores OAuth tokens for an account after OAuth flow completion.
-// This should be called immediately after CompleteOAuthAccountSetup.
-func (a *App) SaveOAuthTokens(accountID, provider string, accessToken, refreshToken string, expiresIn int) error {
+// StartCustomOAuthFlow initiates an OAuth2 authorization flow for a user-supplied
+// ("bring your own app") provider — used when adding a generic IMAP account with OAuth.
+// Aerion ships no credentials for custom providers, so the caller passes the
+// authorization + token endpoints, scopes, and client credentials. Emits the same
+// oauth:started / oauth:success / oauth:error events as StartOAuthFlow, so the frontend
+// reuses its existing OAuth UI. On success, CompleteCustomOAuthAccountSetup persists the
+// provider config (stashed here) for later refresh/reauth.
+func (a *App) StartCustomOAuthFlow(authURL, tokenURL, userinfoURL string, scopes []string, clientID, clientSecret string) error {
 	log := logging.WithComponent("app.oauth")
 
-	// Calculate expiry time
-	expiresAt := time.Now().Add(time.Duration(expiresIn) * time.Second)
+	if authURL == "" || tokenURL == "" || clientID == "" {
+		return fmt.Errorf("custom OAuth requires authorization URL, token URL, and client ID")
+	}
 
-	// Get scopes from provider config
-	providerConfig, err := oauth2.GetProvider(provider)
+	provider := &oauth2.ProviderConfig{
+		Name:             customOAuthProviderName,
+		DisplayName:      "Custom",
+		AuthURL:          authURL,
+		TokenURL:         tokenURL,
+		UserinfoEndpoint: userinfoURL,
+		Scopes:           scopes,
+		ClientID:         clientID,
+		ClientSecret:     clientSecret,
+	}
+	a.pendingCustomProvider = provider
+
+	log.Info().Str("provider", customOAuthProviderName).Msg("Starting custom OAuth flow")
+
+	authRedirectURL, err := a.oauth2Manager.StartAuthFlowWithProvider(a.ctx, provider)
 	if err != nil {
-		return fmt.Errorf("unknown provider: %w", err)
+		a.pendingCustomProvider = nil
+		wailsRuntime.EventsEmit(a.ctx, "oauth:error", map[string]interface{}{
+			"provider": customOAuthProviderName,
+			"error":    err.Error(),
+		})
+		return fmt.Errorf("failed to start custom OAuth flow: %w", err)
 	}
 
-	tokens := &credentials.OAuthTokens{
-		Provider:     provider,
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		ExpiresAt:    expiresAt,
-		Scopes:       providerConfig.Scopes,
+	wailsRuntime.EventsEmit(a.ctx, "oauth:started", map[string]interface{}{
+		"provider": customOAuthProviderName,
+		"authURL":  authRedirectURL,
+	})
+
+	// Open browser with auth URL. Portal first (Flatpak/Wayland), Wails fallback —
+	// mirrors StartOAuthFlow.
+	if perr := platform.PortalOpenURI(authRedirectURL); perr != nil {
+		log.Debug().Err(perr).Msg("Portal OpenURI failed, falling back to BrowserOpenURL")
+		wailsRuntime.BrowserOpenURL(a.ctx, authRedirectURL)
 	}
 
-	if err := a.credStore.SetOAuthTokens(accountID, tokens); err != nil {
-		return fmt.Errorf("failed to store OAuth tokens: %w", err)
-	}
+	// Wait for callback in background. For custom providers the userinfo lookup is
+	// unsupported, so email comes back empty (non-fatal) — the frontend uses the
+	// email/username the user entered for the IMAP account.
+	go func() {
+		defer recoverPanic("app.oauth", "Custom OAuth callback")
+		tokens, email, err := a.oauth2Manager.WaitForCallback(a.ctx)
+		if err != nil {
+			log.Error().Err(err).Str("provider", customOAuthProviderName).Msg("Custom OAuth callback failed")
+			wailsRuntime.EventsEmit(a.ctx, "oauth:error", map[string]interface{}{
+				"provider": customOAuthProviderName,
+				"error":    err.Error(),
+			})
+			return
+		}
 
-	log.Info().
-		Str("accountID", accountID).
-		Str("provider", provider).
-		Time("expiresAt", expiresAt).
-		Msg("OAuth tokens saved")
+		a.pendingOAuthTokens = tokens
+		a.pendingOAuthEmail = email
+
+		log.Info().
+			Str("provider", customOAuthProviderName).
+			Str("email", email).
+			Msg("Custom OAuth flow completed successfully")
+
+		wailsRuntime.EventsEmit(a.ctx, "oauth:success", map[string]interface{}{
+			"provider":  customOAuthProviderName,
+			"email":     email,
+			"expiresIn": tokens.ExpiresIn,
+		})
+	}()
 
 	return nil
+}
+
+// OIDCDiscoveryResult is the Wails-facing shape returned by DiscoverOAuthProvider.
+// camelCase JSON mirrors the rest of the app surface (e.g. OAuthStatus).
+type OIDCDiscoveryResult struct {
+	AuthorizationEndpoint string `json:"authorizationEndpoint"`
+	TokenEndpoint         string `json:"tokenEndpoint"`
+	UserinfoEndpoint      string `json:"userinfoEndpoint"`
+}
+
+// DiscoverOAuthProvider runs OIDC/OAuth Authorization Server Metadata discovery against
+// a user-supplied issuer URL and returns the resolved endpoints. The frontend uses this
+// to auto-fill the authorization/token/userinfo endpoints when adding a generic IMAP
+// account with OAuth, so the user only enters the issuer URL and client credentials.
+func (a *App) DiscoverOAuthProvider(issuerURL string) (*OIDCDiscoveryResult, error) {
+	doc, err := oauth2.DiscoverOIDC(a.ctx, issuerURL)
+	if err != nil {
+		return nil, err
+	}
+	return &OIDCDiscoveryResult{
+		AuthorizationEndpoint: doc.AuthorizationEndpoint,
+		TokenEndpoint:         doc.TokenEndpoint,
+		UserinfoEndpoint:      doc.UserinfoEndpoint,
+	}, nil
+}
+
+// CompleteCustomOAuthAccountSetup creates a generic IMAP account that authenticates via a
+// user-supplied OAuth provider, after a successful StartCustomOAuthFlow. The frontend
+// passes the same AccountConfig as a manual IMAP add (real IMAP/SMTP host/port/security,
+// username, email); this method forces AuthOAuth2, saves the pending tokens under the
+// "custom" provider, and persists the provider config so token refresh and
+// re-authorization keep working.
+func (a *App) CompleteCustomOAuthAccountSetup(config account.AccountConfig) (*account.Account, error) {
+	log := logging.WithComponent("app.oauth")
+
+	if a.pendingOAuthTokens == nil {
+		return nil, fmt.Errorf("no pending OAuth tokens - please complete the sign-in process first")
+	}
+	if a.pendingCustomProvider == nil {
+		return nil, fmt.Errorf("no pending custom OAuth provider - please restart the sign-in process")
+	}
+	provider := a.pendingCustomProvider
+
+	config.AuthType = account.AuthOAuth2
+
+	acc, err := a.accountStore.Create(&config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create account: %w", err)
+	}
+
+	expiresAt := time.Now().Add(time.Duration(a.pendingOAuthTokens.ExpiresIn) * time.Second)
+	tokens := &credentials.OAuthTokens{
+		Provider:     customOAuthProviderName,
+		AccessToken:  a.pendingOAuthTokens.AccessToken,
+		RefreshToken: a.pendingOAuthTokens.RefreshToken,
+		ExpiresAt:    expiresAt,
+		Scopes:       provider.Scopes,
+	}
+	if err := a.credStore.SetOAuthTokens(acc.ID, tokens); err != nil {
+		log.Error().Err(err).Str("accountID", acc.ID).Msg("Failed to save OAuth tokens, rolling back account creation")
+		if delErr := a.accountStore.Delete(acc.ID); delErr != nil {
+			log.Warn().Err(delErr).Str("accountID", acc.ID).Msg("Failed to roll back account after token save failure")
+		}
+		return nil, fmt.Errorf("failed to save OAuth tokens: %w", err)
+	}
+
+	// Persist the provider definition — without it, GetProvider("custom") fails and the
+	// account could never refresh its token.
+	customCfg := credentials.CustomOAuthProvider{
+		AuthURL:          provider.AuthURL,
+		TokenURL:         provider.TokenURL,
+		UserinfoEndpoint: provider.UserinfoEndpoint,
+		Scopes:           provider.Scopes,
+		ClientID:         provider.ClientID,
+		ClientSecret:     provider.ClientSecret,
+	}
+	if err := a.credStore.SetCustomOAuthProvider(acc.ID, customCfg); err != nil {
+		log.Error().Err(err).Str("accountID", acc.ID).Msg("Failed to save custom OAuth provider, rolling back account creation")
+		_ = a.credStore.DeleteAllCredentials(acc.ID)
+		if delErr := a.accountStore.Delete(acc.ID); delErr != nil {
+			log.Warn().Err(delErr).Str("accountID", acc.ID).Msg("Failed to roll back account after provider save failure")
+		}
+		return nil, fmt.Errorf("failed to save custom OAuth provider: %w", err)
+	}
+
+	a.pendingOAuthTokens = nil
+	a.pendingOAuthEmail = ""
+	a.pendingCustomProvider = nil
+
+	a.updateDBConnectionPool()
+
+	log.Info().
+		Str("accountID", acc.ID).
+		Str("email", config.Email).
+		Msg("Custom OAuth account created and tokens saved successfully")
+
+	return acc, nil
 }
 
 // SavePendingOAuthTokens saves the pending OAuth tokens from a completed flow to an existing account.
@@ -276,10 +427,23 @@ func (a *App) SavePendingOAuthTokens(accountID string) error {
 		return fmt.Errorf("could not determine OAuth provider for account")
 	}
 
-	// Get scopes from provider config
-	providerConfig, err := oauth2.GetProvider(provider)
-	if err != nil {
-		return fmt.Errorf("unknown provider: %w", err)
+	// Resolve scopes for the token record. Shipped providers expose them via their
+	// static config; custom ("bring your own app") providers store them per account,
+	// since GetProvider("custom") fails by design.
+	var scopes []string
+	switch provider {
+	case customOAuthProviderName:
+		cfg, ok, cerr := a.credStore.GetCustomOAuthProvider(accountID)
+		if cerr != nil || !ok {
+			return fmt.Errorf("could not load custom OAuth provider for account")
+		}
+		scopes = cfg.Scopes
+	default:
+		providerConfig, perr := oauth2.GetProvider(provider)
+		if perr != nil {
+			return fmt.Errorf("unknown provider: %w", perr)
+		}
+		scopes = providerConfig.Scopes
 	}
 
 	// Calculate expiry time
@@ -290,7 +454,7 @@ func (a *App) SavePendingOAuthTokens(accountID string) error {
 		AccessToken:  a.pendingOAuthTokens.AccessToken,
 		RefreshToken: a.pendingOAuthTokens.RefreshToken,
 		ExpiresAt:    expiresAt,
-		Scopes:       providerConfig.Scopes,
+		Scopes:       scopes,
 	}
 
 	if err := a.credStore.SetOAuthTokens(accountID, tokens); err != nil {
@@ -436,6 +600,17 @@ func (a *App) ReauthorizeAccount(accountID string) error {
 		Str("accountID", accountID).
 		Str("provider", provider).
 		Msg("Starting re-authorization for account")
+
+	// Custom ("bring your own app") providers can't be started by name — rebuild the
+	// flow from the per-account stored config. Frontend handles storing new tokens via
+	// SavePendingOAuthTokens, same as shipped providers.
+	if provider == customOAuthProviderName {
+		cfg, ok, cerr := a.credStore.GetCustomOAuthProvider(accountID)
+		if cerr != nil || !ok {
+			return fmt.Errorf("could not load custom OAuth provider for account")
+		}
+		return a.StartCustomOAuthFlow(cfg.AuthURL, cfg.TokenURL, cfg.UserinfoEndpoint, cfg.Scopes, cfg.ClientID, cfg.ClientSecret)
+	}
 
 	// Start OAuth flow - frontend will handle storing new tokens
 	return a.StartOAuthFlow(provider)

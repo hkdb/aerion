@@ -270,18 +270,26 @@
     let result: account.Account
     let provider: string
 
-    if (config.authType === 'oauth2' && oauthCredentials) {
-      provider = oauthCredentials.provider
-      result = await accountStore.addOAuthAccount(
-        provider,
-        config.email,
-        config.name,
-        config.displayName,
-        config.color
-      )
-    } else {
-      provider = 'imap'
-      result = await accountStore.addAccount(config)
+    const isOAuth = config.authType === 'oauth2' && !!oauthCredentials
+    provider = isOAuth ? oauthCredentials!.provider : 'imap'
+
+    switch (true) {
+      case isOAuth && provider === 'custom':
+        // Generic IMAP + user-supplied OAuth: pass the full config so the user's
+        // IMAP/SMTP server settings are used (not hardcoded provider servers).
+        result = await accountStore.addCustomOAuthAccount(config)
+        break
+      case isOAuth:
+        result = await accountStore.addOAuthAccount(
+          provider,
+          config.email,
+          config.name,
+          config.displayName,
+          config.color
+        )
+        break
+      default:
+        result = await accountStore.addAccount(config)
     }
 
     onSuccess?.(result)

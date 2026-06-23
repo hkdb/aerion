@@ -208,12 +208,18 @@ func ShippedClientConfigForID(id string) (ClientCredentials, bool) {
 //
 //	"google", "google-contacts"       → "google-mail"
 //	"microsoft", "microsoft-contacts" → "microsoft-mail"
+//	"custom"                          → "custom-mail"
 func ClientConfigIDForProvider(name string) string {
 	switch name {
 	case "google", "google-contacts":
 		return "google-mail"
 	case "microsoft", "microsoft-contacts":
 		return "microsoft-mail"
+	case "custom":
+		// Generic IMAP accounts with a user-supplied OAuth provider. One shared
+		// slot id; rows stay unique per account via the (account_id,
+		// client_config_id) primary key.
+		return "custom-mail"
 	default:
 		return ""
 	}

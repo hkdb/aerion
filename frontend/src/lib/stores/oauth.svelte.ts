@@ -4,12 +4,11 @@
 
 import {
   StartOAuthFlow,
+  StartCustomOAuthFlow,
   CancelOAuthFlow,
   GetOAuthStatus,
   IsOAuthConfigured,
   GetConfiguredOAuthProviders,
-  CompleteOAuthAccountSetup,
-  SaveOAuthTokens,
   SavePendingOAuthTokens,
   ReauthorizeAccount,
   TestOAuthConnection,
@@ -23,9 +22,11 @@ import { addToast } from './toast'
 
 export type OAuthFlowState = 'idle' | 'pending' | 'success' | 'error' | 'cancelled'
 export type OAuthProvider = 'google' | 'microsoft'
+// 'custom' is the generic ("bring your own app") OAuth flow for manual IMAP accounts.
+export type FlowProvider = OAuthProvider | 'custom'
 
 export interface OAuthFlowResult {
-  provider: OAuthProvider
+  provider: FlowProvider
   email: string
   expiresIn: number
 }
@@ -42,7 +43,7 @@ export interface OAuthStatus {
 class OAuthStore {
   // Flow state
   flowState = $state<OAuthFlowState>('idle')
-  flowProvider = $state<OAuthProvider | null>(null)
+  flowProvider = $state<FlowProvider | null>(null)
   flowError = $state<string | null>(null)
   flowResult = $state<OAuthFlowResult | null>(null)
   // Authorization URL — exposed so the UI can offer a "Copy link" fallback
@@ -66,7 +67,7 @@ class OAuthStore {
 
     EventsOn('oauth:started', (data: { provider: string; authURL?: string }) => {
       this.flowState = 'pending'
-      this.flowProvider = data.provider as OAuthProvider
+      this.flowProvider = data.provider as FlowProvider
       this.flowError = null
       this.flowResult = null
       this.authURL = data.authURL ?? null
@@ -75,7 +76,7 @@ class OAuthStore {
     EventsOn('oauth:success', (data: { provider: string; email: string; expiresIn: number }) => {
       this.flowState = 'success'
       this.flowResult = {
-        provider: data.provider as OAuthProvider,
+        provider: data.provider as FlowProvider,
         email: data.email,
         expiresIn: data.expiresIn,
       }
@@ -153,6 +154,35 @@ class OAuthStore {
   }
 
   /**
+   * Start a custom ("bring your own app") OAuth flow for a generic IMAP account.
+   * The caller supplies the authorization/token endpoints, scopes, and client
+   * credentials. State is updated via the same oauth:* events as startFlow.
+   */
+  async startCustomFlow(
+    authURL: string,
+    tokenURL: string,
+    userinfoURL: string,
+    scopes: string[],
+    clientID: string,
+    clientSecret: string
+  ): Promise<void> {
+    try {
+      this.flowState = 'pending'
+      this.flowProvider = 'custom'
+      this.flowError = null
+      this.flowResult = null
+      this.authURL = null
+
+      await StartCustomOAuthFlow(authURL, tokenURL, userinfoURL, scopes, clientID, clientSecret)
+      // State will be updated via events
+    } catch (err) {
+      this.flowState = 'error'
+      this.flowError = err instanceof Error ? err.message : String(err)
+      throw err
+    }
+  }
+
+  /**
    * Cancel any in-progress OAuth flow.
    */
   cancelFlow(): void {
@@ -169,32 +199,6 @@ class OAuthStore {
     this.flowError = null
     this.flowResult = null
     this.authURL = null
-  }
-
-  /**
-   * Complete account setup after successful OAuth flow.
-   * Creates the account and stores the tokens.
-   */
-  async completeAccountSetup(
-    accountName: string,
-    displayName: string,
-    color: string,
-    accessToken: string,
-    refreshToken: string
-  ): Promise<{ accountId: string; email: string }> {
-    if (this.flowState !== 'success' || !this.flowResult) {
-      throw new Error('No successful OAuth flow to complete')
-    }
-
-    const { provider, email, expiresIn } = this.flowResult
-
-    // Create the account
-    const account = await CompleteOAuthAccountSetup(provider, email, accountName, displayName, color)
-
-    // Save the OAuth tokens
-    await SaveOAuthTokens(account.id, provider, accessToken, refreshToken, expiresIn)
-
-    return { accountId: account.id, email }
   }
 
   /**

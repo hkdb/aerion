@@ -15,6 +15,7 @@
     syncIntervalOptions,
     isOAuthProvider,
     allowsPasswordFallback,
+    supportsCustomOAuth,
     getOAuthProviderType,
     type EmailProvider,
     type OAuthProvider,
@@ -24,7 +25,7 @@
   // @ts-ignore - wailsjs path
   import { account, certificate, app } from '../../../../wailsjs/go/models'
   // @ts-ignore - wailsjs path
-  import { GetAccountFoldersForMapping, GetAutoDetectedFolders, GetIdentities, AcceptCertificate, GetAllAccountIdentities } from '../../../../wailsjs/go/app/App'
+  import { GetAccountFoldersForMapping, GetAutoDetectedFolders, GetIdentities, AcceptCertificate, GetAllAccountIdentities, DiscoverOAuthProvider } from '../../../../wailsjs/go/app/App'
   import CertificateDialog from './CertificateDialog.svelte'
   import { accountStore } from '$lib/stores/accounts.svelte'
   import { _ } from '$lib/i18n'
@@ -67,6 +68,56 @@
     microsoft: false,
   })
   let oauthInitialized = $state(false)
+
+  // Custom ("bring your own app") OAuth — for a generic IMAP account whose OAuth
+  // provider Aerion does not ship. Primary inputs are the issuer URL + client ID;
+  // OIDC discovery resolves the endpoints. Manual endpoint entry is an advanced
+  // fallback. IMAP/SMTP server settings come from the advanced section.
+  let customOAuthIssuer = $state('')
+  let customOAuthClientID = $state('')
+  let customOAuthClientSecret = $state('')
+  let customOAuthScopes = $state('')
+  // Resolved endpoints — from discovery, or typed directly in manual mode.
+  let customOAuthAuthURL = $state('')
+  let customOAuthTokenURL = $state('')
+  let customOAuthUserinfoURL = $state('')
+  let customOAuthManual = $state(false)
+  let customOAuthDiscovering = $state(false)
+  let customOAuthDiscoverError = $state('')
+  let customOAuthDiscovered = $state(false)
+  const customOAuthReady = $derived(
+    customOAuthAuthURL.trim() !== '' &&
+    customOAuthTokenURL.trim() !== '' &&
+    customOAuthClientID.trim() !== ''
+  )
+  // Lock the input fields once the flow is mid-sign-in or already succeeded.
+  const customOAuthInputsLocked = $derived(
+    oauthStore.flowState === 'pending' || oauthStore.flowState === 'success'
+  )
+  // Loopback redirect the user registers in their OAuth app. The port is assigned
+  // dynamically per RFC 8252 (this is why Aerion's shipped Google/Microsoft flows
+  // also use a dynamic port), so it's shown as a pattern for regex-matching
+  // providers; strict-match providers need the fixed-port option instead.
+  const customOAuthRedirectURI = 'http://localhost:[0-9]+/callback'
+
+  async function discoverCustomOAuth() {
+    const issuer = customOAuthIssuer.trim()
+    if (!issuer) return
+    customOAuthDiscovering = true
+    customOAuthDiscoverError = ''
+    try {
+      const doc = await DiscoverOAuthProvider(issuer)
+      customOAuthAuthURL = doc.authorizationEndpoint
+      customOAuthTokenURL = doc.tokenEndpoint
+      customOAuthUserinfoURL = doc.userinfoEndpoint
+      customOAuthDiscovered = true
+    } catch (err) {
+      customOAuthDiscoverError = err instanceof Error ? err.message : String(err)
+      customOAuthDiscovered = false
+    } finally {
+      customOAuthDiscovering = false
+    }
+  }
 
   // Form fields
   let name = $state('')
@@ -323,6 +374,30 @@
   // Start OAuth flow for the selected provider
   async function startOAuthFlow() {
     if (!selectedProvider) return
+
+    // Custom ("bring your own app") provider: build the flow from user-entered
+    // endpoints/creds rather than a shipped provider type.
+    if (supportsCustomOAuth(selectedProvider) && authMethod === 'oauth2') {
+      if (!customOAuthReady) return
+      const scopes = customOAuthScopes
+        .split(/[\s,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+      try {
+        await oauthStore.startCustomFlow(
+          customOAuthAuthURL.trim(),
+          customOAuthTokenURL.trim(),
+          customOAuthUserinfoURL.trim(),
+          scopes,
+          customOAuthClientID.trim(),
+          customOAuthClientSecret.trim()
+        )
+      } catch (err) {
+        console.error('Failed to start custom OAuth flow:', err)
+      }
+      return
+    }
+
     const oauthType = getOAuthProviderType(selectedProvider)
     if (!oauthType) return
 
@@ -711,6 +786,115 @@
 
         <!-- Authentication Section -->
         <div class="space-y-3">
+          <!-- Shared OAuth flow status (idle/pending/success/error). Used by both the
+               shipped-provider block and the custom ("bring your own app") block.
+               signInDisabled gates the initial sign-in button (e.g. until the custom
+               endpoint/client fields are filled). -->
+          {#snippet oauthFlowStatus(signInDisabled = false)}
+            <div class="rounded-lg border border-border p-4 space-y-3">
+              {#if oauthStore.flowState === 'idle' || oauthStore.flowState === 'cancelled'}
+                <!-- Initial state - show sign in button -->
+                <Button
+                  type="button"
+                  variant="outline"
+                  class="w-full h-12"
+                  disabled={signInDisabled}
+                  onclick={startOAuthFlow}
+                >
+                  <Icon icon={getOAuthButtonIcon(selectedProvider)} class="w-5 h-5 mr-3" />
+                  {getOAuthButtonText(selectedProvider)}
+                </Button>
+                <p class="text-xs text-muted-foreground text-center">
+                  {$_('account.redirectToSignIn')}
+                </p>
+              {:else if oauthStore.flowState === 'pending'}
+                <!-- Waiting for OAuth callback -->
+                <div class="flex flex-col items-center gap-3 py-2">
+                  <Icon icon="mdi:loading" class="w-8 h-8 animate-spin text-primary" />
+                  <div class="text-center">
+                    <p class="text-sm font-medium">{$_('account.waitingForAuth')}</p>
+                    <p class="text-xs text-muted-foreground mt-1">
+                      {$_('account.completeSignIn')}
+                    </p>
+                  </div>
+                  {#if oauthStore.authURL}
+                    <button
+                      type="button"
+                      class="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
+                      onclick={handleCopyOAuthLink}
+                    >
+                      {oauthLinkCopied ? $_('account.linkCopied') : $_('viewer.copyLink')}
+                      <Icon icon={oauthLinkCopied ? 'mdi:check' : 'mdi:content-copy'} class="w-3.5 h-3.5" />
+                    </button>
+                  {/if}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onclick={cancelOAuthFlow}
+                  >
+                    {$_('common.cancel')}
+                  </Button>
+                </div>
+              {:else if oauthStore.flowState === 'success'}
+                <!-- OAuth completed successfully -->
+                <div class="flex items-center gap-3 py-2">
+                  <div class="flex-shrink-0 w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <Icon icon="mdi:check" class="w-5 h-5 text-green-500" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-green-600 dark:text-green-400">
+                      {$_('account.connectedSuccessfully')}
+                    </p>
+                    <p class="text-xs text-muted-foreground truncate">
+                      {oauthStore.flowResult?.email}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onclick={() => {
+                      oauthStore.reset()
+                    }}
+                  >
+                    <Icon icon="mdi:refresh" class="w-4 h-4" />
+                  </Button>
+                </div>
+              {:else if oauthStore.flowState === 'error'}
+                <!-- OAuth failed -->
+                <div class="space-y-3">
+                  <div class="flex items-start gap-3">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                      <Icon icon="mdi:alert" class="w-5 h-5 text-destructive" />
+                    </div>
+                    <div class="flex-1">
+                      <p class="text-sm font-medium text-destructive">
+                        {$_('account.authFailed')}
+                      </p>
+                      <p class="text-xs text-muted-foreground mt-1">
+                        {oauthStore.flowError || $_('account.authFailed')}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="w-full"
+                    disabled={signInDisabled}
+                    onclick={startOAuthFlow}
+                  >
+                    {$_('account.tryAgain')}
+                  </Button>
+                </div>
+              {/if}
+            </div>
+            {#if errors.oauth}
+              <p class="text-sm text-destructive">{errors.oauth}</p>
+            {/if}
+          {/snippet}
+
           {#if canUseOAuth(selectedProvider) && !editAccount}
             <!-- OAuth Provider - Show Sign In Button -->
             <div class="space-y-3">
@@ -743,107 +927,7 @@
               {/if}
 
               {#if authMethod === 'oauth2'}
-                <!-- OAuth Flow UI -->
-                <div class="rounded-lg border border-border p-4 space-y-3">
-                  {#if oauthStore.flowState === 'idle' || oauthStore.flowState === 'cancelled'}
-                    <!-- Initial state - show sign in button -->
-                    <Button
-                      type="button"
-                      variant="outline"
-                      class="w-full h-12"
-                      onclick={startOAuthFlow}
-                    >
-                      <Icon icon={getOAuthButtonIcon(selectedProvider)} class="w-5 h-5 mr-3" />
-                      {getOAuthButtonText(selectedProvider)}
-                    </Button>
-                    <p class="text-xs text-muted-foreground text-center">
-                      {$_('account.redirectToSignIn')}
-                    </p>
-                  {:else if oauthStore.flowState === 'pending'}
-                    <!-- Waiting for OAuth callback -->
-                    <div class="flex flex-col items-center gap-3 py-2">
-                      <Icon icon="mdi:loading" class="w-8 h-8 animate-spin text-primary" />
-                      <div class="text-center">
-                        <p class="text-sm font-medium">{$_('account.waitingForAuth')}</p>
-                        <p class="text-xs text-muted-foreground mt-1">
-                          {$_('account.completeSignIn')}
-                        </p>
-                      </div>
-                      {#if oauthStore.authURL}
-                        <button
-                          type="button"
-                          class="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
-                          onclick={handleCopyOAuthLink}
-                        >
-                          {oauthLinkCopied ? $_('account.linkCopied') : $_('viewer.copyLink')}
-                          <Icon icon={oauthLinkCopied ? 'mdi:check' : 'mdi:content-copy'} class="w-3.5 h-3.5" />
-                        </button>
-                      {/if}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onclick={cancelOAuthFlow}
-                      >
-                        {$_('common.cancel')}
-                      </Button>
-                    </div>
-                  {:else if oauthStore.flowState === 'success'}
-                    <!-- OAuth completed successfully -->
-                    <div class="flex items-center gap-3 py-2">
-                      <div class="flex-shrink-0 w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
-                        <Icon icon="mdi:check" class="w-5 h-5 text-green-500" />
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-green-600 dark:text-green-400">
-                          {$_('account.connectedSuccessfully')}
-                        </p>
-                        <p class="text-xs text-muted-foreground truncate">
-                          {oauthStore.flowResult?.email}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onclick={() => {
-                          oauthStore.reset()
-                        }}
-                      >
-                        <Icon icon="mdi:refresh" class="w-4 h-4" />
-                      </Button>
-                    </div>
-                  {:else if oauthStore.flowState === 'error'}
-                    <!-- OAuth failed -->
-                    <div class="space-y-3">
-                      <div class="flex items-start gap-3">
-                        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
-                          <Icon icon="mdi:alert" class="w-5 h-5 text-destructive" />
-                        </div>
-                        <div class="flex-1">
-                          <p class="text-sm font-medium text-destructive">
-                            {$_('account.authFailed')}
-                          </p>
-                          <p class="text-xs text-muted-foreground mt-1">
-                            {$_('account.authFailed')}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        class="w-full"
-                        onclick={startOAuthFlow}
-                      >
-                        {$_('account.tryAgain')}
-                      </Button>
-                    </div>
-                  {/if}
-                </div>
-                {#if errors.oauth}
-                  <p class="text-sm text-destructive">{errors.oauth}</p>
-                {/if}
+                {@render oauthFlowStatus()}
               {:else}
                 <!-- Password field for app password -->
                 <div class="space-y-2">
@@ -852,6 +936,173 @@
                     id="password"
                     type="password"
                     placeholder={$_('account.enterAppPassword')}
+                    bind:value={password}
+                    class={errors.password ? 'border-destructive' : ''}
+                  />
+                  {#if errors.password}
+                    <p class="text-sm text-destructive">{errors.password}</p>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+          {:else if supportsCustomOAuth(selectedProvider) && !editAccount}
+            <!-- Generic provider: Password or user-supplied ("bring your own app") OAuth -->
+            <div class="space-y-3">
+              <Label>{$_('account.authentication')}</Label>
+
+              <div class="flex gap-2">
+                <Button
+                  type="button"
+                  variant={authMethod === 'password' ? 'default' : 'outline'}
+                  size="sm"
+                  onclick={() => authMethod = 'password'}
+                  class="flex-1"
+                >
+                  <Icon icon="mdi:key" class="w-4 h-4 mr-2" />
+                  {$_('account.password')}
+                </Button>
+                <Button
+                  type="button"
+                  variant={authMethod === 'oauth2' ? 'default' : 'outline'}
+                  size="sm"
+                  onclick={() => authMethod = 'oauth2'}
+                  class="flex-1"
+                >
+                  <Icon icon="mdi:shield-key-outline" class="w-4 h-4 mr-2" />
+                  OAuth
+                </Button>
+              </div>
+
+              {#if authMethod === 'oauth2'}
+                <!-- Issuer + client credentials; OIDC discovery resolves the endpoints -->
+                <div class="rounded-lg border border-border p-4 space-y-3">
+                  <p class="text-xs text-muted-foreground">{$_('account.customOAuthHelp')}</p>
+
+                  <div class="space-y-2">
+                    <Label for="custom-oauth-issuer">{$_('account.customOAuthIssuer')}</Label>
+                    <div class="flex gap-2">
+                      <Input
+                        id="custom-oauth-issuer"
+                        type="url"
+                        placeholder="https://mail.example.com"
+                        bind:value={customOAuthIssuer}
+                        disabled={customOAuthInputsLocked}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onclick={discoverCustomOAuth}
+                        disabled={!customOAuthIssuer.trim() || customOAuthDiscovering || customOAuthInputsLocked}
+                      >
+                        {#if customOAuthDiscovering}
+                          <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
+                        {:else}
+                          {$_('account.customOAuthDiscover')}
+                        {/if}
+                      </Button>
+                    </div>
+                    <p class="text-xs text-muted-foreground">{$_('account.customOAuthIssuerHelp')}</p>
+                    {#if customOAuthDiscoverError}
+                      <p class="text-xs text-destructive">{customOAuthDiscoverError}</p>
+                    {:else if customOAuthDiscovered}
+                      <p class="text-xs text-green-600 dark:text-green-400 inline-flex items-center gap-1">
+                        <Icon icon="mdi:check" class="w-3.5 h-3.5" />
+                        {$_('account.customOAuthDiscovered')}
+                      </p>
+                    {/if}
+                  </div>
+
+                  <div class="space-y-2">
+                    <Label for="custom-oauth-client-id">{$_('account.customOAuthClientId')}</Label>
+                    <Input
+                      id="custom-oauth-client-id"
+                      type="text"
+                      bind:value={customOAuthClientID}
+                      disabled={customOAuthInputsLocked}
+                    />
+                  </div>
+                  <div class="space-y-2">
+                    <Label for="custom-oauth-client-secret">{$_('account.customOAuthClientSecret')}</Label>
+                    <Input
+                      id="custom-oauth-client-secret"
+                      type="password"
+                      placeholder={$_('account.customOAuthClientSecretPlaceholder')}
+                      bind:value={customOAuthClientSecret}
+                      disabled={customOAuthInputsLocked}
+                    />
+                  </div>
+                  <div class="space-y-2">
+                    <Label for="custom-oauth-scopes">{$_('account.customOAuthScopes')}</Label>
+                    <Input
+                      id="custom-oauth-scopes"
+                      type="text"
+                      placeholder="offline_access"
+                      bind:value={customOAuthScopes}
+                      disabled={customOAuthInputsLocked}
+                    />
+                    <p class="text-xs text-muted-foreground">{$_('account.customOAuthScopesHelp')}</p>
+                  </div>
+
+                  <!-- Redirect URI the user registers in their OAuth app -->
+                  <div class="space-y-1">
+                    <Label>{$_('account.customOAuthRedirectUri')}</Label>
+                    <code class="block text-xs bg-muted rounded px-2 py-1.5 break-all">{customOAuthRedirectURI}</code>
+                    <p class="text-xs text-muted-foreground">{$_('account.customOAuthRedirectUriHelp')}</p>
+                  </div>
+
+                  <!-- Advanced: manual endpoint entry (fallback for servers without discovery) -->
+                  <button
+                    type="button"
+                    class="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
+                    onclick={() => customOAuthManual = !customOAuthManual}
+                  >
+                    <Icon icon={customOAuthManual ? 'mdi:chevron-down' : 'mdi:chevron-right'} class="w-4 h-4" />
+                    {$_('account.customOAuthManual')}
+                  </button>
+                  {#if customOAuthManual}
+                    <div class="space-y-2">
+                      <Label for="custom-oauth-auth-url">{$_('account.customOAuthAuthUrl')}</Label>
+                      <Input
+                        id="custom-oauth-auth-url"
+                        type="url"
+                        placeholder="https://auth.example.com/authorize"
+                        bind:value={customOAuthAuthURL}
+                        disabled={customOAuthInputsLocked}
+                      />
+                    </div>
+                    <div class="space-y-2">
+                      <Label for="custom-oauth-token-url">{$_('account.customOAuthTokenUrl')}</Label>
+                      <Input
+                        id="custom-oauth-token-url"
+                        type="url"
+                        placeholder="https://auth.example.com/token"
+                        bind:value={customOAuthTokenURL}
+                        disabled={customOAuthInputsLocked}
+                      />
+                    </div>
+                    <div class="space-y-2">
+                      <Label for="custom-oauth-userinfo-url">{$_('account.customOAuthUserinfoUrl')}</Label>
+                      <Input
+                        id="custom-oauth-userinfo-url"
+                        type="url"
+                        placeholder="https://auth.example.com/userinfo"
+                        bind:value={customOAuthUserinfoURL}
+                        disabled={customOAuthInputsLocked}
+                      />
+                    </div>
+                  {/if}
+                </div>
+
+                {@render oauthFlowStatus(!customOAuthReady)}
+              {:else}
+                <!-- Password field -->
+                <div class="space-y-2">
+                  <Label for="password">{$_('account.password')}</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder={$_('account.enterPassword')}
                     bind:value={password}
                     class={errors.password ? 'border-destructive' : ''}
                   />

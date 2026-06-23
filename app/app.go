@@ -287,6 +287,11 @@ type App struct {
 	pendingOAuthTokens *oauth2.TokenResponse
 	pendingOAuthEmail  string
 
+	// Pending custom ("bring your own app") OAuth provider config, set by
+	// StartCustomOAuthFlow and consumed by CompleteCustomOAuthAccountSetup so the
+	// endpoints/creds can be persisted per account for later refresh/reauth.
+	pendingCustomProvider *oauth2.ProviderConfig
+
 	// Temporary OAuth token storage (for pending contact source creation)
 	pendingContactSourceOAuthTokens   *oauth2.TokenResponse
 	pendingContactSourceOAuthEmail    string

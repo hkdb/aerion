@@ -210,6 +210,10 @@ export function CompleteContactSourceOAuthSetup(arg1, arg2) {
   return window['go']['app']['App']['CompleteContactSourceOAuthSetup'](arg1, arg2);
 }
 
+export function CompleteCustomOAuthAccountSetup(arg1) {
+  return window['go']['app']['App']['CompleteCustomOAuthAccountSetup'](arg1);
+}
+
 export function CompleteOAuthAccountSetup(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['CompleteOAuthAccountSetup'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -312,6 +316,10 @@ export function DeleteSenderCert(arg1) {
 
 export function DiscoverCardDAVAddressbooks(arg1, arg2, arg3) {
   return window['go']['app']['App']['DiscoverCardDAVAddressbooks'](arg1, arg2, arg3);
+}
+
+export function DiscoverOAuthProvider(arg1) {
+  return window['go']['app']['App']['DiscoverOAuthProvider'](arg1);
 }
 
 export function DownloadAttachment(arg1, arg2) {
@@ -966,10 +974,6 @@ export function SaveEncryptedAttachmentAs(arg1, arg2) {
   return window['go']['app']['App']['SaveEncryptedAttachmentAs'](arg1, arg2);
 }
 
-export function SaveOAuthTokens(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['app']['App']['SaveOAuthTokens'](arg1, arg2, arg3, arg4, arg5);
-}
-
 export function SavePendingOAuthTokens(arg1) {
   return window['go']['app']['App']['SavePendingOAuthTokens'](arg1);
 }
@@ -1148,6 +1152,10 @@ export function Star(arg1) {
 
 export function StartContactsOnlyOAuthFlow(arg1) {
   return window['go']['app']['App']['StartContactsOnlyOAuthFlow'](arg1);
+}
+
+export function StartCustomOAuthFlow(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['app']['App']['StartCustomOAuthFlow'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 export function StartOAuthFlow(arg1) {

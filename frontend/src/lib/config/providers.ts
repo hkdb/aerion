@@ -36,6 +36,11 @@ export interface EmailProvider {
   // OAuth configuration
   authMethod?: AuthMethod // defaults to 'password'
   oauth?: OAuthConfig
+  // Allows a user-supplied ("bring your own app") OAuth provider, where the
+  // authorization/token endpoints, scopes, and client credentials are entered by
+  // the user rather than shipped by Aerion. Used for the generic/manual provider so
+  // a custom IMAP server with OAuth (e.g. self-hosted) can be added.
+  allowCustomOAuth?: boolean
 }
 
 export const providers: EmailProvider[] = [
@@ -161,6 +166,7 @@ export const providers: EmailProvider[] = [
     imap: { host: '', port: 993, security: 'tls' },
     smtp: { host: '', port: 587, security: 'starttls' },
     usernameIsEmail: true,
+    allowCustomOAuth: true,
   },
 ]
 
@@ -205,6 +211,13 @@ export function isOAuthProvider(provider: EmailProvider): boolean {
  */
 export function allowsPasswordFallback(provider: EmailProvider): boolean {
   return provider.oauth?.allowPasswordFallback ?? false
+}
+
+/**
+ * Check if a provider supports a user-supplied ("bring your own app") OAuth flow
+ */
+export function supportsCustomOAuth(provider: EmailProvider | null): boolean {
+  return provider?.allowCustomOAuth ?? false
 }
 
 /**

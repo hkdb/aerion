@@ -648,6 +648,22 @@ export namespace app {
 		    return a;
 		}
 	}
+	export class OIDCDiscoveryResult {
+	    authorizationEndpoint: string;
+	    tokenEndpoint: string;
+	    userinfoEndpoint: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new OIDCDiscoveryResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.authorizationEndpoint = source["authorizationEndpoint"];
+	        this.tokenEndpoint = source["tokenEndpoint"];
+	        this.userinfoEndpoint = source["userinfoEndpoint"];
+	    }
+	}
 	export class PGPViewResult {
 	    bodyHtml: string;
 	    bodyText: string;

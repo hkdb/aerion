@@ -104,7 +104,7 @@ func (s *Store) GetOAuthTokens(accountID string) (*OAuthTokens, error) {
 		SELECT provider, expires_at, scopes
 		FROM oauth_tokens
 		WHERE account_id = ?
-		  AND client_config_id IN ('google-mail', 'microsoft-mail')
+		  AND client_config_id IN ('google-mail', 'microsoft-mail', 'custom-mail')
 	`, accountID).Scan(&provider, &expiresAt, &scopesJSON)
 
 	if err == sql.ErrNoRows {
@@ -188,7 +188,7 @@ func (s *Store) UpdateOAuthAccessToken(accountID, accessToken string, expiresAt 
 		UPDATE oauth_tokens
 		SET expires_at = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE account_id = ?
-		  AND client_config_id IN ('google-mail', 'microsoft-mail')
+		  AND client_config_id IN ('google-mail', 'microsoft-mail', 'custom-mail')
 	`, expiresAt, accountID)
 
 	if err != nil {
@@ -212,7 +212,7 @@ func (s *Store) GetOAuthProvider(accountID string) (string, error) {
 	err := s.db.QueryRow(
 		`SELECT provider FROM oauth_tokens
 		 WHERE account_id = ?
-		   AND client_config_id IN ('google-mail', 'microsoft-mail')`,
+		   AND client_config_id IN ('google-mail', 'microsoft-mail', 'custom-mail')`,
 		accountID,
 	).Scan(&provider)
 

@@ -9,6 +9,7 @@ import {
   RemoveAccount,
   TestConnection,
   CompleteOAuthAccountSetup,
+  CompleteCustomOAuthAccountSetup,
   ReorderAccounts,
 } from '../../../wailsjs/go/app/App'
 import { account, app, folder } from '../../../wailsjs/go/models'
@@ -393,6 +394,33 @@ class AccountStore {
     const newAccount = await CompleteOAuthAccountSetup(provider, email, accountName, displayName, color)
 
     // Add to local state
+    this.accounts.push({
+      account: newAccount,
+      folders: [],
+      loading: false,
+      syncing: false,
+      error: null,
+      lastSync: null,
+    })
+
+    // Start sync in background (don't await - let dialog close immediately)
+    this.syncAccount(newAccount.id).catch(err => {
+      console.error('Initial sync failed:', err)
+    })
+
+    return newAccount
+  }
+
+  /**
+   * Add a generic IMAP account that authenticates via a user-supplied ("bring your
+   * own app") OAuth provider. Unlike addOAuthAccount (which uses hardcoded
+   * Gmail/Outlook servers), this passes the full config so the user's IMAP/SMTP
+   * server settings are honored. CompleteCustomOAuthAccountSetup saves the OAuth
+   * tokens and the per-account provider config from the completed flow.
+   */
+  async addCustomOAuthAccount(config: account.AccountConfig): Promise<account.Account> {
+    const newAccount = await CompleteCustomOAuthAccountSetup(config)
+
     this.accounts.push({
       account: newAccount,
       folders: [],
