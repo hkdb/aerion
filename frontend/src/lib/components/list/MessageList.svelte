@@ -6,7 +6,7 @@
   import { cn } from '$lib/utils'
   import { Button } from '$lib/components/ui/button'
   // @ts-ignore - wailsjs bindings
-  import { GetConversations, GetConversationCount, SyncFolder, ForceSyncFolder, CancelFolderSync, SetMessageListSortOrder, GetUnifiedInboxConversations, GetUnifiedInboxCount, SearchConversations, SearchUnifiedInbox, GetSearchCount, GetSearchCountUnifiedInbox, GetFTSIndexStatus, IsFTSIndexing, Trash, DeletePermanently, EmptyTrash, Undo, IMAPSearchFolder, FetchServerMessage } from '../../../../wailsjs/go/app/App'
+  import { GetConversations, GetConversationCount, SyncFolder, ForceSyncFolder, CancelFolderSync, SetMessageListSortOrder, GetUnifiedInboxConversations, GetUnifiedInboxCount, SearchConversations, SearchUnifiedInbox, GetSearchCount, GetSearchCountUnifiedInbox, GetFTSIndexStatus, IsFTSIndexing, Trash, DeletePermanently, EmptyTrash, EmptyJunk, Undo, IMAPSearchFolder, FetchServerMessage } from '../../../../wailsjs/go/app/App'
   import { toasts } from '$lib/stores/toast'
   import { _ } from '$lib/i18n'
   import { ConfirmDialog } from '$lib/components/ui/confirm-dialog'
@@ -1178,6 +1178,9 @@
   // Empty trash confirmation state
   let showEmptyTrashConfirm = $state(false)
 
+  // Empty junk confirmation state
+  let showEmptyJunkConfirm = $state(false)
+
   async function handleUndo() {
     try {
       const description = await Undo()
@@ -1214,6 +1217,20 @@
       toasts.error($_('toast.failedToEmptyTrash'))
     }
     showEmptyTrashConfirm = false
+  }
+
+  async function handleEmptyJunk() {
+    if (!accountId || !folderId) return
+    try {
+      await EmptyJunk(accountId, folderId)
+      toasts.success($_('toast.junkEmptied'))
+      handleActionComplete(true)
+      clearChecked()
+    } catch (err) {
+      console.error('Empty junk failed:', err)
+      toasts.error($_('toast.failedToEmptyJunk'))
+    }
+    showEmptyJunkConfirm = false
   }
 
   // Shared delete handler — same flow as context menu "Delete" action
@@ -1447,6 +1464,21 @@
       >
         <Icon icon="mdi:delete-sweep-outline" class="w-4 h-4 mr-1.5" />
         {$_('messageList.emptyTrash')}
+      </Button>
+    </div>
+  {/if}
+
+  <!-- Empty Junk bar (only shown when viewing junk/spam folder with messages, not in search mode) -->
+  {#if folderType === 'spam' && totalCount > 0 && !isSearchMode}
+    <div class="flex items-center justify-end px-4 py-2 bg-muted/50 border-b border-border">
+      <Button
+        size="sm"
+        variant="outline"
+        class="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/50 bg-muted/50"
+        onclick={() => { showEmptyJunkConfirm = true }}
+      >
+        <Icon icon="mdi:delete-sweep-outline" class="w-4 h-4 mr-1.5" />
+        {$_('messageList.emptyJunk')}
       </Button>
     </div>
   {/if}
@@ -1725,4 +1757,15 @@
   variant="destructive"
   onConfirm={handleEmptyTrash}
   onCancel={() => { showEmptyTrashConfirm = false }}
+/>
+
+<!-- Empty Junk Confirmation Dialog -->
+<ConfirmDialog
+  bind:open={showEmptyJunkConfirm}
+  title={$_('dialog.emptyJunk')}
+  description={$_('dialog.emptyJunkDescription')}
+  confirmLabel={$_('dialog.confirmEmptyJunk')}
+  variant="destructive"
+  onConfirm={handleEmptyJunk}
+  onCancel={() => { showEmptyJunkConfirm = false }}
 />
