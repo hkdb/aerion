@@ -20,6 +20,33 @@ import (
 	"time"
 )
 
+// defaultBase is the base RoundTripper every davutil client falls back to when
+// no explicit base is supplied. It starts as http.DefaultTransport; the HOST may
+// replace it once at startup (SetDefaultBaseTransport) with a cert-aware
+// transport — e.g. one wired to Aerion's trust-on-first-use certificate store —
+// so all WebDAV clients (host + extension, Basic + bearer) verify TLS the same
+// way IMAP/SMTP do. davutil stays generic: it never imports the certificate
+// package; the host assembles the transport and installs it here.
+var defaultBase http.RoundTripper = http.DefaultTransport
+
+// SetDefaultBaseTransport installs the process-wide base transport for all
+// davutil-built WebDAV clients. Call once at startup, before any client is
+// built. Passing nil resets to http.DefaultTransport.
+func SetDefaultBaseTransport(rt http.RoundTripper) {
+	if rt == nil {
+		defaultBase = http.DefaultTransport
+		return
+	}
+	defaultBase = rt
+}
+
+func defaultBaseTransport() http.RoundTripper {
+	if defaultBase == nil {
+		return http.DefaultTransport
+	}
+	return defaultBase
+}
+
 // XMLFixTransport normalizes WebDAV XML responses to work around server
 // quirks the underlying go-webdav library trips on:
 //
@@ -36,22 +63,23 @@ type XMLFixTransport struct {
 	Base http.RoundTripper
 }
 
-// NewXMLFixTransport wraps base in an XMLFixTransport. If base is nil,
-// http.DefaultTransport is used.
+// NewXMLFixTransport wraps base in an XMLFixTransport. If base is nil, the
+// configurable default base (SetDefaultBaseTransport, else http.DefaultTransport)
+// is used.
 func NewXMLFixTransport(base http.RoundTripper) *XMLFixTransport {
 	if base == nil {
-		base = http.DefaultTransport
+		base = defaultBaseTransport()
 	}
 	return &XMLFixTransport{Base: base}
 }
 
-// NewHTTPClient returns an *http.Client wrapping http.DefaultTransport in
-// XMLFixTransport, with the given request timeout. Used by both
+// NewHTTPClient returns an *http.Client wrapping the configurable default base
+// transport in XMLFixTransport, with the given request timeout. Used by both
 // internal/carddav and the calendar extension for any WebDAV operation
 // whose responses may carry ETag / lastmodified headers — i.e., sync and
 // per-resource PUT/DELETE.
 func NewHTTPClient(timeout time.Duration) *http.Client {
-	return NewWebDAVClient(http.DefaultTransport, timeout)
+	return NewWebDAVClient(defaultBaseTransport(), timeout)
 }
 
 // NewWebDAVClient wraps base in XMLFixTransport and returns an *http.Client
@@ -78,7 +106,7 @@ type bearerTransport struct {
 func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	base := t.base
 	if base == nil {
-		base = http.DefaultTransport
+		base = defaultBaseTransport()
 	}
 	if existing := req.Header.Get("Authorization"); strings.TrimSpace(existing) != "" {
 		return base.RoundTrip(req)
@@ -94,7 +122,7 @@ func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 // go-webdav HTTPClient is expected. For tokens that refresh, wrap the
 // refreshing transport with NewWebDAVClient instead.
 func NewBearerHTTPClient(token string, timeout time.Duration) *http.Client {
-	return NewWebDAVClient(&bearerTransport{token: token, base: http.DefaultTransport}, timeout)
+	return NewWebDAVClient(&bearerTransport{token: token, base: defaultBaseTransport()}, timeout)
 }
 
 var getlastmodifiedRe = regexp.MustCompile(

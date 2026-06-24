@@ -50,6 +50,59 @@ func BuildTLSConfig(host string, store *Store) *tls.Config {
 	}
 }
 
+// BuildTLSConfigDynamic is the host-agnostic variant of BuildTLSConfig: it
+// verifies each connection against the server name negotiated for THAT
+// connection (read from tls.ConnectionState in VerifyConnection), so a single
+// *tls.Config can back a transport that talks to many hosts. The DAV clients
+// reuse one shared transport across all CardDAV/CalDAV sources (and the auth
+// broker hands out an account-level client before the DAV host is known), so a
+// fixed-host config like BuildTLSConfig won't do. Same trust logic: system CA
+// first, then the trusted-cert fingerprint store, else a structured *Error.
+func BuildTLSConfigDynamic(store *Store) *tls.Config {
+	return &tls.Config{
+		InsecureSkipVerify: true, // real verification happens in VerifyConnection
+		VerifyConnection: func(cs tls.ConnectionState) error {
+			if len(cs.PeerCertificates) == 0 {
+				return fmt.Errorf("no certificates presented")
+			}
+			leaf := cs.PeerCertificates[0]
+
+			systemErr := verifyParsedWithSystemCAs(cs.PeerCertificates, cs.ServerName)
+			if systemErr == nil {
+				return nil
+			}
+
+			fingerprint := Fingerprint(leaf.Raw)
+			if store != nil && store.IsTrusted(fingerprint) {
+				return nil
+			}
+
+			info := ExtractCertInfo(leaf.Raw, systemErr)
+			return &Error{Info: info, Reason: info.ErrorReason}
+		},
+	}
+}
+
+// verifyParsedWithSystemCAs verifies an already-parsed certificate chain against
+// the system CA pool for the given host. Parsed-cert analog of
+// verifyWithSystemCAs, used by the VerifyConnection-based dynamic config.
+func verifyParsedWithSystemCAs(chain []*x509.Certificate, host string) error {
+	roots, err := x509.SystemCertPool()
+	if err != nil {
+		return fmt.Errorf("failed to load system cert pool: %w", err)
+	}
+	intermediates := x509.NewCertPool()
+	for _, c := range chain[1:] {
+		intermediates.AddCert(c)
+	}
+	_, err = chain[0].Verify(x509.VerifyOptions{
+		Roots:         roots,
+		Intermediates: intermediates,
+		DNSName:       host,
+	})
+	return err
+}
+
 // verifyWithSystemCAs attempts to verify the certificate chain using system CAs
 func verifyWithSystemCAs(cert *x509.Certificate, host string, rawCerts [][]byte) error {
 	roots, err := x509.SystemCertPool()

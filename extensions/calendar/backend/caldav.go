@@ -12,6 +12,8 @@ import (
 
 	"github.com/emersion/go-webdav"
 	extcaldav "github.com/emersion/go-webdav/caldav"
+
+	"github.com/hkdb/aerion/internal/kit/davutil"
 )
 
 // DiscoveredCalendar is the calendar-shaped result of CalDAV discovery,
@@ -417,7 +419,11 @@ func resolveCalDAVURL(baseURL, href string) string {
 // at that point (likely as a shared internal/davutil package the host
 // exposes, since calendar can't import internal/carddav).
 func newCalDAVHTTPClient(timeout time.Duration) *http.Client {
+	// Route through davutil so the client uses the host-installed cert-aware
+	// (TOFU) base transport — same trusted-cert store as IMAP/SMTP — instead of
+	// the implicit http.DefaultTransport.
 	return &http.Client{
-		Timeout: timeout,
+		Timeout:   timeout,
+		Transport: davutil.NewXMLFixTransport(nil),
 	}
 }

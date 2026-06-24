@@ -66,8 +66,10 @@ func (t *bearerRefreshTransport) RoundTrip(req *http.Request) (*http.Response, e
 	}
 
 	expiresAt := time.Now().Add(time.Duration(refreshed.ExpiresIn) * time.Second)
-	if err := t.credStore.UpdateOAuthAccessTokenForClientConfig(t.accountID, t.clientConfigID, refreshed.AccessToken, expiresAt); err != nil {
-		return nil, fmt.Errorf("auth broker: persist refreshed token: %w", err)
+	// Persist the rotated refresh token too — providers like Microsoft and custom
+	// OIDC return a NEW refresh_token on refresh; dropping it breaks the next one.
+	if err := t.credStore.UpdateOAuthTokensForClientConfig(t.accountID, t.clientConfigID, refreshed.AccessToken, refreshed.RefreshToken, expiresAt); err != nil {
+		return nil, fmt.Errorf("auth broker: persist refreshed tokens: %w", err)
 	}
 
 	return t.do(req, refreshed.AccessToken)

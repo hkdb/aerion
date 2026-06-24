@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"database/sql"
@@ -187,6 +188,53 @@ func TestIsTrustedDefault(t *testing.T) {
 	fp := "0000000000000000000000000000000000000000000000000000000000000000"
 	if store.IsTrusted(fp) {
 		t.Fatal("IsTrusted = true for unknown fingerprint, want false")
+	}
+}
+
+// TestBuildTLSConfigDynamic exercises the host-agnostic TOFU verifier used by
+// the DAV transports. Drives VerifyConnection directly (no TLS server needed):
+// an untrusted self-signed cert is rejected with a structured *Error; once its
+// fingerprint is trusted it passes; an empty chain errors.
+func TestBuildTLSConfigDynamic(t *testing.T) {
+	store := openTestStore(t)
+	der := generateTestCert(t)
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse cert: %v", err)
+	}
+
+	cfg := BuildTLSConfigDynamic(store)
+	if cfg.VerifyConnection == nil {
+		t.Fatal("VerifyConnection is nil")
+	}
+	if !cfg.InsecureSkipVerify {
+		t.Fatal("InsecureSkipVerify must be true (the callback does the real verification)")
+	}
+
+	cs := tls.ConnectionState{
+		ServerName:       "test.example.com",
+		PeerCertificates: []*x509.Certificate{cert},
+	}
+
+	// Untrusted self-signed → structured *Error.
+	err = cfg.VerifyConnection(cs)
+	if err == nil {
+		t.Fatal("expected error for untrusted self-signed cert")
+	}
+	var ce *Error
+	if !errors.As(err, &ce) {
+		t.Fatalf("expected *Error, got %T: %v", err, err)
+	}
+
+	// Trust the fingerprint → now accepted.
+	store.AcceptSession(Fingerprint(der))
+	if err := cfg.VerifyConnection(cs); err != nil {
+		t.Fatalf("expected store-trusted cert to pass, got %v", err)
+	}
+
+	// Empty chain → error.
+	if err := cfg.VerifyConnection(tls.ConnectionState{ServerName: "test.example.com"}); err == nil {
+		t.Fatal("expected error for empty PeerCertificates")
 	}
 }
 

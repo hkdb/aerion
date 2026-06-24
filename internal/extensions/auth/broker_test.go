@@ -33,7 +33,7 @@ func newTestBroker(t *testing.T) (*Broker, *credentials.Store, *database.DB) {
 	}
 
 	mgr := oauth2.NewManager()
-	return NewBroker(credStore, mgr), credStore, db
+	return NewBroker(credStore, mgr, nil), credStore, db
 }
 
 func insertTestAccount(t *testing.T, db *database.DB, id string) {

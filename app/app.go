@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os/exec"
 	"runtime"
@@ -29,6 +30,7 @@ import (
 	"github.com/hkdb/aerion/internal/folder"
 	"github.com/hkdb/aerion/internal/imap"
 	"github.com/hkdb/aerion/internal/ipc"
+	"github.com/hkdb/aerion/internal/kit/davutil"
 	"github.com/hkdb/aerion/internal/logging"
 	"github.com/hkdb/aerion/internal/message"
 	"github.com/hkdb/aerion/internal/notification"
@@ -627,7 +629,15 @@ func (a *App) Startup(ctx context.Context) {
 	// invariant, NO extension stores are opened here. Each extension's Bridge
 	// lazy-initializes its stores + per-extension SQLite + API on the first
 	// enabled method call. See extensions/<name>/backend/bridge.go.
-	a.authBroker = extauth.NewBroker(a.credStore, a.oauth2Manager)
+	// Route all WebDAV (CardDAV/CalDAV) traffic through one cert-aware transport
+	// so it honors the same trust-on-first-use certificate store as IMAP/SMTP.
+	// Host-agnostic (verifies per-connection server name) since the transport is
+	// shared across every DAV source host. Installed once, before any sync runs.
+	davTransport := http.DefaultTransport.(*http.Transport).Clone()
+	davTransport.TLSClientConfig = certificate.BuildTLSConfigDynamic(a.certStore)
+	davutil.SetDefaultBaseTransport(davTransport)
+
+	a.authBroker = extauth.NewBroker(a.credStore, a.oauth2Manager, davTransport)
 	a.mailAPI = extmail.NewAPI(a.messageStore, a.folderStore)
 	a.composerAPI = extcompose.NewAPI(a)
 	a.uiRegistry = extui.NewRegistry()

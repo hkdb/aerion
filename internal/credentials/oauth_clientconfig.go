@@ -175,6 +175,25 @@ func (s *Store) UpdateOAuthAccessTokenForClientConfig(accountID, clientConfigID,
 	return nil
 }
 
+// UpdateOAuthTokensForClientConfig updates the access token, expiry, AND refresh
+// token for a (account, client_config) pair after a refresh. The refresh token
+// is persisted only when non-empty: providers that don't rotate omit it on
+// refresh, and overwriting the still-valid stored one with "" would break the
+// next refresh. Used by the auth broker's refreshing transport so a rotated
+// refresh token (Microsoft, custom OIDC) is not lost — mirrors the rotation
+// handling in app/compose.go's core mail refresh.
+func (s *Store) UpdateOAuthTokensForClientConfig(accountID, clientConfigID, accessToken, refreshToken string, expiresAt time.Time) error {
+	if err := s.UpdateOAuthAccessTokenForClientConfig(accountID, clientConfigID, accessToken, expiresAt); err != nil {
+		return err
+	}
+	if refreshToken != "" {
+		if err := s.setOAuthRefreshTokenForClientConfig(accountID, clientConfigID, refreshToken); err != nil {
+			return fmt.Errorf("failed to store rotated refresh token: %w", err)
+		}
+	}
+	return nil
+}
+
 // HasOAuthTokensForClientConfig returns true if the (account, client_config)
 // pair has a token row.
 func (s *Store) HasOAuthTokensForClientConfig(accountID, clientConfigID string) bool {

@@ -5,6 +5,8 @@
 ---
 
 - Added custom oauth for imap, cardav, and caldav
+- Custom oauth refresh token handling fix
+- Use TOFU cert store for DAV certs
 
 
 **v0.3.0 - 06-23-2026**
