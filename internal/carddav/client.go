@@ -32,29 +32,49 @@ type Client struct {
 	baseURL  string
 	username string
 	password string
+	// injected is the caller-supplied auth-carrying HTTP client (e.g. a bearer
+	// client from davutil.NewBearerHTTPClient). When set, per-addressbook
+	// operations reuse it so the token flows through; nil for Basic-auth
+	// sources, which rebuild a Basic client from username/password instead.
+	injected webdav.HTTPClient
 	log      zerolog.Logger
 }
 
-// NewClient creates a new CardDAV client
-func NewClient(baseURL, username, password string) (*Client, error) {
-	// Create HTTP client with XML-fix transport
-	httpClient := newHTTPClient(30 * time.Second)
+// addressbookHTTPClient returns the go-webdav HTTPClient for a per-addressbook
+// operation. When the Client was built with a caller-supplied (bearer) client,
+// that client carries the auth and is reused as-is. Otherwise a Basic-auth
+// client is built from the stored credentials with the requested timeout
+// (preserving the original per-operation timeouts).
+func (c *Client) addressbookHTTPClient(timeout time.Duration) webdav.HTTPClient {
+	if c.injected != nil {
+		return c.injected
+	}
+	return webdav.HTTPClientWithBasicAuth(newHTTPClient(timeout), c.username, c.password)
+}
 
-	// Parse and normalize the URL
+// normalizeURL parses baseURL and defaults a missing scheme to https.
+func normalizeURL(baseURL string) (*url.URL, error) {
 	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid URL: %w", err)
 	}
-
-	// Ensure scheme is present
 	if parsedURL.Scheme == "" {
 		parsedURL.Scheme = "https"
 	}
+	return parsedURL, nil
+}
 
-	client, err := carddav.NewClient(
-		webdav.HTTPClientWithBasicAuth(httpClient, username, password),
-		parsedURL.String(),
-	)
+// NewClient creates a new CardDAV client using HTTP Basic auth.
+func NewClient(baseURL, username, password string) (*Client, error) {
+	parsedURL, err := normalizeURL(baseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create HTTP client with XML-fix transport, wrapped for Basic auth.
+	httpClient := webdav.HTTPClientWithBasicAuth(newHTTPClient(30*time.Second), username, password)
+
+	client, err := carddav.NewClient(httpClient, parsedURL.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CardDAV client: %w", err)
 	}
@@ -68,31 +88,59 @@ func NewClient(baseURL, username, password string) (*Client, error) {
 	}, nil
 }
 
+// NewClientWithHTTPClient creates a CardDAV client backed by a caller-supplied
+// webdav.HTTPClient — e.g. a bearer-authenticated client from
+// davutil.NewBearerHTTPClient. Auth is whatever the supplied client injects;
+// the username/password fields stay empty.
+func NewClientWithHTTPClient(httpClient webdav.HTTPClient, baseURL string) (*Client, error) {
+	parsedURL, err := normalizeURL(baseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := carddav.NewClient(httpClient, parsedURL.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CardDAV client: %w", err)
+	}
+
+	return &Client{
+		client:   client,
+		baseURL:  parsedURL.String(),
+		injected: httpClient,
+		log:      logging.WithComponent("carddav-client"),
+	}, nil
+}
+
 // DiscoverAddressbooks discovers all addressbooks from the server
 // It tries multiple discovery methods:
 // 1. .well-known/carddav
 // 2. Direct PROPFIND on the URL
 // 3. Common paths (/remote.php/dav for Nextcloud, etc.)
 func DiscoverAddressbooks(baseURL, username, password string) ([]AddressbookInfo, error) {
+	httpClient := webdav.HTTPClientWithBasicAuth(newHTTPClient(30*time.Second), username, password)
+	return discoverAddressbooks(baseURL, username, httpClient)
+}
+
+// DiscoverAddressbooksWithHTTPClient discovers addressbooks using a caller-supplied
+// webdav.HTTPClient (e.g. bearer-authenticated via davutil.NewBearerHTTPClient). No
+// username is available for the username-templated fallback paths, so it relies on
+// the direct-URL and .well-known discovery methods (which is what unified OAuth
+// servers like Stalwart expose).
+func DiscoverAddressbooksWithHTTPClient(baseURL string, httpClient webdav.HTTPClient) ([]AddressbookInfo, error) {
+	return discoverAddressbooks(baseURL, "", httpClient)
+}
+
+// discoverAddressbooks is the shared discovery core. Auth is whatever httpClient
+// injects (Basic or bearer); username only seeds the server-specific fallback paths.
+func discoverAddressbooks(baseURL, username string, httpClient webdav.HTTPClient) ([]AddressbookInfo, error) {
 	ctx := context.Background()
 	log := logging.WithComponent("carddav-discovery")
 	log.Info().Str("url", baseURL).Msg("Starting addressbook discovery")
 
-	// Parse URL
-	parsedURL, err := url.Parse(baseURL)
+	parsedURL, err := normalizeURL(baseURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid URL: %w", err)
+		return nil, err
 	}
-
-	if parsedURL.Scheme == "" {
-		parsedURL.Scheme = "https"
-	}
-
-	// Create HTTP client with XML-fix transport
-	httpClient := webdav.HTTPClientWithBasicAuth(
-		newHTTPClient(30*time.Second),
-		username, password,
-	)
 
 	// Try discovery methods in order
 	var addressbooks []AddressbookInfo
@@ -235,10 +283,7 @@ func (c *Client) FetchContacts(addressbookPath string) ([]*ParsedRecord, error) 
 	fullPath := resolveURL(c.baseURL, addressbookPath)
 
 	// Create a new client for this specific addressbook
-	httpClient := webdav.HTTPClientWithBasicAuth(
-		newHTTPClient(60*time.Second),
-		c.username, c.password,
-	)
+	httpClient := c.addressbookHTTPClient(60 * time.Second)
 
 	abClient, err := carddav.NewClient(httpClient, fullPath)
 	if err != nil {
@@ -546,10 +591,7 @@ func (e *ErrPreconditionFailed) Error() string {
 // XML, and basic auth flows through automatically.
 func (c *Client) PutContact(addressbookPath, href, ifMatchETag string, ifNoneMatchAny bool, card []byte) (string, error) {
 	fullURL := resolveURL(c.baseURL, href)
-	httpClient := webdav.HTTPClientWithBasicAuth(
-		newHTTPClient(60*time.Second),
-		c.username, c.password,
-	)
+	httpClient := c.addressbookHTTPClient(60 * time.Second)
 
 	req, err := http.NewRequest(http.MethodPut, fullURL, bytes.NewReader(card))
 	if err != nil {
@@ -587,10 +629,7 @@ func (c *Client) PutContact(addressbookPath, href, ifMatchETag string, ifNoneMat
 // all count as success (404 is idempotent — the resource is gone either way).
 func (c *Client) DeleteContact(addressbookPath, href, ifMatchETag string) error {
 	fullURL := resolveURL(c.baseURL, href)
-	httpClient := webdav.HTTPClientWithBasicAuth(
-		newHTTPClient(60*time.Second),
-		c.username, c.password,
-	)
+	httpClient := c.addressbookHTTPClient(60 * time.Second)
 
 	req, err := http.NewRequest(http.MethodDelete, fullURL, nil)
 	if err != nil {
@@ -626,10 +665,7 @@ func (c *Client) DeleteContact(addressbookPath, href, ifMatchETag string) error 
 // the conflict to the UI.
 func (c *Client) FetchContactByPath(addressbookPath, href string) (*ParsedRecord, error) {
 	fullPath := resolveURL(c.baseURL, addressbookPath)
-	httpClient := webdav.HTTPClientWithBasicAuth(
-		newHTTPClient(60*time.Second),
-		c.username, c.password,
-	)
+	httpClient := c.addressbookHTTPClient(60 * time.Second)
 	abClient, err := carddav.NewClient(httpClient, fullPath)
 	if err != nil {
 		return nil, fmt.Errorf("build addressbook client: %w", err)
@@ -674,10 +710,7 @@ func (c *Client) SyncAddressbook(addressbookPath, syncToken string) (*SyncResult
 	fullPath := resolveURL(c.baseURL, addressbookPath)
 
 	// Create a new client for this specific addressbook
-	httpClient := webdav.HTTPClientWithBasicAuth(
-		newHTTPClient(60*time.Second),
-		c.username, c.password,
-	)
+	httpClient := c.addressbookHTTPClient(60 * time.Second)
 
 	abClient, err := carddav.NewClient(httpClient, fullPath)
 	if err != nil {

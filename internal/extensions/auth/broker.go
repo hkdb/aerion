@@ -115,6 +115,33 @@ func (b *Broker) HTTPClientForExtension(
 		return nil, fmt.Errorf("auth broker: get account tokens: %w", err)
 	}
 
+	// Custom ("bring your own app") accounts have a single per-account grant —
+	// no core-vs-own scope routing, no per-extension custom slot, and no
+	// incremental consent. Route straight to custom-mail, skipping the manifest
+	// classification + scope gate below.
+	if mailTokens.Provider == "custom" {
+		clientConfigID := resolveClientConfigID("custom", false) // "custom-mail"
+		if _, terr := b.credStore.GetOAuthTokensForClientConfig(accountID, string(clientConfigID)); terr != nil {
+			if terr == credentials.ErrCredentialNotFound {
+				return nil, &coreapi.ErrAdditionalConsentRequired{
+					AccountID:      accountID,
+					ClientConfigID: clientConfigID,
+					MissingScopes:  scopes,
+				}
+			}
+			return nil, fmt.Errorf("auth broker: check tokens: %w", terr)
+		}
+		return &http.Client{
+			Transport: &bearerRefreshTransport{
+				base:           http.DefaultTransport,
+				credStore:      b.credStore,
+				oauthManager:   b.oauthManager,
+				accountID:      accountID,
+				clientConfigID: string(clientConfigID),
+			},
+		}, nil
+	}
+
 	// Classify each requested scope: does it use Aerion core's mail OAuth
 	// (per the manifest's first_party_uses_core_for_scopes) or the extension's
 	// own client config?

@@ -133,15 +133,7 @@ func (ops *composeOps) refreshOAuthToken(accountID string, tokens *credentials.O
 		return nil, fmt.Errorf("custom OAuth provider config missing for account")
 	}
 
-	provider := oauth2.ProviderConfig{
-		Name:             customOAuthProviderName,
-		AuthURL:          cfg.AuthURL,
-		TokenURL:         cfg.TokenURL,
-		UserinfoEndpoint: cfg.UserinfoEndpoint,
-		Scopes:           cfg.Scopes,
-		ClientID:         cfg.ClientID,
-		ClientSecret:     cfg.ClientSecret,
-	}
+	provider := oauth2.CustomProviderConfig(cfg.AuthURL, cfg.TokenURL, cfg.UserinfoEndpoint, cfg.Scopes, cfg.ClientID, cfg.ClientSecret)
 	return ops.oauth2Manager.RefreshTokenWithProvider(provider, tokens.RefreshToken)
 }
 

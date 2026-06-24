@@ -7,6 +7,7 @@ import (
 
 	"github.com/hkdb/aerion/internal/contact"
 	"github.com/hkdb/aerion/internal/credentials"
+	"github.com/hkdb/aerion/internal/kit/davutil"
 	"github.com/hkdb/aerion/internal/logging"
 	"github.com/rs/zerolog"
 )
@@ -116,18 +117,30 @@ func (s *Syncer) SyncSource(sourceID string) error {
 	return nil
 }
 
-// syncCardDAV syncs contacts from a CardDAV server
-func (s *Syncer) syncCardDAV(source *Source) error {
-	// Get password from credential store (use CardDAV-specific method)
-	password, err := s.credStore.GetCardDAVPassword(source.ID)
-	if err != nil {
-		syncErr := fmt.Sprintf("failed to get credentials: %v", err)
-		s.store.UpdateSourceSyncStatus(source.ID, syncErr)
-		return fmt.Errorf("failed to get password: %w", err)
+// cardDAVClient builds the CardDAV client for a source. When the source is linked
+// to an OAuth account it authenticates with a bearer token obtained via the existing
+// getOAuthToken path (account token getter — already custom-OAuth-aware); otherwise
+// it uses Basic auth with the stored CardDAV password.
+func (s *Syncer) cardDAVClient(source *Source) (*Client, error) {
+	if source.AccountID != nil && *source.AccountID != "" {
+		token, err := s.getOAuthToken(source)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get OAuth token: %w", err)
+		}
+		return NewClientWithHTTPClient(davutil.NewBearerHTTPClient(token, 30*time.Second), source.URL)
 	}
 
-	// Create CardDAV client
-	client, err := NewClient(source.URL, source.Username, password)
+	password, err := s.credStore.GetCardDAVPassword(source.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get password: %w", err)
+	}
+	return NewClient(source.URL, source.Username, password)
+}
+
+// syncCardDAV syncs contacts from a CardDAV server (bearer auth for account-linked
+// sources, Basic auth otherwise).
+func (s *Syncer) syncCardDAV(source *Source) error {
+	client, err := s.cardDAVClient(source)
 	if err != nil {
 		syncErr := fmt.Sprintf("failed to connect: %v", err)
 		s.store.UpdateSourceSyncStatus(source.ID, syncErr)

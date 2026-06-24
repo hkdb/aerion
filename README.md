@@ -75,6 +75,7 @@ Although Linux is a first-class citizen here, it also works on:
 - 1st party extension system with the following shipped:
     - Calendar (ALPHA) - Disabled by Default
     - Contacts (ALPHA) - Disabled by Default
+- Custom oAuth2 support for generic IMAP, SMTP, CarDAV, and CalDAV (Tested w/ [Stalwart](https://stalw.art))
 - [Keyboard Shortcuts](docs/KEYBOARD_SHORTCUTS.md)
 
 

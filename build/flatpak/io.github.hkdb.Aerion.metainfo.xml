@@ -256,6 +256,7 @@
       <description>
         <ul>
           <li>Added custom oauth for imap</li>
+          <li>Added custom oauth for cardav</li>
         </ul>
       </description>
     </release>

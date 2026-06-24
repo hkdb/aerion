@@ -51,10 +51,50 @@ func NewXMLFixTransport(base http.RoundTripper) *XMLFixTransport {
 // whose responses may carry ETag / lastmodified headers — i.e., sync and
 // per-resource PUT/DELETE.
 func NewHTTPClient(timeout time.Duration) *http.Client {
+	return NewWebDAVClient(http.DefaultTransport, timeout)
+}
+
+// NewWebDAVClient wraps base in XMLFixTransport and returns an *http.Client
+// (which satisfies go-webdav's HTTPClient interface). base is the inner
+// transport — http.DefaultTransport for unauthenticated/Basic use, or an
+// auth-injecting transport (e.g. bearerTransport, or the auth broker's
+// refreshing transport) when the caller supplies one. If base is nil,
+// http.DefaultTransport is used.
+func NewWebDAVClient(base http.RoundTripper, timeout time.Duration) *http.Client {
 	return &http.Client{
 		Timeout:   timeout,
-		Transport: NewXMLFixTransport(http.DefaultTransport),
+		Transport: NewXMLFixTransport(base),
 	}
+}
+
+// bearerTransport injects a static `Authorization: Bearer <token>` header on
+// each request, leaving an existing Authorization header untouched. Generic
+// HTTP bearer auth — no extension- or provider-specific knowledge.
+type bearerTransport struct {
+	token string
+	base  http.RoundTripper
+}
+
+func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	if existing := req.Header.Get("Authorization"); strings.TrimSpace(existing) != "" {
+		return base.RoundTrip(req)
+	}
+	// Clone before mutating — RoundTrippers must not modify the input request.
+	cloned := req.Clone(req.Context())
+	cloned.Header.Set("Authorization", "Bearer "+t.token)
+	return base.RoundTrip(cloned)
+}
+
+// NewBearerHTTPClient returns a WebDAV-ready *http.Client that injects a static
+// bearer token and applies the XML fixups. Pass the result anywhere a
+// go-webdav HTTPClient is expected. For tokens that refresh, wrap the
+// refreshing transport with NewWebDAVClient instead.
+func NewBearerHTTPClient(token string, timeout time.Duration) *http.Client {
+	return NewWebDAVClient(&bearerTransport{token: token, base: http.DefaultTransport}, timeout)
 }
 
 var getlastmodifiedRe = regexp.MustCompile(

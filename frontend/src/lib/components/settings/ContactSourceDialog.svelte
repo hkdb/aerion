@@ -14,6 +14,8 @@
   // @ts-ignore - wailsjs path
   import {
     DiscoverCardDAVAddressbooks,
+    DiscoverCardDAVAddressbooksOAuth,
+    GetCustomOAuthAccounts,
     AddContactSource,
     UpdateContactSource,
     GetSourceAddressbooks,
@@ -43,6 +45,14 @@
   let username = $state('')
   let password = $state('')
   let syncInterval = $state(60)
+
+  // CardDAV authentication method: Basic password, or reuse a custom-OAuth mail
+  // account's bearer token (unified-grant servers like Stalwart).
+  let cardDavAuthMethod = $state<'password' | 'oauth'>('password')
+  let customOAuthAccounts = $state<LinkedAccountInfo[]>([])
+  let selectedCustomAccountId = $state<string>('')
+  let loadingCustomAccounts = $state(false)
+  const cardDavIsOAuth = $derived(cardDavAuthMethod === 'oauth')
 
 
   // Discovery state
@@ -99,6 +109,30 @@
     }
   }
 
+  // Load custom-OAuth mail accounts (provider "custom") whose token can back a
+  // CardDAV source on the same unified server.
+  async function loadCustomOAuthAccounts() {
+    loadingCustomAccounts = true
+    try {
+      customOAuthAccounts = (await GetCustomOAuthAccounts()) || []
+    } catch (err) {
+      console.error('Failed to load custom OAuth accounts:', err)
+      customOAuthAccounts = []
+    } finally {
+      loadingCustomAccounts = false
+    }
+  }
+
+  // Switch CardDAV auth method, resetting discovery (different auth → re-discover).
+  function setCardDavAuth(method: 'password' | 'oauth') {
+    if (cardDavAuthMethod === method) return
+    cardDavAuthMethod = method
+    hasDiscovered = false
+    discoveredAddressbooks = []
+    selectedAddressbooks = new Set()
+    discoveryError = null
+  }
+
   // Get available accounts for the selected provider (not already linked)
   let availableAccounts = $derived(
     linkedAccounts.filter(acc => acc.provider === sourceType && !acc.isLinked)
@@ -122,6 +156,11 @@
       if (editSource.type === 'carddav') {
         loadExistingAddressbooks()
       }
+
+      // CardDAV edit: account-linked sources authenticate via OAuth.
+      cardDavAuthMethod = editSource.account_id ? 'oauth' : 'password'
+      selectedCustomAccountId = editSource.account_id || ''
+      loadCustomOAuthAccounts()
     } else if (open && !editSource) {
       // Reset for new source.
       name = ''
@@ -137,9 +176,13 @@
       selectedAccountId = ''
       oauthInProgress = false
       oauthEmail = ''
+      cardDavAuthMethod = 'password'
+      selectedCustomAccountId = ''
 
-      // Load linked accounts for OAuth sources
+      // Linked accounts power Google/MS tabs; custom-OAuth accounts power the
+      // CardDAV "OAuth account" option.
       loadLinkedAccounts()
+      loadCustomOAuthAccounts()
     }
   })
 
@@ -226,7 +269,11 @@
   }
 
   async function handleDiscover() {
-    if (!url || !username || !password) {
+    if (cardDavIsOAuth && (!url || !selectedCustomAccountId)) {
+      discoveryError = $_('contactSource.fillUrlAccount')
+      return
+    }
+    if (!cardDavIsOAuth && (!url || !username || !password)) {
       discoveryError = $_('contactSource.fillUrlUserPass')
       return
     }
@@ -237,15 +284,16 @@
     selectedAddressbooks = new Set()
 
     try {
-      const addressbooks = await DiscoverCardDAVAddressbooks(url, username, password)
+      const addressbooks = cardDavIsOAuth
+        ? await DiscoverCardDAVAddressbooksOAuth(url, selectedCustomAccountId)
+        : await DiscoverCardDAVAddressbooks(url, username, password)
       if (addressbooks && addressbooks.length > 0) {
         discoveredAddressbooks = addressbooks
-        // Select all by default
         selectedAddressbooks = new Set(addressbooks.map((ab: carddav.AddressbookInfo) => ab.path))
         hasDiscovered = true
-      } else {
-        discoveryError = $_('contactSource.noAddressbooksFound')
+        return
       }
+      discoveryError = $_('contactSource.noAddressbooksFound')
     } catch (err) {
       console.error('Discovery failed:', err)
       discoveryError = $_('contactSource.discoveryFailed')
@@ -280,13 +328,20 @@
 
     try {
       if (sourceType === 'carddav') {
-        // CardDAV source
-        if (!name || !url || !username) {
+        // CardDAV source — Basic password, or account-linked OAuth bearer.
+        if (!name || !url) {
           addToast({ type: 'error', message: $_('toast.fillRequiredFields') })
           return
         }
-
-        if (!editSource && !password) {
+        if (cardDavIsOAuth && !selectedCustomAccountId) {
+          addToast({ type: 'error', message: $_('toast.selectOAuthAccount') })
+          return
+        }
+        if (!cardDavIsOAuth && !username) {
+          addToast({ type: 'error', message: $_('toast.fillRequiredFields') })
+          return
+        }
+        if (!cardDavIsOAuth && !editSource && !password) {
           addToast({ type: 'error', message: $_('toast.passwordRequired') })
           return
         }
@@ -300,14 +355,14 @@
           name,
           type: 'carddav' as const,
           url,
-          username,
-          password,
+          username: cardDavIsOAuth ? '' : username,
+          password: cardDavIsOAuth ? '' : password,
+          account_id: cardDavIsOAuth ? selectedCustomAccountId : '',
           enabled: true,
-          // New CardDAV sources default to writable=true at creation. Users
-          // toggle off later via Contacts extension settings → Write Access.
-          // UpdateSource ignores this field on edits, so it doesn't clobber
-          // an existing source's flag — the extension settings is the only
-          // place that actually changes it post-create.
+          // New sources default writable=true — Basic and account-linked OAuth
+          // alike, now that the bearer write path is wired. Users toggle off
+          // later via Contacts extension settings → Write Access (UpdateSource
+          // ignores this field on edits).
           writable: true,
           sync_interval: syncInterval,
           enabled_addressbooks: Array.from(selectedAddressbooks),
@@ -448,6 +503,35 @@
           />
         </div>
 
+        {#if !editSource}
+          <!-- Authentication method -->
+          <div class="space-y-2">
+            <Label>{$_('contactSource.authentication')}</Label>
+            <div class="flex gap-2">
+              <Button
+                type="button"
+                variant={!cardDavIsOAuth ? 'default' : 'outline'}
+                size="sm"
+                class="flex-1"
+                onclick={() => setCardDavAuth('password')}
+              >
+                <Icon icon="mdi:key" class="w-4 h-4 mr-2" />
+                {$_('contactSource.authPassword')}
+              </Button>
+              <Button
+                type="button"
+                variant={cardDavIsOAuth ? 'default' : 'outline'}
+                size="sm"
+                class="flex-1"
+                onclick={() => setCardDavAuth('oauth')}
+              >
+                <Icon icon="mdi:shield-key-outline" class="w-4 h-4 mr-2" />
+                {$_('contactSource.authOAuth')}
+              </Button>
+            </div>
+          </div>
+        {/if}
+
         <div class="space-y-2">
           <Label for="url">{$_('contactSource.serverUrl')}</Label>
           <Input
@@ -461,31 +545,69 @@
           </p>
         </div>
 
-        <div class="space-y-2">
-          <Label for="username">{$_('contactSource.username')}</Label>
-          <Input
-            id="username"
-            bind:value={username}
-            placeholder="your@email.com"
-            disabled={!!editSource}
-          />
-        </div>
+        {#if cardDavIsOAuth}
+          <!-- OAuth account: reuse a custom-OAuth mail account's token -->
+          <div class="space-y-2">
+            <Label>{$_('contactSource.oauthAccount')}</Label>
+            {#if loadingCustomAccounts}
+              <div class="flex items-center justify-center py-3">
+                <Icon icon="mdi:loading" class="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            {:else if customOAuthAccounts.length === 0}
+              <p class="text-xs text-muted-foreground">{$_('contactSource.noCustomAccounts')}</p>
+            {:else}
+              <div class="border border-border rounded-md divide-y divide-border">
+                {#each customOAuthAccounts as acc (acc.accountId)}
+                  <button
+                    type="button"
+                    class="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/50 transition-colors disabled:opacity-60"
+                    disabled={!!editSource}
+                    onclick={() => {
+                      selectedCustomAccountId = acc.accountId
+                      if (!name) name = $_('contactSource.autoName', { values: { name: acc.name || acc.email } })
+                    }}
+                  >
+                    <div class="w-4 h-4 border border-border rounded flex items-center justify-center {selectedCustomAccountId === acc.accountId ? 'bg-primary border-primary' : ''}">
+                      {#if selectedCustomAccountId === acc.accountId}
+                        <Icon icon="mdi:check" class="w-3 h-3 text-primary-foreground" />
+                      {/if}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium text-sm truncate">{acc.name || acc.email}</div>
+                      <div class="text-xs text-muted-foreground truncate">{acc.email}</div>
+                    </div>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <div class="space-y-2">
+            <Label for="username">{$_('contactSource.username')}</Label>
+            <Input
+              id="username"
+              bind:value={username}
+              placeholder="your@email.com"
+              disabled={!!editSource}
+            />
+          </div>
 
-        <div class="space-y-2">
-          <Label for="password">{editSource ? $_('contactSource.passwordKeepCurrent') : $_('contactSource.password')}</Label>
-          <Input
-            id="password"
-            type="password"
-            bind:value={password}
-            placeholder={editSource ? '********' : $_('contactSource.password')}
-          />
-        </div>
+          <div class="space-y-2">
+            <Label for="password">{editSource ? $_('contactSource.passwordKeepCurrent') : $_('contactSource.password')}</Label>
+            <Input
+              id="password"
+              type="password"
+              bind:value={password}
+              placeholder={editSource ? '********' : $_('contactSource.password')}
+            />
+          </div>
+        {/if}
 
         <Button
           variant="outline"
           class="w-full"
           onclick={handleDiscover}
-          disabled={discovering || !url || !username || !password}
+          disabled={discovering || !url || (cardDavIsOAuth ? !selectedCustomAccountId : (!username || !password))}
         >
           {#if discovering}
             <Icon icon="mdi:loading" class="w-4 h-4 mr-2 animate-spin" />

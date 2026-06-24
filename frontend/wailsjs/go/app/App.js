@@ -318,6 +318,10 @@ export function DiscoverCardDAVAddressbooks(arg1, arg2, arg3) {
   return window['go']['app']['App']['DiscoverCardDAVAddressbooks'](arg1, arg2, arg3);
 }
 
+export function DiscoverCardDAVAddressbooksOAuth(arg1, arg2) {
+  return window['go']['app']['App']['DiscoverCardDAVAddressbooksOAuth'](arg1, arg2);
+}
+
 export function DiscoverOAuthProvider(arg1) {
   return window['go']['app']['App']['DiscoverOAuthProvider'](arg1);
 }
@@ -448,6 +452,10 @@ export function GetConversationCount(arg1, arg2, arg3) {
 
 export function GetConversations(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['app']['App']['GetConversations'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
+export function GetCustomOAuthAccounts() {
+  return window['go']['app']['App']['GetCustomOAuthAccounts']();
 }
 
 export function GetDarkMailContent() {

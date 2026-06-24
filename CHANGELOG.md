@@ -5,6 +5,7 @@
 ---
 
 - Added custom oauth for imap
+- Added custom oauth for cardav
 
 
 **v0.3.0 - 06-23-2026**

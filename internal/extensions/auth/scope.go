@@ -42,6 +42,11 @@ func resolveClientConfigID(provider string, extConfigProvisioned bool) coreapi.C
 			return "microsoft-extensions"
 		}
 		return "microsoft-mail"
+	case "custom":
+		// Generic ("bring your own app") OIDC accounts have a single per-account
+		// grant; extensions reuse that mail slot directly (no "*-extensions"
+		// variant — there's no separate custom OAuth project).
+		return "custom-mail"
 	default:
 		return ""
 	}

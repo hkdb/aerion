@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hkdb/aerion/extensions/contacts/backend/imaging"
 	"github.com/hkdb/aerion/internal/carddav"
 	"github.com/hkdb/aerion/internal/contact"
 	coreapi "github.com/hkdb/aerion/internal/core/api/v1"
+	"github.com/hkdb/aerion/internal/kit/davutil"
 )
 
 // Source IDs for Aerion's core local contact store. CardDAV sources use their
@@ -820,6 +822,23 @@ func (a *API) cardDAVClientForAddressbook(addressbookID string) (*carddav.Client
 	if !source.Writable {
 		return nil, source.ID, fmt.Errorf("this source is not writable; enable write access in its settings")
 	}
+
+	// Account-linked CardDAV (custom-OAuth unified server, e.g. Stalwart):
+	// authenticate with a bearer token from the linked account via the same
+	// helper the Google/Microsoft write paths use. The Auth Broker handles token
+	// refresh; davutil layers the WebDAV XML fixups on top.
+	if source.AccountID != nil && *source.AccountID != "" {
+		httpClient, herr := a.httpClientForSource(source, cardDAVWriteScope)
+		if herr != nil {
+			return nil, source.ID, fmt.Errorf("auth for source %s: %w", source.ID, herr)
+		}
+		client, cerr := carddav.NewClientWithHTTPClient(davutil.NewWebDAVClient(httpClient.Transport, 30*time.Second), source.URL)
+		if cerr != nil {
+			return nil, source.ID, fmt.Errorf("build carddav client: %w", cerr)
+		}
+		return client, source.ID, nil
+	}
+
 	if a.core == nil {
 		return nil, source.ID, fmt.Errorf("credentials lookup unavailable")
 	}

@@ -8,6 +8,15 @@ import (
 	coreapi "github.com/hkdb/aerion/internal/core/api/v1"
 )
 
+// cardDAVWriteScope is the nominal scope passed when building a bearer client for an
+// account-linked CardDAV write. Account-linked CardDAV sources are custom-OAuth-only,
+// and the broker skips scope gating for custom (single opaque grant), so this never
+// drives incremental consent — it's a label for diagnostics.
+var cardDAVWriteScope = coreapi.AuthScope{
+	Resource: "carddav",
+	Reason:   "Write contacts to your CardDAV server",
+}
+
 // httpClientForSource returns an authenticated *http.Client for a Google /
 // Microsoft contact source, dispatching on whether the source is linked to
 // an email account or is a standalone contacts-only OAuth source.

@@ -177,6 +177,8 @@ export function DeleteSenderCert(arg1:string):Promise<void>;
 
 export function DiscoverCardDAVAddressbooks(arg1:string,arg2:string,arg3:string):Promise<Array<carddav.AddressbookInfo>>;
 
+export function DiscoverCardDAVAddressbooksOAuth(arg1:string,arg2:string):Promise<Array<carddav.AddressbookInfo>>;
+
 export function DiscoverOAuthProvider(arg1:string):Promise<app.OIDCDiscoveryResult>;
 
 export function DownloadAttachment(arg1:string,arg2:string):Promise<string>;
@@ -242,6 +244,8 @@ export function GetConversation(arg1:string,arg2:string):Promise<message.Convers
 export function GetConversationCount(arg1:string,arg2:string,arg3:string):Promise<number>;
 
 export function GetConversations(arg1:string,arg2:string,arg3:number,arg4:number,arg5:string,arg6:string):Promise<Array<message.Conversation>>;
+
+export function GetCustomOAuthAccounts():Promise<Array<app.LinkedAccountInfo>>;
 
 export function GetDarkMailContent():Promise<boolean>;
 

@@ -8,6 +8,7 @@ import (
 	"github.com/hkdb/aerion/internal/account"
 	"github.com/hkdb/aerion/internal/carddav"
 	"github.com/hkdb/aerion/internal/credentials"
+	"github.com/hkdb/aerion/internal/kit/davutil"
 	"github.com/hkdb/aerion/internal/logging"
 	"github.com/hkdb/aerion/internal/oauth2"
 	"github.com/hkdb/aerion/internal/platform"
@@ -36,6 +37,19 @@ func (a *App) DiscoverCardDAVAddressbooks(url, username, password string) ([]car
 // TestCardDAVConnection tests connection to a CardDAV server
 func (a *App) TestCardDAVConnection(url, username, password string) error {
 	return carddav.TestConnection(url, username, password)
+}
+
+// DiscoverCardDAVAddressbooksOAuth discovers addressbooks from a CardDAV server using
+// a bearer token from an OAuth mail account (unified-grant path — a custom OIDC account
+// whose token also authorizes CardDAV, e.g. Stalwart). The account token getter is
+// already custom-OAuth-aware and refreshing; discovery doubles as the connection test.
+func (a *App) DiscoverCardDAVAddressbooksOAuth(url, accountID string) ([]carddav.AddressbookInfo, error) {
+	tokens, err := a.getValidOAuthToken(accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OAuth token: %w", err)
+	}
+	httpClient := davutil.NewBearerHTTPClient(tokens.AccessToken, 30*time.Second)
+	return carddav.DiscoverAddressbooksWithHTTPClient(url, httpClient)
 }
 
 // GetContactSources returns all configured contact sources
@@ -335,6 +349,48 @@ func (a *App) GetLinkedAccountsForContactSync() ([]LinkedAccountInfo, error) {
 	}
 
 	log.Debug().Int("count", len(result)).Msg("Found linkable accounts for contact sync")
+	return result, nil
+}
+
+// GetCustomOAuthAccounts returns mail accounts that authenticate via a custom
+// ("bring your own app") OIDC provider. Their access token can be reused to
+// authenticate a CardDAV source against the same unified server (e.g. Stalwart),
+// so these populate the OAuth-account picker in the Add CardDAV Source dialog.
+// Unlike GetLinkedAccountsForContactSync (Google People API), this is the DAV path.
+func (a *App) GetCustomOAuthAccounts() ([]LinkedAccountInfo, error) {
+	accounts, err := a.accountStore.List()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list accounts: %w", err)
+	}
+
+	sources, err := a.carddavStore.ListSources()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sources: %w", err)
+	}
+	linkedAccountIDs := make(map[string]bool)
+	for _, source := range sources {
+		if source.AccountID != nil && *source.AccountID != "" {
+			linkedAccountIDs[*source.AccountID] = true
+		}
+	}
+
+	var result []LinkedAccountInfo
+	for _, acc := range accounts {
+		if acc.AuthType != account.AuthOAuth2 {
+			continue
+		}
+		provider, perr := a.credStore.GetOAuthProvider(acc.ID)
+		if perr != nil || provider != customOAuthProviderName {
+			continue
+		}
+		result = append(result, LinkedAccountInfo{
+			AccountID: acc.ID,
+			Email:     acc.Email,
+			Name:      acc.Name,
+			Provider:  provider,
+			IsLinked:  linkedAccountIDs[acc.ID],
+		})
+	}
 	return result, nil
 }
 

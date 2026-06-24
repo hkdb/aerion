@@ -197,3 +197,20 @@ func SupportedProviders() []string {
 func SupportedContactProviders() []string {
 	return []string{"google-contacts", "microsoft-contacts"}
 }
+
+// CustomProviderConfig builds a ProviderConfig for a user-supplied ("bring your own app")
+// custom OIDC provider from its discovered/stored fields. Shared by the mail token-refresh
+// path (app/compose.go) and the extension Auth Broker (internal/extensions/auth) so both
+// resolve a custom account's provider config identically — GetProvider/GetProviderForClientConfig
+// can't, since a custom provider's endpoints are per-account, not statically registered.
+func CustomProviderConfig(authURL, tokenURL, userinfoEndpoint string, scopes []string, clientID, clientSecret string) ProviderConfig {
+	return ProviderConfig{
+		Name:             "custom",
+		AuthURL:          authURL,
+		TokenURL:         tokenURL,
+		UserinfoEndpoint: userinfoEndpoint,
+		Scopes:           scopes,
+		ClientID:         clientID,
+		ClientSecret:     clientSecret,
+	}
+}
