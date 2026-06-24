@@ -255,8 +255,7 @@
     <release version="0.3.1" date="2026-06-26">
       <description>
         <ul>
-          <li>Added custom oauth for imap</li>
-          <li>Added custom oauth for cardav</li>
+          <li>Added custom oauth for imap, cardav, and caldav</li>
         </ul>
       </description>
     </release>

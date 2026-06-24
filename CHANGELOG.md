@@ -4,8 +4,7 @@
 **v0.3.1 - 06-26-2026**
 ---
 
-- Added custom oauth for imap
-- Added custom oauth for cardav
+- Added custom oauth for imap, cardav, and caldav
 
 
 **v0.3.0 - 06-23-2026**

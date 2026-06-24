@@ -31,7 +31,13 @@ type caldavProvider struct {
 	store   *Store
 	secrets coreapi.Secrets
 	events  coreapi.EventBus
+	auth    coreapi.Auth
 }
+
+const (
+	caldavScope  = "caldav"
+	caldavReason = "Sync and edit your CalDAV calendar events"
+)
 
 func (caldavProvider) Capabilities() Capabilities {
 	return Capabilities{
@@ -41,21 +47,40 @@ func (caldavProvider) Capabilities() Capabilities {
 	}
 }
 
+// davClient returns the WebDAV HTTP client for src: a Bearer client reusing the
+// linked account's OAuth token when AccountID is set (the auth broker refreshes
+// it on 401), else a Basic-auth client from the stored credentials. It owns the
+// password fetch so the per-operation methods route through one place and can't
+// accidentally rebuild a Basic client that bypasses OAuth.
+func (p caldavProvider) davClient(src Source, timeout time.Duration) (webdav.HTTPClient, error) {
+	if src.AccountID != "" {
+		if p.auth == nil {
+			return nil, fmt.Errorf("caldavProvider: no Auth handle (extension built without coreapi.Core)")
+		}
+		hc, err := p.auth.HTTPClient(src.AccountID, []coreapi.AuthScope{{Resource: caldavScope, Reason: caldavReason}})
+		if err != nil {
+			return nil, err
+		}
+		// Layer the XML fixups over the broker's refreshing transport.
+		return davutil.NewWebDAVClient(hc.Transport, timeout), nil
+	}
+	password, err := p.secrets.Get(src.ID)
+	if err != nil {
+		return nil, fmt.Errorf("load password: %w", err)
+	}
+	if password == "" {
+		return nil, fmt.Errorf("no password stored for source — re-add it in settings")
+	}
+	return webdav.HTTPClientWithBasicAuth(davutil.NewHTTPClient(timeout), src.Username, password), nil
+}
+
 // --- Sync (lifted from Syncer.syncCalendar) --------------------------------
 
 func (p caldavProvider) SyncCalendar(ctx context.Context, src Source, cal Calendar) error {
-	password, err := p.secrets.Get(src.ID)
+	httpClient, err := p.davClient(src, 60*time.Second)
 	if err != nil {
-		return fmt.Errorf("load password: %w", err)
+		return err
 	}
-	if password == "" {
-		return fmt.Errorf("no password stored for source — re-add it in settings")
-	}
-
-	httpClient := webdav.HTTPClientWithBasicAuth(
-		davutil.NewHTTPClient(60*time.Second),
-		src.Username, password,
-	)
 	// Read events via our own tolerant calendar-query REPORT parse rather
 	// than go-webdav's QueryCalendar, which aborts the whole list if any one
 	// response has empty/unparseable calendar-data (iCloud's self-referential
@@ -201,21 +226,13 @@ func (p caldavProvider) lookupEventIDByUID(calendarID, uid string) (string, erro
 // the library adds support later, this method becomes the right place
 // to swap.
 func (p caldavProvider) PushEvent(ctx context.Context, src Source, cal Calendar, ev Event) (PushResult, error) {
-	password, err := p.secrets.Get(src.ID)
-	if err != nil {
-		return PushResult{}, fmt.Errorf("load password: %w", err)
-	}
-	if password == "" {
-		return PushResult{}, fmt.Errorf("no password stored for source — re-add it in settings")
-	}
-
 	// xmlfix-wrapped client: PUT responses on some servers (mailbox.org)
 	// carry unquoted ETags; without the fix the new ETag fails to parse
 	// and the retry-on-412 path breaks. Same builder as sync.
-	httpClient := webdav.HTTPClientWithBasicAuth(
-		davutil.NewHTTPClient(30*time.Second),
-		src.Username, password,
-	)
+	httpClient, err := p.davClient(src, 30*time.Second)
+	if err != nil {
+		return PushResult{}, err
+	}
 
 	// Discriminate create vs update by whether the caller passed an Href.
 	// event_crud.go sets ev.Href ONLY after a successful create, so a
@@ -367,19 +384,11 @@ func (p caldavProvider) DeleteRemote(ctx context.Context, src Source, cal Calend
 		return nil
 	}
 
-	password, err := p.secrets.Get(src.ID)
-	if err != nil {
-		return fmt.Errorf("load password: %w", err)
-	}
-	if password == "" {
-		return fmt.Errorf("no password stored for source — re-add it in settings")
-	}
-
 	// xmlfix-wrapped client — see PushEvent above for the rationale.
-	httpClient := webdav.HTTPClientWithBasicAuth(
-		davutil.NewHTTPClient(30*time.Second),
-		src.Username, password,
-	)
+	httpClient, err := p.davClient(src, 30*time.Second)
+	if err != nil {
+		return err
+	}
 
 	href, err := absoluteHref(src.URL, ev.Href)
 	if err != nil {

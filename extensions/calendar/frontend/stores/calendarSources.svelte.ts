@@ -194,8 +194,9 @@ async function addCalDAVSource(
   username: string,
   password: string,
   organizerEmail: string,
+  accountID = '',
 ): Promise<string> {
-  const sourceID = await Calendar_AddCalDAVSource(name, url, username, password, organizerEmail)
+  const sourceID = await Calendar_AddCalDAVSource(name, url, username, password, organizerEmail, accountID)
   await load()
   return sourceID
 }

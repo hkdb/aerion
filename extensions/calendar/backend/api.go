@@ -11,7 +11,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/emersion/go-webdav"
+
 	coreapi "github.com/hkdb/aerion/internal/core/api/v1"
+	"github.com/hkdb/aerion/internal/kit/davutil"
 )
 
 // ErrCalDAVOrganizerEmailRequired is returned by AddCalDAVSource when the
@@ -92,24 +95,42 @@ func NewAPI(store *Store, secrets coreapi.Secrets, auth coreapi.Auth, queue *Pen
 //  3. After commit, secret write is attempted. On secret failure, the
 //     source row (and its CASCADE'd calendars) is rolled back so we don't
 //     leave a passwordless source.
-func (a *API) AddCalDAVSource(name, serverURL, username, password, organizerEmail string) (string, error) {
+func (a *API) AddCalDAVSource(name, serverURL, username, password, organizerEmail, accountID string) (string, error) {
 	if name == "" {
 		return "", errors.New("calendar: name required")
 	}
 	if serverURL == "" {
 		return "", errors.New("calendar: server URL required")
 	}
-	if username == "" {
+	// OAuth (account-linked) sources authenticate with the linked account's
+	// Bearer token, so username/password are not required for them.
+	isOAuth := accountID != ""
+	if !isOAuth && username == "" {
 		return "", errors.New("calendar: username required")
 	}
-	if password == "" {
+	if !isOAuth && password == "" {
 		return "", errors.New("calendar: password required")
 	}
 
-	// 1. Probe.
+	// Build the auth-carrying WebDAV client once: Bearer for OAuth sources,
+	// Basic otherwise. Discovery (OAuth path) + both probes route through it so
+	// OAuth can't silently fall back to unauthenticated Basic.
+	davClient, err := a.davHTTPClient(accountID, username, password, 30*time.Second)
+	if err != nil {
+		return "", err
+	}
+
+	// 1. Probe. OAuth discovery reuses the bearer client; Basic keeps its own
+	// username-templated fallback paths.
 	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
 	defer cancel()
-	homePath, discovered, err := DiscoverCalendars(ctx, serverURL, username, password)
+	discover := func() (string, []DiscoveredCalendar, error) {
+		if isOAuth {
+			return DiscoverCalendarsWithHTTPClient(ctx, serverURL, davClient)
+		}
+		return DiscoverCalendars(ctx, serverURL, username, password)
+	}
+	homePath, discovered, err := discover()
 	if err != nil {
 		return "", fmt.Errorf("discover calendars: %w", err)
 	}
@@ -125,7 +146,7 @@ func (a *API) AddCalDAVSource(name, serverURL, username, password, organizerEmai
 	// defaults to "server" — the toggle stays available, and the worst
 	// case is a no-op delivery on a non-6638 server (same as pre-v0.3.0).
 	probeCtx, probeCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	itipMode := probeCalDAVScheduling(probeCtx, serverURL, username, password)
+	itipMode := probeCalDAVScheduling(probeCtx, davClient, serverURL)
 	probeCancel()
 
 	// 2b. Probe calendar-user-address-set for the organizer identity
@@ -134,7 +155,7 @@ func (a *API) AddCalDAVSource(name, serverURL, username, password, organizerEmai
 	// organizerEmail; if that's empty too, signal the frontend to
 	// prompt the user.
 	identCtx, identCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	identities := probeCalDAVOrganizerIdentities(identCtx, serverURL, username, password)
+	identities := probeCalDAVOrganizerIdentities(identCtx, davClient, serverURL)
 	identCancel()
 	if len(identities) == 0 {
 		manual := strings.ToLower(strings.TrimSpace(organizerEmail))
@@ -155,6 +176,7 @@ func (a *API) AddCalDAVSource(name, serverURL, username, password, organizerEmai
 			Name:                name,
 			URL:                 homePath,
 			Username:            username,
+			AccountID:           accountID,
 			SyncIntervalMin:     15,
 			Enabled:             true,
 			Writable:            true, // trust-on-first-write per RFC 4791
@@ -184,14 +206,34 @@ func (a *API) AddCalDAVSource(name, serverURL, username, password, organizerEmai
 		return "", fmt.Errorf("persist source + calendars: %w", err)
 	}
 
-	// 3. Stash password. On failure, roll back the source row (CASCADE
-	//    cleans up the calendars rows).
-	if err := a.secrets.Set(sourceID, password); err != nil {
-		_ = a.store.DeleteSource(sourceID)
-		return "", fmt.Errorf("store password: %w", err)
+	// 3. Stash password (Basic sources only — OAuth sources carry no password;
+	//    they re-derive the Bearer token from the linked account). On failure,
+	//    roll back the source row (CASCADE cleans up the calendars rows).
+	if !isOAuth {
+		if err := a.secrets.Set(sourceID, password); err != nil {
+			_ = a.store.DeleteSource(sourceID)
+			return "", fmt.Errorf("store password: %w", err)
+		}
 	}
 
 	return sourceID, nil
+}
+
+// davHTTPClient builds the auth-carrying WebDAV client for CalDAV discovery and
+// probes: a Bearer client reusing the linked account's OAuth token when
+// accountID is set, else a Basic-auth client from the supplied credentials.
+func (a *API) davHTTPClient(accountID, username, password string, timeout time.Duration) (webdav.HTTPClient, error) {
+	if accountID != "" {
+		if a.auth == nil {
+			return nil, errors.New("calendar: OAuth-linked source requires an Auth handle")
+		}
+		hc, err := a.auth.HTTPClient(accountID, []coreapi.AuthScope{{Resource: caldavScope, Reason: caldavReason}})
+		if err != nil {
+			return nil, fmt.Errorf("calendar: oauth client: %w", err)
+		}
+		return davutil.NewWebDAVClient(hc.Transport, timeout), nil
+	}
+	return webdav.HTTPClientWithBasicAuth(newCalDAVHTTPClient(timeout), username, password), nil
 }
 
 // SetOrganizerIdentity replaces the stored organizer identity list for
@@ -242,13 +284,22 @@ func (a *API) ReprobeCalDAVOrganizerIdentities(sourceID string) (int, error) {
 	if src.Type != SourceTypeCalDAV {
 		return 0, fmt.Errorf("calendar: source %q is not a CalDAV source (type=%q)", sourceID, src.Type)
 	}
-	password, err := a.secrets.Get(sourceID)
+	// OAuth-linked sources carry no password — they re-derive the Bearer token
+	// from the linked account; only Basic sources fetch a stored password.
+	var password string
+	if src.AccountID == "" {
+		password, err = a.secrets.Get(sourceID)
+		if err != nil {
+			return 0, fmt.Errorf("load password: %w", err)
+		}
+	}
+	davClient, err := a.davHTTPClient(src.AccountID, src.Username, password, 30*time.Second)
 	if err != nil {
-		return 0, fmt.Errorf("load password: %w", err)
+		return 0, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	identities := probeCalDAVOrganizerIdentities(ctx, src.URL, src.Username, password)
+	identities := probeCalDAVOrganizerIdentities(ctx, davClient, src.URL)
 	if err := a.store.SetOrganizerIdentities(sourceID, identities); err != nil {
 		return 0, err
 	}

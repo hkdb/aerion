@@ -158,14 +158,18 @@ func (b *CalendarBridge) ensureInit() error {
 // the first call; if the server publishes no addresses AND this is
 // empty, the bridge returns ErrCalDAVOrganizerEmailRequired and the
 // frontend prompts the user to enter one before resubmitting.
-func (b *CalendarBridge) Calendar_AddCalDAVSource(name, url, username, password, organizerEmail string) (string, error) {
+// accountID links the source to a custom-OAuth mail account so CalDAV reuses
+// that account's Bearer token instead of username/password. Pass "" for Basic
+// auth (username/password). On the ErrCalDAVOrganizerEmailRequired resubmit the
+// frontend must re-send the same accountID.
+func (b *CalendarBridge) Calendar_AddCalDAVSource(name, url, username, password, organizerEmail, accountID string) (string, error) {
 	if !b.gateEnabled() {
 		return "", errors.New("calendar: extension disabled")
 	}
 	if err := b.ensureInit(); err != nil {
 		return "", err
 	}
-	sourceID, err := b.api.AddCalDAVSource(name, url, username, password, organizerEmail)
+	sourceID, err := b.api.AddCalDAVSource(name, url, username, password, organizerEmail, accountID)
 	if err != nil {
 		return "", err
 	}

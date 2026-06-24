@@ -8,6 +8,7 @@
   import { toasts } from '$lib/stores/toast'
   import { dialogGuardOpen, dialogGuardClose } from '$lib/stores/dialogGuard'
   import { calendarSources } from '$extensions/calendar/frontend/stores/calendarSources.svelte'
+  import { GetCustomOAuthAccounts } from '$wailsjs/go/app/App.js'
   import CalendarColorPickStage from './CalendarColorPickStage.svelte'
   import { applyDefaultsAfterAdd } from '$extensions/calendar/frontend/lib/defaultsApply'
 
@@ -42,6 +43,27 @@
   let submitting = $state(false)
   let lastError = $state('')
 
+  // Authentication method. CalDAV can authenticate with username/password
+  // (Basic) or by reusing a custom-OAuth mail account's Bearer token — the
+  // same unified-grant model used for the IMAP account and CardDAV.
+  let authMethod = $state<'password' | 'oauth'>('password')
+  const isOAuth = $derived(authMethod === 'oauth')
+  let customOAuthAccounts = $state<Array<{ accountId: string; email: string; name: string }>>([])
+  let selectedAccountId = $state('')
+  let loadingAccounts = $state(false)
+
+  async function loadCustomAccounts() {
+    loadingAccounts = true
+    try {
+      customOAuthAccounts = (await GetCustomOAuthAccounts()) || []
+    } catch (err) {
+      console.error('Failed to load custom OAuth accounts:', err)
+      customOAuthAccounts = []
+    } finally {
+      loadingAccounts = false
+    }
+  }
+
   $effect(() => {
     if (!open) return
     // Reset form + stage each time the dialog opens.
@@ -57,6 +79,9 @@
     submitting = false
     providerDefaultTempId = ''
     globalDefaultRef = ''
+    authMethod = 'password'
+    selectedAccountId = ''
+    void loadCustomAccounts()
   })
 
   // Minimal email shape check so Save is disabled until the user types
@@ -124,6 +149,13 @@
       lastError = $_('calendar.add.fieldRequired', { values: { field: $_('calendar.add.urlLabel') } })
       return false
     }
+    if (isOAuth) {
+      if (selectedAccountId === '') {
+        lastError = $_('calendar.add.oauthAccountRequired')
+        return false
+      }
+      return true
+    }
     if (usernameInput.trim() === '') {
       lastError = $_('calendar.add.fieldRequired', { values: { field: $_('calendar.add.usernameLabel') } })
       return false
@@ -147,9 +179,10 @@
       const sourceID = await calendarSources.addCalDAVSource(
         nameInput.trim(),
         urlInput.trim(),
-        usernameInput.trim(),
-        passwordInput,
+        isOAuth ? '' : usernameInput.trim(),
+        isOAuth ? '' : passwordInput,
         organizerEmailInput.trim(),
+        isOAuth ? selectedAccountId : '',
       )
       const count = calendarSources.calendarsBySource[sourceID]?.length ?? 0
       toasts.success(
@@ -206,6 +239,35 @@
             onkeydown={onKeydown}
           />
         </div>
+
+        <div class="space-y-2">
+          <Label>{$_('calendar.add.authMethod')}</Label>
+          <div class="flex gap-2">
+            <Button
+              type="button"
+              variant={!isOAuth ? 'default' : 'outline'}
+              size="sm"
+              class="flex-1"
+              disabled={submitting}
+              onclick={() => (authMethod = 'password')}
+            >
+              <Icon icon="mdi:key" class="w-4 h-4 mr-2" />
+              {$_('calendar.add.authPassword')}
+            </Button>
+            <Button
+              type="button"
+              variant={isOAuth ? 'default' : 'outline'}
+              size="sm"
+              class="flex-1"
+              disabled={submitting}
+              onclick={() => (authMethod = 'oauth')}
+            >
+              <Icon icon="mdi:shield-key-outline" class="w-4 h-4 mr-2" />
+              {$_('calendar.add.authOAuth')}
+            </Button>
+          </div>
+        </div>
+
         <div>
           <Label for="cal-add-url">{$_('calendar.add.urlLabel')}</Label>
           <Input
@@ -220,26 +282,63 @@
             {$_('calendar.add.urlHelp')}
           </p>
         </div>
-        <div>
-          <Label for="cal-add-username">{$_('calendar.add.usernameLabel')}</Label>
-          <Input
-            id="cal-add-username"
-            type="text"
-            bind:value={usernameInput}
-            disabled={submitting}
-            onkeydown={onKeydown}
-          />
-        </div>
-        <div>
-          <Label for="cal-add-password">{$_('calendar.add.passwordLabel')}</Label>
-          <Input
-            id="cal-add-password"
-            type="password"
-            bind:value={passwordInput}
-            disabled={submitting}
-            onkeydown={onKeydown}
-          />
-        </div>
+        {#if isOAuth}
+          <div class="space-y-2">
+            <Label>{$_('calendar.add.oauthAccountLabel')}</Label>
+            {#if loadingAccounts}
+              <div class="flex items-center justify-center py-3">
+                <Icon icon="mdi:loading" class="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            {:else if customOAuthAccounts.length === 0}
+              <p class="text-xs text-muted-foreground">{$_('calendar.add.noCustomAccounts')}</p>
+            {:else}
+              <div class="border border-border rounded-md divide-y divide-border">
+                {#each customOAuthAccounts as acc (acc.accountId)}
+                  <button
+                    type="button"
+                    class="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/50 transition-colors disabled:opacity-60"
+                    disabled={submitting}
+                    onclick={() => {
+                      selectedAccountId = acc.accountId
+                      if (!nameInput) nameInput = acc.name || acc.email
+                    }}
+                  >
+                    <div class="w-4 h-4 border border-border rounded flex items-center justify-center {selectedAccountId === acc.accountId ? 'bg-primary border-primary' : ''}">
+                      {#if selectedAccountId === acc.accountId}
+                        <Icon icon="mdi:check" class="w-3 h-3 text-primary-foreground" />
+                      {/if}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium text-sm truncate">{acc.name || acc.email}</div>
+                      <div class="text-xs text-muted-foreground truncate">{acc.email}</div>
+                    </div>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <div>
+            <Label for="cal-add-username">{$_('calendar.add.usernameLabel')}</Label>
+            <Input
+              id="cal-add-username"
+              type="text"
+              bind:value={usernameInput}
+              disabled={submitting}
+              onkeydown={onKeydown}
+            />
+          </div>
+          <div>
+            <Label for="cal-add-password">{$_('calendar.add.passwordLabel')}</Label>
+            <Input
+              id="cal-add-password"
+              type="password"
+              bind:value={passwordInput}
+              disabled={submitting}
+              onkeydown={onKeydown}
+            />
+          </div>
+        {/if}
 
         {#if needsOrganizerEmail}
           <div>

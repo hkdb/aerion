@@ -37,7 +37,7 @@ export function Archive(arg1:Array<string>):Promise<void>;
 
 export function BroadcastThemeChange(arg1:string):Promise<void>;
 
-export function Calendar_AddCalDAVSource(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<string>;
+export function Calendar_AddCalDAVSource(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<string>;
 
 export function Calendar_AddGoogleSource(arg1:string,arg2:string,arg3:string,arg4:Array<backend.GoogleCalendarSelection>):Promise<string>;
 

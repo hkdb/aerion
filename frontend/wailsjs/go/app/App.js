@@ -38,8 +38,8 @@ export function BroadcastThemeChange(arg1) {
   return window['go']['app']['App']['BroadcastThemeChange'](arg1);
 }
 
-export function Calendar_AddCalDAVSource(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['app']['App']['Calendar_AddCalDAVSource'](arg1, arg2, arg3, arg4, arg5);
+export function Calendar_AddCalDAVSource(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['app']['App']['Calendar_AddCalDAVSource'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 export function Calendar_AddGoogleSource(arg1, arg2, arg3, arg4) {

@@ -192,7 +192,8 @@ var (
 // ProviderDeps groups the host-supplied dependencies a Provider may need.
 // Each impl takes what it needs:
 //   - localProvider: nothing.
-//   - caldavProvider: secrets (CalDAV password) + store + events.
+//   - caldavProvider: secrets (CalDAV password) + store + events; also auth, used
+//     only when a source links a custom-OAuth account (Bearer instead of Basic).
 //   - googleProvider, microsoftProvider: auth (OAuth-vended *http.Client) +
 //     store. Calendar's per-extension OAuth slots are "google-calendar" and
 //     "microsoft-calendar"; the broker routes scope→slot via Auth.HTTPClient.
@@ -211,7 +212,7 @@ type ProviderDeps struct {
 func ProviderForSource(src Source, deps ProviderDeps) Provider {
 	switch src.Type {
 	case SourceTypeCalDAV:
-		return caldavProvider{store: deps.Store, secrets: deps.Secrets, events: deps.Events}
+		return caldavProvider{store: deps.Store, secrets: deps.Secrets, events: deps.Events, auth: deps.Auth}
 	case SourceTypeGoogle:
 		return googleProvider{store: deps.Store, auth: deps.Auth}
 	case SourceTypeMicrosoft:

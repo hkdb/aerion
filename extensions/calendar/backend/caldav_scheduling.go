@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/emersion/go-webdav"
 )
 
 // probeCalDAVScheduling determines whether a CalDAV server supports RFC
@@ -31,7 +33,7 @@ import (
 // Best-effort. NOT a blocking dependency: AddCalDAVSource succeeds even
 // when probe fails; itip_mode just defaults to "server" and the UI's
 // "Don't send" choice for that source stays available.
-func probeCalDAVScheduling(ctx context.Context, baseURL, username, password string) string {
+func probeCalDAVScheduling(ctx context.Context, httpClient webdav.HTTPClient, baseURL string) string {
 	const defaultMode = "server"
 
 	// Stage 1: OPTIONS DAV: header.
@@ -39,8 +41,7 @@ func probeCalDAVScheduling(ctx context.Context, baseURL, username, password stri
 	if err != nil {
 		return defaultMode
 	}
-	req.SetBasicAuth(username, password)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err == nil {
 		dav := resp.Header.Get("DAV")
 		resp.Body.Close()
@@ -66,8 +67,7 @@ func probeCalDAVScheduling(ctx context.Context, baseURL, username, password stri
 	}
 	pf.Header.Set("Depth", "0")
 	pf.Header.Set("Content-Type", "application/xml; charset=utf-8")
-	pf.SetBasicAuth(username, password)
-	resp, err = http.DefaultClient.Do(pf)
+	resp, err = httpClient.Do(pf)
 	if err != nil {
 		return defaultMode
 	}
@@ -130,7 +130,7 @@ func probeCalDAVScheduling(ctx context.Context, baseURL, username, password stri
 // `calendar-user-address-set` on the home-set too. Servers that only
 // publish it on the principal URL return empty here — same UX as
 // non-compliant servers (user types the email).
-func probeCalDAVOrganizerIdentities(ctx context.Context, baseURL, username, password string) []string {
+func probeCalDAVOrganizerIdentities(ctx context.Context, httpClient webdav.HTTPClient, baseURL string) []string {
 	body := `<?xml version="1.0" encoding="utf-8"?>
 <propfind xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
   <prop>
@@ -143,8 +143,7 @@ func probeCalDAVOrganizerIdentities(ctx context.Context, baseURL, username, pass
 	}
 	req.Header.Set("Depth", "0")
 	req.Header.Set("Content-Type", "application/xml; charset=utf-8")
-	req.SetBasicAuth(username, password)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil
 	}
