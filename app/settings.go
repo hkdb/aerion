@@ -306,6 +306,17 @@ func (a *App) SetDarkMailContent(enabled bool) error {
 	return a.settingsStore.SetDarkMailContent(enabled)
 }
 
+// GetDarkComposerBody returns whether the composer message body should use a
+// dark background while Aerion is in dark mode.
+func (a *App) GetDarkComposerBody() (bool, error) {
+	return a.settingsStore.GetDarkComposerBody()
+}
+
+// SetDarkComposerBody persists the dark-composer-body toggle.
+func (a *App) SetDarkComposerBody(enabled bool) error {
+	return a.settingsStore.SetDarkComposerBody(enabled)
+}
+
 // AddImageAllowlist adds a domain or sender to the image allowlist
 // entryType: "domain" or "sender"
 // value: the domain (e.g., "company.com") or email (e.g., "newsletter@company.com")

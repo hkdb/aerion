@@ -535,6 +535,13 @@ func (c *ComposerApp) GetThemeMode() (string, error) {
 	return c.settingsStore.GetThemeMode()
 }
 
+// GetDarkComposerBody returns whether the composer message body should use a
+// dark background while in dark mode (the detached composer reads it so it opens
+// with the surface matching the user's choice).
+func (c *ComposerApp) GetDarkComposerBody() (bool, error) {
+	return c.settingsStore.GetDarkComposerBody()
+}
+
 // GetSystemTheme returns the current system theme preference detected via
 // the XDG Settings Portal on Linux. Returns "light", "dark", or "" if not available.
 func (c *ComposerApp) GetSystemTheme() string {

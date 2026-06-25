@@ -9,10 +9,10 @@
   import { addToast } from '$lib/stores/toast'
   import { _ } from '$lib/i18n'
   import { createComposerWindowApi } from '$lib/composerApi'
-  import { getShowTitleBar, getNativeTitleBar, setShowTitleBar, setNativeTitleBar } from '$lib/stores/settings.svelte'
+  import { getShowTitleBar, getNativeTitleBar, setShowTitleBar, setNativeTitleBar, setDarkComposerBody } from '$lib/stores/settings.svelte'
   import { initTheme, handleThemeChanged, type ThemeMode } from '$lib/stores/theme.svelte'
   // @ts-ignore - wailsjs imports
-  import { GetComposeMode, PrepareReply, GetDraft, CloseWindow, GetThemeMode, GetSystemTheme, GetShowTitleBar, GetNativeTitleBar, RefreshWindowConstraints, NotifyStartupComplete } from '../wailsjs/go/app/ComposerApp.js'
+  import { GetComposeMode, PrepareReply, GetDraft, CloseWindow, GetThemeMode, GetSystemTheme, GetShowTitleBar, GetNativeTitleBar, GetDarkComposerBody, RefreshWindowConstraints, NotifyStartupComplete } from '../wailsjs/go/app/ComposerApp.js'
   // @ts-ignore - wailsjs imports
   import { smtp, app } from '../wailsjs/go/models'
   // @ts-ignore - wailsjs runtime
@@ -61,9 +61,10 @@
   onMount(async () => {
     // Load title bar settings so the composer respects the user's preference
     try {
-      const [stb, ntb] = await Promise.all([GetShowTitleBar(), GetNativeTitleBar()])
+      const [stb, ntb, dcb] = await Promise.all([GetShowTitleBar(), GetNativeTitleBar(), GetDarkComposerBody()])
       setShowTitleBar(stb ?? true)
       setNativeTitleBar(ntb ?? false)
+      setDarkComposerBody(dcb ?? false)
     } catch (err) {
       console.error('Failed to load title bar settings:', err)
     }

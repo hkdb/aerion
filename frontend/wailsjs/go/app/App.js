@@ -462,6 +462,10 @@ export function GetCustomOAuthAccounts() {
   return window['go']['app']['App']['GetCustomOAuthAccounts']();
 }
 
+export function GetDarkComposerBody() {
+  return window['go']['app']['App']['GetDarkComposerBody']();
+}
+
 export function GetDarkMailContent() {
   return window['go']['app']['App']['GetDarkMailContent']();
 }
@@ -1044,6 +1048,10 @@ export function SetComposerMode(arg1) {
 
 export function SetContactSourceWritable(arg1, arg2) {
   return window['go']['app']['App']['SetContactSourceWritable'](arg1, arg2);
+}
+
+export function SetDarkComposerBody(arg1) {
+  return window['go']['app']['App']['SetDarkComposerBody'](arg1);
 }
 
 export function SetDarkMailContent(arg1) {

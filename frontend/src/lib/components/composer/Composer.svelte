@@ -52,8 +52,13 @@
   import Switch from '$lib/components/ui/switch/Switch.svelte'
   import { ThreeOptionDialog } from '$lib/components/ui/confirm-dialog'
   import { addToast } from '$lib/stores/toast'
-  import { getComposerFormat } from '$lib/stores/settings.svelte'
+  import { getComposerFormat, getDarkComposerBody } from '$lib/stores/settings.svelte'
+  import { getIsDarkActive } from '$lib/stores/theme.svelte'
   import { _ } from '$lib/i18n'
+
+  // Keep the composer message body white in dark mode unless the user opted into
+  // a dark composer body — mirrors the "Dark mail content" viewer setting.
+  const forceLightComposer = $derived(getIsDarkActive() && !getDarkComposerBody())
 
   // Props
   interface Props {
@@ -2026,7 +2031,7 @@
     {/if}
 
     <!-- Editor -->
-    <div class="flex-1 overflow-auto bg-white dark:bg-zinc-900">
+    <div class="flex-1 overflow-auto {forceLightComposer ? 'composer-body--light' : 'bg-white dark:bg-zinc-900'}">
       <!-- Both surfaces stay mounted; we toggle visibility instead of using
            {#if}/{:else}. Unmounting the editor <div> orphaned the TipTap
            instance, so a later switch back to rich text wrote into a dead

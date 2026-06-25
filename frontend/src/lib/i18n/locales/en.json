@@ -377,6 +377,8 @@
     "accentBarUnreadHelp": "Shows a bar on the left side of unread messages for easier identification.",
     "darkMailContent": "Dark mail content",
     "darkMailContentHelp": "Apply a dark filter to email message content when Aerion is in dark mode.",
+    "darkComposerBody": "Dark composer body",
+    "darkComposerBodyHelp": "Use a dark background for the composer message body when Aerion is in dark mode.",
     "selectDensity": "Select density",
     "readReceipts": "Read Receipts",
     "readReceiptPolicy": "When someone requests a read receipt",

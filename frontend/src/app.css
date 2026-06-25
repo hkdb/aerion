@@ -108,6 +108,23 @@ mark {
   color: hsl(var(--foreground));
 }
 
+/* Force a white message-body surface even in dark mode (default; the user can
+   opt into a dark composer body). Mirrors the viewer's "emails are white
+   regardless of theme" behavior. Applied to the editing-surface container that
+   wraps both the TipTap editor and the plain-text textarea. */
+.composer-body--light {
+  background-color: #ffffff;
+}
+.composer-body--light .composer-editor,
+.composer-body--light .ProseMirror,
+.composer-body--light textarea {
+  color: #18181b; /* zinc-900 — readable dark text on the forced-white surface */
+}
+.composer-body--light .ProseMirror p.is-editor-empty:first-child::before,
+.composer-body--light textarea::placeholder {
+  color: #71717a; /* zinc-500 — placeholder on white */
+}
+
 .composer-editor p {
   margin: 0;
 }

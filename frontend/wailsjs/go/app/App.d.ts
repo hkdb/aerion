@@ -249,6 +249,8 @@ export function GetConversations(arg1:string,arg2:string,arg3:number,arg4:number
 
 export function GetCustomOAuthAccounts():Promise<Array<app.LinkedAccountInfo>>;
 
+export function GetDarkComposerBody():Promise<boolean>;
+
 export function GetDarkMailContent():Promise<boolean>;
 
 export function GetDraft(arg1:string):Promise<smtp.ComposeMessage>;
@@ -540,6 +542,8 @@ export function SetComposerFormat(arg1:string):Promise<void>;
 export function SetComposerMode(arg1:string):Promise<void>;
 
 export function SetContactSourceWritable(arg1:string,arg2:boolean):Promise<void>;
+
+export function SetDarkComposerBody(arg1:boolean):Promise<void>;
 
 export function SetDarkMailContent(arg1:boolean):Promise<void>;
 

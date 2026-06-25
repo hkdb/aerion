@@ -31,6 +31,7 @@ const (
 	KeyNativeTitleBar            = "native_titlebar"
 	KeyAlwaysLoadImages          = "always_load_images"
 	KeyDarkMailContent           = "dark_mail_content"
+	KeyDarkComposerBody          = "dark_composer_body"
 	KeyAccentBarUnread           = "accent_bar_unread"
 	KeyShowMessageListCircles    = "show_message_list_circles"
 	KeyShowViewerCircles         = "show_viewer_circles"
@@ -637,6 +638,25 @@ func (s *Store) SetDarkMailContent(enabled bool) error {
 		value = "true"
 	}
 	return s.Set(KeyDarkMailContent, value)
+}
+
+// GetDarkComposerBody returns whether the composer message body should use a
+// dark background while Aerion is in dark mode. Off by default (white body).
+func (s *Store) GetDarkComposerBody() (bool, error) {
+	value, err := s.Get(KeyDarkComposerBody)
+	if err != nil {
+		return false, err
+	}
+	return value == "true", nil
+}
+
+// SetDarkComposerBody persists the dark-composer-body toggle.
+func (s *Store) SetDarkComposerBody(enabled bool) error {
+	value := "false"
+	if enabled {
+		value = "true"
+	}
+	return s.Set(KeyDarkComposerBody, value)
 }
 
 // ReadNativeTitleBar opens the database directly to read the native_titlebar setting.

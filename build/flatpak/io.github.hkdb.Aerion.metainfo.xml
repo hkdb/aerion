@@ -260,7 +260,7 @@
           <li>Use TOFU cert store for DAV certs</li>
           <li>Multi-day week and day view fix</li>
           <li>Multi-day monthly view fix - #304</li>
-
+          <li>Composer body config - #216</li>
         </ul>
       </description>
     </release>

@@ -30,6 +30,7 @@
     showMessageListCircles: boolean
     showViewerCircles: boolean
     darkMailContent: boolean
+    darkComposerBody: boolean
   }
 
   let {
@@ -54,6 +55,7 @@
     showMessageListCircles = $bindable(),
     showViewerCircles = $bindable(),
     darkMailContent = $bindable(),
+    darkComposerBody = $bindable(),
   }: Props = $props()
 
   // Message list density options
@@ -267,6 +269,22 @@
           <Switch
             id="dark-mail-content"
             bind:checked={darkMailContent}
+          />
+        </div>
+      </div>
+
+      <!-- Dark composer body — keep the composer message body white by default in dark mode -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <div>
+            <Label for="dark-composer-body">{$_('settingsGeneral.darkComposerBody')}</Label>
+            <p class="text-xs text-muted-foreground">
+              {$_('settingsGeneral.darkComposerBodyHelp')}
+            </p>
+          </div>
+          <Switch
+            id="dark-composer-body"
+            bind:checked={darkComposerBody}
           />
         </div>
       </div>

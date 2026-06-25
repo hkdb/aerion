@@ -10,6 +10,7 @@
 - Timezone config fix
 - Multi-day week and day view fix
 - Multi-day monthly view fix - [#304](https://github.com/hkdb/aerion/issues/304)
+- Composer body config - [#216](https://github.com/hkdb/aerion/issues/216)
 
 
 **v0.3.0 - 06-23-2026**
