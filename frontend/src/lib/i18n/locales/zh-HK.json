@@ -254,6 +254,7 @@
     "account": "帳戶"
   },
   "toast": {
+    "selectOAuthAccount": "請選擇 OAuth 帳戶",
     "archived": "已封存",
     "conversationArchived": "對話已封存",
     "movedToTrash": "已移至垃圾桶",
@@ -434,6 +435,23 @@
     "failedToLoad": "載入應用程式資訊失敗"
   },
   "account": {
+    "enterPassword": "輸入密碼",
+    "customOAuthHelp": "使用您自己的 OAuth 應用程式。輸入您供應商的 Issuer URL，Aerion 會自動探索各端點。",
+    "customOAuthIssuer": "Issuer URL",
+    "customOAuthIssuerHelp": "您供應商的基礎 URL。Aerion 會讀取其 /.well-known/openid-configuration 文件。",
+    "customOAuthDiscover": "探索",
+    "customOAuthDiscovered": "已探索端點",
+    "customOAuthManual": "手動輸入端點",
+    "customOAuthAuthUrl": "授權端點",
+    "customOAuthTokenUrl": "Token 端點",
+    "customOAuthUserinfoUrl": "Userinfo 端點",
+    "customOAuthClientId": "Client ID",
+    "customOAuthClientSecret": "Client Secret",
+    "customOAuthClientSecretPlaceholder": "公開用戶端（PKCE）請留空",
+    "customOAuthScopes": "範圍",
+    "customOAuthScopesHelp": "以空格分隔。多數伺服器需要 offline_access 才能取得 refresh token。",
+    "customOAuthRedirectUri": "Redirect URI",
+    "customOAuthRedirectUriHelp": "請在您的 OAuth 應用程式中以正規表示式／樣式比對註冊此項目 — 回送埠會在登入時動態指派（RFC 8252）。",
     "addTitle": "新增電子郵件帳戶",
     "editTitle": "編輯帳戶",
     "editSharedMailboxTitle": "編輯共用信箱",
@@ -725,6 +743,12 @@
     "berConversionConfirm": "轉換並匯入"
   },
   "contactSource": {
+    "fillUrlAccount": "請填寫伺服器 URL 並選擇 OAuth 帳戶",
+    "authentication": "認證",
+    "authPassword": "密碼",
+    "authOAuth": "OAuth 帳戶",
+    "oauthAccount": "OAuth 帳戶",
+    "noCustomAccounts": "沒有自訂 OAuth 帳戶。請先新增使用自訂 OAuth 供應商的郵件帳戶，之後即可在此用於 CardDAV。",
     "title": "聯絡人來源",
     "noSources": "尚未設定聯絡人來源",
     "addSource": "新增聯絡人來源",

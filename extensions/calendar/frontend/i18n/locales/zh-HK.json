@@ -74,6 +74,12 @@
       "emptyState": "新增一個 CalDAV 來源以在此查看活動。"
     },
     "add": {
+      "authMethod": "認證",
+      "authPassword": "密碼",
+      "authOAuth": "OAuth 帳戶",
+      "oauthAccountLabel": "OAuth 帳戶",
+      "oauthAccountRequired": "請選擇用於認證的 OAuth 帳戶。",
+      "noCustomAccounts": "找不到自訂 OAuth 郵件帳戶。請先在「帳戶」中新增一個，之後也能用於授權 CalDAV。",
       "title": "新增 CalDAV 來源",
       "description": "連接到 CalDAV 伺服器（Nextcloud、Radicale、iCloud、FastMail 等）。日曆擴充功能會從您選擇的日曆中讀取活動。",
       "nameLabel": "名稱",
