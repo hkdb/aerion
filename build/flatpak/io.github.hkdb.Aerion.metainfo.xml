@@ -174,6 +174,39 @@
       <li xml:lang="zh-CN">PGP 与 S/MIME 支持</li>
       <li xml:lang="zh-HK">PGP 與 S/MIME 支援</li>
       <li xml:lang="zh-TW">PGP 與 S/MIME 支援</li>
+
+      <li>Contacts extension (ALPHA)</li>
+      <li xml:lang="cs">Rozšíření Kontakty (ALPHA)</li>
+      <li xml:lang="de">Kontakte-Erweiterung (ALPHA)</li>
+      <li xml:lang="fr">Extension Contacts (ALPHA)</li>
+      <li xml:lang="it">Estensione Contatti (ALPHA)</li>
+      <li xml:lang="nb">Kontakter-utvidelse (ALPHA)</li>
+      <li xml:lang="vi">Tiện ích Danh bạ (ALPHA)</li>
+      <li xml:lang="zh-CN">联系人扩展（ALPHA）</li>
+      <li xml:lang="zh-HK">聯絡人擴充功能（ALPHA）</li>
+      <li xml:lang="zh-TW">聯絡人擴充功能（ALPHA）</li>
+
+      <li>Calendar extension (ALPHA)</li>
+      <li xml:lang="cs">Rozšíření Kalendář (ALPHA)</li>
+      <li xml:lang="de">Kalender-Erweiterung (ALPHA)</li>
+      <li xml:lang="fr">Extension Calendrier (ALPHA)</li>
+      <li xml:lang="it">Estensione Calendario (ALPHA)</li>
+      <li xml:lang="nb">Kalender-utvidelse (ALPHA)</li>
+      <li xml:lang="vi">Tiện ích Lịch (ALPHA)</li>
+      <li xml:lang="zh-CN">日历扩展（ALPHA）</li>
+      <li xml:lang="zh-HK">日曆擴充功能（ALPHA）</li>
+      <li xml:lang="zh-TW">日曆擴充功能（ALPHA）</li>
+
+      <li>Custom OAuth support for generic IMAP, SMTP, CardDAV, and CalDAV</li>
+      <li xml:lang="cs">Podpora vlastního OAuth pro obecný IMAP, SMTP, CardDAV a CalDAV</li>
+      <li xml:lang="de">Unterstützung für benutzerdefiniertes OAuth für generisches IMAP, SMTP, CardDAV und CalDAV</li>
+      <li xml:lang="fr">Prise en charge d'OAuth personnalisé pour IMAP, SMTP, CardDAV et CalDAV génériques</li>
+      <li xml:lang="it">Supporto per OAuth personalizzato per IMAP, SMTP, CardDAV e CalDAV generici</li>
+      <li xml:lang="nb">Støtte for tilpasset OAuth for generisk IMAP, SMTP, CardDAV og CalDAV</li>
+      <li xml:lang="vi">Hỗ trợ OAuth tùy chỉnh cho IMAP, SMTP, CardDAV và CalDAV thông thường</li>
+      <li xml:lang="zh-CN">为通用 IMAP、SMTP、CardDAV 和 CalDAV 提供自定义 OAuth 支持</li>
+      <li xml:lang="zh-HK">為通用 IMAP、SMTP、CardDAV 和 CalDAV 提供自訂 OAuth 支援</li>
+      <li xml:lang="zh-TW">為通用 IMAP、SMTP、CardDAV 和 CalDAV 提供自訂 OAuth 支援</li>
     </ul>
   </description>
 
