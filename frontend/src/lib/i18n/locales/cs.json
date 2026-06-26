@@ -254,6 +254,7 @@
     "account": "Účet"
   },
   "toast": {
+    "selectOAuthAccount": "Vyberte prosím účet OAuth",
     "archived": "Archivováno",
     "conversationArchived": "Konverzace archivována",
     "movedToTrash": "Přesunuto do koše",
@@ -434,6 +435,23 @@
     "failedToLoad": "Nepodařilo se načíst informace o aplikaci"
   },
   "account": {
+    "enterPassword": "Zadejte heslo",
+    "customOAuthHelp": "Použijte vlastní aplikaci OAuth. Zadejte Issuer URL svého poskytovatele a Aerion automaticky vyhledá koncové body.",
+    "customOAuthIssuer": "Issuer URL",
+    "customOAuthIssuerHelp": "Základní URL vašeho poskytovatele. Aerion načte jeho dokument /.well-known/openid-configuration.",
+    "customOAuthDiscover": "Vyhledat",
+    "customOAuthDiscovered": "Koncové body nalezeny",
+    "customOAuthManual": "Zadat koncové body ručně",
+    "customOAuthAuthUrl": "Autorizační koncový bod",
+    "customOAuthTokenUrl": "Koncový bod tokenu",
+    "customOAuthUserinfoUrl": "Koncový bod userinfo",
+    "customOAuthClientId": "Client ID",
+    "customOAuthClientSecret": "Client Secret",
+    "customOAuthClientSecretPlaceholder": "Ponechte prázdné pro veřejného klienta (PKCE)",
+    "customOAuthScopes": "Rozsahy",
+    "customOAuthScopesHelp": "Oddělené mezerami. Většina serverů vyžaduje offline_access pro refresh token.",
+    "customOAuthRedirectUri": "Redirect URI",
+    "customOAuthRedirectUriHelp": "Zaregistrujte toto ve své aplikaci OAuth pomocí regulárního výrazu / shody vzorů — port zpětné smyčky je přiřazen dynamicky při přihlášení (RFC 8252).",
     "addTitle": "Přidat e-mailový účet",
     "editTitle": "Upravit účet",
     "editSharedMailboxTitle": "Upravit sdílenou schránku",
@@ -725,6 +743,12 @@
     "berConversionConfirm": "Převést a importovat"
   },
   "contactSource": {
+    "fillUrlAccount": "Vyplňte prosím URL serveru a vyberte účet OAuth",
+    "authentication": "Ověření",
+    "authPassword": "Heslo",
+    "authOAuth": "Účet OAuth",
+    "oauthAccount": "Účet OAuth",
+    "noCustomAccounts": "Žádné účty s vlastním OAuth. Nejprve přidejte e-mailový účet s vlastním poskytovatelem OAuth, poté jej zde lze použít pro CardDAV.",
     "title": "Zdroje kontaktů",
     "noSources": "Žádné zdroje kontaktů nejsou nakonfigurovány",
     "addSource": "Přidat zdroj kontaktů",

@@ -74,6 +74,12 @@
       "emptyState": "Přidejte zdroj CalDAV a zde se zobrazí vaše události."
     },
     "add": {
+      "authMethod": "Ověření",
+      "authPassword": "Heslo",
+      "authOAuth": "Účet OAuth",
+      "oauthAccountLabel": "Účet OAuth",
+      "oauthAccountRequired": "Vyberte účet OAuth pro ověření.",
+      "noCustomAccounts": "Nebyly nalezeny žádné e-mailové účty s vlastním OAuth. Nejprve nějaký přidejte v sekci Účty, poté může autorizovat i CalDAV.",
       "title": "Přidat zdroj CalDAV",
       "description": "Připojte se k serveru CalDAV (Nextcloud, Radicale, iCloud, FastMail apod.). Rozšíření Kalendář načte události z vybraných kalendářů.",
       "nameLabel": "Název",
