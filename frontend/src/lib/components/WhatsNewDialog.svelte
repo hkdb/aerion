@@ -53,7 +53,7 @@
         <p>Here are the highlights of this release:</p>
 
         <ul class="list-disc pl-6 space-y-1">
-          <li>🛡️ oAuth2 support for IMAP, SMTP, CarDAV, and CalDAV - (Designed for & Tested with <a href="https://stalw.art" class="text-primary hover:underline" onclick={(e) => { e.preventDefault(); openExternal('https://stalw.art') }}>Stalwart</a>)</li>
+          <li>🛡️ Custom oAuth2 support for IMAP, SMTP, CarDAV, and CalDAV - (Designed for & Tested with <a href="https://stalw.art" class="text-primary hover:underline" onclick={(e) => { e.preventDefault(); openExternal('https://stalw.art') }}>Stalwart</a>)</li>
           <li>📬 Composer body is now always white even when using dark theme. To change that, there's a "Dark composer body" toggle in the General tab of the settings dialog to enable a dark background for the composer body when using dark themes.</li>
           <li>🐛 Bug fixes for attachments, CalDAV cert store, and multi-day events.</li>
         </ul>
