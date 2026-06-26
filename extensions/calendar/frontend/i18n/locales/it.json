@@ -74,6 +74,12 @@
       "emptyState": "Aggiungi una fonte CalDAV per visualizzare gli eventi qui."
     },
     "add": {
+      "authMethod": "Autenticazione",
+      "authPassword": "Password",
+      "authOAuth": "Account OAuth",
+      "oauthAccountLabel": "Account OAuth",
+      "oauthAccountRequired": "Seleziona un account OAuth per l'autenticazione.",
+      "noCustomAccounts": "Nessun account di posta con OAuth personalizzato trovato. Aggiungine prima uno in Account, poi potrà autorizzare anche il CalDAV.",
       "title": "Aggiungi fonte CalDAV",
       "description": "Connettiti a un server CalDAV (Nextcloud, Radicale, iCloud, FastMail, ecc.). L'estensione Calendario legge gli eventi dai calendari che scegli.",
       "nameLabel": "Nome",
