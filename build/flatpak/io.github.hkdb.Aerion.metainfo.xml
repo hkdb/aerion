@@ -255,7 +255,7 @@
     <release version="0.3.1" date="2026-06-26">
       <description>
         <ul>
-          <li>Added custom oauth for imap, cardav, and caldav</li>
+          <li>Added custom oauth for imap, cardav, and caldav - designed for and tested with Stalwart</li>
           <li>Custom oauth refresh token handling fix</li>
           <li>Use TOFU cert store for DAV certs</li>
           <li>Timezone config fix</li>

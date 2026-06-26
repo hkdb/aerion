@@ -4,7 +4,7 @@
 **v0.3.1 - 06-26-2026**
 ---
 
-- Added custom oauth for imap, cardav, and caldav
+- Added custom oauth for imap, cardav, and caldav (designed for and tested with [Stalwart](https://stalw.art))
 - Custom oauth refresh token handling fix
 - Use TOFU cert store for DAV certs
 - Timezone config fix

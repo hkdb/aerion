@@ -11,7 +11,7 @@
   import { cn } from '$lib/utils'
   import { Button } from '$lib/components/ui/button'
   // @ts-ignore - wailsjs path
-  import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
+  import { OpenURL } from '../../../wailsjs/go/app/App.js'
   import { _ } from '$lib/i18n'
 
   interface Props {
@@ -23,8 +23,11 @@
 
   const CHANGELOG_URL = 'https://github.com/hkdb/aerion/blob/main/CHANGELOG.md'
 
-  function openChangelog() {
-    BrowserOpenURL(CHANGELOG_URL)
+  // Open external links via the backend OpenURL: on Linux it tries the OpenURI
+  // portal first, so links work inside the Flatpak sandbox (where xdg-open —
+  // and thus Wails' BrowserOpenURL — can't reach the host browser).
+  function openExternal(url: string) {
+    OpenURL(url).catch((err: unknown) => console.error('Failed to open URL:', err))
   }
 </script>
 
@@ -45,25 +48,23 @@
       </div>
 
       <div class="space-y-4 max-h-[60vh] overflow-y-auto text-sm">
-        <p>🚀 Welcome to Aerion v0.3.0!</p>
+        <p>🚀 Welcome to Aerion v0.3.1!</p>
 
-        <p>Some big changes have gone into this release. Here's a TL;DR summary:</p>
+        <p>Here are the highlights of this release:</p>
 
         <ul class="list-disc pl-6 space-y-1">
-          <li>🛠️ 1st party extension system</li>
-          <li>📑 Contacts extension</li>
-          <li>🗓️ Calendar extension</li>
-          <li>🏗 Sync improvements</li>
-          <li>🐛 Other bug fixes and enhancements</li>
+          <li>🛡️ oAuth2 support for IMAP, SMTP, CarDAV, and CalDAV - (Designed for & Tested with <a href="https://stalw.art" class="text-primary hover:underline" onclick={(e) => { e.preventDefault(); openExternal('https://stalw.art') }}>Stalwart</a>)</li>
+          <li>📬 Composer body is now always white even when using dark theme. To change that, there's a "Dark composer body" toggle in the General tab of the settings dialog to enable a dark background for the composer body when using dark themes.</li>
+          <li>🐛 Bug fixes for attachments, CalDAV cert store, and multi-day events.</li>
         </ul>
-
+        
         <p>🏷 See the full change log here:</p>
 
         <p>
           <button
             type="button"
             class="text-primary hover:underline break-all focus:outline-none focus-visible:outline-none focus:ring-0"
-            onclick={openChangelog}
+            onclick={() => openExternal(CHANGELOG_URL)}
           >
             https://github.com/hkdb/aerion/blob/main/CHANGELOG.md
           </button>
