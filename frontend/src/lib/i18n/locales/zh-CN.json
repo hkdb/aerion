@@ -254,6 +254,7 @@
     "account": "账号"
   },
   "toast": {
+    "selectOAuthAccount": "请选择 OAuth 账户",
     "archived": "已归档",
     "conversationArchived": "会话已归档",
     "movedToTrash": "已移至回收站",
@@ -434,6 +435,23 @@
     "failedToLoad": "加载应用信息失败"
   },
   "account": {
+    "enterPassword": "输入密码",
+    "customOAuthHelp": "使用您自己的 OAuth 应用。输入您提供商的 Issuer URL，Aerion 会自动发现各端点。",
+    "customOAuthIssuer": "Issuer URL",
+    "customOAuthIssuerHelp": "您提供商的基础 URL。Aerion 会读取其 /.well-known/openid-configuration 文档。",
+    "customOAuthDiscover": "发现",
+    "customOAuthDiscovered": "已发现端点",
+    "customOAuthManual": "手动输入端点",
+    "customOAuthAuthUrl": "授权端点",
+    "customOAuthTokenUrl": "Token 端点",
+    "customOAuthUserinfoUrl": "Userinfo 端点",
+    "customOAuthClientId": "Client ID",
+    "customOAuthClientSecret": "Client Secret",
+    "customOAuthClientSecretPlaceholder": "公共客户端（PKCE）请留空",
+    "customOAuthScopes": "范围",
+    "customOAuthScopesHelp": "以空格分隔。多数服务器需要 offline_access 才能获取 refresh token。",
+    "customOAuthRedirectUri": "Redirect URI",
+    "customOAuthRedirectUriHelp": "请在您的 OAuth 应用中使用正则表达式／模式匹配注册此项 — 回环端口会在登录时动态分配（RFC 8252）。",
     "addTitle": "添加电子邮件账户",
     "editTitle": "编辑账户",
     "editSharedMailboxTitle": "编辑共享邮箱",
@@ -725,6 +743,12 @@
     "berConversionConfirm": "转换并导入"
   },
   "contactSource": {
+    "fillUrlAccount": "请填写服务器 URL 并选择 OAuth 账户",
+    "authentication": "认证",
+    "authPassword": "密码",
+    "authOAuth": "OAuth 账户",
+    "oauthAccount": "OAuth 账户",
+    "noCustomAccounts": "没有自定义 OAuth 账户。请先添加使用自定义 OAuth 提供商的邮件账户，之后即可在此用于 CardDAV。",
     "title": "联系人来源",
     "noSources": "尚未配置联系人来源",
     "addSource": "添加联系人来源",
