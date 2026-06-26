@@ -74,6 +74,12 @@
       "emptyState": "Thêm nguồn CalDAV để xem sự kiện tại đây."
     },
     "add": {
+      "authMethod": "Xác thực",
+      "authPassword": "Mật khẩu",
+      "authOAuth": "Tài khoản OAuth",
+      "oauthAccountLabel": "Tài khoản OAuth",
+      "oauthAccountRequired": "Chọn một tài khoản OAuth để xác thực.",
+      "noCustomAccounts": "Không tìm thấy tài khoản email OAuth tùy chỉnh nào. Trước tiên hãy thêm một tài khoản trong mục Tài khoản, sau đó nó cũng có thể ủy quyền cho CalDAV.",
       "title": "Thêm nguồn CalDAV",
       "description": "Kết nối với máy chủ CalDAV (Nextcloud, Radicale, iCloud, FastMail, v.v.). Tiện ích Lịch đọc sự kiện từ các lịch bạn chọn.",
       "nameLabel": "Tên",

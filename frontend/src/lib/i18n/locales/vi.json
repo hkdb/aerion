@@ -254,6 +254,7 @@
     "account": "Tài khoản"
   },
   "toast": {
+    "selectOAuthAccount": "Vui lòng chọn một tài khoản OAuth",
     "archived": "Đã lưu trữ",
     "conversationArchived": "Cuộc hội thoại đã được lưu trữ",
     "movedToTrash": "Đã chuyển vào thùng rác",
@@ -434,6 +435,23 @@
     "failedToLoad": "Không thể tải thông tin ứng dụng"
   },
   "account": {
+    "enterPassword": "Nhập mật khẩu",
+    "customOAuthHelp": "Sử dụng ứng dụng OAuth của riêng bạn. Nhập Issuer URL của nhà cung cấp và Aerion sẽ tự động khám phá các điểm cuối.",
+    "customOAuthIssuer": "Issuer URL",
+    "customOAuthIssuerHelp": "URL gốc của nhà cung cấp. Aerion đọc tài liệu /.well-known/openid-configuration của nó.",
+    "customOAuthDiscover": "Khám phá",
+    "customOAuthDiscovered": "Đã khám phá các điểm cuối",
+    "customOAuthManual": "Nhập các điểm cuối thủ công",
+    "customOAuthAuthUrl": "Điểm cuối ủy quyền",
+    "customOAuthTokenUrl": "Điểm cuối token",
+    "customOAuthUserinfoUrl": "Điểm cuối userinfo",
+    "customOAuthClientId": "Client ID",
+    "customOAuthClientSecret": "Client Secret",
+    "customOAuthClientSecretPlaceholder": "Để trống cho client công khai (PKCE)",
+    "customOAuthScopes": "Phạm vi",
+    "customOAuthScopesHelp": "Phân tách bằng dấu cách. Hầu hết máy chủ cần offline_access để có refresh token.",
+    "customOAuthRedirectUri": "Redirect URI",
+    "customOAuthRedirectUriHelp": "Đăng ký mục này trong ứng dụng OAuth của bạn bằng biểu thức chính quy / so khớp mẫu — cổng loopback được gán động khi đăng nhập (RFC 8252).",
     "addTitle": "Thêm tài khoản email",
     "editTitle": "Chỉnh sửa tài khoản",
     "editSharedMailboxTitle": "Chỉnh sửa hộp thư dùng chung",
@@ -725,6 +743,12 @@
     "berConversionConfirm": "Chuyển đổi & Nhập"
   },
   "contactSource": {
+    "fillUrlAccount": "Vui lòng nhập URL máy chủ và chọn một tài khoản OAuth",
+    "authentication": "Xác thực",
+    "authPassword": "Mật khẩu",
+    "authOAuth": "Tài khoản OAuth",
+    "oauthAccount": "Tài khoản OAuth",
+    "noCustomAccounts": "Không có tài khoản OAuth tùy chỉnh. Trước tiên hãy thêm một tài khoản email với nhà cung cấp OAuth tùy chỉnh, sau đó nó có thể hỗ trợ CardDAV tại đây.",
     "title": "Nguồn danh bạ",
     "noSources": "Chưa có nguồn danh bạ nào",
     "addSource": "Thêm nguồn danh bạ",
