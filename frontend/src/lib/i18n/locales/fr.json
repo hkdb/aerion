@@ -254,6 +254,7 @@
     "account": "Compte"
   },
   "toast": {
+    "selectOAuthAccount": "Veuillez choisir un compte OAuth",
     "archived": "Archivé",
     "conversationArchived": "Conversation archivée",
     "movedToTrash": "Déplacé vers la corbeille",
@@ -434,6 +435,23 @@
     "failedToLoad": "Échec du chargement des informations de l'application"
   },
   "account": {
+    "enterPassword": "Entrez le mot de passe",
+    "customOAuthHelp": "Utilisez votre propre application OAuth. Entrez l'Issuer URL de votre fournisseur et Aerion découvre automatiquement les points de terminaison.",
+    "customOAuthIssuer": "Issuer URL",
+    "customOAuthIssuerHelp": "L'URL de base de votre fournisseur. Aerion lit son document /.well-known/openid-configuration.",
+    "customOAuthDiscover": "Découvrir",
+    "customOAuthDiscovered": "Points de terminaison découverts",
+    "customOAuthManual": "Saisir les points de terminaison manuellement",
+    "customOAuthAuthUrl": "Point de terminaison d'autorisation",
+    "customOAuthTokenUrl": "Point de terminaison du token",
+    "customOAuthUserinfoUrl": "Point de terminaison userinfo",
+    "customOAuthClientId": "Client ID",
+    "customOAuthClientSecret": "Client Secret",
+    "customOAuthClientSecretPlaceholder": "Laissez vide pour un client public (PKCE)",
+    "customOAuthScopes": "Portées",
+    "customOAuthScopesHelp": "Séparées par des espaces. La plupart des serveurs nécessitent offline_access pour un refresh token.",
+    "customOAuthRedirectUri": "Redirect URI",
+    "customOAuthRedirectUriHelp": "Enregistrez ceci dans votre application OAuth à l'aide d'une expression régulière / correspondance de motif — le port de bouclage est attribué dynamiquement lors de la connexion (RFC 8252).",
     "addTitle": "Ajouter un compte e-mail",
     "editTitle": "Modifier le compte",
     "editSharedMailboxTitle": "Modifier la boîte partagée",
@@ -725,6 +743,12 @@
     "berConversionConfirm": "Convertir et Importer"
   },
   "contactSource": {
+    "fillUrlAccount": "Veuillez renseigner l'URL du serveur et choisir un compte OAuth",
+    "authentication": "Authentification",
+    "authPassword": "Mot de passe",
+    "authOAuth": "Compte OAuth",
+    "oauthAccount": "Compte OAuth",
+    "noCustomAccounts": "Aucun compte OAuth personnalisé. Ajoutez d'abord un compte e-mail avec un fournisseur OAuth personnalisé, il pourra ensuite servir au CardDAV ici.",
     "title": "Sources de contacts",
     "noSources": "Aucune source configurée",
     "addSource": "Ajouter une source",
