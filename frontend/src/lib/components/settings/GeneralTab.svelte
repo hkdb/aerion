@@ -30,6 +30,7 @@
     showMessageListCircles: boolean
     showViewerCircles: boolean
     darkMailContent: boolean
+    showActionToasts: boolean
   }
 
   let {
@@ -54,6 +55,7 @@
     showMessageListCircles = $bindable(),
     showViewerCircles = $bindable(),
     darkMailContent = $bindable(),
+    showActionToasts = $bindable(),
   }: Props = $props()
 
   // Message list density options
@@ -332,6 +334,22 @@
         <Switch
           id="accent-bar-unread"
           bind:checked={accentBarUnread}
+        />
+      </div>
+    </div>
+
+    <!-- Action toast notifications -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <Label for="show-action-toasts">{$_('settingsGeneral.showActionToasts')}</Label>
+          <p class="text-xs text-muted-foreground">
+            {$_('settingsGeneral.showActionToastsHelp')}
+          </p>
+        </div>
+        <Switch
+          id="show-action-toasts"
+          bind:checked={showActionToasts}
         />
       </div>
     </div>

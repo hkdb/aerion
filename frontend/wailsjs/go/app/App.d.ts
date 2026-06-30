@@ -636,3 +636,7 @@ export function UpdateContactSource(arg1:string,arg2:carddav.SourceConfig):Promi
 export function UpdateIdentity(arg1:string,arg2:account.IdentityConfig):Promise<account.Identity>;
 
 export function UpdateLocalFlags(arg1:Array<string>,arg2:any,arg3:any):Promise<void>;
+
+export function GetShowActionToasts():Promise<boolean>;
+
+export function SetShowActionToasts(arg1:boolean):Promise<void>;

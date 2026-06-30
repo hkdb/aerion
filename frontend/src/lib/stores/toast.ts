@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store'
+import { getShowActionToasts } from '$lib/stores/settings.svelte'
 
 export interface ToastAction {
   label: string
@@ -17,6 +18,11 @@ function createToastStore() {
   const { subscribe, update } = writable<Toast[]>([])
 
   function add(toast: Omit<Toast, 'id'>) {
+    // Only display success/info notifications if showActionToasts setting is enabled
+    if ((toast.type === 'success' || toast.type === 'info') && !getShowActionToasts()) {
+      return ''
+    }
+
     const id = crypto.randomUUID()
     const newToast: Toast = { ...toast, id }
 

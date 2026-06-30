@@ -1,3 +1,4 @@
+// Force Wails bindings regeneration
 package app
 
 import (
@@ -1198,4 +1199,14 @@ func isAllowedProtocol(url string) bool {
 	}
 
 	return false
+}
+
+// GetShowActionToasts returns whether action toasts are enabled
+func (a *App) GetShowActionToasts() (bool, error) {
+	return a.settingsStore.GetShowActionToasts()
+}
+
+// SetShowActionToasts enables or disables action toasts
+func (a *App) SetShowActionToasts(enabled bool) error {
+	return a.settingsStore.SetShowActionToasts(enabled)
 }
