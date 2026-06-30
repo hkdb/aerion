@@ -98,7 +98,7 @@
 
       <!-- Unread Badge -->
       {#if unifiedUnreadCount > 0}
-        <span class="px-1.5 py-0.5 text-xs font-medium bg-primary text-primary-foreground rounded-full">
+        <span class="px-1.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded-full">
           {unifiedUnreadCount}
         </span>
       {/if}

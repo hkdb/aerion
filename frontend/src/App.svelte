@@ -1515,7 +1515,7 @@
     <div style:display={getActiveExtension() === 'mail' ? 'contents' : 'none'}>
     <!-- Sidebar (Folder List) -->
     <aside
-      class="{getLayoutMode() === 'narrow' ? `responsive-sidebar-overlay w-72 border-r border-border bg-background ${getResponsiveView() === 'sidebar' ? 'responsive-sidebar-visible' : ''}` : 'flex-shrink-0 border-r border-border bg-muted/30'}"
+      class="{getLayoutMode() === 'narrow' ? `responsive-sidebar-overlay w-72 border-r border-border bg-background ${getResponsiveView() === 'sidebar' ? 'responsive-sidebar-visible' : ''}` : 'flex-shrink-0 border-r border-border bg-background'}"
       style="{getLayoutMode() === 'full' ? `width: ${sidebarWidth}px` : ''}"
       role="presentation"
       onclick={() => handlePaneClick('sidebar')}
