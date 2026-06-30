@@ -1,0 +1,40 @@
+/* Rose Pine (Light) */
+@layer base {
+  [data-theme="rose-pine"] {
+    color-scheme: light;
+    --background: 32 57% 95%;
+    --foreground: 248 19% 40%;
+    --card: 32 57% 95%;
+    --card-foreground: 248 19% 40%;
+    --popover: 32 57% 95%;
+    --popover-foreground: 248 19% 40%;
+    --primary: 189 30% 48%;
+    --primary-foreground: 248 19% 40%;
+    --secondary: 248 19% 40%;
+    --secondary-foreground: 248 19% 40%;
+    --muted: 248 19% 40%;
+    --muted-foreground: 28 40% 54%;
+    --accent: 10 9% 86%;
+    --accent-foreground: 248 19% 40%;
+    --destructive: 343 35% 55%;
+    --destructive-foreground: 32 57% 95%;
+    --border: 248 19% 40%;
+    --input: 248 19% 40%;
+    --ring: 189 30% 48%;
+    --avatar-fg: 248 19% 40%;
+    --avatar-1:  343 35% 55%;
+    --avatar-2:  197 53% 34%;
+    --avatar-3:  35 81% 56%;
+    --avatar-4:  189 30% 48%;
+    --avatar-5:  268 21% 57%;
+    --avatar-6:  3 53% 67%;
+    --avatar-7:  189 30% 48%;
+    --avatar-8:  248 19% 40%;
+    --avatar-9:  257 9% 61%;
+    --avatar-10: 343 35% 55%;
+    --avatar-11: 197 53% 34%;
+    --avatar-12: 35 81% 56%;
+    --avatar-13: 189 30% 48%;
+    --avatar-14: 268 21% 57%;
+  }
+}

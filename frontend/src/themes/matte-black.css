@@ -1,0 +1,40 @@
+/* Matte Black (Dark) */
+@layer base {
+  [data-theme="matte-black"] {
+    color-scheme: dark;
+    --background: 0 0% 7%;
+    --foreground: 0 0% 75%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 75%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 75%;
+    --primary: 36 89% 48%;
+    --primary-foreground: 0 0% 7%;
+    --secondary: 240 1% 55%;
+    --secondary-foreground: 0 0% 75%;
+    --muted: 240 1% 55%;
+    --muted-foreground: 240 1% 58%;
+    --accent: 0 0% 32%;
+    --accent-foreground: 0 0% 75%;
+    --destructive: 0 57% 60%;
+    --destructive-foreground: 0 0% 75%;
+    --border: 240 1% 55%;
+    --input: 240 1% 55%;
+    --ring: 36 89% 48%;
+    --avatar-fg: 0 0% 7%;
+    --avatar-1:  0 57% 60%;
+    --avatar-2:  45 100% 51%;
+    --avatar-3:  0 74% 42%;
+    --avatar-4:  36 89% 48%;
+    --avatar-5:  0 57% 60%;
+    --avatar-6:  0 0% 75%;
+    --avatar-7:  36 89% 48%;
+    --avatar-8:  0 0% 75%;
+    --avatar-9:  240 1% 55%;
+    --avatar-10: 0 57% 60%;
+    --avatar-11: 45 100% 51%;
+    --avatar-12: 0 74% 42%;
+    --avatar-13: 36 89% 48%;
+    --avatar-14: 0 57% 60%;
+  }
+}

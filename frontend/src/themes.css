@@ -1,15 +1,4 @@
-/* Theme registry — entry point that imports each theme family and the
-   shared avatar palette plumbing. To add a new theme:
-     1. Create a new file in ./themes/<name>.css with a [data-theme="<name>"]
-        block wrapped in @layer base. Optionally override --avatar-* variables.
-     2. Add an @import line below.
-     3. (If the new theme is dark) append the [data-theme="<name>"] mark
-        selector to the dark mark override list in ./themes/_utilities.css.
-     4. Register the theme in: internal/settings/store.go (const + switch +
-        error message), frontend/src/lib/stores/settings.svelte.ts (ThemeMode
-        union), and frontend/src/lib/components/settings/GeneralTab.svelte
-        (themeModeOptions). */
-
+/* Theme registry — entry point that imports each theme family */
 @import './themes/_defaults.css';
 @import './themes/built-in.css';
 @import './themes/adwaita.css';
@@ -22,4 +11,20 @@
 @import './themes/tokyo-night.css';
 @import './themes/vs-code.css';
 @import './themes/yaru.css';
+@import './themes/ethereal.css';
+@import './themes/everforest.css';
+@import './themes/flexoki-light.css';
+@import './themes/gruvbox.css';
+@import './themes/hackerman.css';
+@import './themes/kanagawa.css';
+@import './themes/lumon.css';
+@import './themes/matte-black.css';
+@import './themes/miasma.css';
+@import './themes/osaka-jade.css';
+@import './themes/retro-82.css';
+@import './themes/ristretto.css';
+@import './themes/rose-pine.css';
+@import './themes/vantablack.css';
+@import './themes/white.css';
+@import './themes/flexoki-dark.css';
 @import './themes/_utilities.css';

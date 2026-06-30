@@ -1,0 +1,40 @@
+/* Lumon (Dark) */
+@layer base {
+  [data-theme="lumon"] {
+    color-scheme: dark;
+    --background: 203 34% 13%;
+    --foreground: 210 41% 89%;
+    --card: 203 34% 13%;
+    --card-foreground: 210 41% 89%;
+    --popover: 203 34% 13%;
+    --popover-foreground: 210 41% 89%;
+    --primary: 201 71% 73%;
+    --primary-foreground: 203 34% 13%;
+    --secondary: 210 33% 28%;
+    --secondary-foreground: 210 41% 89%;
+    --muted: 210 33% 28%;
+    --muted-foreground: 210 33% 70%;
+    --accent: 204 60% 56%;
+    --accent-foreground: 211 41% 18%;
+    --destructive: 205 39% 50%;
+    --destructive-foreground: 210 41% 89%;
+    --border: 210 33% 28%;
+    --input: 210 33% 28%;
+    --ring: 201 71% 73%;
+    --avatar-fg: 203 34% 13%;
+    --avatar-1:  205 39% 50%;
+    --avatar-2:  205 41% 55%;
+    --avatar-3:  205 45% 61%;
+    --avatar-4:  202 67% 66%;
+    --avatar-5:  201 71% 73%;
+    --avatar-6:  196 79% 84%;
+    --avatar-7:  201 71% 73%;
+    --avatar-8:  210 41% 89%;
+    --avatar-9:  210 33% 28%;
+    --avatar-10: 205 39% 50%;
+    --avatar-11: 205 41% 55%;
+    --avatar-12: 205 45% 61%;
+    --avatar-13: 202 67% 66%;
+    --avatar-14: 201 71% 73%;
+  }
+}

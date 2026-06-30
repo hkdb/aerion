@@ -1,0 +1,40 @@
+/* Vantablack (Dark) */
+@layer base {
+  [data-theme="vantablack"] {
+    color-scheme: dark;
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 0%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 55%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 36%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 36%;
+    --muted-foreground: 0 0% 75%;
+    --accent: 0 0% 100%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 0% 64%;
+    --destructive-foreground: 0 0% 0%;
+    --border: 0 0% 36%;
+    --input: 0 0% 36%;
+    --ring: 0 0% 55%;
+    --avatar-fg: 0 0% 0%;
+    --avatar-1:  0 0% 64%;
+    --avatar-2:  0 0% 71%;
+    --avatar-3:  0 0% 81%;
+    --avatar-4:  0 0% 55%;
+    --avatar-5:  0 0% 61%;
+    --avatar-6:  0 0% 69%;
+    --avatar-7:  0 0% 55%;
+    --avatar-8:  0 0% 93%;
+    --avatar-9:  0 0% 36%;
+    --avatar-10: 0 0% 64%;
+    --avatar-11: 0 0% 71%;
+    --avatar-12: 0 0% 81%;
+    --avatar-13: 0 0% 55%;
+    --avatar-14: 0 0% 61%;
+  }
+}

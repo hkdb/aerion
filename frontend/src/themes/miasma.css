@@ -1,0 +1,40 @@
+/* Miasma (Dark) */
+@layer base {
+  [data-theme="miasma"] {
+    color-scheme: dark;
+    --background: 0 0% 13%;
+    --foreground: 60 13% 73%;
+    --card: 0 0% 13%;
+    --card-foreground: 60 13% 73%;
+    --popover: 0 0% 13%;
+    --popover-foreground: 60 13% 73%;
+    --primary: 71 27% 40%;
+    --primary-foreground: 60 13% 73%;
+    --secondary: 0 0% 40%;
+    --secondary-foreground: 60 13% 73%;
+    --muted: 0 0% 40%;
+    --muted-foreground: 0 0% 58%;
+    --accent: 71 27% 40%;
+    --accent-foreground: 60 13% 73%;
+    --destructive: 33 22% 33%;
+    --destructive-foreground: 60 13% 73%;
+    --border: 0 0% 40%;
+    --input: 0 0% 40%;
+    --ring: 71 27% 40%;
+    --avatar-fg: 0 0% 13%;
+    --avatar-1:  33 22% 33%;
+    --avatar-2:  120 17% 45%;
+    --avatar-3:  22 46% 48%;
+    --avatar-4:  71 27% 40%;
+    --avatar-5:  26 47% 50%;
+    --avatar-6:  42 52% 56%;
+    --avatar-7:  71 27% 40%;
+    --avatar-8:  46 51% 68%;
+    --avatar-9:  0 0% 40%;
+    --avatar-10: 33 22% 33%;
+    --avatar-11: 120 17% 45%;
+    --avatar-12: 22 46% 48%;
+    --avatar-13: 71 27% 40%;
+    --avatar-14: 26 47% 50%;
+  }
+}

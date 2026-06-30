@@ -1,0 +1,40 @@
+/* Gruvbox (Dark) */
+@layer base {
+  [data-theme="gruvbox"] {
+    color-scheme: dark;
+    --background: 0 0% 16%;
+    --foreground: 38 41% 71%;
+    --card: 0 0% 16%;
+    --card-foreground: 38 41% 71%;
+    --popover: 0 0% 16%;
+    --popover-foreground: 38 41% 71%;
+    --primary: 167 23% 59%;
+    --primary-foreground: 0 0% 16%;
+    --secondary: 20 5% 22%;
+    --secondary-foreground: 38 41% 71%;
+    --muted: 20 5% 22%;
+    --muted-foreground: 20 5% 57%;
+    --accent: 24 88% 45%;
+    --accent-foreground: 43 59% 81%;
+    --destructive: 3 76% 65%;
+    --destructive-foreground: 0 0% 16%;
+    --border: 20 5% 22%;
+    --input: 20 5% 22%;
+    --ring: 167 23% 59%;
+    --avatar-fg: 0 0% 16%;
+    --avatar-1:  3 76% 65%;
+    --avatar-2:  70 36% 55%;
+    --avatar-3:  37 62% 59%;
+    --avatar-4:  167 23% 59%;
+    --avatar-5:  344 47% 68%;
+    --avatar-6:  112 25% 61%;
+    --avatar-7:  167 23% 59%;
+    --avatar-8:  38 41% 71%;
+    --avatar-9:  20 5% 22%;
+    --avatar-10: 3 76% 65%;
+    --avatar-11: 70 36% 55%;
+    --avatar-12: 37 62% 59%;
+    --avatar-13: 167 23% 59%;
+    --avatar-14: 344 47% 68%;
+  }
+}
