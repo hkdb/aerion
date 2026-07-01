@@ -1034,6 +1034,14 @@ export function SetDarkMailContent(arg1) {
   return window['go']['app']['App']['SetDarkMailContent'](arg1);
 }
 
+export function GetOverrideEmailColors() {
+  return window['go']['app']['App']['GetOverrideEmailColors']();
+}
+
+export function SetOverrideEmailColors(arg1) {
+  return window['go']['app']['App']['SetOverrideEmailColors'](arg1);
+}
+
 export function SetDefaultIdentity(arg1, arg2) {
   return window['go']['app']['App']['SetDefaultIdentity'](arg1, arg2);
 }

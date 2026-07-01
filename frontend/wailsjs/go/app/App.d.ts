@@ -535,6 +535,10 @@ export function SetContactSourceWritable(arg1:string,arg2:boolean):Promise<void>
 
 export function SetDarkMailContent(arg1:boolean):Promise<void>;
 
+export function GetOverrideEmailColors():Promise<boolean>;
+
+export function SetOverrideEmailColors(arg1:boolean):Promise<void>;
+
 export function SetDefaultIdentity(arg1:string,arg2:string):Promise<void>;
 
 export function SetDefaultPGPKey(arg1:string,arg2:string):Promise<void>;

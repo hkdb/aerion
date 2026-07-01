@@ -63,16 +63,16 @@ func main() {
 			return
 		}
 		defer lock.Unlock()
-		if paths, err := platform.GetPaths(); err == nil {
-			if err := settings.WriteThemeMode(paths.DatabasePath(), *themeChange); err != nil {
-				fmt.Printf("Error saving theme to database: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Printf("Aerion is not running. Saved theme '%s' to database for next launch.\n", *themeChange)
-		} else {
+		paths, err := platform.GetPaths()
+		if err != nil {
 			fmt.Printf("Error resolving paths: %v\n", err)
 			os.Exit(1)
 		}
+		if err := settings.WriteThemeMode(paths.DatabasePath(), *themeChange); err != nil {
+			fmt.Printf("Error saving theme to database: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Aerion is not running. Saved theme '%s' to database for next launch.\n", *themeChange)
 		return
 	}
 

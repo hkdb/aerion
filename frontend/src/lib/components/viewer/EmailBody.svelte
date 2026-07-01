@@ -202,10 +202,10 @@
     // html'\''s saturate(S) hue-rotate(H) composed with image'\''s saturate(1/S)
     // hue-rotate(-H) approximately cancels for non-grayscale image content.
     const imageSaturate = 1 / saturate
-    
-    let darkenStyles = ''
-    if (overrideColors) {
-      darkenStyles = `
+
+    const getDarkenStyles = () => {
+      if (overrideColors) {
+        return `
     * {
       background-color: transparent !important;
       background-image: none !important;
@@ -216,16 +216,18 @@
       text-decoration: underline !important;
     }
 `
-    } else if (actualApplyDarken) {
-      darkenStyles = `
+      }
+      if (actualApplyDarken) {
+        return `
     html { filter: invert(${invertAmount}) hue-rotate(180deg) saturate(${saturate}) hue-rotate(${hueRotate}deg); background: #fff; color-scheme: dark; }
     img:not([data-blocked-src]), video, iframe, [data-no-invert] { filter: invert(${invertAmount}) hue-rotate(180deg) saturate(${imageSaturate}) hue-rotate(${-hueRotate}deg); }
 `
-    } else {
-      darkenStyles = `
+      }
+      return `
     html { color-scheme: light; }
 `
     }
+    const darkenStyles = getDarkenStyles()
 
     const iframeScript = `
       function sendHeight() {

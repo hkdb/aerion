@@ -512,11 +512,11 @@ func (a *App) Startup(ctx context.Context) {
 			}
 			if strings.HasPrefix(data, "theme-change:") {
 				themeName := strings.TrimPrefix(data, "theme-change:")
-				if err := a.settingsStore.SetThemeMode(themeName); err == nil {
-					wailsRuntime.EventsEmit(a.ctx, "theme:changed", themeName)
-				} else {
+				if err := a.settingsStore.SetThemeMode(themeName); err != nil {
 					log.Error().Err(err).Str("theme", themeName).Msg("Invalid theme change command received")
+					return
 				}
+				wailsRuntime.EventsEmit(a.ctx, "theme:changed", themeName)
 				return
 			}
 			a.ShowWindow()
