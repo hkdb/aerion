@@ -38,6 +38,7 @@ const (
 	KeyLastSeenVersion           = "last_seen_version"      // for "What's new in this version" launch dialog
 	KeyOAuthWarningDisabled      = "oauth_warning_disabled" // user toggled "Don't show again" on the missing-OAuth-creds launch warning
 	KeyShowActionToasts          = "show_action_toasts"
+	KeyNewMailNotificationsEnabled = "new_mail_notifications_enabled"
 )
 
 // Extension enable/disable keys. Format: extension_<name>_enabled.
@@ -331,6 +332,27 @@ func (s *Store) SetShowActionToasts(enabled bool) error {
 		v = "true"
 	}
 	return s.Set(KeyShowActionToasts, v)
+}
+
+// GetNewMailNotificationsEnabled returns whether new mail notifications are enabled. Default: true.
+func (s *Store) GetNewMailNotificationsEnabled() (bool, error) {
+	value, err := s.Get(KeyNewMailNotificationsEnabled)
+	if err != nil {
+		return true, err
+	}
+	if value == "" {
+		return true, nil
+	}
+	return value == "true", nil
+}
+
+// SetNewMailNotificationsEnabled enables or disables new mail notifications
+func (s *Store) SetNewMailNotificationsEnabled(enabled bool) error {
+	v := "false"
+	if enabled {
+		v = "true"
+	}
+	return s.Set(KeyNewMailNotificationsEnabled, v)
 }
 
 // GetShowMessageListCircles returns whether colored sender circles

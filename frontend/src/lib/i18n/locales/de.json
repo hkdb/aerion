@@ -376,6 +376,8 @@
     "accentBarUnreadHelp": "Zeigt einen Balken auf der linken Seite ungelesener Nachrichten zur leichteren Erkennung.",
     "darkMailContent": "Dunkler Mail-Inhalt",
     "darkMailContentHelp": "Einen Dunkelfilter auf den E-Mail-Inhalt anwenden, wenn Aerion im Dunkelmodus ist.",
+    "newMailNotifications": "Benachrichtigungen über neue E-Mails",
+    "newMailNotificationsHelp": "Eine Desktop-Benachrichtigung anzeigen, wenn eine neue E-Mail eintrifft.",
     "selectDensity": "Dichte auswählen",
     "readReceipts": "Lesebestätigungen",
     "readReceiptPolicy": "Wenn jemand eine Lesebestätigung anfordert",

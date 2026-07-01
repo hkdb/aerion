@@ -32,6 +32,7 @@
     darkMailContent: boolean
     overrideEmailColors: boolean
     showActionToasts: boolean
+    newMailNotificationsEnabled: boolean
   }
 
   let {
@@ -58,6 +59,7 @@
     darkMailContent = $bindable(),
     overrideEmailColors = $bindable(),
     showActionToasts = $bindable(),
+    newMailNotificationsEnabled = $bindable(),
   }: Props = $props()
 
   // Message list density options
@@ -368,6 +370,22 @@
         <Switch
           id="show-action-toasts"
           bind:checked={showActionToasts}
+        />
+      </div>
+    </div>
+
+    <!-- New mail notifications -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <Label for="new-mail-notifications">{$_('settingsGeneral.newMailNotifications')}</Label>
+          <p class="text-xs text-muted-foreground">
+            {$_('settingsGeneral.newMailNotificationsHelp')}
+          </p>
+        </div>
+        <Switch
+          id="new-mail-notifications"
+          bind:checked={newMailNotificationsEnabled}
         />
       </div>
     </div>

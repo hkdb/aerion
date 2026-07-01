@@ -644,3 +644,7 @@ export function UpdateLocalFlags(arg1:Array<string>,arg2:any,arg3:any):Promise<v
 export function GetShowActionToasts():Promise<boolean>;
 
 export function SetShowActionToasts(arg1:boolean):Promise<void>;
+
+export function GetNewMailNotificationsEnabled():Promise<boolean>;
+
+export function SetNewMailNotificationsEnabled(arg1:boolean):Promise<void>;

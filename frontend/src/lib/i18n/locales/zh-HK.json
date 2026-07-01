@@ -376,6 +376,8 @@
     "accentBarUnreadHelp": "在未讀郵件左側顯示標記線，方便辨識。",
     "darkMailContent": "郵件內容深色化",
     "darkMailContentHelp": "當 Aerion 處於深色模式時，對郵件內容套用深色濾鏡。",
+    "newMailNotifications": "新郵件通知",
+    "newMailNotificationsHelp": "收到新郵件時顯示桌面通知。",
     "selectDensity": "選擇密度",
     "readReceipts": "讀取回條",
     "readReceiptPolicy": "當有人要求讀取回條時",

@@ -238,6 +238,16 @@ func (a *App) SetLanguage(language string) error {
 	return a.settingsStore.SetLanguage(language)
 }
 
+// GetNewMailNotificationsEnabled returns whether new mail notifications are enabled
+func (a *App) GetNewMailNotificationsEnabled() (bool, error) {
+	return a.settingsStore.GetNewMailNotificationsEnabled()
+}
+
+// SetNewMailNotificationsEnabled enables or disables new mail notifications
+func (a *App) SetNewMailNotificationsEnabled(enabled bool) error {
+	return a.settingsStore.SetNewMailNotificationsEnabled(enabled)
+}
+
 // GetComposerMode returns the default compose mode ("inline" or "detached")
 func (a *App) GetComposerMode() (string, error) {
 	return a.settingsStore.GetComposerMode()

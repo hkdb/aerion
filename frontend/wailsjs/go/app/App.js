@@ -1253,3 +1253,11 @@ export function GetShowActionToasts() {
 export function SetShowActionToasts(arg1) {
   return window['go']['app']['App']['SetShowActionToasts'](arg1);
 }
+
+export function GetNewMailNotificationsEnabled() {
+  return window['go']['app']['App']['GetNewMailNotificationsEnabled']();
+}
+
+export function SetNewMailNotificationsEnabled(arg1) {
+  return window['go']['app']['App']['SetNewMailNotificationsEnabled'](arg1);
+}

@@ -2,7 +2,7 @@
 // Provides reactive state for application settings
 
 // @ts-ignore - wailsjs path
-import { GetMessageListDensity, GetMessageListSortOrder, GetThemeMode, GetShowTitleBar, GetRunBackground, GetStartHidden, GetAutostart, GetLanguage, GetComposerMode, GetMailtoMode, GetComposerFormat, GetNativeTitleBar, GetAlwaysLoadImages, GetDarkMailContent, GetOverrideEmailColors, SetOverrideEmailColors, GetAccentBarUnread, GetShowMessageListCircles, GetShowViewerCircles, GetShowActionToasts } from '../../../wailsjs/go/app/App'
+import { GetMessageListDensity, GetMessageListSortOrder, GetThemeMode, GetShowTitleBar, GetRunBackground, GetStartHidden, GetAutostart, GetLanguage, GetComposerMode, GetMailtoMode, GetComposerFormat, GetNativeTitleBar, GetAlwaysLoadImages, GetDarkMailContent, GetOverrideEmailColors, SetOverrideEmailColors, GetAccentBarUnread, GetShowMessageListCircles, GetShowViewerCircles, GetShowActionToasts, GetNewMailNotificationsEnabled } from '../../../wailsjs/go/app/App'
 import { setLocale as setI18nLocale } from '$lib/i18n'
 import { loadDateFnsLocale, getDateFnsLocale } from '$lib/i18n/dateFnsLocale'
 import type { Locale } from 'date-fns'
@@ -78,6 +78,7 @@ let accentBarUnread = $state<boolean>(false)
 let showMessageListCircles = $state<boolean>(true)
 let showViewerCircles = $state<boolean>(true)
 let showActionToasts = $state<boolean>(true)
+let newMailNotificationsEnabled = $state<boolean>(true)
 
 // Getter functions to access the state
 export function getMessageListDensity(): MessageListDensity {
@@ -154,6 +155,10 @@ export function getShowViewerCircles(): boolean {
 
 export function getShowActionToasts(): boolean {
   return showActionToasts
+}
+
+export function getNewMailNotificationsEnabled(): boolean {
+  return newMailNotificationsEnabled
 }
 
 export function getCurrentDateFnsLocale(): Locale | undefined {
@@ -241,10 +246,14 @@ export function setShowActionToasts(v: boolean) {
   showActionToasts = v
 }
 
+export function setNewMailNotificationsEnabled(v: boolean) {
+  newMailNotificationsEnabled = v
+}
+
 // Load settings from backend (call on app startup)
 export async function loadSettings(): Promise<ThemeMode> {
   try {
-    const [density, sortOrder, theme, titleBar, runBg, startHid, autoSt, lang, compMode, mailMode, compFormat, nativeTB, alwaysImages, darkMail, overrideColors, accentBar, listCircles, viewerCircles, actionToasts] = await Promise.all([
+    const [density, sortOrder, theme, titleBar, runBg, startHid, autoSt, lang, compMode, mailMode, compFormat, nativeTB, alwaysImages, darkMail, overrideColors, accentBar, listCircles, viewerCircles, actionToasts, newMailNotifications] = await Promise.all([
       GetMessageListDensity(),
       GetMessageListSortOrder(),
       GetThemeMode(),
@@ -264,6 +273,7 @@ export async function loadSettings(): Promise<ThemeMode> {
       GetShowMessageListCircles(),
       GetShowViewerCircles(),
       GetShowActionToasts(),
+      GetNewMailNotificationsEnabled(),
     ])
     messageListDensity = (density as MessageListDensity) || 'standard'
     messageListSortOrder = (sortOrder as MessageListSortOrder) || 'newest'
@@ -283,6 +293,7 @@ export async function loadSettings(): Promise<ThemeMode> {
     showMessageListCircles = listCircles ?? true
     showViewerCircles = viewerCircles ?? true
     showActionToasts = actionToasts ?? true
+    newMailNotificationsEnabled = newMailNotifications ?? true
     // Apply saved language (if set, overrides system detection from initI18n)
     if (lang) {
       language = lang

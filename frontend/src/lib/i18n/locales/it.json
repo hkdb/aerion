@@ -376,6 +376,8 @@
     "accentBarUnreadHelp": "Mostra una barra sul lato sinistro dei messaggi non letti per una facile identificazione.",
     "darkMailContent": "Contenuti dei messaggi di posta elettronica in modalità scura",
     "darkMailContentHelp": "Applica un filtro scuro ai contenuti dei messaggi di posta elettronica quando Aerion è in modalità scura.",
+    "newMailNotifications": "Notifiche di nuove email",
+    "newMailNotificationsHelp": "Mostra una notifica sul desktop quando arriva una nuova email.",
     "selectDensity": "Seleziona dimensione",
     "readReceipts": "Conferme di lettura",
     "readReceiptPolicy": "Quando qualcuno richiede una conferma di lettura",

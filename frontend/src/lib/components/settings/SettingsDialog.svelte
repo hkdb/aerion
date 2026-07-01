@@ -5,9 +5,9 @@
   import * as Tabs from '$lib/components/ui/tabs'
   import { Button } from '$lib/components/ui/button'
   // @ts-ignore - wailsjs path
-  import { GetReadReceiptResponsePolicy, SetReadReceiptResponsePolicy, GetMarkAsReadDelay, SetMarkAsReadDelay, GetMessageListDensity, SetMessageListDensity, GetThemeMode, SetThemeMode, GetShowTitleBar, SetShowTitleBar, GetRunBackground, SetRunBackground, GetStartHidden, SetStartHidden, GetAutostart, SetAutostart, GetLanguage, SetLanguage, GetComposerMode, SetComposerMode, GetMailtoMode, SetMailtoMode, GetComposerFormat, SetComposerFormat, GetNativeTitleBar, SetNativeTitleBar, GetAlwaysLoadImages, SetAlwaysLoadImages, GetDarkMailContent, SetDarkMailContent, GetOverrideEmailColors, SetOverrideEmailColors, GetAccentBarUnread, SetAccentBarUnread, GetShowMessageListCircles, SetShowMessageListCircles, GetShowViewerCircles, SetShowViewerCircles, GetShowActionToasts, SetShowActionToasts, QuitApp } from '../../../../wailsjs/go/app/App.js'
+  import { GetReadReceiptResponsePolicy, SetReadReceiptResponsePolicy, GetMarkAsReadDelay, SetMarkAsReadDelay, GetMessageListDensity, SetMessageListDensity, GetThemeMode, SetThemeMode, GetShowTitleBar, SetShowTitleBar, GetRunBackground, SetRunBackground, GetStartHidden, SetStartHidden, GetAutostart, SetAutostart, GetLanguage, SetLanguage, GetComposerMode, SetComposerMode, GetMailtoMode, SetMailtoMode, GetComposerFormat, SetComposerFormat, GetNativeTitleBar, SetNativeTitleBar, GetAlwaysLoadImages, SetAlwaysLoadImages, GetDarkMailContent, SetDarkMailContent, GetOverrideEmailColors, SetOverrideEmailColors, GetAccentBarUnread, SetAccentBarUnread, GetShowMessageListCircles, SetShowMessageListCircles, GetShowViewerCircles, SetShowViewerCircles, GetShowActionToasts, SetShowActionToasts, GetNewMailNotificationsEnabled, SetNewMailNotificationsEnabled, QuitApp } from '../../../../wailsjs/go/app/App.js'
   import { addToast } from '$lib/stores/toast'
-  import { setMessageListDensity as updateDensityStore, setThemeMode as updateThemeStore, setShowTitleBar as updateShowTitleBarStore, setRunBackground as updateRunBackgroundStore, setStartHidden as updateStartHiddenStore, setAutostart as updateAutostartStore, setLanguage as updateLanguageStore, setComposerMode as updateComposerModeStore, setMailtoMode as updateMailtoModeStore, setComposerFormat as updateComposerFormatStore, setNativeTitleBar as updateNativeTitleBarStore, setAlwaysLoadImages as updateAlwaysLoadImagesStore, setDarkMailContent as updateDarkMailContentStore, setOverrideEmailColors as updateOverrideEmailColorsStore, setAccentBarUnread as updateAccentBarUnreadStore, setShowMessageListCircles as updateShowMessageListCirclesStore, setShowViewerCircles as updateShowViewerCirclesStore, setShowActionToasts as updateShowActionToastsStore, type MessageListDensity, type ThemeMode, type ComposerMode, type ComposerFormat } from '$lib/stores/settings.svelte'
+  import { setMessageListDensity as updateDensityStore, setThemeMode as updateThemeStore, setShowTitleBar as updateShowTitleBarStore, setRunBackground as updateRunBackgroundStore, setStartHidden as updateStartHiddenStore, setAutostart as updateAutostartStore, setLanguage as updateLanguageStore, setComposerMode as updateComposerModeStore, setMailtoMode as updateMailtoModeStore, setComposerFormat as updateComposerFormatStore, setNativeTitleBar as updateNativeTitleBarStore, setAlwaysLoadImages as updateAlwaysLoadImagesStore, setDarkMailContent as updateDarkMailContentStore, setOverrideEmailColors as updateOverrideEmailColorsStore, setAccentBarUnread as updateAccentBarUnreadStore, setShowMessageListCircles as updateShowMessageListCirclesStore, setShowViewerCircles as updateShowViewerCirclesStore, setShowActionToasts as updateShowActionToastsStore, setNewMailNotificationsEnabled as updateNewMailNotificationsEnabledStore, type MessageListDensity, type ThemeMode, type ComposerMode, type ComposerFormat } from '$lib/stores/settings.svelte'
   import { applyThemeFromMode } from '$lib/stores/theme.svelte'
   import { dialogGuardOpen, dialogGuardClose } from '$lib/stores/dialogGuard'
   import { _ } from '$lib/i18n'
@@ -53,6 +53,7 @@
   let showMessageListCircles = $state<boolean>(true)
   let showViewerCircles = $state<boolean>(true)
   let showActionToasts = $state<boolean>(true)
+  let newMailNotificationsEnabled = $state<boolean>(true)
   let originalNativeTitleBar = false
   // Snapshot of the saved theme at dialog open time. Used to revert live preview
   // if the dialog closes without Save (Cancel / ESC / click-outside).
@@ -97,7 +98,7 @@
     loading = true
     hasSaved = false
     try {
-      const [policy, delayMs, density, theme, titleBar, runBg, startHid, autoSt, lang, comp, mail, compFmt, nativeTB, alwaysImages, darkMail, accentBar, listCircles, viewerCircles, actionToasts] = await Promise.all([
+      const [policy, delayMs, density, theme, titleBar, runBg, startHid, autoSt, lang, comp, mail, compFmt, nativeTB, alwaysImages, darkMail, overrideColors, accentBar, listCircles, viewerCircles, actionToasts, newMailNotifications] = await Promise.all([
         GetReadReceiptResponsePolicy(),
         GetMarkAsReadDelay(),
         GetMessageListDensity(),
@@ -118,6 +119,7 @@
         GetShowMessageListCircles(),
         GetShowViewerCircles(),
         GetShowActionToasts(),
+        GetNewMailNotificationsEnabled(),
       ])
       readReceiptResponsePolicy = policy
       // Convert ms to seconds for display
@@ -136,10 +138,12 @@
       nativeTitleBar = nativeTB ?? false
       alwaysLoadImages = alwaysImages ?? false
       darkMailContent = darkMail ?? false
+      overrideEmailColors = overrideColors ?? false
       accentBarUnread = accentBar ?? false
       showMessageListCircles = listCircles ?? true
       showViewerCircles = viewerCircles ?? true
       showActionToasts = actionToasts ?? true
+      newMailNotificationsEnabled = newMailNotifications ?? true
       originalNativeTitleBar = nativeTitleBar
     } catch (err) {
       console.error('Failed to load settings:', err)
@@ -177,6 +181,7 @@
       await SetShowMessageListCircles(showMessageListCircles)
       await SetShowViewerCircles(showViewerCircles)
       await SetShowActionToasts(showActionToasts)
+      await SetNewMailNotificationsEnabled(newMailNotificationsEnabled)
       // Update the reactive stores so UI updates immediately
       updateDensityStore(messageListDensity as MessageListDensity)
       updateThemeStore(themeMode as ThemeMode)
@@ -198,6 +203,7 @@
       updateShowMessageListCirclesStore(showMessageListCircles)
       updateShowViewerCirclesStore(showViewerCircles)
       updateShowActionToastsStore(showActionToasts)
+      updateNewMailNotificationsEnabledStore(newMailNotificationsEnabled)
       addToast({
         type: 'success',
         message: $_('toast.settingsSaved'),
@@ -316,6 +322,7 @@
               bind:darkMailContent
               bind:overrideEmailColors
               bind:showActionToasts
+              bind:newMailNotificationsEnabled
             />
           </Tabs.Content>
 

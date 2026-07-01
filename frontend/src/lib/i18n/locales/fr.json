@@ -376,6 +376,8 @@
     "accentBarUnreadHelp": "Affiche une barre à gauche des messages non lus pour une identification facile.",
     "darkMailContent": "Contenu d'e-mail sombre",
     "darkMailContentHelp": "Appliquer un filtre sombre au contenu des messages e-mail lorsque Aerion est en mode sombre.",
+    "newMailNotifications": "Notifications de nouveaux e-mails",
+    "newMailNotificationsHelp": "Afficher une notification sur le bureau lorsqu'un nouvel e-mail arrive.",
     "selectDensity": "Sélectionner la densité",
     "readReceipts": "Accusés de réception",
     "readReceiptPolicy": "Lorsqu'on vous demande un accusé",

@@ -303,6 +303,15 @@ func (a *App) handleNewMailNotification(info sync.NewMailInfo) {
 func (a *App) sendSystemNotification(info sync.NewMailInfo, subject, fromName, fromEmail, threadID string) {
 	log := logging.WithComponent("app.notify")
 
+	enabled, err := a.settingsStore.GetNewMailNotificationsEnabled()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to read new mail notifications enabled setting")
+		enabled = true
+	}
+	if !enabled {
+		return
+	}
+
 	// Build notification title and body
 	var title, body string
 

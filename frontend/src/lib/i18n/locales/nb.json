@@ -364,6 +364,8 @@
     "accentBarUnreadHelp": "Viser en linje på venstesiden av uleste meldinger for enklere identifisering.",
     "darkMailContent": "Mørkt e-postinnhold",
     "darkMailContentHelp": "Bruk et mørkt filter på innhold i e-postmeldinger når Aerion er i mørk modus.",
+    "newMailNotifications": "Varslinger for nye e-poster",
+    "newMailNotificationsHelp": "Vis et skrivebordsvarsel når en ny e-post ankommer.",
     "selectDensity": "Velg tetthet",
     "readReceipts": "Lesekvitteringer",
     "readReceiptPolicy": "Når noen ber om en lesekvittering",

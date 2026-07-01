@@ -376,6 +376,8 @@
     "accentBarUnreadHelp": "Hiện thanh ở bên trái thư chưa đọc để dễ nhận biết hơn.",
     "darkMailContent": "Nội dung thư tối",
     "darkMailContentHelp": "Áp dụng bộ lọc tối cho nội dung thư khi Aerion ở chế độ tối.",
+    "newMailNotifications": "Thông báo email mới",
+    "newMailNotificationsHelp": "Hiển thị thông báo trên màn hình khi có email mới.",
     "selectDensity": "Chọn mật độ",
     "readReceipts": "Xác nhận đã đọc",
     "readReceiptPolicy": "Khi ai đó yêu cầu xác nhận đã đọc",
