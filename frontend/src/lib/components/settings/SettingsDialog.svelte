@@ -5,9 +5,9 @@
   import * as Tabs from '$lib/components/ui/tabs'
   import { Button } from '$lib/components/ui/button'
   // @ts-ignore - wailsjs path
-  import { GetReadReceiptResponsePolicy, SetReadReceiptResponsePolicy, GetMarkAsReadDelay, SetMarkAsReadDelay, GetMessageListDensity, SetMessageListDensity, GetThemeMode, SetThemeMode, GetShowTitleBar, SetShowTitleBar, GetRunBackground, SetRunBackground, GetStartHidden, SetStartHidden, GetAutostart, SetAutostart, GetLanguage, SetLanguage, GetComposerMode, SetComposerMode, GetMailtoMode, SetMailtoMode, GetComposerFormat, SetComposerFormat, GetNativeTitleBar, SetNativeTitleBar, GetAlwaysLoadImages, SetAlwaysLoadImages, GetDarkMailContent, SetDarkMailContent, GetAccentBarUnread, SetAccentBarUnread, GetShowMessageListCircles, SetShowMessageListCircles, GetShowViewerCircles, SetShowViewerCircles, GetShowActionToasts, SetShowActionToasts, QuitApp } from '../../../../wailsjs/go/app/App.js'
+  import { GetReadReceiptResponsePolicy, SetReadReceiptResponsePolicy, GetMarkAsReadDelay, SetMarkAsReadDelay, GetMessageListDensity, SetMessageListDensity, GetThemeMode, SetThemeMode, GetShowTitleBar, SetShowTitleBar, GetRunBackground, SetRunBackground, GetStartHidden, SetStartHidden, GetAutostart, SetAutostart, GetLanguage, SetLanguage, GetComposerMode, SetComposerMode, GetMailtoMode, SetMailtoMode, GetComposerFormat, SetComposerFormat, GetNativeTitleBar, SetNativeTitleBar, GetAlwaysLoadImages, SetAlwaysLoadImages, GetDarkMailContent, SetDarkMailContent, GetOverrideEmailColors, SetOverrideEmailColors, GetAccentBarUnread, SetAccentBarUnread, GetShowMessageListCircles, SetShowMessageListCircles, GetShowViewerCircles, SetShowViewerCircles, GetShowActionToasts, SetShowActionToasts, QuitApp } from '../../../../wailsjs/go/app/App.js'
   import { addToast } from '$lib/stores/toast'
-  import { setMessageListDensity as updateDensityStore, setThemeMode as updateThemeStore, setShowTitleBar as updateShowTitleBarStore, setRunBackground as updateRunBackgroundStore, setStartHidden as updateStartHiddenStore, setAutostart as updateAutostartStore, setLanguage as updateLanguageStore, setComposerMode as updateComposerModeStore, setMailtoMode as updateMailtoModeStore, setComposerFormat as updateComposerFormatStore, setNativeTitleBar as updateNativeTitleBarStore, setAlwaysLoadImages as updateAlwaysLoadImagesStore, setDarkMailContent as updateDarkMailContentStore, setAccentBarUnread as updateAccentBarUnreadStore, setShowMessageListCircles as updateShowMessageListCirclesStore, setShowViewerCircles as updateShowViewerCirclesStore, setShowActionToasts as updateShowActionToastsStore, type MessageListDensity, type ThemeMode, type ComposerMode, type ComposerFormat } from '$lib/stores/settings.svelte'
+  import { setMessageListDensity as updateDensityStore, setThemeMode as updateThemeStore, setShowTitleBar as updateShowTitleBarStore, setRunBackground as updateRunBackgroundStore, setStartHidden as updateStartHiddenStore, setAutostart as updateAutostartStore, setLanguage as updateLanguageStore, setComposerMode as updateComposerModeStore, setMailtoMode as updateMailtoModeStore, setComposerFormat as updateComposerFormatStore, setNativeTitleBar as updateNativeTitleBarStore, setAlwaysLoadImages as updateAlwaysLoadImagesStore, setDarkMailContent as updateDarkMailContentStore, setOverrideEmailColors as updateOverrideEmailColorsStore, setAccentBarUnread as updateAccentBarUnreadStore, setShowMessageListCircles as updateShowMessageListCirclesStore, setShowViewerCircles as updateShowViewerCirclesStore, setShowActionToasts as updateShowActionToastsStore, type MessageListDensity, type ThemeMode, type ComposerMode, type ComposerFormat } from '$lib/stores/settings.svelte'
   import { applyThemeFromMode } from '$lib/stores/theme.svelte'
   import { dialogGuardOpen, dialogGuardClose } from '$lib/stores/dialogGuard'
   import { _ } from '$lib/i18n'
@@ -48,6 +48,7 @@
   let nativeTitleBar = $state<boolean>(false)
   let alwaysLoadImages = $state<boolean>(false)
   let darkMailContent = $state<boolean>(false)
+  let overrideEmailColors = $state<boolean>(false)
   let accentBarUnread = $state<boolean>(false)
   let showMessageListCircles = $state<boolean>(true)
   let showViewerCircles = $state<boolean>(true)
@@ -112,6 +113,7 @@
         GetNativeTitleBar(),
         GetAlwaysLoadImages(),
         GetDarkMailContent(),
+        GetOverrideEmailColors(),
         GetAccentBarUnread(),
         GetShowMessageListCircles(),
         GetShowViewerCircles(),
@@ -170,6 +172,7 @@
       await SetNativeTitleBar(nativeTitleBar)
       await SetAlwaysLoadImages(alwaysLoadImages)
       await SetDarkMailContent(darkMailContent)
+      await SetOverrideEmailColors(overrideEmailColors)
       await SetAccentBarUnread(accentBarUnread)
       await SetShowMessageListCircles(showMessageListCircles)
       await SetShowViewerCircles(showViewerCircles)
@@ -190,6 +193,7 @@
       updateNativeTitleBarStore(nativeTitleBar)
       updateAlwaysLoadImagesStore(alwaysLoadImages)
       updateDarkMailContentStore(darkMailContent)
+      updateOverrideEmailColorsStore(overrideEmailColors)
       updateAccentBarUnreadStore(accentBarUnread)
       updateShowMessageListCirclesStore(showMessageListCircles)
       updateShowViewerCirclesStore(showViewerCircles)
@@ -310,6 +314,7 @@
               bind:showMessageListCircles
               bind:showViewerCircles
               bind:darkMailContent
+              bind:overrideEmailColors
               bind:showActionToasts
             />
           </Tabs.Content>

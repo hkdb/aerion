@@ -415,7 +415,9 @@
     "alwaysLoadImagesHelp": "Deaktiviert die Bildblockierung für alle E-Mails. Externe Bilder werden automatisch geladen.",
     "alwaysLoadImagesWarningTitle": "Datenschutz- und Sicherheitsrisiko",
     "alwaysLoadImagesWarningDescription": "Das automatische Laden externer Bilder kann deine IP-Adresse preisgeben, bestätigen, wann du eine E-Mail gelesen hast, und Absender-Tracking ermöglichen. Bist du sicher, dass du die Bildblockierung deaktivieren möchtest?",
-    "disable": "Deaktivieren"
+    "disable": "Deaktivieren",
+    "overrideEmailColors": "E-Mail-Farben überschreiben (Experimentell)",
+    "overrideEmailColorsHelp": "Transparenten Hintergrund erzwingen und Text-/Linkfarben an das aktive Thema anpassen."
   },
   "settingsAccounts": {
     "emailAccounts": "E-Mail-Konten",

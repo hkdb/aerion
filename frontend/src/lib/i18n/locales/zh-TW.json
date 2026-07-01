@@ -415,7 +415,9 @@
     "alwaysLoadImagesHelp": "停用所有電子郵件的圖片封鎖。遠端圖片將自動載入。",
     "alwaysLoadImagesWarningTitle": "隱私與安全風險",
     "alwaysLoadImagesWarningDescription": "自動載入遠端圖片可能會暴露您的 IP 位址、確認您已讀取郵件，並允許寄件者追蹤您。確定要停用圖片封鎖嗎？",
-    "disable": "停用"
+    "disable": "停用",
+    "overrideEmailColors": "覆蓋郵件顏色（實驗性）",
+    "overrideEmailColorsHelp": "強制使用透明背景，並使文字/連結顏色適應當前主題。"
   },
   "settingsAccounts": {
     "emailAccounts": "電子郵件帳號",

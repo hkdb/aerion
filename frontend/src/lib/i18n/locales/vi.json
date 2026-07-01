@@ -415,7 +415,9 @@
     "alwaysLoadImagesHelp": "Tắt chặn hình ảnh cho tất cả email. Hình ảnh từ xa sẽ tự động tải.",
     "alwaysLoadImagesWarningTitle": "Rủi ro quyền riêng tư & bảo mật",
     "alwaysLoadImagesWarningDescription": "Bật tự động tải hình ảnh từ xa có thể làm lộ địa chỉ IP của bạn, xác nhận thời điểm bạn đọc email và cho phép người gửi theo dõi bạn. Bạn có chắc muốn tắt chặn hình ảnh từ xa không?",
-    "disable": "Tắt"
+    "disable": "Tắt",
+    "overrideEmailColors": "Ghi đè màu thư (Thử nghiệm)",
+    "overrideEmailColorsHelp": "Buộc nền trong suốt và điều chỉnh màu văn bản/liên kết theo chủ đề đang hoạt động."
   },
   "settingsAccounts": {
     "emailAccounts": "Tài khoản email",

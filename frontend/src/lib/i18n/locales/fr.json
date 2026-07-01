@@ -415,7 +415,9 @@
     "alwaysLoadImagesHelp": "Désactive le blocage des images pour tous les e-mails. Les images distantes se chargeront automatiquement.",
     "alwaysLoadImagesWarningTitle": "Risque pour la vie privée et la sécurité",
     "alwaysLoadImagesWarningDescription": "Charger automatiquement les images distantes peut exposer votre adresse IP et permettre le pistage. Voulez-vous vraiment désactiver le blocage ?",
-    "disable": "Désactiver"
+    "disable": "Désactiver",
+    "overrideEmailColors": "Remplacer les couleurs de l'e-mail (Expérimental)",
+    "overrideEmailColorsHelp": "Forcer l'arrière-plan transparent et adapter les couleurs du texte/des liens au thème actif."
   },
   "settingsAccounts": {
     "emailAccounts": "Comptes e-mail",

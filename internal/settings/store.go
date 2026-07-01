@@ -31,6 +31,7 @@ const (
 	KeyNativeTitleBar            = "native_titlebar"
 	KeyAlwaysLoadImages          = "always_load_images"
 	KeyDarkMailContent           = "dark_mail_content"
+	KeyOverrideEmailColors       = "override_email_colors"
 	KeyAccentBarUnread           = "accent_bar_unread"
 	KeyShowMessageListCircles    = "show_message_list_circles"
 	KeyShowViewerCircles         = "show_viewer_circles"
@@ -713,6 +714,25 @@ func (s *Store) SetDarkMailContent(enabled bool) error {
 		value = "true"
 	}
 	return s.Set(KeyDarkMailContent, value)
+}
+
+// GetOverrideEmailColors returns whether email content background is forced to transparent
+// and text/link colors match the theme. Off by default.
+func (s *Store) GetOverrideEmailColors() (bool, error) {
+	value, err := s.Get(KeyOverrideEmailColors)
+	if err != nil {
+		return false, err
+	}
+	return value == "true", nil
+}
+
+// SetOverrideEmailColors persists the override-email-colors toggle.
+func (s *Store) SetOverrideEmailColors(enabled bool) error {
+	value := "false"
+	if enabled {
+		value = "true"
+	}
+	return s.Set(KeyOverrideEmailColors, value)
 }
 
 // ReadNativeTitleBar opens the database directly to read the native_titlebar setting.

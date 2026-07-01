@@ -403,7 +403,9 @@
     "alwaysLoadImagesHelp": "Deaktiverer blokkering av bilder for alle eposter. Eksterne bilder lastes inn automatisk.",
     "alwaysLoadImagesWarningTitle": "Personvern- og sikkerthetsrisiko",
     "alwaysLoadImagesWarningDescription": "Innlasting av eksterne bilder kan la avsendere se IP-adressen din, bekrefte at du har lest en e-post og spore deg. Er du sikker på at du vil deaktivere blokkering av bilder?",
-    "disable": "Deaktiver"
+    "disable": "Deaktiver",
+    "overrideEmailColors": "Overstyr e-postfarger (Eksperimentell)",
+    "overrideEmailColorsHelp": "Tving gjennomsiktig bakgrunn og tilpass tekst- og lenkefarger til det aktive temaet."
   },
   "settingsAccounts": {
     "emailAccounts": "E-postkontoer",

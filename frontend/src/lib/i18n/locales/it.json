@@ -274,7 +274,7 @@
     "contactSourceSynced": "Fonte del contatto sincronizzata",
     "contactSourceForceSynced": "La fonte del contatto è stata risincronizzata dal server",
     "contactSourceForceSyncFailed": "La risincronizzazione forzata non è riuscita",
-    "contactSourceDeleted": "Fonte del contatto eliminata",		 
+    "contactSourceDeleted": "Fonte del contatto eliminata",
     "contactSourceAdded": "Fonte del contatto aggiunta",
     "contactSourceUpdated": "Fonte del contatto aggiornata",
     "contactSourceLinked": "Fonte del contatto collegata all'account",
@@ -415,7 +415,9 @@
     "alwaysLoadImagesHelp": "Disabilita il blocco delle immagini per tutti i messaggi di posta elettronica. Le immagini remote verranno caricate automaticamente.",
     "alwaysLoadImagesWarningTitle": "Rischio per la privacy e la sicurezza",
     "alwaysLoadImagesWarningDescription": "Il caricamento automatico delle immagini remote può esporre il tuo indirizzo IP, confermare quando hai letto un messaggio di posta elettronica e permettere il tracking dai mittenti. Sei sicuro di voler disabilitare il blocco delle immagini?",
-    "disable": "Disabilita"
+    "disable": "Disabilita",
+    "overrideEmailColors": "Ignora i colori dell'e-mail (Sperimentale)",
+    "overrideEmailColorsHelp": "Forza lo sfondo trasparente e adatta i colori del testo/dei collegamenti al tema attivo."
   },
   "settingsAccounts": {
     "emailAccounts": "Account di posta elettronica",
@@ -424,7 +426,7 @@
     "moveUp": "Sposta in alto",
     "moveDown": "Sposta in basso",
     "editAccount": "Modifica account",
-	"deleteAccount": "Elimina account"							 
+    "deleteAccount": "Elimina account"
   },
   "settingsAbout": {
     "version": "Versione {version}",
@@ -551,7 +553,7 @@
     "emailRequired": "L'indirizzo di posta elettronica è richiesto",
     "invalidEmail": "Formato dell'indirizzo di posta elettronica non valido",
     "passwordRequired": "La password è richiesta",
-    "usernameRequired": "Il nome utente è richiesto",										   
+    "usernameRequired": "Il nome utente è richiesto",
     "imapHostRequired": "L'host IMAP è richiesto",
     "smtpHostRequired": "L'host SMTP è richiesto",
     "invalidPort": "Porta non valida",
@@ -731,10 +733,10 @@
     "editSource": "Modifica fonte dei contatti",
     "deleteTitle": "Elimina fonte dei contatti",
     "deleteConfirmName": "Eliminare \"{name}\"? Verranno rimossi tutti i contatti sincronizzati da questa fonte.",
-	"forceSync": "Forza risincronizzazione",
+    "forceSync": "Forza risincronizzazione",
     "forceSyncConfirmTitle": "Forzare la risincronizzazione di \"{name}\"?",
     "forceSyncConfirmDescription": "Recupera nuovamente dal server tutti i contatti da \"{name}\". Questa operazione completa i campi (numero di telefono, indirizzo, organizzazione, note, ecc.) che potrebbero risultare mancanti nei contatti sincronizzati in precedenza con una versione precedente di Aerion. L’operazione potrebbe richiedere alcuni minuti in caso di rubriche di grandi dimensioni.",
-	"name": "Nome",
+    "name": "Nome",
     "namePlaceholder": "es., Nextcloud, Lavoro, Personale",
     "serverUrl": " URL Server",
     "username": "Nome utente",

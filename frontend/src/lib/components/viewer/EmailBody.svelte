@@ -8,7 +8,7 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { _ } from '$lib/i18n'
   import { toasts } from '$lib/stores/toast'
-  import { getAlwaysLoadImages, getThemeMode } from '$lib/stores/settings.svelte'
+  import { getAlwaysLoadImages, getThemeMode, getOverrideEmailColors } from '$lib/stores/settings.svelte'
 
   interface Props {
     messageId: string
@@ -54,6 +54,9 @@
   // via getThemeMode() so the iframe outer color updates when user switches.
   let iframeOuterBg = $derived.by(() => {
     void getThemeMode()
+    if (getOverrideEmailColors()) {
+      return 'transparent'
+    }
     return darken ? getChromeBgHsl() : 'white'
   })
 
@@ -167,9 +170,21 @@
     return 0
   }
 
+  function getThemeColors() {
+    const styles = getComputedStyle(document.documentElement)
+    const fg = styles.getPropertyValue('--foreground').trim() || '0 3% 6%'
+    const primary = styles.getPropertyValue('--primary').trim() || '212 68% 39%'
+    return {
+      foreground: fg,
+      primary: primary,
+    }
+  }
+
   function buildIframeContent(html: string, applyDarken: boolean): string {
     const processedHtml = processHtml(html, imagesBlocked)
     const imgSrc = imagesBlocked ? "'self' data:" : '* data:'
+    const overrideColors = getOverrideEmailColors()
+    const colors = getThemeColors()
 
     // Double-invert: page-level invert + image-level re-invert keeps photos
     // looking normal while flipping text, backgrounds, and CSS-defined colors.
@@ -178,20 +193,39 @@
     // color-scheme: dark switches the UA-default iframe viewport bg to dark so
     // the rounded-corner edge has no white sliver bleeding through.
     // Invert amount derived from theme's chrome lightness — pure invert(1)
-    // produces stark black against themes whose chrome isn't pure black.
-    const invertAmount = applyDarken ? 1 - getChromeBgLightness() : 1
-    const saturate = applyDarken ? getChromeBgSaturate() : 1
-    const hueRotate = applyDarken ? getChromeBgHueRotate() : 0
+    // produces stark black against themes whose chrome isn'\''t pure black.
+    const actualApplyDarken = applyDarken && !overrideColors
+    const invertAmount = actualApplyDarken ? 1 - getChromeBgLightness() : 1
+    const saturate = actualApplyDarken ? getChromeBgSaturate() : 1
+    const hueRotate = actualApplyDarken ? getChromeBgHueRotate() : 0
     // Image filter compensates so photos see net saturate(1) + hue-rotate(0) —
-    // html's saturate(S) hue-rotate(H) composed with image's saturate(1/S)
+    // html'\''s saturate(S) hue-rotate(H) composed with image'\''s saturate(1/S)
     // hue-rotate(-H) approximately cancels for non-grayscale image content.
     const imageSaturate = 1 / saturate
-    const darkenStyles = applyDarken ? `
+    
+    let darkenStyles = ''
+    if (overrideColors) {
+      darkenStyles = `
+    * {
+      background-color: transparent !important;
+      background-image: none !important;
+      color: hsl(${colors.foreground}) !important;
+    }
+    a, a * {
+      color: hsl(${colors.primary}) !important;
+      text-decoration: underline !important;
+    }
+`
+    } else if (actualApplyDarken) {
+      darkenStyles = `
     html { filter: invert(${invertAmount}) hue-rotate(180deg) saturate(${saturate}) hue-rotate(${hueRotate}deg); background: #fff; color-scheme: dark; }
     img:not([data-blocked-src]), video, iframe, [data-no-invert] { filter: invert(${invertAmount}) hue-rotate(180deg) saturate(${imageSaturate}) hue-rotate(${-hueRotate}deg); }
-` : `
+`
+    } else {
+      darkenStyles = `
     html { color-scheme: light; }
 `
+    }
 
     const iframeScript = `
       function sendHeight() {
@@ -367,7 +401,8 @@
       margin: 0; padding: 0;
       font-family: system-ui, sans-serif;
       font-size: 14px; line-height: 1.5;
-      color: #1a1a0a; background-color: white;
+      color: ${overrideColors ? `hsl(${colors.foreground})` : '#1a1a0a'};
+      background-color: ${overrideColors ? 'transparent' : 'white'};
       overflow-x: auto; word-wrap: break-word;
       scrollbar-width: none; /* Firefox */
       -ms-overflow-style: none; /* IE/Edge */
@@ -642,6 +677,7 @@ ${processedHtml}
     const html = bodyHtml
     void imagesBlocked // dependency only
     void getThemeMode() // rebuild when theme changes so dark-mail invert re-derives
+    void getOverrideEmailColors() // rebuild when override email colors toggle changes
     const applyDarken = darken
 
     if (iframeElement && html) {

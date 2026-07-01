@@ -415,7 +415,9 @@
     "alwaysLoadImagesHelp": "Vypne blokování obrázků pro všechny e-maily. Obrázky se budou načítat automaticky.",
     "alwaysLoadImagesWarningTitle": "Riziko pro soukromí a bezpečnost",
     "alwaysLoadImagesWarningDescription": "Automatické načítání obrázků může odhalit vaši IP adresu, potvrdit přečtení e-mailu a umožnit sledování odesílateli. Opravdu chcete blokování vypnout?",
-    "disable": "Vypnout"
+    "disable": "Vypnout",
+    "overrideEmailColors": "Přepsat barvy e-mailu (Experimentální)",
+    "overrideEmailColorsHelp": "Vynutit průhledné pozadí a přizpůsobit barvy textu a odkazů aktivnímu motivu."
   },
   "settingsAccounts": {
     "emailAccounts": "E-mailové účty",

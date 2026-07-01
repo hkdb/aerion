@@ -306,6 +306,17 @@ func (a *App) SetDarkMailContent(enabled bool) error {
 	return a.settingsStore.SetDarkMailContent(enabled)
 }
 
+// GetOverrideEmailColors returns whether email content background is forced to transparent
+// and text/link colors match the theme.
+func (a *App) GetOverrideEmailColors() (bool, error) {
+	return a.settingsStore.GetOverrideEmailColors()
+}
+
+// SetOverrideEmailColors persists the override-email-colors toggle.
+func (a *App) SetOverrideEmailColors(enabled bool) error {
+	return a.settingsStore.SetOverrideEmailColors(enabled)
+}
+
 // AddImageAllowlist adds a domain or sender to the image allowlist
 // entryType: "domain" or "sender"
 // value: the domain (e.g., "company.com") or email (e.g., "newsletter@company.com")

@@ -415,7 +415,9 @@
     "alwaysLoadImagesHelp": "停用所有电子邮件的图片拦截。远程图片将自动加载。",
     "alwaysLoadImagesWarningTitle": "隐私与安全风险",
     "alwaysLoadImagesWarningDescription": "自动加载远程图片可能会暴露您的 IP 地址、确认您已阅读邮件，并允许发件人追踪您。确定要停用图片拦截吗？",
-    "disable": "停用"
+    "disable": "停用",
+    "overrideEmailColors": "覆盖邮件颜色（实验性）",
+    "overrideEmailColorsHelp": "强制使用透明背景，并使文本/链接颜色适应当前主题。"
   },
   "settingsAccounts": {
     "emailAccounts": "电子邮件账户",

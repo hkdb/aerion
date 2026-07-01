@@ -30,6 +30,7 @@
     showMessageListCircles: boolean
     showViewerCircles: boolean
     darkMailContent: boolean
+    overrideEmailColors: boolean
     showActionToasts: boolean
   }
 
@@ -55,6 +56,7 @@
     showMessageListCircles = $bindable(),
     showViewerCircles = $bindable(),
     darkMailContent = $bindable(),
+    overrideEmailColors = $bindable(),
     showActionToasts = $bindable(),
   }: Props = $props()
 
@@ -289,6 +291,22 @@
         </div>
       </div>
     {/if}
+
+    <!-- Override email colors (Experimental) -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <Label for="override-email-colors">{$_('settingsGeneral.overrideEmailColors')}</Label>
+          <p class="text-xs text-muted-foreground">
+            {$_('settingsGeneral.overrideEmailColorsHelp')}
+          </p>
+        </div>
+        <Switch
+          id="override-email-colors"
+          bind:checked={overrideEmailColors}
+        />
+      </div>
+    </div>
 
     <!-- Show colored circles in message list -->
     <div class="space-y-2">

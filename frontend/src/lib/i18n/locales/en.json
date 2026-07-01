@@ -376,6 +376,8 @@
     "accentBarUnreadHelp": "Shows a bar on the left side of unread messages for easier identification.",
     "darkMailContent": "Dark mail content",
     "darkMailContentHelp": "Apply a dark filter to email message content when Aerion is in dark mode.",
+    "overrideEmailColors": "Override email colors (Experimental)",
+    "overrideEmailColorsHelp": "Force transparent background and adapt text/link colors to the active theme.",
     "showActionToasts": "Action confirmation popups",
     "showActionToastsHelp": "Show a confirmation popup (toast) with 'Undo' after trashing, archiving, or marking messages.",
     "selectDensity": "Select density",

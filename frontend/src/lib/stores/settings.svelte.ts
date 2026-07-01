@@ -2,7 +2,7 @@
 // Provides reactive state for application settings
 
 // @ts-ignore - wailsjs path
-import { GetMessageListDensity, GetMessageListSortOrder, GetThemeMode, GetShowTitleBar, GetRunBackground, GetStartHidden, GetAutostart, GetLanguage, GetComposerMode, GetMailtoMode, GetComposerFormat, GetNativeTitleBar, GetAlwaysLoadImages, GetDarkMailContent, GetAccentBarUnread, GetShowMessageListCircles, GetShowViewerCircles, GetShowActionToasts } from '../../../wailsjs/go/app/App'
+import { GetMessageListDensity, GetMessageListSortOrder, GetThemeMode, GetShowTitleBar, GetRunBackground, GetStartHidden, GetAutostart, GetLanguage, GetComposerMode, GetMailtoMode, GetComposerFormat, GetNativeTitleBar, GetAlwaysLoadImages, GetDarkMailContent, GetOverrideEmailColors, SetOverrideEmailColors, GetAccentBarUnread, GetShowMessageListCircles, GetShowViewerCircles, GetShowActionToasts } from '../../../wailsjs/go/app/App'
 import { setLocale as setI18nLocale } from '$lib/i18n'
 import { loadDateFnsLocale, getDateFnsLocale } from '$lib/i18n/dateFnsLocale'
 import type { Locale } from 'date-fns'
@@ -73,6 +73,7 @@ let composerFormat = $state<ComposerFormat>('rich')
 let nativeTitleBar = $state<boolean>(false)
 let alwaysLoadImages = $state<boolean>(false)
 let darkMailContent = $state<boolean>(false)
+let overrideEmailColors = $state<boolean>(false)
 let accentBarUnread = $state<boolean>(false)
 let showMessageListCircles = $state<boolean>(true)
 let showViewerCircles = $state<boolean>(true)
@@ -133,6 +134,10 @@ export function getAlwaysLoadImages(): boolean {
 
 export function getDarkMailContent(): boolean {
   return darkMailContent
+}
+
+export function getOverrideEmailColors(): boolean {
+  return overrideEmailColors
 }
 
 export function getAccentBarUnread(): boolean {
@@ -216,6 +221,10 @@ export function setDarkMailContent(v: boolean) {
   darkMailContent = v
 }
 
+export function setOverrideEmailColors(v: boolean) {
+  overrideEmailColors = v
+}
+
 export function setAccentBarUnread(v: boolean) {
   accentBarUnread = v
 }
@@ -235,7 +244,7 @@ export function setShowActionToasts(v: boolean) {
 // Load settings from backend (call on app startup)
 export async function loadSettings(): Promise<ThemeMode> {
   try {
-    const [density, sortOrder, theme, titleBar, runBg, startHid, autoSt, lang, compMode, mailMode, compFormat, nativeTB, alwaysImages, darkMail, accentBar, listCircles, viewerCircles, actionToasts] = await Promise.all([
+    const [density, sortOrder, theme, titleBar, runBg, startHid, autoSt, lang, compMode, mailMode, compFormat, nativeTB, alwaysImages, darkMail, overrideColors, accentBar, listCircles, viewerCircles, actionToasts] = await Promise.all([
       GetMessageListDensity(),
       GetMessageListSortOrder(),
       GetThemeMode(),
@@ -250,6 +259,7 @@ export async function loadSettings(): Promise<ThemeMode> {
       GetNativeTitleBar(),
       GetAlwaysLoadImages(),
       GetDarkMailContent(),
+      GetOverrideEmailColors(),
       GetAccentBarUnread(),
       GetShowMessageListCircles(),
       GetShowViewerCircles(),
@@ -268,6 +278,7 @@ export async function loadSettings(): Promise<ThemeMode> {
     nativeTitleBar = nativeTB ?? false
     alwaysLoadImages = alwaysImages ?? false
     darkMailContent = darkMail ?? false
+    overrideEmailColors = overrideColors ?? false
     accentBarUnread = accentBar ?? false
     showMessageListCircles = listCircles ?? true
     showViewerCircles = viewerCircles ?? true
