@@ -1,19 +1,19 @@
 /* Avatar circle utility classes — read theme-defined --avatar-* variables.
    Used by getAvatarColor() in conversation/message components. */
-.avatar-1  { background-color: hsl(var(--avatar-1));  color: hsl(var(--avatar-fg)); }
-.avatar-2  { background-color: hsl(var(--avatar-2));  color: hsl(var(--avatar-fg)); }
-.avatar-3  { background-color: hsl(var(--avatar-3));  color: hsl(var(--avatar-fg)); }
-.avatar-4  { background-color: hsl(var(--avatar-4));  color: hsl(var(--avatar-fg)); }
-.avatar-5  { background-color: hsl(var(--avatar-5));  color: hsl(var(--avatar-fg)); }
-.avatar-6  { background-color: hsl(var(--avatar-6));  color: hsl(var(--avatar-fg)); }
-.avatar-7  { background-color: hsl(var(--avatar-7));  color: hsl(var(--avatar-fg)); }
-.avatar-8  { background-color: hsl(var(--avatar-8));  color: hsl(var(--avatar-fg)); }
-.avatar-9  { background-color: hsl(var(--avatar-9));  color: hsl(var(--avatar-fg)); }
-.avatar-10 { background-color: hsl(var(--avatar-10)); color: hsl(var(--avatar-fg)); }
-.avatar-11 { background-color: hsl(var(--avatar-11)); color: hsl(var(--avatar-fg)); }
-.avatar-12 { background-color: hsl(var(--avatar-12)); color: hsl(var(--avatar-fg)); }
-.avatar-13 { background-color: hsl(var(--avatar-13)); color: hsl(var(--avatar-fg)); }
-.avatar-14 { background-color: hsl(var(--avatar-14)); color: hsl(var(--avatar-fg)); }
+.avatar-1  { background-color: hsl(var(--avatar-1));  color: var(--avatar-1-fg, hsl(var(--avatar-fg))); }
+.avatar-2  { background-color: hsl(var(--avatar-2));  color: var(--avatar-2-fg, hsl(var(--avatar-fg))); }
+.avatar-3  { background-color: hsl(var(--avatar-3));  color: var(--avatar-3-fg, hsl(var(--avatar-fg))); }
+.avatar-4  { background-color: hsl(var(--avatar-4));  color: var(--avatar-4-fg, hsl(var(--avatar-fg))); }
+.avatar-5  { background-color: hsl(var(--avatar-5));  color: var(--avatar-5-fg, hsl(var(--avatar-fg))); }
+.avatar-6  { background-color: hsl(var(--avatar-6));  color: var(--avatar-6-fg, hsl(var(--avatar-fg))); }
+.avatar-7  { background-color: hsl(var(--avatar-7));  color: var(--avatar-7-fg, hsl(var(--avatar-fg))); }
+.avatar-8  { background-color: hsl(var(--avatar-8));  color: var(--avatar-8-fg, hsl(var(--avatar-fg))); }
+.avatar-9  { background-color: hsl(var(--avatar-9));  color: var(--avatar-9-fg, hsl(var(--avatar-fg))); }
+.avatar-10 { background-color: hsl(var(--avatar-10)); color: var(--avatar-10-fg, hsl(var(--avatar-fg))); }
+.avatar-11 { background-color: hsl(var(--avatar-11)); color: var(--avatar-11-fg, hsl(var(--avatar-fg))); }
+.avatar-12 { background-color: hsl(var(--avatar-12)); color: var(--avatar-12-fg, hsl(var(--avatar-fg))); }
+.avatar-13 { background-color: hsl(var(--avatar-13)); color: var(--avatar-13-fg, hsl(var(--avatar-fg))); }
+.avatar-14 { background-color: hsl(var(--avatar-14)); color: var(--avatar-14-fg, hsl(var(--avatar-fg))); }
 
 /* Dark theme mark (highlight) override. Applies to every theme whose CSS
    block declares `color-scheme: dark` — applyTheme() mirrors that into the
