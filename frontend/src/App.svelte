@@ -22,7 +22,7 @@
   import * as AlertDialog from '$lib/components/ui/alert-dialog'
   import { accountStore } from '$lib/stores/accounts.svelte'
   import { addToast } from '$lib/stores/toast'
-  import { loadSettings, getThemeMode, getShowTitleBar, getNativeTitleBar, getComposerMode, getMailtoMode } from '$lib/stores/settings.svelte'
+  import { loadSettings, getThemeMode, getShowTitleBar, getNativeTitleBar, getComposerMode, getMailtoMode, setThemeMode } from '$lib/stores/settings.svelte'
   import { loadImageAllowlist } from '$lib/stores/imageAllowlist.svelte'
   import { initTheme, applyThemeFromMode, handleSystemThemeEvent, handleMediaQueryChange } from '$lib/stores/theme.svelte'
   import { loadUIState, saveUIState, paneConstraints, getActiveExtension, setActiveExtension } from '$lib/stores/uiState.svelte'
@@ -477,6 +477,11 @@
     // Listen for system theme changes from backend (XDG Settings Portal)
     EventsOn('theme:system-preference', (newTheme: string) => {
       handleSystemThemeEvent(newTheme)
+    })
+
+    // Listen for dynamic theme changes via IPC
+    EventsOn('theme:changed', (newTheme: string) => {
+      setThemeMode(newTheme as any)
     })
 
     // Listen for system theme changes via matchMedia (fallback when portal unavailable)
@@ -1510,7 +1515,7 @@
     <div style:display={getActiveExtension() === 'mail' ? 'contents' : 'none'}>
     <!-- Sidebar (Folder List) -->
     <aside
-      class="{getLayoutMode() === 'narrow' ? `responsive-sidebar-overlay w-72 border-r border-border bg-background ${getResponsiveView() === 'sidebar' ? 'responsive-sidebar-visible' : ''}` : 'flex-shrink-0 border-r border-border bg-muted/30'}"
+      class="{getLayoutMode() === 'narrow' ? `responsive-sidebar-overlay w-72 border-r border-border bg-background ${getResponsiveView() === 'sidebar' ? 'responsive-sidebar-visible' : ''}` : 'flex-shrink-0 border-r border-border bg-background'}"
       style="{getLayoutMode() === 'full' ? `width: ${sidebarWidth}px` : ''}"
       role="presentation"
       onclick={() => handlePaneClick('sidebar')}

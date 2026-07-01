@@ -33,6 +33,7 @@ var (
 	draftID     = flag.String("draft-id", "", "Draft ID to resume editing")
 	mailtoFlag  = flag.String("mailto", "", "Mailto URL to open in composer (detached mode)")
 	dbusNotify  = flag.Bool("dbus-notify", false, "Use direct D-Bus notifications instead of portal (Linux only)")
+	themeChange = flag.String("theme-change", "", "Change active theme on a running instance (IPC)")
 	versionFlag = flag.Bool("version", false, "Show version and exit")
 )
 
@@ -48,6 +49,30 @@ func main() {
 
 	if *versionFlag {
 		fmt.Println(app.Version)
+		return
+	}
+
+	if *themeChange != "" {
+		lock := platform.NewSingleInstanceLock()
+		locked, err := lock.TryLock("theme-change:" + *themeChange)
+		if err != nil {
+			fmt.Printf("Error sending theme change: %v\n", err)
+			os.Exit(1)
+		}
+		if !locked {
+			return
+		}
+		defer lock.Unlock()
+		if paths, err := platform.GetPaths(); err == nil {
+			if err := settings.WriteThemeMode(paths.DatabasePath(), *themeChange); err != nil {
+				fmt.Printf("Error saving theme to database: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("Aerion is not running. Saved theme '%s' to database for next launch.\n", *themeChange)
+		} else {
+			fmt.Printf("Error resolving paths: %v\n", err)
+			os.Exit(1)
+		}
 		return
 	}
 

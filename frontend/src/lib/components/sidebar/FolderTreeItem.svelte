@@ -163,7 +163,7 @@
       <span class="flex-1"></span>
       {#if tree.folder.unreadCount > 0}
         <span
-          class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-primary text-primary-foreground"
+          class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-muted text-muted-foreground"
         >
           {tree.folder.unreadCount}
         </span>

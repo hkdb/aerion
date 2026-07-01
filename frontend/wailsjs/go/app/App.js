@@ -1237,3 +1237,11 @@ export function UpdateIdentity(arg1, arg2) {
 export function UpdateLocalFlags(arg1, arg2, arg3) {
   return window['go']['app']['App']['UpdateLocalFlags'](arg1, arg2, arg3);
 }
+
+export function GetShowActionToasts() {
+  return window['go']['app']['App']['GetShowActionToasts']();
+}
+
+export function SetShowActionToasts(arg1) {
+  return window['go']['app']['App']['SetShowActionToasts'](arg1);
+}

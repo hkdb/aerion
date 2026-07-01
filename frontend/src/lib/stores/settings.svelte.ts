@@ -2,7 +2,7 @@
 // Provides reactive state for application settings
 
 // @ts-ignore - wailsjs path
-import { GetMessageListDensity, GetMessageListSortOrder, GetThemeMode, GetShowTitleBar, GetRunBackground, GetStartHidden, GetAutostart, GetLanguage, GetComposerMode, GetMailtoMode, GetComposerFormat, GetNativeTitleBar, GetAlwaysLoadImages, GetDarkMailContent, GetAccentBarUnread, GetShowMessageListCircles, GetShowViewerCircles } from '../../../wailsjs/go/app/App'
+import { GetMessageListDensity, GetMessageListSortOrder, GetThemeMode, GetShowTitleBar, GetRunBackground, GetStartHidden, GetAutostart, GetLanguage, GetComposerMode, GetMailtoMode, GetComposerFormat, GetNativeTitleBar, GetAlwaysLoadImages, GetDarkMailContent, GetAccentBarUnread, GetShowMessageListCircles, GetShowViewerCircles, GetShowActionToasts } from '../../../wailsjs/go/app/App'
 import { setLocale as setI18nLocale } from '$lib/i18n'
 import { loadDateFnsLocale, getDateFnsLocale } from '$lib/i18n/dateFnsLocale'
 import type { Locale } from 'date-fns'
@@ -13,14 +13,50 @@ export type MessageListDensity = 'micro' | 'compact' | 'standard' | 'large'
 export type MessageListSortOrder = 'newest' | 'oldest'
 export type ThemeMode =
   | 'system'
-  | 'light' | 'light-blue' | 'light-orange' | 'light-balanced' | 'adwaita-light' | 'breeze-light'
-  | 'dark' | 'dark-gray' | 'dark-balanced' | 'adwaita-dark' | 'breeze-dark'
-  | 'catppuccin-latte' | 'catppuccin-frappe' | 'catppuccin-macchiato' | 'catppuccin-mocha'
-  | 'dracula' | 'github-light' | 'github-dark' | 'github-soft-dark' | 'tokyo-night'
-  | 'nord-light' | 'nord-dark'
-  | 'pop-light' | 'pop-dark'
-  | 'yaru-light' | 'yaru-dark'
-  | 'vs-code-light' | 'vs-code-dark'
+  | 'light'
+  | 'light-blue'
+  | 'light-orange'
+  | 'light-balanced'
+  | 'adwaita-light'
+  | 'breeze-light'
+  | 'dark'
+  | 'dark-gray'
+  | 'dark-balanced'
+  | 'adwaita-dark'
+  | 'breeze-dark'
+  | 'catppuccin-latte'
+  | 'catppuccin-frappe'
+  | 'catppuccin-macchiato'
+  | 'catppuccin-mocha'
+  | 'dracula'
+  | 'github-light'
+  | 'github-dark'
+  | 'github-soft-dark'
+  | 'tokyo-night'
+  | 'nord-light'
+  | 'nord-dark'
+  | 'pop-light'
+  | 'pop-dark'
+  | 'yaru-light'
+  | 'yaru-dark'
+  | 'vs-code-light'
+  | 'vs-code-dark'
+  | 'ethereal'
+  | 'everforest'
+  | 'flexoki-light'
+  | 'gruvbox'
+  | 'hackerman'
+  | 'kanagawa'
+  | 'lumon'
+  | 'matte-black'
+  | 'miasma'
+  | 'osaka-jade'
+  | 'retro-82'
+  | 'ristretto'
+  | 'rose-pine'
+  | 'vantablack'
+  | 'white'
+  | 'flexoki-dark'
 
 // Module-level reactive state
 let messageListDensity = $state<MessageListDensity>('standard')
@@ -40,6 +76,7 @@ let darkMailContent = $state<boolean>(false)
 let accentBarUnread = $state<boolean>(false)
 let showMessageListCircles = $state<boolean>(true)
 let showViewerCircles = $state<boolean>(true)
+let showActionToasts = $state<boolean>(true)
 
 // Getter functions to access the state
 export function getMessageListDensity(): MessageListDensity {
@@ -108,6 +145,10 @@ export function getShowMessageListCircles(): boolean {
 
 export function getShowViewerCircles(): boolean {
   return showViewerCircles
+}
+
+export function getShowActionToasts(): boolean {
+  return showActionToasts
 }
 
 export function getCurrentDateFnsLocale(): Locale | undefined {
@@ -187,10 +228,14 @@ export function setShowViewerCircles(v: boolean) {
   showViewerCircles = v
 }
 
+export function setShowActionToasts(v: boolean) {
+  showActionToasts = v
+}
+
 // Load settings from backend (call on app startup)
 export async function loadSettings(): Promise<ThemeMode> {
   try {
-    const [density, sortOrder, theme, titleBar, runBg, startHid, autoSt, lang, compMode, mailMode, compFormat, nativeTB, alwaysImages, darkMail, accentBar, listCircles, viewerCircles] = await Promise.all([
+    const [density, sortOrder, theme, titleBar, runBg, startHid, autoSt, lang, compMode, mailMode, compFormat, nativeTB, alwaysImages, darkMail, accentBar, listCircles, viewerCircles, actionToasts] = await Promise.all([
       GetMessageListDensity(),
       GetMessageListSortOrder(),
       GetThemeMode(),
@@ -208,6 +253,7 @@ export async function loadSettings(): Promise<ThemeMode> {
       GetAccentBarUnread(),
       GetShowMessageListCircles(),
       GetShowViewerCircles(),
+      GetShowActionToasts(),
     ])
     messageListDensity = (density as MessageListDensity) || 'standard'
     messageListSortOrder = (sortOrder as MessageListSortOrder) || 'newest'
@@ -225,6 +271,7 @@ export async function loadSettings(): Promise<ThemeMode> {
     accentBarUnread = accentBar ?? false
     showMessageListCircles = listCircles ?? true
     showViewerCircles = viewerCircles ?? true
+    showActionToasts = actionToasts ?? true
     // Apply saved language (if set, overrides system detection from initI18n)
     if (lang) {
       language = lang

@@ -36,6 +36,7 @@ const (
 	KeyShowViewerCircles         = "show_viewer_circles"
 	KeyLastSeenVersion           = "last_seen_version"      // for "What's new in this version" launch dialog
 	KeyOAuthWarningDisabled      = "oauth_warning_disabled" // user toggled "Don't show again" on the missing-OAuth-creds launch warning
+	KeyShowActionToasts          = "show_action_toasts"
 )
 
 // Extension enable/disable keys. Format: extension_<name>_enabled.
@@ -78,34 +79,50 @@ const DefaultMessageListSortOrder = SortOrderNewest
 // Theme mode values
 const (
 	ThemeModeSystem      = "system"
-	ThemeModeLight       = "light"        // Default light purple
-	ThemeModeLightBlue   = "light-blue"   // New
-	ThemeModeLightOrange   = "light-orange"   // New
-	ThemeModeLightBalanced = "light-balanced" // New
-	ThemeModeAdwaitaLight  = "adwaita-light"  // Adwaita Light
-	ThemeModeBreezeLight   = "breeze-light"   // Breeze Light
-	ThemeModeDark          = "dark"           // Default dark purple
-	ThemeModeDarkGray     = "dark-gray"     // New
-	ThemeModeDarkBalanced = "dark-balanced" // New
-	ThemeModeAdwaitaDark  = "adwaita-dark"  // Adwaita Dark
-	ThemeModeBreezeDark   = "breeze-dark"   // Breeze Dark
-	ThemeModeCatppuccinLatte     = "catppuccin-latte"     // Catppuccin Latte
-	ThemeModeCatppuccinFrappe    = "catppuccin-frappe"    // Catppuccin Frappé
-	ThemeModeCatppuccinMacchiato = "catppuccin-macchiato" // Catppuccin Macchiato
-	ThemeModeCatppuccinMocha     = "catppuccin-mocha"     // Catppuccin Mocha
-	ThemeModeDracula         = "dracula"          // Dracula
-	ThemeModeGithubLight     = "github-light"     // GitHub Light
-	ThemeModeGithubDark      = "github-dark"      // GitHub Dark
-	ThemeModeGithubSoftDark  = "github-soft-dark" // GitHub Soft Dark
-	ThemeModeTokyoNight      = "tokyo-night"      // Tokyo Night
-	ThemeModeNordLight       = "nord-light"       // Nord Light
-	ThemeModeNordDark        = "nord-dark"        // Nord Dark
-	ThemeModePopLight        = "pop-light"        // Pop! Light
-	ThemeModePopDark         = "pop-dark"         // Pop! Dark
-	ThemeModeYaruLight       = "yaru-light"       // Yaru Light
-	ThemeModeYaruDark        = "yaru-dark"        // Yaru Dark
-	ThemeModeVSCodeLight     = "vs-code-light"    // VS Code Light
-	ThemeModeVSCodeDark      = "vs-code-dark"     // VS Code Dark
+	ThemeModeLight       = "light"
+	ThemeModeLightBlue   = "light-blue"
+	ThemeModeLightOrange   = "light-orange"
+	ThemeModeLightBalanced = "light-balanced"
+	ThemeModeAdwaitaLight  = "adwaita-light"
+	ThemeModeBreezeLight   = "breeze-light"
+	ThemeModeDark          = "dark"
+	ThemeModeDarkGray     = "dark-gray"
+	ThemeModeDarkBalanced = "dark-balanced"
+	ThemeModeAdwaitaDark  = "adwaita-dark"
+	ThemeModeBreezeDark   = "breeze-dark"
+	ThemeModeCatppuccinLatte     = "catppuccin-latte"
+	ThemeModeCatppuccinFrappe    = "catppuccin-frappe"
+	ThemeModeCatppuccinMacchiato = "catppuccin-macchiato"
+	ThemeModeCatppuccinMocha     = "catppuccin-mocha"
+	ThemeModeDracula         = "dracula"
+	ThemeModeGithubLight     = "github-light"
+	ThemeModeGithubDark      = "github-dark"
+	ThemeModeGithubSoftDark  = "github-soft-dark"
+	ThemeModeTokyoNight      = "tokyo-night"
+	ThemeModeNordLight       = "nord-light"
+	ThemeModeNordDark        = "nord-dark"
+	ThemeModePopLight        = "pop-light"
+	ThemeModePopDark         = "pop-dark"
+	ThemeModeYaruLight       = "yaru-light"
+	ThemeModeYaruDark        = "yaru-dark"
+	ThemeModeVSCodeLight     = "vs-code-light"
+	ThemeModeVSCodeDark      = "vs-code-dark"
+	ThemeModeEthereal = "ethereal"
+	ThemeModeEverforest = "everforest"
+	ThemeModeFlexokiLight = "flexoki-light"
+	ThemeModeGruvbox = "gruvbox"
+	ThemeModeHackerman = "hackerman"
+	ThemeModeKanagawa = "kanagawa"
+	ThemeModeLumon = "lumon"
+	ThemeModeMatteBlack = "matte-black"
+	ThemeModeMiasma = "miasma"
+	ThemeModeOsakaJade = "osaka-jade"
+	ThemeModeRetro82 = "retro-82"
+	ThemeModeRistretto = "ristretto"
+	ThemeModeRosePine = "rose-pine"
+	ThemeModeVantablack = "vantablack"
+	ThemeModeWhite = "white"
+	ThemeModeFlexokiDark = "flexoki-dark"
 )
 
 // DefaultThemeMode is the default theme mode
@@ -294,6 +311,27 @@ func (s *Store) SetAccentBarUnread(enabled bool) error {
 	return s.Set(KeyAccentBarUnread, v)
 }
 
+// GetShowActionToasts returns whether action toasts are enabled
+func (s *Store) GetShowActionToasts() (bool, error) {
+	value, err := s.Get(KeyShowActionToasts)
+	if err != nil {
+		return true, err
+	}
+	if value == "" {
+		return true, nil
+	}
+	return value == "true", nil
+}
+
+// SetShowActionToasts enables or disables action toasts
+func (s *Store) SetShowActionToasts(enabled bool) error {
+	v := "false"
+	if enabled {
+		v = "true"
+	}
+	return s.Set(KeyShowActionToasts, v)
+}
+
 // GetShowMessageListCircles returns whether colored sender circles
 // are shown in the message list. Default: true.
 func (s *Store) GetShowMessageListCircles() (bool, error) {
@@ -373,16 +411,54 @@ func (s *Store) GetThemeMode() (string, error) {
 // SetThemeMode sets the theme mode
 func (s *Store) SetThemeMode(mode string) error {
 	switch mode {
-	case ThemeModeSystem, ThemeModeLight, ThemeModeLightBlue, ThemeModeLightOrange, ThemeModeLightBalanced,
-		ThemeModeAdwaitaLight, ThemeModeBreezeLight,
-		ThemeModeDark, ThemeModeDarkGray, ThemeModeDarkBalanced, ThemeModeAdwaitaDark, ThemeModeBreezeDark,
-		ThemeModeCatppuccinLatte, ThemeModeCatppuccinFrappe, ThemeModeCatppuccinMacchiato, ThemeModeCatppuccinMocha,
-		ThemeModeDracula, ThemeModeGithubLight, ThemeModeGithubDark, ThemeModeGithubSoftDark, ThemeModeTokyoNight,
-		ThemeModeNordLight, ThemeModeNordDark, ThemeModePopLight, ThemeModePopDark,
-		ThemeModeVSCodeLight, ThemeModeVSCodeDark, ThemeModeYaruLight, ThemeModeYaruDark:
+	case ThemeModeSystem,
+		ThemeModeLight,
+		ThemeModeLightBlue,
+		ThemeModeLightOrange,
+		ThemeModeLightBalanced,
+		ThemeModeAdwaitaLight,
+		ThemeModeBreezeLight,
+		ThemeModeDark,
+		ThemeModeDarkGray,
+		ThemeModeDarkBalanced,
+		ThemeModeAdwaitaDark,
+		ThemeModeBreezeDark,
+		ThemeModeCatppuccinLatte,
+		ThemeModeCatppuccinFrappe,
+		ThemeModeCatppuccinMacchiato,
+		ThemeModeCatppuccinMocha,
+		ThemeModeDracula,
+		ThemeModeGithubLight,
+		ThemeModeGithubDark,
+		ThemeModeGithubSoftDark,
+		ThemeModeTokyoNight,
+		ThemeModeNordLight,
+		ThemeModeNordDark,
+		ThemeModePopLight,
+		ThemeModePopDark,
+		ThemeModeVSCodeLight,
+		ThemeModeVSCodeDark,
+		ThemeModeYaruLight,
+		ThemeModeYaruDark,
+		ThemeModeEthereal,
+		ThemeModeEverforest,
+		ThemeModeFlexokiLight,
+		ThemeModeGruvbox,
+		ThemeModeHackerman,
+		ThemeModeKanagawa,
+		ThemeModeLumon,
+		ThemeModeMatteBlack,
+		ThemeModeMiasma,
+		ThemeModeOsakaJade,
+		ThemeModeRetro82,
+		ThemeModeRistretto,
+		ThemeModeRosePine,
+		ThemeModeVantablack,
+		ThemeModeWhite,
+		ThemeModeFlexokiDark:
 		return s.Set(KeyThemeMode, mode)
 	default:
-		return fmt.Errorf("invalid theme mode: %s (must be 'system', 'light', 'light-blue', 'light-orange', 'light-balanced', 'adwaita-light', 'breeze-light', 'dark', 'dark-gray', 'dark-balanced', 'adwaita-dark', 'breeze-dark', 'catppuccin-latte', 'catppuccin-frappe', 'catppuccin-macchiato', 'catppuccin-mocha', 'dracula', 'github-light', 'github-dark', 'github-soft-dark', 'tokyo-night', 'nord-light', 'nord-dark', 'pop-light', 'pop-dark', 'vs-code-light', 'vs-code-dark', 'yaru-light', or 'yaru-dark')", mode)
+		return fmt.Errorf("invalid theme mode: %s (must be 'system', 'light', 'light-blue', 'light-orange', 'light-balanced', 'adwaita-light', 'breeze-light', 'dark', 'dark-gray', 'dark-balanced', 'adwaita-dark', 'breeze-dark', 'catppuccin-latte', 'catppuccin-frappe', 'catppuccin-macchiato', 'catppuccin-mocha', 'dracula', 'github-light', 'github-dark', 'github-soft-dark', 'tokyo-night', 'nord-light', 'nord-dark', 'pop-light', 'pop-dark', 'vs-code-light', 'vs-code-dark', 'yaru-light', 'yaru-dark', 'ethereal', 'everforest', 'flexoki-light', 'gruvbox', 'hackerman', 'kanagawa', 'lumon', 'matte-black', 'miasma', 'osaka-jade', 'retro-82', 'ristretto', 'rose-pine', 'vantablack', 'white', or 'flexoki-dark')", mode)
 	}
 }
 
@@ -656,3 +732,20 @@ func ReadNativeTitleBar(dbPath string) bool {
 	}
 	return value == "true"
 }
+
+// WriteThemeMode opens the database directly to write the theme_mode setting.
+// Used when updating the theme from CLI while the main window is not running.
+func WriteThemeMode(dbPath string, mode string) error {
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`
+		INSERT INTO settings (key, value) VALUES ('theme_mode', ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value
+	`, mode)
+	return err
+}
+

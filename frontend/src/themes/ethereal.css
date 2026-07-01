@@ -1,0 +1,40 @@
+/* Ethereal (Dark) */
+@layer base {
+  [data-theme="ethereal"] {
+    color-scheme: dark;
+    --background: 228 67% 7%;
+    --foreground: 24 100% 84%;
+    --card: 228 67% 7%;
+    --card-foreground: 24 100% 84%;
+    --popover: 228 67% 7%;
+    --popover-foreground: 24 100% 84%;
+    --primary: 237 55% 67%;
+    --primary-foreground: 228 67% 7%;
+    --secondary: 227 33% 57%;
+    --secondary-foreground: 24 100% 84%;
+    --muted: 227 33% 57%;
+    --muted-foreground: 227 33% 65%;
+    --accent: 24 100% 84%;
+    --accent-foreground: 228 67% 7%;
+    --destructive: 0 80% 64%;
+    --destructive-foreground: 24 100% 84%;
+    --border: 227 33% 57%;
+    --input: 227 33% 57%;
+    --ring: 237 55% 67%;
+    --avatar-fg: 228 67% 7%;
+    --avatar-1:  0 80% 64%;
+    --avatar-2:  123 10% 61%;
+    --avatar-3:  42 78% 61%;
+    --avatar-4:  237 55% 67%;
+    --avatar-5:  310 28% 70%;
+    --avatar-6:  203 33% 73%;
+    --avatar-7:  237 55% 67%;
+    --avatar-8:  24 93% 66%;
+    --avatar-9:  227 33% 57%;
+    --avatar-10: 0 80% 64%;
+    --avatar-11: 123 10% 61%;
+    --avatar-12: 42 78% 61%;
+    --avatar-13: 237 55% 67%;
+    --avatar-14: 310 28% 70%;
+  }
+}

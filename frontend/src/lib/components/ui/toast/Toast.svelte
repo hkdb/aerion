@@ -18,10 +18,10 @@
   }
 
   const colors = {
-    success: 'bg-green-100 dark:bg-green-950 border-green-500',
-    error: 'bg-red-100 dark:bg-red-950 border-red-500',
-    info: 'bg-blue-100 dark:bg-blue-950 border-blue-500',
-    warning: 'bg-yellow-100 dark:bg-yellow-950 border-yellow-500'
+    success: 'bg-background border-border',
+    error: 'bg-background border-red-500/50 dark:border-red-500/30',
+    info: 'bg-background border-border',
+    warning: 'bg-background border-yellow-500/50 dark:border-yellow-500/30'
   }
 
   const iconColors = {
@@ -45,7 +45,7 @@
       <div class="flex gap-2 mt-2">
         {#each toast.actions as action (action.label)}
           <button
-            class="text-xs font-medium px-2 py-1 rounded hover:bg-white/10 transition-colors"
+            class="text-xs font-medium px-2 py-1 rounded hover:bg-muted transition-colors"
             onclick={action.onClick}
           >
             {action.label}
@@ -56,7 +56,7 @@
   </div>
 
   <button
-    class="p-1 rounded hover:bg-white/10 transition-colors flex-shrink-0"
+    class="p-1 rounded hover:bg-muted transition-colors flex-shrink-0"
     onclick={onClose}
     aria-label={$_('aria.dismiss')}
   >

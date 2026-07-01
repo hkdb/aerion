@@ -1,0 +1,40 @@
+/* Hackerman (Dark) */
+@layer base {
+  [data-theme="hackerman"] {
+    color-scheme: dark;
+    --background: 235 33% 6%;
+    --foreground: 194 100% 93%;
+    --card: 235 33% 6%;
+    --card-foreground: 194 100% 93%;
+    --popover: 235 33% 6%;
+    --popover-foreground: 194 100% 93%;
+    --primary: 133 94% 75%;
+    --primary-foreground: 235 33% 6%;
+    --secondary: 234 17% 50%;
+    --secondary-foreground: 194 100% 93%;
+    --muted: 234 17% 50%;
+    --muted-foreground: 234 17% 72%;
+    --accent: 194 100% 93%;
+    --accent-foreground: 235 33% 6%;
+    --destructive: 132 92% 64%;
+    --destructive-foreground: 235 33% 6%;
+    --border: 234 17% 50%;
+    --input: 234 17% 50%;
+    --ring: 133 94% 75%;
+    --avatar-fg: 235 33% 6%;
+    --avatar-1:  132 92% 64%;
+    --avatar-2:  145 77% 61%;
+    --avatar-3:  167 91% 64%;
+    --avatar-4:  220 49% 67%;
+    --avatar-5:  218 58% 70%;
+    --avatar-6:  180 90% 73%;
+    --avatar-7:  133 94% 75%;
+    --avatar-8:  193 94% 75%;
+    --avatar-9:  234 17% 50%;
+    --avatar-10: 132 92% 64%;
+    --avatar-11: 145 77% 61%;
+    --avatar-12: 167 91% 64%;
+    --avatar-13: 220 49% 67%;
+    --avatar-14: 218 58% 70%;
+  }
+}

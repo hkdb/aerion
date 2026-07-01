@@ -961,6 +961,7 @@
       scrollToIndex(newIndex)
       // Blur any focused element so Enter key triggers openSelected() instead of the button
       ;(document.activeElement as HTMLElement)?.blur?.()
+      openSelected()
     }
   }
 
@@ -985,6 +986,7 @@
       scrollToIndex(newIndex)
       // Blur any focused element so Enter key triggers openSelected() instead of the button
       ;(document.activeElement as HTMLElement)?.blur?.()
+      openSelected()
     }
   }
 
@@ -1438,11 +1440,11 @@
 
   <!-- Empty Trash bar (only shown when viewing trash folder with messages, not in search mode) -->
   {#if folderType === 'trash' && totalCount > 0 && !isSearchMode}
-    <div class="flex items-center justify-end px-4 py-2 bg-muted/50 border-b border-border">
+    <div class="flex items-center justify-end px-4 py-2 bg-muted/20 border-b border-border">
       <Button
         size="sm"
         variant="outline"
-        class="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/50 bg-muted/50"
+        class="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/50"
         onclick={() => { showEmptyTrashConfirm = true }}
       >
         <Icon icon="mdi:delete-sweep-outline" class="w-4 h-4 mr-1.5" />
@@ -1453,7 +1455,7 @@
 
   <!-- FTS Indexing indicator (only shown when searching and index is incomplete) -->
   {#if showSearch && !indexComplete && isIndexing}
-    <div class="px-4 py-2 bg-muted/50 border-b border-border">
+    <div class="px-4 py-2 bg-muted/20 border-b border-border">
       <div class="flex items-center gap-2 text-sm text-muted-foreground">
         <Icon icon="mdi:database-sync" class="w-4 h-4 animate-pulse" />
         <span>{$_('messageList.ftsBuilding', { values: { percentage: indexProgress } })}</span>

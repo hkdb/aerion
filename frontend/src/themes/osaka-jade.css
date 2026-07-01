@@ -1,0 +1,40 @@
+/* Osaka Jade (Dark) */
+@layer base {
+  [data-theme="osaka-jade"] {
+    color-scheme: dark;
+    --background: 158 24% 9%;
+    --foreground: 64 28% 68%;
+    --card: 158 24% 9%;
+    --card-foreground: 64 28% 68%;
+    --popover: 158 24% 9%;
+    --popover-foreground: 64 28% 68%;
+    --primary: 153 30% 45%;
+    --primary-foreground: 158 24% 9%;
+    --secondary: 143 11% 37%;
+    --secondary-foreground: 64 28% 68%;
+    --muted: 143 11% 37%;
+    --muted-foreground: 143 11% 53%;
+    --accent: 64 28% 68%;
+    --accent-foreground: 158 24% 9%;
+    --destructive: 5 100% 64%;
+    --destructive-foreground: 64 28% 68%;
+    --border: 143 11% 37%;
+    --input: 143 11% 37%;
+    --ring: 153 30% 45%;
+    --avatar-fg: 158 24% 9%;
+    --avatar-1:  5 100% 64%;
+    --avatar-2:  138 31% 47%;
+    --avatar-3:  129 36% 43%;
+    --avatar-4:  153 30% 45%;
+    --avatar-5:  331 54% 62%;
+    --avatar-6:  169 67% 51%;
+    --avatar-7:  153 30% 45%;
+    --avatar-8:  58 58% 92%;
+    --avatar-9:  143 11% 37%;
+    --avatar-10: 5 100% 64%;
+    --avatar-11: 138 31% 47%;
+    --avatar-12: 129 36% 43%;
+    --avatar-13: 153 30% 45%;
+    --avatar-14: 331 54% 62%;
+  }
+}

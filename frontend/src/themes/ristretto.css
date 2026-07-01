@@ -1,0 +1,40 @@
+/* Ristretto (Dark) */
+@layer base {
+  [data-theme="ristretto"] {
+    color-scheme: dark;
+    --background: 0 9% 16%;
+    --foreground: 351 21% 88%;
+    --card: 0 9% 16%;
+    --card-foreground: 351 21% 88%;
+    --popover: 0 9% 16%;
+    --popover-foreground: 351 21% 88%;
+    --primary: 13 85% 70%;
+    --primary-foreground: 0 9% 16%;
+    --secondary: 354 4% 56%;
+    --secondary-foreground: 351 21% 88%;
+    --muted: 354 4% 56%;
+    --muted-foreground: 354 4% 70%;
+    --accent: 280 2% 25%;
+    --accent-foreground: 351 21% 88%;
+    --destructive: 349 97% 70%;
+    --destructive-foreground: 0 9% 16%;
+    --border: 354 4% 56%;
+    --input: 354 4% 56%;
+    --ring: 13 85% 70%;
+    --avatar-fg: 0 9% 16%;
+    --avatar-1:  349 97% 70%;
+    --avatar-2:  88 57% 66%;
+    --avatar-3:  41 92% 70%;
+    --avatar-4:  13 85% 70%;
+    --avatar-5:  239 63% 79%;
+    --avatar-6:  170 53% 69%;
+    --avatar-7:  13 85% 70%;
+    --avatar-8:  351 21% 88%;
+    --avatar-9:  354 4% 56%;
+    --avatar-10: 349 97% 70%;
+    --avatar-11: 88 57% 66%;
+    --avatar-12: 41 92% 70%;
+    --avatar-13: 13 85% 70%;
+    --avatar-14: 239 63% 79%;
+  }
+}

@@ -1,0 +1,40 @@
+/* Kanagawa (Dark) */
+@layer base {
+  [data-theme="kanagawa"] {
+    color-scheme: dark;
+    --background: 240 13% 14%;
+    --foreground: 51 33% 80%;
+    --card: 240 13% 14%;
+    --card-foreground: 51 33% 80%;
+    --popover: 240 13% 14%;
+    --popover-foreground: 51 33% 80%;
+    --primary: 220 54% 67%;
+    --primary-foreground: 240 13% 14%;
+    --secondary: 53 4% 43%;
+    --secondary-foreground: 51 33% 80%;
+    --muted: 53 4% 43%;
+    --muted-foreground: 53 4% 63%;
+    --accent: 205 39% 29%;
+    --accent-foreground: 51 33% 68%;
+    --destructive: 359 52% 51%;
+    --destructive-foreground: 51 33% 80%;
+    --border: 53 4% 43%;
+    --input: 53 4% 43%;
+    --ring: 220 54% 67%;
+    --avatar-fg: 240 13% 14%;
+    --avatar-1:  359 52% 51%;
+    --avatar-2:  103 17% 50%;
+    --avatar-3:  39 39% 59%;
+    --avatar-4:  220 54% 67%;
+    --avatar-5:  263 29% 61%;
+    --avatar-6:  163 17% 50%;
+    --avatar-7:  220 54% 67%;
+    --avatar-8:  51 33% 68%;
+    --avatar-9:  53 4% 43%;
+    --avatar-10: 359 52% 51%;
+    --avatar-11: 103 17% 50%;
+    --avatar-12: 39 39% 59%;
+    --avatar-13: 220 54% 67%;
+    --avatar-14: 263 29% 61%;
+  }
+}

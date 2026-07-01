@@ -1,3 +1,4 @@
+// Force Wails bindings regeneration
 package app
 
 import (
@@ -498,6 +499,7 @@ var shuttingDown bool
 // Startup is called when the app starts
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	log := logging.WithComponent("app")
 
 	// Set single-instance onShow callback immediately — must happen before any
 	// potentially-blocking D-Bus calls (theme monitor, sleep/wake, network)
@@ -508,6 +510,15 @@ func (a *App) Startup(ctx context.Context) {
 				a.handleExternalMailto(data)
 				return
 			}
+			if strings.HasPrefix(data, "theme-change:") {
+				themeName := strings.TrimPrefix(data, "theme-change:")
+				if err := a.settingsStore.SetThemeMode(themeName); err == nil {
+					wailsRuntime.EventsEmit(a.ctx, "theme:changed", themeName)
+				} else {
+					log.Error().Err(err).Str("theme", themeName).Msg("Invalid theme change command received")
+				}
+				return
+			}
 			a.ShowWindow()
 		})
 	}
@@ -515,7 +526,7 @@ func (a *App) Startup(ctx context.Context) {
 	// Logging, paths, db open, migrations, and credential store are all
 	// initialized in Preflight (called from main.go before wails.Run). By
 	// the time Startup runs, a.paths, a.db, and a.credStore are non-nil.
-	log := logging.WithComponent("app")
+	log = logging.WithComponent("app")
 	db := a.db
 
 	// Initialize stores
@@ -1188,4 +1199,14 @@ func isAllowedProtocol(url string) bool {
 	}
 
 	return false
+}
+
+// GetShowActionToasts returns whether action toasts are enabled
+func (a *App) GetShowActionToasts() (bool, error) {
+	return a.settingsStore.GetShowActionToasts()
+}
+
+// SetShowActionToasts enables or disables action toasts
+func (a *App) SetShowActionToasts(enabled bool) error {
+	return a.settingsStore.SetShowActionToasts(enabled)
 }

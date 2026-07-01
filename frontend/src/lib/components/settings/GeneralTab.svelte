@@ -30,6 +30,7 @@
     showMessageListCircles: boolean
     showViewerCircles: boolean
     darkMailContent: boolean
+    showActionToasts: boolean
   }
 
   let {
@@ -54,6 +55,7 @@
     showMessageListCircles = $bindable(),
     showViewerCircles = $bindable(),
     darkMailContent = $bindable(),
+    showActionToasts = $bindable(),
   }: Props = $props()
 
   // Message list density options
@@ -90,6 +92,9 @@
     { value: 'pop-light', label: 'Pop! (Light)' },
     { value: 'vs-code-light', label: 'VS Code (Light)' },
     { value: 'yaru-light', label: 'Yaru (Light)' },
+        { value: 'flexoki-light', label: 'Flexoki (Light)' },
+        { value: 'rose-pine', label: 'Rose Pine (Light)' },
+        { value: 'white', label: 'White (Light)' },
     { value: 'dark', label: $_('settingsGeneral.themeDark') },
     { value: 'dark-gray', label: $_('settingsGeneral.themeDarkGray') },
     { value: 'dark-balanced', label: $_('settingsGeneral.themeDarkBalanced') },
@@ -106,6 +111,19 @@
     { value: 'tokyo-night', label: 'Tokyo Night' },
     { value: 'vs-code-dark', label: 'VS Code (Dark)' },
     { value: 'yaru-dark', label: 'Yaru (Dark)' },
+        { value: 'ethereal', label: 'Ethereal (Dark)' },
+        { value: 'everforest', label: 'Everforest (Dark)' },
+        { value: 'gruvbox', label: 'Gruvbox (Dark)' },
+        { value: 'hackerman', label: 'Hackerman (Dark)' },
+        { value: 'kanagawa', label: 'Kanagawa (Dark)' },
+        { value: 'lumon', label: 'Lumon (Dark)' },
+        { value: 'matte-black', label: 'Matte Black (Dark)' },
+        { value: 'miasma', label: 'Miasma (Dark)' },
+        { value: 'osaka-jade', label: 'Osaka Jade (Dark)' },
+        { value: 'retro-82', label: 'Retro 82 (Dark)' },
+        { value: 'ristretto', label: 'Ristretto (Dark)' },
+        { value: 'vantablack', label: 'Vantablack (Dark)' },
+        { value: 'flexoki-dark', label: 'Flexoki (Dark)' }
   ])
 
   function getDensityLabel(value: string): string {
@@ -316,6 +334,22 @@
         <Switch
           id="accent-bar-unread"
           bind:checked={accentBarUnread}
+        />
+      </div>
+    </div>
+
+    <!-- Action toast notifications -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <Label for="show-action-toasts">{$_('settingsGeneral.showActionToasts')}</Label>
+          <p class="text-xs text-muted-foreground">
+            {$_('settingsGeneral.showActionToastsHelp')}
+          </p>
+        </div>
+        <Switch
+          id="show-action-toasts"
+          bind:checked={showActionToasts}
         />
       </div>
     </div>

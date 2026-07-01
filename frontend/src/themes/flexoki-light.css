@@ -1,0 +1,40 @@
+/* Flexoki (Light) */
+@layer base {
+  [data-theme="flexoki-light"] {
+    color-scheme: light;
+    --background: 48 100% 97%;
+    --foreground: 0 3% 6%;
+    --card: 48 100% 97%;
+    --card-foreground: 0 3% 6%;
+    --popover: 48 100% 97%;
+    --popover-foreground: 0 3% 6%;
+    --primary: 212 68% 39%;
+    --primary-foreground: 48 100% 97%;
+    --secondary: 49 7% 70%;
+    --secondary-foreground: 0 3% 6%;
+    --muted: 49 7% 70%;
+    --muted-foreground: 50 14% 29%;
+    --accent: 55 10% 79%;
+    --accent-foreground: 0 3% 6%;
+    --destructive: 5 61% 54%;
+    --destructive-foreground: 48 100% 97%;
+    --border: 49 7% 70%;
+    --input: 49 7% 70%;
+    --ring: 212 68% 39%;
+    --avatar-fg: 0 3% 6%;
+    --avatar-1:  5 61% 54%;
+    --avatar-2:  72 46% 41%;
+    --avatar-3:  45 82% 45%;
+    --avatar-4:  212 68% 39%;
+    --avatar-5:  329 54% 59%;
+    --avatar-6:  175 49% 45%;
+    --avatar-7:  212 68% 39%;
+    --avatar-8:  49 7% 70%;
+    --avatar-9:  0 3% 6%;
+    --avatar-10: 5 61% 54%;
+    --avatar-11: 72 46% 41%;
+    --avatar-12: 45 82% 45%;
+    --avatar-13: 212 68% 39%;
+    --avatar-14: 329 54% 59%;
+  }
+}

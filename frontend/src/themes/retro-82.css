@@ -1,0 +1,40 @@
+/* Retro 82 (Dark) */
+@layer base {
+  [data-theme="retro-82"] {
+    color-scheme: dark;
+    --background: 212 80% 10%;
+    --foreground: 39 80% 82%;
+    --card: 212 80% 10%;
+    --card-foreground: 39 80% 82%;
+    --popover: 212 80% 10%;
+    --popover-foreground: 39 80% 82%;
+    --primary: 27 94% 69%;
+    --primary-foreground: 212 80% 10%;
+    --secondary: 190 65% 21%;
+    --secondary-foreground: 39 80% 82%;
+    --muted: 190 65% 21%;
+    --muted-foreground: 190 65% 64%;
+    --accent: 27 94% 69%;
+    --accent-foreground: 210 100% 9%;
+    --destructive: 14 94% 56%;
+    --destructive-foreground: 39 80% 82%;
+    --border: 190 65% 21%;
+    --input: 190 65% 21%;
+    --ring: 27 94% 69%;
+    --avatar-fg: 212 80% 10%;
+    --avatar-1:  14 94% 56%;
+    --avatar-2:  186 97% 29%;
+    --avatar-3:  22 80% 57%;
+    --avatar-4:  27 94% 69%;
+    --avatar-5:  176 39% 40%;
+    --avatar-6:  172 28% 65%;
+    --avatar-7:  27 94% 69%;
+    --avatar-8:  175 24% 72%;
+    --avatar-9:  190 65% 21%;
+    --avatar-10: 14 94% 56%;
+    --avatar-11: 186 97% 29%;
+    --avatar-12: 22 80% 57%;
+    --avatar-13: 27 94% 69%;
+    --avatar-14: 176 39% 40%;
+  }
+}

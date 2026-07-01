@@ -1,0 +1,40 @@
+/* Everforest (Dark) */
+@layer base {
+  [data-theme="everforest"] {
+    color-scheme: dark;
+    --background: 206 13% 20%;
+    --foreground: 41 32% 75%;
+    --card: 206 13% 20%;
+    --card-foreground: 41 32% 75%;
+    --popover: 206 13% 20%;
+    --popover-foreground: 41 32% 75%;
+    --primary: 172 31% 62%;
+    --primary-foreground: 206 13% 20%;
+    --secondary: 201 11% 31%;
+    --secondary-foreground: 41 32% 75%;
+    --muted: 201 11% 31%;
+    --muted-foreground: 201 11% 61%;
+    --accent: 41 32% 75%;
+    --accent-foreground: 206 13% 20%;
+    --destructive: 359 68% 70%;
+    --destructive-foreground: 206 13% 20%;
+    --border: 201 11% 31%;
+    --input: 201 11% 31%;
+    --ring: 172 31% 62%;
+    --avatar-fg: 206 13% 20%;
+    --avatar-1:  359 68% 70%;
+    --avatar-2:  83 34% 63%;
+    --avatar-3:  40 56% 68%;
+    --avatar-4:  172 31% 62%;
+    --avatar-5:  331 43% 72%;
+    --avatar-6:  135 33% 63%;
+    --avatar-7:  172 31% 62%;
+    --avatar-8:  41 32% 75%;
+    --avatar-9:  201 11% 31%;
+    --avatar-10: 359 68% 70%;
+    --avatar-11: 83 34% 63%;
+    --avatar-12: 40 56% 68%;
+    --avatar-13: 172 31% 62%;
+    --avatar-14: 331 43% 72%;
+  }
+}
