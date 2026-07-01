@@ -542,6 +542,10 @@ export function GetNativeTitleBar() {
   return window['go']['app']['App']['GetNativeTitleBar']();
 }
 
+export function GetNewMailNotificationsEnabled() {
+  return window['go']['app']['App']['GetNewMailNotificationsEnabled']();
+}
+
 export function GetOAuthBuildStatus() {
   return window['go']['app']['App']['GetOAuthBuildStatus']();
 }
@@ -560,6 +564,10 @@ export function GetOAuthStatus(arg1) {
 
 export function GetOAuthWarningDisabled() {
   return window['go']['app']['App']['GetOAuthWarningDisabled']();
+}
+
+export function GetOverrideEmailColors() {
+  return window['go']['app']['App']['GetOverrideEmailColors']();
 }
 
 export function GetPGPEncryptPolicy(arg1) {
@@ -608,6 +616,10 @@ export function GetSearchCount(arg1, arg2, arg3, arg4) {
 
 export function GetSearchCountUnifiedInbox(arg1, arg2) {
   return window['go']['app']['App']['GetSearchCountUnifiedInbox'](arg1, arg2);
+}
+
+export function GetShowActionToasts() {
+  return window['go']['app']['App']['GetShowActionToasts']();
 }
 
 export function GetShowMessageListCircles() {
@@ -1034,14 +1046,6 @@ export function SetDarkMailContent(arg1) {
   return window['go']['app']['App']['SetDarkMailContent'](arg1);
 }
 
-export function GetOverrideEmailColors() {
-  return window['go']['app']['App']['GetOverrideEmailColors']();
-}
-
-export function SetOverrideEmailColors(arg1) {
-  return window['go']['app']['App']['SetOverrideEmailColors'](arg1);
-}
-
 export function SetDefaultIdentity(arg1, arg2) {
   return window['go']['app']['App']['SetDefaultIdentity'](arg1, arg2);
 }
@@ -1086,6 +1090,10 @@ export function SetNativeTitleBar(arg1) {
   return window['go']['app']['App']['SetNativeTitleBar'](arg1);
 }
 
+export function SetNewMailNotificationsEnabled(arg1) {
+  return window['go']['app']['App']['SetNewMailNotificationsEnabled'](arg1);
+}
+
 export function SetOAuthCreds(arg1, arg2, arg3) {
   return window['go']['app']['App']['SetOAuthCreds'](arg1, arg2, arg3);
 }
@@ -1096,6 +1104,10 @@ export function SetOAuthCredsChoice(arg1, arg2) {
 
 export function SetOAuthWarningDisabled(arg1) {
   return window['go']['app']['App']['SetOAuthWarningDisabled'](arg1);
+}
+
+export function SetOverrideEmailColors(arg1) {
+  return window['go']['app']['App']['SetOverrideEmailColors'](arg1);
 }
 
 export function SetPGPEncryptPolicy(arg1, arg2) {
@@ -1120,6 +1132,10 @@ export function SetSMIMEEncryptPolicy(arg1, arg2) {
 
 export function SetSMIMESignPolicy(arg1, arg2) {
   return window['go']['app']['App']['SetSMIMESignPolicy'](arg1, arg2);
+}
+
+export function SetShowActionToasts(arg1) {
+  return window['go']['app']['App']['SetShowActionToasts'](arg1);
 }
 
 export function SetShowMessageListCircles(arg1) {
@@ -1244,20 +1260,4 @@ export function UpdateIdentity(arg1, arg2) {
 
 export function UpdateLocalFlags(arg1, arg2, arg3) {
   return window['go']['app']['App']['UpdateLocalFlags'](arg1, arg2, arg3);
-}
-
-export function GetShowActionToasts() {
-  return window['go']['app']['App']['GetShowActionToasts']();
-}
-
-export function SetShowActionToasts(arg1) {
-  return window['go']['app']['App']['SetShowActionToasts'](arg1);
-}
-
-export function GetNewMailNotificationsEnabled() {
-  return window['go']['app']['App']['GetNewMailNotificationsEnabled']();
-}
-
-export function SetNewMailNotificationsEnabled(arg1) {
-  return window['go']['app']['App']['SetNewMailNotificationsEnabled'](arg1);
 }

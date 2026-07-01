@@ -289,6 +289,8 @@ export function GetMicrosoftSharedMailboxes(arg1:string):Promise<Array<account.A
 
 export function GetNativeTitleBar():Promise<boolean>;
 
+export function GetNewMailNotificationsEnabled():Promise<boolean>;
+
 export function GetOAuthBuildStatus():Promise<app.OAuthBuildStatus>;
 
 export function GetOAuthCredsChoices(arg1:string,arg2:string):Promise<app.OAuthCredsChoices>;
@@ -298,6 +300,8 @@ export function GetOAuthCredsStatus(arg1:string):Promise<app.OAuthCredsStatus>;
 export function GetOAuthStatus(arg1:string):Promise<app.OAuthStatus>;
 
 export function GetOAuthWarningDisabled():Promise<boolean>;
+
+export function GetOverrideEmailColors():Promise<boolean>;
 
 export function GetPGPEncryptPolicy(arg1:string):Promise<string>;
 
@@ -322,6 +326,8 @@ export function GetSMIMESignPolicy(arg1:string):Promise<string>;
 export function GetSearchCount(arg1:string,arg2:string,arg3:string,arg4:string):Promise<number>;
 
 export function GetSearchCountUnifiedInbox(arg1:string,arg2:string):Promise<number>;
+
+export function GetShowActionToasts():Promise<boolean>;
 
 export function GetShowMessageListCircles():Promise<boolean>;
 
@@ -535,10 +541,6 @@ export function SetContactSourceWritable(arg1:string,arg2:boolean):Promise<void>
 
 export function SetDarkMailContent(arg1:boolean):Promise<void>;
 
-export function GetOverrideEmailColors():Promise<boolean>;
-
-export function SetOverrideEmailColors(arg1:boolean):Promise<void>;
-
 export function SetDefaultIdentity(arg1:string,arg2:string):Promise<void>;
 
 export function SetDefaultPGPKey(arg1:string,arg2:string):Promise<void>;
@@ -561,11 +563,15 @@ export function SetMessageListSortOrder(arg1:string):Promise<void>;
 
 export function SetNativeTitleBar(arg1:boolean):Promise<void>;
 
+export function SetNewMailNotificationsEnabled(arg1:boolean):Promise<void>;
+
 export function SetOAuthCreds(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SetOAuthCredsChoice(arg1:string,arg2:string):Promise<void>;
 
 export function SetOAuthWarningDisabled(arg1:boolean):Promise<void>;
+
+export function SetOverrideEmailColors(arg1:boolean):Promise<void>;
 
 export function SetPGPEncryptPolicy(arg1:string,arg2:string):Promise<void>;
 
@@ -578,6 +584,8 @@ export function SetRunBackground(arg1:boolean):Promise<void>;
 export function SetSMIMEEncryptPolicy(arg1:string,arg2:string):Promise<void>;
 
 export function SetSMIMESignPolicy(arg1:string,arg2:string):Promise<void>;
+
+export function SetShowActionToasts(arg1:boolean):Promise<void>;
 
 export function SetShowMessageListCircles(arg1:boolean):Promise<void>;
 
@@ -640,11 +648,3 @@ export function UpdateContactSource(arg1:string,arg2:carddav.SourceConfig):Promi
 export function UpdateIdentity(arg1:string,arg2:account.IdentityConfig):Promise<account.Identity>;
 
 export function UpdateLocalFlags(arg1:Array<string>,arg2:any,arg3:any):Promise<void>;
-
-export function GetShowActionToasts():Promise<boolean>;
-
-export function SetShowActionToasts(arg1:boolean):Promise<void>;
-
-export function GetNewMailNotificationsEnabled():Promise<boolean>;
-
-export function SetNewMailNotificationsEnabled(arg1:boolean):Promise<void>;
