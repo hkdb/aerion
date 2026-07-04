@@ -79,7 +79,7 @@
       "authOAuth": "Tài khoản OAuth",
       "oauthAccountLabel": "Tài khoản OAuth",
       "oauthAccountRequired": "Chọn một tài khoản OAuth để xác thực.",
-      "noCustomAccounts": "Không tìm thấy tài khoản email OAuth tùy chỉnh nào. Trước tiên hãy thêm một tài khoản trong mục Tài khoản, sau đó nó cũng có thể ủy quyền cho CalDAV.",
+      "noCustomAccounts": "Không tìm thấy tài khoản email nào có OAuth tùy chỉnh. Hãy thêm tài khoản trong mục Tài khoản trước, sau đó bạn có thể uỷ quyền CalDAV cho tài khoản này.",
       "title": "Thêm nguồn CalDAV",
       "description": "Kết nối với máy chủ CalDAV (Nextcloud, Radicale, iCloud, FastMail, v.v.). Tiện ích Lịch đọc sự kiện từ các lịch bạn chọn.",
       "nameLabel": "Tên",
@@ -173,10 +173,10 @@
       "lastSyncNever": "Chưa đồng bộ",
       "syncNow": "Đồng bộ ngay",
       "forceResync": "Buộc đồng bộ lại",
-      "forceResyncConfirmTitle": "Buộc đồng bộ lại {name}?",
-      "forceResyncConfirmDescription": "Xoá trạng thái đồng bộ đã lưu và tải lại tất cả sự kiện từ máy chủ. Dùng tùy chọn này nếu thiếu sự kiện. Quá trình này có thể lâu hơn đồng bộ thông thường.",
-      "deleteConfirmTitle": "Xoá {name}?",
-      "deleteConfirmDescription": "Tất cả lịch và sự kiện từ nguồn này sẽ bị xoá khỏi thiết bị. Máy chủ CalDAV không bị ảnh hưởng.",
+      "forceResyncConfirmTitle": "Bạn có chắc muốn buộc đồng bộ lại {name} không?",
+      "forceResyncConfirmDescription": "Xoá thông tin đồng bộ đã lưu và tải lại toàn bộ sự kiện từ máy chủ. Hãy dùng tính năng này nếu có sự kiện bị thiếu. Quá trình này có thể lâu hơn đồng bộ thông thường.",
+      "deleteConfirmTitle": "Bạn có chắc muốn xoá nguồn {name} không?",
+      "deleteConfirmDescription": "Tất cả lịch và sự kiện từ nguồn này sẽ bị xoá khỏi thiết bị. Máy chủ CalDAV sẽ không bị ảnh hưởng.",
       "defaultsSection": "Mặc định cho sự kiện mới",
       "globalDefaultLabel": "Mặc định toàn cục",
       "providerDefaultsLabel": "Mặc định theo tài khoản",
@@ -315,7 +315,7 @@
       "visibility": {
         "public": "Công khai",
         "private": "Riêng tư",
-        "confidential": "Bảo mật"
+        "confidential": "Bí mật"
       },
       "errorSummaryRequired": "Tiêu đề là bắt buộc.",
       "errorCalendarRequired": "Vui lòng chọn một lịch.",
