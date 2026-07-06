@@ -254,7 +254,6 @@
     "account": "Účet"
   },
   "toast": {
-    "selectOAuthAccount": "Vyberte prosím účet OAuth",
     "archived": "Archivováno",
     "conversationArchived": "Konverzace archivována",
     "movedToTrash": "Přesunuto do koše",
@@ -313,6 +312,7 @@
     "fillRequiredFields": "Vyplňte prosím všechna povinná pole",
     "passwordRequired": "Heslo je pro nové zdroje povinné",
     "selectAddressbook": "Vyberte prosím alespoň jeden adresář",
+    "selectOAuthAccount": "Vyberte prosím účet OAuth",
     "linkAccountOrSignIn": "Propojte účet nebo se přihlaste",
     "accountSaved": "Nastavení účtu uloženo",
     "failedToSaveAccount": "Uložení účtu se nezdařilo.",
