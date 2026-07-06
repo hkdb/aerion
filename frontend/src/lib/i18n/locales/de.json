@@ -254,7 +254,6 @@
     "account": "Konto"
   },
   "toast": {
-    "selectOAuthAccount": "Bitte wähle ein OAuth-Konto",
     "archived": "Archiviert",
     "conversationArchived": "Unterhaltung archiviert",
     "movedToTrash": "In den Papierkorb verschoben",
@@ -313,6 +312,7 @@
     "fillRequiredFields": "Bitte alle Pflichtfelder ausfüllen",
     "passwordRequired": "Passwort ist für neue Quellen erforderlich",
     "selectAddressbook": "Bitte mindestens ein Adressbuch auswählen",
+    "selectOAuthAccount": "Bitte wähle ein OAuth-Konto",
     "linkAccountOrSignIn": "Bitte ein Konto verknüpfen oder anmelden",
     "accountSaved": "Kontoeinstellungen gespeichert",
     "failedToSaveAccount": "Konto konnte nicht gespeichert werden.",
