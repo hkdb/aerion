@@ -14,7 +14,6 @@
 - Attachment parsing improvements - [#307](https://github.com/hkdb/aerion/issues/307)
 - Fixed eplying with correct identity [#325](https://github.com/hkdb/aerion/issues/325)
 - Added error message for adding account with same e-mail - [#318](https://github.com/hkdb/aerion/issues/318)
-- Fixed left/right padding for multi-day events
 - Made number of events per day in month view dynamics - [#323](https://github.com/hkdb/aerion/issues/323)
 - Fixed icon rendering with newer DEs and compositors - [#316](https://github.com/hkdb/aerion/issues/316)
 
