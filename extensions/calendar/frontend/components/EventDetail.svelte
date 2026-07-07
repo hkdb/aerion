@@ -399,8 +399,8 @@
           {$_('calendar.detail.whenLabel')}
         </div>
         <div class="text-foreground break-words">{whenLabel}</div>
-        {#if event.tzName && event.tzName !== '' && !event.isAllDay}
-          <div class="text-xs text-muted-foreground mt-0.5">{event.tzName}</div>
+        {#if !event.isAllDay && event.tzName && event.tzName !== calendarSettings.effectiveTimezone}
+          <div class="text-xs text-muted-foreground mt-0.5">{calendarSettings.effectiveTimezone}</div>
         {/if}
       </div>
 

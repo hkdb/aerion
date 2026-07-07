@@ -300,6 +300,7 @@
           <li>Added error message for adding account with same e-mail - #318</li>
           <li>Made number of events per day in month view dynamics - #323</li>
           <li>Fixed icon rendering with newer DEs and compositors - #316</li>
+          <li>Fixed diff tz time display in calendar</li>
         </ul>
       </description>
     </release>
