@@ -316,6 +316,7 @@
     "linkAccountOrSignIn": "请关联账户或登录",
     "accountSaved": "账户设置已保存",
     "failedToSaveAccount": "保存账户失败。",
+    "accountEmailExists": "已存在使用此电子邮件地址的账户。",
     "reauthorized": "{name} 已重新授权成功！正在同步...",
     "syncCompleted": "{name} 同步已完成",
     "failedToReauthorize": "重新授权账户失败。",

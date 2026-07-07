@@ -316,6 +316,7 @@
     "linkAccountOrSignIn": "Bitte ein Konto verknüpfen oder anmelden",
     "accountSaved": "Kontoeinstellungen gespeichert",
     "failedToSaveAccount": "Konto konnte nicht gespeichert werden.",
+    "accountEmailExists": "Ein Konto mit dieser E-Mail-Adresse existiert bereits.",
     "reauthorized": "{name} erfolgreich neu autorisiert! Wird synchronisiert...",
     "syncCompleted": "Synchronisierung von {name} abgeschlossen",
     "failedToReauthorize": "Konto konnte nicht neu autorisiert werden.",

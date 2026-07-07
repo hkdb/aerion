@@ -316,6 +316,7 @@
     "linkAccountOrSignIn": "Propojte účet nebo se přihlaste",
     "accountSaved": "Nastavení účtu uloženo",
     "failedToSaveAccount": "Uložení účtu se nezdařilo.",
+    "accountEmailExists": "Účet s touto e-mailovou adresou již existuje.",
     "reauthorized": "{name} byl úspěšně znovu autorizován! Probíhá synchronizace...",
     "syncCompleted": "Synchronizace {name} dokončena",
     "failedToReauthorize": "Opětovná autorizace účtu selhala.",

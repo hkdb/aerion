@@ -258,7 +258,9 @@
       console.error('Failed to save account:', err)
       addToast({
         type: 'error',
-        message: $_('toast.failedToSaveAccount'),
+        message: String(err).toLowerCase().includes('already exists')
+          ? $_('toast.accountEmailExists')
+          : $_('toast.failedToSaveAccount'),
       })
     } finally {
       saving = false

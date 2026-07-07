@@ -316,6 +316,7 @@
     "linkAccountOrSignIn": "Please link an account or sign in",
     "accountSaved": "Account settings saved",
     "failedToSaveAccount": "Failed to save account.",
+    "accountEmailExists": "An account with this email address already exists.",
     "reauthorized": "{name} re-authorized successfully! Syncing...",
     "syncCompleted": "{name} sync completed",
     "failedToReauthorize": "Failed to re-authorize account.",

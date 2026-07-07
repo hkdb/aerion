@@ -313,6 +313,7 @@
     "linkAccountOrSignIn": "Vennligst koble til en konto eller logg inn",
     "accountSaved": "Kontoinnstillinger lagret",
     "failedToSaveAccount": "Klarte ikke å lagre konto.",
+    "accountEmailExists": "Det finnes allerede en konto med denne e-postadressen.",
     "reauthorized": "Vellykket autorisering av {name}! Synkroniserer…",
     "syncCompleted": "Vellykket synkronisering av {name}",
     "failedToReauthorize": "Klarte ikke å autorisere konto.",

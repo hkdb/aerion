@@ -12,6 +12,8 @@
 - Multi-day monthly view fix - [#304](https://github.com/hkdb/aerion/issues/304)
 - Composer body config - [#216](https://github.com/hkdb/aerion/issues/216)
 - Attachment parsing improvements - [#307](https://github.com/hkdb/aerion/issues/307)
+- Fixed eplying with correct identity [#325](https://github.com/hkdb/aerion/issues/325)
+- Added error message for adding account with same e-mail - [#318](https://github.com/hkdb/aerion/issues/318)
 
 
 **v0.3.0 - 06-23-2026**

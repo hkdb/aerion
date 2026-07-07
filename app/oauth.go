@@ -180,6 +180,7 @@ func (a *App) CompleteOAuthAccountSetup(provider, email, accountName, displayNam
 	// Create the account
 	acc, err := a.accountStore.Create(&config)
 	if err != nil {
+		log.Error().Err(err).Str("email", email).Str("provider", provider).Msg("Failed to create account")
 		return nil, fmt.Errorf("failed to create account: %w", err)
 	}
 
@@ -360,6 +361,7 @@ func (a *App) CompleteCustomOAuthAccountSetup(config account.AccountConfig) (*ac
 
 	acc, err := a.accountStore.Create(&config)
 	if err != nil {
+		log.Error().Err(err).Str("email", config.Email).Msg("Failed to create account")
 		return nil, fmt.Errorf("failed to create account: %w", err)
 	}
 

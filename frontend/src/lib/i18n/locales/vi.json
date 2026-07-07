@@ -316,6 +316,7 @@
     "linkAccountOrSignIn": "Vui lòng liên kết tài khoản hoặc đăng nhập",
     "accountSaved": "Đã lưu cài đặt tài khoản",
     "failedToSaveAccount": "Không thể lưu tài khoản.",
+    "accountEmailExists": "Đã tồn tại tài khoản với địa chỉ email này.",
     "reauthorized": "{name} đã xác thực lại thành công! Đang đồng bộ...",
     "syncCompleted": "Đã đồng bộ xong {name}",
     "failedToReauthorize": "Xác thực lại tài khoản thất bại.",

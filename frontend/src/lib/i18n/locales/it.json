@@ -316,6 +316,7 @@
     "linkAccountOrSignIn": "Si prega di collegare un account o di accedere",
     "accountSaved": "Impostazioni dell'account salvate",
     "failedToSaveAccount": "Impossibile salvare l'account.",
+    "accountEmailExists": "Esiste già un account con questo indirizzo e-mail.",
     "reauthorized": "{name} ri-autorizzato con successo! Sincronizzazione...",
     "syncCompleted": "{name} sincronizzazione completata",
     "failedToReauthorize": "Impossibile ri-autorizzare l'account.",

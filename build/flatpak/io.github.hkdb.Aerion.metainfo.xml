@@ -296,6 +296,8 @@
           <li>Multi-day monthly view fix - #304</li>
           <li>Composer body config - #216</li>
           <li>Attachment parsing improvements - #307</li>
+          <li>Fixed eplying with correct identity - #325</li>
+          <li>Added error message for adding account with same e-mail - #318</li>
         </ul>
       </description>
     </release>
