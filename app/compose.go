@@ -648,17 +648,10 @@ func (a *App) PrepareReply(messageID, mode string) (*smtp.ComposeMessage, error)
 		return nil, fmt.Errorf("failed to get identities: %w", err)
 	}
 
-	// Find the default identity or first identity
-	var fromIdentity *account.Identity
-	for _, id := range identities {
-		if id.IsDefault {
-			fromIdentity = id
-			break
-		}
-	}
-	if fromIdentity == nil && len(identities) > 0 {
-		fromIdentity = identities[0]
-	}
+	// Prefer the identity the original message was addressed to (To/Cc/Bcc), so the
+	// reply goes out from the alias that received the mail (#325); then the default
+	// identity; then the first.
+	fromIdentity := selectReplyFromIdentity(identities, msg)
 	if fromIdentity == nil {
 		acc, _ := a.accountStore.Get(msg.AccountID)
 		if acc != nil {
@@ -954,6 +947,33 @@ func (a *App) ReadFileAsAttachment(filePath string) (*ComposerAttachment, error)
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+// selectReplyFromIdentity picks the From identity for a reply/forward: prefer the
+// identity the original message was addressed to (To/Cc/Bcc) so the reply goes out
+// from the alias that received the mail (#325); then the default identity; then the
+// first. Returns nil only when there are no identities.
+func selectReplyFromIdentity(identities []*account.Identity, msg *message.Message) *account.Identity {
+	var recipients []smtp.Address
+	recipients = append(recipients, parseAddressList(msg.ToList)...)
+	recipients = append(recipients, parseAddressList(msg.CcList)...)
+	recipients = append(recipients, parseAddressList(msg.BccList)...)
+	for _, id := range identities {
+		for _, r := range recipients {
+			if strings.EqualFold(strings.TrimSpace(id.Email), strings.TrimSpace(r.Address)) {
+				return id
+			}
+		}
+	}
+	for _, id := range identities {
+		if id.IsDefault {
+			return id
+		}
+	}
+	if len(identities) > 0 {
+		return identities[0]
+	}
+	return nil
+}
 
 // parseAddressList parses a JSON array of addresses or comma-separated string
 func parseAddressList(s string) []smtp.Address {

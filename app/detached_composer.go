@@ -877,18 +877,10 @@ func (c *ComposerApp) draftToComposeMessage(d *draft.Draft) *smtp.ComposeMessage
 // buildReplyMessage builds a compose message for reply/forward.
 // This is a simplified version of the logic in app.go PrepareReply.
 func (c *ComposerApp) buildReplyMessage(msg *message.Message, mode string) *smtp.ComposeMessage {
-	// Get default identity
+	// Prefer the identity the original message was addressed to (#325), then the
+	// default identity, then the first.
 	identities, _ := c.accountStore.GetIdentities(c.config.AccountID)
-	var fromIdentity *account.Identity
-	for _, id := range identities {
-		if id.IsDefault {
-			fromIdentity = id
-			break
-		}
-	}
-	if fromIdentity == nil && len(identities) > 0 {
-		fromIdentity = identities[0]
-	}
+	fromIdentity := selectReplyFromIdentity(identities, msg)
 
 	from := smtp.Address{}
 	if fromIdentity != nil {
