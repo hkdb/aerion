@@ -219,7 +219,7 @@
         {@const pillCap = Math.max(0, eventCapacity - band.laneCount)}
         <div
           class="relative grid grid-cols-7 border-b border-border min-h-0 overflow-hidden"
-          style:grid-template-rows={`auto repeat(${band.laneCount}, minmax(0, auto)) 1fr`}
+          style:grid-template-rows={`auto ${band.laneCount > 0 ? `repeat(${band.laneCount}, minmax(0, auto)) ` : ''}1fr`}
         >
           <!-- Background cell layer: borders, hover, empty-area click → DayView -->
           {#each row.cells as cell, i (i)}
@@ -237,7 +237,7 @@
           <!-- Day-number header layer (visual only — clicks pass through) -->
           {#each row.cells as cell, i (i)}
             <div
-              class="pointer-events-none px-1 pt-1 flex items-center justify-start"
+              class="pointer-events-none px-1 pt-1 pb-1 flex items-start justify-start"
               style:grid-column={`${i + 1}`}
               style:grid-row="1"
             >
