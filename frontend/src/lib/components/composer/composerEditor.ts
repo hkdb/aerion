@@ -81,12 +81,10 @@ export const ExtendedColor = Color.extend({
  *
  * Returns -1 if textPos is out of range (caller should bail in that case).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function textPosToDocPos(doc: any, textPos: number): number {
   if (textPos < 0) return -1
   let cumulativeText = 0
   let docPos = -1
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   doc.descendants((node: any, pos: number) => {
     if (docPos !== -1) return false
     if (node.isText && typeof node.text === 'string') {
