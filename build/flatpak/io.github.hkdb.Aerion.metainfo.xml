@@ -298,6 +298,8 @@
           <li>Attachment parsing improvements - #307</li>
           <li>Fixed eplying with correct identity - #325</li>
           <li>Added error message for adding account with same e-mail - #318</li>
+          <li>Fixed left/right padding for multi-day events</li>
+          <li>Made number of events per day in month view dynamics - #323</li>
         </ul>
       </description>
     </release>

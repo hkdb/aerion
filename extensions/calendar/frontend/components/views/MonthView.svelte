@@ -21,7 +21,19 @@
   // @ts-ignore - wailsjs bindings
   import type { backend } from '$wailsjs/go/models'
 
-  const MAX_EVENTS_PER_CELL = 3
+  // Per-cell event count now tracks the available cell height (#323) instead of
+  // a fixed 3. PILL_PX = one EventCard row (text-xs + py-0.5) plus the gap-0.5;
+  // DAY_NUM_PX = the day-number header row. Calibrated by eye — see verification.
+  const PILL_PX = 22
+  const DAY_NUM_PX = 24
+  const MIN_EVENTS_PER_CELL = 3
+
+  // Measured height of the 6-row grid (layout-driven, so no measure→render loop).
+  // Rows are equal height, so capacity per cell derives from gridHeight / 6.
+  let gridHeight = $state(0)
+  const eventCapacity = $derived(
+    Math.max(MIN_EVENTS_PER_CELL, Math.floor((gridHeight / 6 - DAY_NUM_PX) / PILL_PX))
+  )
 
   type Cell = { date: Date; isOtherMonth: boolean; isToday: boolean }
 
@@ -201,10 +213,10 @@
     </div>
 
     <!-- 6 week-rows -->
-    <div class="flex-1 grid grid-rows-6 min-h-0">
+    <div class="flex-1 grid grid-rows-6 min-h-0" bind:clientHeight={gridHeight}>
       {#each weekRows as row, w (w)}
         {@const band = bandRows[w]}
-        {@const pillCap = Math.max(0, MAX_EVENTS_PER_CELL - band.laneCount)}
+        {@const pillCap = Math.max(0, eventCapacity - band.laneCount)}
         <div
           class="relative grid grid-cols-7 border-b border-border min-h-0 overflow-hidden"
           style:grid-template-rows={`auto repeat(${band.laneCount}, minmax(0, auto)) 1fr`}
@@ -242,7 +254,7 @@
           <!-- Multi-day spanning bars -->
           {#each band.blocks as block (block.instance.id + ':' + block.instance.instanceStartUnix)}
             <div
-              class="pointer-events-auto px-0.5 min-w-0"
+              class="pointer-events-auto px-1 min-w-0"
               style:grid-column={`${block.startColIdx + 1} / ${block.endColIdx + 2}`}
               style:grid-row={`${block.laneIdx + 2}`}
             >
