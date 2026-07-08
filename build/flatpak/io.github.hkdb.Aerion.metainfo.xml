@@ -285,7 +285,7 @@
   </provides>
 
   <releases>
-    <release version="0.3.1" date="2026-06-26">
+    <release version="0.3.1" date="2026-07-08">
       <description>
         <ul>
           <li>Added custom oauth for imap, cardav, and caldav - designed for and tested with Stalwart</li>
