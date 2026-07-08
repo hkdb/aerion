@@ -72,11 +72,11 @@ func newTestGoogleProvider(serverURL string) googleProvider {
 
 func TestGoogleTranslate_NonRecurringTimedRoundTrip(t *testing.T) {
 	src := googleEvent{
-		ICalUID: "evt-uid-1@aerion-google",
-		Status:  "confirmed",
-		Summary: "Project sync",
+		ICalUID:     "evt-uid-1@aerion-google",
+		Status:      "confirmed",
+		Summary:     "Project sync",
 		Description: "Weekly project status",
-		Location: "Room 4B",
+		Location:    "Room 4B",
 		Start: &googleTimePoint{
 			DateTime: "2026-06-10T14:00:00-07:00",
 			TimeZone: "America/Los_Angeles",
@@ -223,11 +223,11 @@ func TestGoogleTranslate_CancelledReturnsSentinel(t *testing.T) {
 // --- PushEvent ---------------------------------------------------------------
 
 type capturedReq struct {
-	method      string
-	path        string
-	ifMatch     string
-	body        googleEvent
-	bodyRaw     string
+	method  string
+	path    string
+	ifMatch string
+	body    googleEvent
+	bodyRaw string
 }
 
 func newTestServer(t *testing.T, handler func(req capturedReq, w http.ResponseWriter)) *httptest.Server {
@@ -509,5 +509,50 @@ func TestGoogleTranslate_Visibility(t *testing.T) {
 		if g, _ := translateICSToGoogleJSON(blob); g.Visibility != c.wantVis {
 			t.Errorf("%s round-trip visibility = %q, want %q", c.vis, g.Visibility, c.wantVis)
 		}
+	}
+}
+
+func TestGoogleConferenceInfo(t *testing.T) {
+	t.Run("conferenceData video + phone", func(t *testing.T) {
+		ev := googleEvent{
+			ConferenceData: &googleConferenceData{
+				ConferenceSolution: &googleConferenceSolution{Name: "Google Meet"},
+				EntryPoints: []googleEntryPoint{
+					{EntryPointType: "video", URI: "https://meet.google.com/abc-defg-hij"},
+					{EntryPointType: "phone", URI: "tel:+1-650-555-0100", Label: "+1 650-555-0100", Pin: "123456789"},
+					{EntryPointType: "more", URI: "https://tel.meet/abc-defg-hij"},
+				},
+			},
+		}
+		text, uri := googleConferenceInfo(ev)
+		if uri != "https://meet.google.com/abc-defg-hij" {
+			t.Fatalf("videoURI = %q", uri)
+		}
+		want := "Google Meet\nhttps://meet.google.com/abc-defg-hij\n\nJoin by phone: +1 650-555-0100 (PIN: 123456789#)"
+		if text != want {
+			t.Errorf("text = %q, want %q", text, want)
+		}
+	})
+
+	t.Run("hangoutLink fallback", func(t *testing.T) {
+		text, uri := googleConferenceInfo(googleEvent{HangoutLink: "https://meet.google.com/xyz"})
+		if uri != "https://meet.google.com/xyz" || text != "Video call\nhttps://meet.google.com/xyz" {
+			t.Errorf("text=%q uri=%q", text, uri)
+		}
+	})
+
+	t.Run("no conferencing", func(t *testing.T) {
+		if text, uri := googleConferenceInfo(googleEvent{}); text != "" || uri != "" {
+			t.Errorf("expected empty, got text=%q uri=%q", text, uri)
+		}
+	})
+}
+
+func TestConferenceBlockHTML(t *testing.T) {
+	text := "Google Meet\nhttps://meet.google.com/abc-defg-hij\n\nJoin by phone: +1 650-555-0100 (PIN: 123456789#)"
+	got := conferenceBlockHTML(text, "https://meet.google.com/abc-defg-hij")
+	want := "Google Meet<br><a href=\"https://meet.google.com/abc-defg-hij\">https://meet.google.com/abc-defg-hij</a><br><br>Join by phone: +1 650-555-0100 (PIN: 123456789#)"
+	if got != want {
+		t.Errorf("conferenceBlockHTML =\n%q\nwant\n%q", got, want)
 	}
 }

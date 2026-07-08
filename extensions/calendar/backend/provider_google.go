@@ -227,6 +227,26 @@ func (p googleProvider) persistEventsPage(cal Calendar, items []googleEvent) err
 				ICSBlob:         blob,
 			}
 			fillDenormalizedFieldsFromICS(&ev, blob)
+
+			// Surface Google Meet / conferencing join info in the About body.
+			// Meet invites carry the link in conferenceData/hangoutLink, not the
+			// body, so those events would otherwise show an empty About. Fold it
+			// into the denormalized Description column only — the ICS blob stays
+			// pristine, so pushing an edit back to Google doesn't duplicate it.
+			join, videoURI := googleConferenceInfo(item)
+			switch {
+			case join == "":
+			case strings.Contains(ev.Description, videoURI):
+			case ev.Description == "":
+				ev.Description = join
+			case bodyIsHTML(ev.Description):
+				// HTML description renders via {@html}; append as HTML so the
+				// link line-breaks and is a real (clickable) anchor.
+				ev.Description = ev.Description + "<br><br>" + conferenceBlockHTML(join, videoURI)
+			default:
+				ev.Description = ev.Description + "\n\n" + join
+			}
+
 			if len(item.Recurrence) > 0 {
 				for _, line := range item.Recurrence {
 					if strings.HasPrefix(line, "RRULE:") {

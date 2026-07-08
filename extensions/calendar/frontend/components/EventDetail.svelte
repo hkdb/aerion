@@ -18,12 +18,15 @@
   import Linkified from './Linkified.svelte'
   import AttendeeListDisplay from './AttendeeListDisplay.svelte'
   import RSVPControls from './RSVPControls.svelte'
+  import { logger } from '$extensions/calendar/frontend/lib/logger'
   import { accountStore } from '$lib/stores/accounts.svelte'
   import { toasts } from '$lib/stores/toast'
   // @ts-ignore - wailsjs bindings
   import { Calendar_DeleteEvent } from '$wailsjs/go/app/App.js'
   // @ts-ignore - wailsjs bindings
   import { Calendar_GetEvent } from '$wailsjs/go/app/App.js'
+  // @ts-ignore - wailsjs bindings
+  import { Calendar_OpenURL } from '$wailsjs/go/app/App.js'
   // @ts-ignore - wailsjs bindings
   import type { backend } from '$wailsjs/go/models'
 
@@ -36,6 +39,26 @@
   let event = $state<backend.Event | null>(null)
   let loading = $state(false)
   let loadError = $state<string | null>(null)
+
+  // Container for the sanitized HTML About body ({@html}). Its anchors are raw
+  // DOM nodes (not Linkified-generated), so we intercept their clicks here to
+  // route through the same hardened opener every other calendar link uses —
+  // Wails' default webview navigation doesn't reach the host browser (Flatpak).
+  let aboutEl = $state<HTMLElement | null>(null)
+  $effect(() => {
+    const el = aboutEl
+    if (!el) return
+    const onClick = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement | null)?.closest('a')
+      const href = anchor?.getAttribute('href')
+      if (!href) return
+      e.preventDefault()
+      e.stopPropagation()
+      Calendar_OpenURL(href).catch((err: unknown) => logger.warn(`openURL failed: ${err}`))
+    }
+    el.addEventListener('click', onClick)
+    return () => el.removeEventListener('click', onClick)
+  })
 
   // Refetch when eventId changes. Null id → clear local state.
   $effect(() => {
@@ -461,7 +484,7 @@
           <div class="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
             {$_('calendar.detail.aboutLabel')}
           </div>
-          <div class="cal-about-html text-foreground break-words text-sm">
+          <div class="cal-about-html text-foreground break-words text-sm" bind:this={aboutEl}>
             {@html event.descriptionHTML}
           </div>
         </div>

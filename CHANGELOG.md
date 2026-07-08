@@ -7,6 +7,7 @@
 - Added custom oauth for imap, cardav, and caldav (designed for and tested with [Stalwart](https://stalw.art))
 - Custom oauth refresh token handling fix
 - Use TOFU cert store for DAV certs
+- Added Google meet link support
 - Timezone config fix
 - Multi-day week and day view fix
 - Multi-day monthly view fix - [#304](https://github.com/hkdb/aerion/issues/304)
@@ -17,7 +18,8 @@
 - Made number of events per day in month view dynamics - [#323](https://github.com/hkdb/aerion/issues/323)
 - Fixed icon rendering with newer DEs and compositors - [#316](https://github.com/hkdb/aerion/issues/316)
 - Fixed diff tz time display in calendar
-- Fixed calendar about field plaintext rendering
+- Improved calendar about field rendering
+- Fixed calendar link handling
 
 
 **v0.3.0 - 06-23-2026**

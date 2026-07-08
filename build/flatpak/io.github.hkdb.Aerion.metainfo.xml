@@ -291,6 +291,7 @@
           <li>Added custom oauth for imap, cardav, and caldav - designed for and tested with Stalwart</li>
           <li>Custom oauth refresh token handling fix</li>
           <li>Use TOFU cert store for DAV certs</li>
+          <li>Added Google meet link support</li>
           <li>Timezone config fix</li>
           <li>Multi-day week and day view fix</li>
           <li>Multi-day monthly view fix - #304</li>
@@ -301,7 +302,8 @@
           <li>Made number of events per day in month view dynamics - #323</li>
           <li>Fixed icon rendering with newer DEs and compositors - #316</li>
           <li>Fixed diff tz time display in calendar</li>
-          <li>Fixed calendar about field plaintext rendering</li>
+          <li>Improved calendar about field rendering</li>
+          <li>Fixed calendar link handling</li>
         </ul>
       </description>
     </release>

@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"html"
 	"strconv"
 	"strings"
 	"time"
@@ -74,6 +75,30 @@ type googleEvent struct {
 	Reminders         *googleReminders `json:"reminders,omitempty"`
 	Attendees         []googleAttendee `json:"attendees,omitempty"`
 	Organizer         *googleAttendee  `json:"organizer,omitempty"`
+	// Video-conferencing metadata. Google Meet invites carry the join link in
+	// hangoutLink (legacy) / conferenceData (current) rather than the body, so
+	// such invites have an empty description. googleConferenceInfo folds them
+	// into the About body at sync time.
+	HangoutLink    string                `json:"hangoutLink,omitempty"`
+	ConferenceData *googleConferenceData `json:"conferenceData,omitempty"`
+}
+
+// googleConferenceData is the subset of Google's conferenceData we surface:
+// the join entry points (video URL, phone dial-in) and the solution name.
+type googleConferenceData struct {
+	EntryPoints        []googleEntryPoint        `json:"entryPoints,omitempty"`
+	ConferenceSolution *googleConferenceSolution `json:"conferenceSolution,omitempty"`
+}
+
+type googleEntryPoint struct {
+	EntryPointType string `json:"entryPointType"` // "video" | "phone" | "sip" | "more"
+	URI            string `json:"uri"`
+	Label          string `json:"label,omitempty"`
+	Pin            string `json:"pin,omitempty"`
+}
+
+type googleConferenceSolution struct {
+	Name string `json:"name,omitempty"` // e.g. "Google Meet"
 }
 
 // googleAttendee is the shape Google Calendar API v3 returns/accepts.
@@ -118,6 +143,62 @@ type googleCalendarListEntry struct {
 	Summary    string `json:"summary"`
 	Primary    bool   `json:"primary,omitempty"`
 	AccessRole string `json:"accessRole"` // "owner" | "writer" | "reader" | "freeBusyReader"
+}
+
+// googleConferenceInfo builds a plaintext "join" block from a Google event's
+// conferenceData (preferred) or legacy hangoutLink, plus the returned videoURI
+// so callers can avoid duplicating a link the description already contains.
+// Returns ("", "") when the event has no conferencing.
+func googleConferenceInfo(ev googleEvent) (text string, videoURI string) {
+	name := "Video call"
+	var phone string
+	if ev.ConferenceData != nil {
+		if s := ev.ConferenceData.ConferenceSolution; s != nil && s.Name != "" {
+			name = s.Name
+		}
+		for _, ep := range ev.ConferenceData.EntryPoints {
+			switch ep.EntryPointType {
+			case "video":
+				if videoURI == "" {
+					videoURI = ep.URI
+				}
+			case "phone":
+				if phone == "" {
+					phone = ep.Label
+					if phone == "" {
+						phone = strings.TrimPrefix(ep.URI, "tel:")
+					}
+					if ep.Pin != "" {
+						phone += " (PIN: " + ep.Pin + "#)"
+					}
+				}
+			}
+		}
+	}
+	if videoURI == "" {
+		videoURI = ev.HangoutLink
+	}
+	if videoURI == "" {
+		return "", ""
+	}
+	text = name + "\n" + videoURI
+	if phone != "" {
+		text += "\n\nJoin by phone: " + phone
+	}
+	return text, videoURI
+}
+
+// conferenceBlockHTML renders the plaintext join block as HTML, for appending
+// to a description that is itself HTML (rendered via {@html}, where a plaintext
+// URL would neither line-break nor be clickable): newlines → <br>, the video
+// URI → an anchor. Values are escaped so a stray character can't break the
+// markup; the whole body is sanitized again at the render boundary.
+func conferenceBlockHTML(text, videoURI string) string {
+	esc := html.EscapeString(text)
+	escURI := html.EscapeString(videoURI)
+	anchor := `<a href="` + escURI + `">` + escURI + `</a>`
+	esc = strings.Replace(esc, escURI, anchor, 1)
+	return strings.ReplaceAll(esc, "\n", "<br>")
 }
 
 // errGoogleEventCancelled is returned by translateGoogleEventToICS for
