@@ -113,3 +113,29 @@ func TestParseCalendarObject_EmptyInput(t *testing.T) {
 		t.Fatal("expected error for empty input")
 	}
 }
+
+func TestUnescapeICalText(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"teams body", `\n____\nMicrosoft Teams meeting\nJoin: https://teams.microsoft.com`,
+			"\n____\nMicrosoft Teams meeting\nJoin: https://teams.microsoft.com"},
+		{"capital N newline", `line1\Nline2`, "line1\nline2"},
+		{"escaped comma/semicolon", `a\, b\; c`, "a, b; c"},
+		{"escaped backslash", `path\\to`, `path\to`},
+		{"raw comma not split", `Meeting ID: 1, Passcode: 2`, "Meeting ID: 1, Passcode: 2"},
+		{"unknown escape preserved", `a\qb`, `a\qb`},
+		{"already decoded is noop", "real\nnewline, comma", "real\nnewline, comma"},
+		{"trailing backslash", `end\`, `end\`},
+		{"no backslash", "plain text", "plain text"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := unescapeICalText(tc.in); got != tc.want {
+				t.Errorf("unescapeICalText(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}

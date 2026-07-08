@@ -301,6 +301,7 @@
           <li>Made number of events per day in month view dynamics - #323</li>
           <li>Fixed icon rendering with newer DEs and compositors - #316</li>
           <li>Fixed diff tz time display in calendar</li>
+          <li>Fixed calendar about field plaintext rendering</li>
         </ul>
       </description>
     </release>

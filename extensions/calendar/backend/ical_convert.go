@@ -224,3 +224,38 @@ func propTextDecoded(ev *ical.Event, name string) string {
 	}
 	return strings.TrimSpace(p.Value)
 }
+
+// unescapeICalText decodes RFC 5545 TEXT escapes in a raw property value:
+// \n and \N → newline; \\ \, \; → literal backslash/comma/semicolon. Applied
+// when a stored body is rendered, so DESCRIPTIONs that were persisted raw
+// (any provider) display with real line breaks instead of literal "\n".
+//
+// Deliberately NOT go-ical's Prop.Text(): that splits on unescaped commas and
+// returns only the first segment (silently truncating a body) and errors on
+// any unknown escape. This preserves unknown escapes (backslash + char) and
+// never truncates. Idempotent on already-decoded text (no backslash → returned
+// unchanged), so it's safe to run on bodies from every sync path.
+func unescapeICalText(s string) string {
+	if !strings.Contains(s, `\`) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\\' || i+1 >= len(s) {
+			b.WriteByte(s[i])
+			continue
+		}
+		i++
+		switch s[i] {
+		case 'n', 'N':
+			b.WriteByte('\n')
+		case '\\', ',', ';':
+			b.WriteByte(s[i])
+		default:
+			b.WriteByte('\\')
+			b.WriteByte(s[i])
+		}
+	}
+	return b.String()
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"sync"
 	"time"
 
@@ -491,21 +492,36 @@ func (b *CalendarBridge) Calendar_GetEvent(eventID string) (*Event, error) {
 	if err != nil || ev == nil {
 		return ev, err
 	}
-	ev.DescriptionHTML = b.deps.Core.HTML().Sanitize(richBodyOf(ev))
+	// Decode iCal TEXT escapes here, at the render boundary, so bodies that
+	// were persisted raw (CalDAV DESCRIPTION stores "\n" escapes; existing rows
+	// aren't re-parsed on an ETag-unchanged resync) display with real line
+	// breaks. Idempotent for providers that already store plaintext (Graph text
+	// bodies, Google) — no backslash escapes → returned unchanged.
+	ev.Description = unescapeICalText(ev.Description)
+
+	// One About-body engine, two modes. Exchange/Graph put full HTML straight
+	// into the DESCRIPTION column; sanitize + render as HTML. Everything else
+	// is plaintext (CalDAV/Teams .ics, Graph text bodies) — leave it in
+	// ev.Description for the frontend to render via Linkified +
+	// whitespace-pre-wrap, so newlines survive and bare URLs stay clickable
+	// through the hardened Calendar_OpenURL resolver.
+	//
+	// Detect on the column (the reliable full body), NOT a re-parse of
+	// ev.ICSBlob: go-ical truncates long folded values (an 1858-char Exchange
+	// body came back as 264 chars, cut mid-<style>).
+	if bodyIsHTML(ev.Description) {
+		ev.DescriptionHTML = b.deps.Core.HTML().Sanitize(ev.Description)
+	}
 	return ev, nil
 }
 
-// richBodyOf returns the event body to render: X-ALT-DESC (Aerion-authored
-// rich text) when present, else the denormalized DESCRIPTION column — which
-// already holds the full body (Exchange/Graph put HTML straight in there).
-//
-// Crucially we use ev.Description (the column), NOT a re-parse of ev.ICSBlob:
-// go-ical truncates long folded DESCRIPTION values (an 1858-char Exchange body
-// came back as 264 chars, cut mid-<style>, which the sanitizer then stripped to
-// nothing). The column is stored full + unescaped at sync time. Always
-// sanitized + rendered as HTML downstream — same as the mail viewer.
-func richBodyOf(ev *Event) string {
-	return ev.Description
+// htmlBodyRe matches an opening HTML tag from the small set Exchange/Graph
+// emit in rich-text bodies. Plaintext bodies never contain these.
+var htmlBodyRe = regexp.MustCompile(`(?is)<(html|head|body|div|p|br|span|table|ul|ol|li|h[1-6]|a\s|strong|em|b>|i>)`)
+
+// bodyIsHTML reports whether an event body is HTML (vs plaintext).
+func bodyIsHTML(s string) bool {
+	return htmlBodyRe.MatchString(s)
 }
 
 // Calendar_SetCalendarVisible toggles a calendar's visibility in the UI.

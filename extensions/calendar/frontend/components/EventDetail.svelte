@@ -451,8 +451,11 @@
         </div>
       {/if}
 
-      <!-- About (skip if empty). Sanitized host-side (Core.HTML().Sanitize)
-           before it reaches here — rendered as HTML like the mail viewer. -->
+      <!-- About — one field, two render modes. HTML bodies (Exchange/Graph
+           rich text) are sanitized host-side and rendered as HTML. Plaintext
+           bodies render via Linkified (clickable URLs through the hardened
+           Calendar_OpenURL resolver) inside a whitespace-pre-wrap wrapper so
+           newlines survive. Guard blocks are mutually exclusive. -->
       {#if event.descriptionHTML && event.descriptionHTML !== ''}
         <div>
           <div class="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
@@ -460,6 +463,16 @@
           </div>
           <div class="cal-about-html text-foreground break-words text-sm">
             {@html event.descriptionHTML}
+          </div>
+        </div>
+      {/if}
+      {#if (!event.descriptionHTML || event.descriptionHTML === '') && event.description}
+        <div>
+          <div class="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+            {$_('calendar.detail.aboutLabel')}
+          </div>
+          <div class="text-foreground break-words text-sm whitespace-pre-wrap">
+            <Linkified text={event.description} />
           </div>
         </div>
       {/if}
