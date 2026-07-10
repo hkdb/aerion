@@ -1,4 +1,17 @@
 {
+  "spellcheck": {
+    "title": "Kiểm tra chính tả",
+    "enable": "Kiểm tra chính tả",
+    "enableHelp": "Gạch dưới các từ viết sai chính tả khi soạn thư.",
+    "languages": "Từ điển",
+    "languagesHelp": "Một từ được chấp nhận nếu nó hợp lệ trong bất kỳ ngôn ngữ nào được bật.",
+    "addToDictionary": "Thêm vào từ điển",
+    "ignore": "Bỏ qua",
+    "noSuggestions": "Không có đề xuất",
+    "addedWords": "Các từ đã thêm",
+    "noAddedWords": "Chưa có từ nào được thêm.",
+    "removeWord": "Xóa từ"
+  },
   "common": {
     "save": "Lưu",
     "cancel": "Hủy",
@@ -316,7 +329,7 @@
     "linkAccountOrSignIn": "Vui lòng liên kết tài khoản hoặc đăng nhập",
     "accountSaved": "Đã lưu cài đặt tài khoản",
     "failedToSaveAccount": "Không thể lưu tài khoản.",
-    "accountEmailExists": "Đã tồn tại tài khoản với địa chỉ email này nên không thể thêm được.",
+    "accountEmailExists": "Tài khoản với địa chỉ email này đã tồn tại.",
     "reauthorized": "{name} đã xác thực lại thành công! Đang đồng bộ...",
     "syncCompleted": "Đã đồng bộ xong {name}",
     "failedToReauthorize": "Xác thực lại tài khoản thất bại.",
