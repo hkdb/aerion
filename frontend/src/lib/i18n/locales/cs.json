@@ -1,4 +1,17 @@
 {
+  "spellcheck": {
+    "title": "Kontrola pravopisu",
+    "enable": "Kontrolovat pravopis",
+    "enableHelp": "Podtrhávat slova s pravopisnými chybami při psaní zprávy.",
+    "languages": "Slovníky",
+    "languagesHelp": "Slovo je považováno za správné, pokud je platné v jakémkoli z povolených jazyků.",
+    "addToDictionary": "Přidat do slovníku",
+    "ignore": "Ignorovat",
+    "noSuggestions": "Žádné návrhy",
+    "addedWords": "Přidaná slova",
+    "noAddedWords": "Zatím nejsou přidána žádná slova.",
+    "removeWord": "Odstranit slovo"
+  },
   "common": {
     "save": "Uložit",
     "cancel": "Zrušit",
