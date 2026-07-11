@@ -1,4 +1,17 @@
 {
+  "spellcheck": {
+    "title": "Vérification orthographique",
+    "enable": "Vérifier l'orthographe",
+    "enableHelp": "Souligner les mots mal orthographiés lors de la rédaction.",
+    "languages": "Dictionnaires",
+    "languagesHelp": "Un mot est accepté s'il est valide dans l'une des langues activées.",
+    "addToDictionary": "Ajouter au dictionnaire",
+    "ignore": "Ignorer",
+    "noSuggestions": "Aucune suggestion",
+    "addedWords": "Mots ajoutés",
+    "noAddedWords": "Aucun mot ajouté pour l'instant.",
+    "removeWord": "Supprimer le mot"
+  },
   "common": {
     "save": "Enregistrer",
     "cancel": "Annuler",
