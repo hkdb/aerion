@@ -1,4 +1,17 @@
 {
+  "spellcheck": {
+    "title": "Rechtschreibprüfung",
+    "enable": "Rechtschreibung prüfen",
+    "enableHelp": "Falsch geschriebene Wörter beim Schreiben unterstreichen.",
+    "languages": "Wörterbücher",
+    "languagesHelp": "Ein Wort wird akzeptiert, wenn es in einer der aktivierten Sprachen gültig ist.",
+    "addToDictionary": "Zum Wörterbuch hinzufügen",
+    "ignore": "Ignorieren",
+    "noSuggestions": "Keine Vorschläge",
+    "addedWords": "Hinzugefügte Wörter",
+    "noAddedWords": "Noch keine Wörter hinzugefügt.",
+    "removeWord": "Wort entfernen"
+  },
   "common": {
     "save": "Speichern",
     "cancel": "Abbrechen",
