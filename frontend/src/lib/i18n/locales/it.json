@@ -1,4 +1,17 @@
 {
+  "spellcheck": {
+    "title": "Correttore ortografico",
+    "enable": "Controlla l'ortografia",
+    "enableHelp": "Sottolinea le parole con errori ortografici mentre scrivi.",
+    "languages": "Dizionari",
+    "languagesHelp": "Una parola è accettata se è valida in una qualsiasi delle lingue abilitate.",
+    "addToDictionary": "Aggiungi al dizionario",
+    "ignore": "Ignora",
+    "noSuggestions": "Nessun suggerimento",
+    "addedWords": "Parole aggiunte",
+    "noAddedWords": "Nessuna parola aggiunta per ora.",
+    "removeWord": "Rimuovi parola"
+  },
   "common": {
     "save": "Salva",
     "cancel": "Annulla",
@@ -316,7 +329,7 @@
     "linkAccountOrSignIn": "Si prega di collegare un account o di accedere",
     "accountSaved": "Impostazioni dell'account salvate",
     "failedToSaveAccount": "Impossibile salvare l'account.",
-    "accountEmailExists": "Esiste già un account con questo indirizzo e-mail e pertanto non può essere aggiunto.",
+    "accountEmailExists": "Esiste già un account con questo indirizzo di posta elettronica e pertanto non è possibile aggiungerlo.",
     "reauthorized": "{name} ri-autorizzato con successo! Sincronizzazione...",
     "syncCompleted": "{name} sincronizzazione completata",
     "failedToReauthorize": "Impossibile ri-autorizzare l'account.",
