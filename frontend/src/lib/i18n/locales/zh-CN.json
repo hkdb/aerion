@@ -1,4 +1,17 @@
 {
+  "spellcheck": {
+    "title": "拼写检查",
+    "enable": "检查拼写",
+    "enableHelp": "撰写时为拼写有误的单词添加下划线。",
+    "languages": "词典",
+    "languagesHelp": "只要单词在任何一种已启用的语言中有效，即视为正确。",
+    "addToDictionary": "添加到词典",
+    "ignore": "忽略",
+    "noSuggestions": "无建议",
+    "addedWords": "已添加的单词",
+    "noAddedWords": "尚未添加任何单词。",
+    "removeWord": "移除单词"
+  },
   "common": {
     "save": "保存",
     "cancel": "取消",

@@ -1,4 +1,17 @@
 {
+  "spellcheck": {
+    "title": "拼字檢查",
+    "enable": "檢查拼字",
+    "enableHelp": "撰寫時為拼字有誤的字詞加上底線。",
+    "languages": "詞典",
+    "languagesHelp": "只要字詞在任何一種已啟用的語言中有效，即視為正確。",
+    "addToDictionary": "新增至詞典",
+    "ignore": "忽略",
+    "noSuggestions": "沒有建議",
+    "addedWords": "已新增的字詞",
+    "noAddedWords": "尚未新增任何字詞。",
+    "removeWord": "移除字詞"
+  },
   "common": {
     "save": "儲存",
     "cancel": "取消",
