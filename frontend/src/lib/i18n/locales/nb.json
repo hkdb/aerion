@@ -319,7 +319,10 @@
     "failedToReauthorize": "Klarte ikke å autorisere konto.",
     "oauthExpired": "{name}: OAuth-sesjon utløpt. Vennligst logg inn på nytt i kontoinstillingene.",
     "failedToDeleteIdentity": "Klarte ikke å slette identitet.",
-    "linkOpened": "Lenke åpnet i nettleser"
+    "linkOpened": "Lenke åpnet i nettleser",
+    "contactSourceForceSynced": "Kontaktkilde synkronisert på nytt fra tjeneren",
+    "contactSourceForceSyncFailed": "Tvunget ny synkronisering mislyktes",
+    "selectOAuthAccount": "Velg en OAuth-konto"
   },
   "settings": {
     "title": "Innstillinger",
@@ -339,7 +342,17 @@
     "composerFormat": "Standard meldingsformat",
     "composerFormatRich": "Rik tekst",
     "composerFormatPlain": "Standardtekst",
-    "composerFormatDescription": "Nye meldinger vil bruke det angitte formatet som standard. Du kan fortsatt veksle mellom dem når du skriver nye meldinger."
+    "composerFormatDescription": "Nye meldinger vil bruke det angitte formatet som standard. Du kan fortsatt veksle mellom dem når du skriver nye meldinger.",
+    "extensions": "Utvidelser",
+    "extensionsCoreHeading": "Kjerneutvidelser",
+    "extensionsCoreDescription": "Innebygde utvidelser du kan aktivere eller deaktivere.",
+    "extensionsEnabled": "Aktivert",
+    "extensionsDisabled": "Deaktivert",
+    "extensionsEnable": "Aktiver",
+    "extensionsDisable": "Deaktiver",
+    "extensionsCapabilities": "Funksjoner",
+    "extensionsVersion": "Versjon",
+    "extensionsNone": "Ingen utvidelser er tilgjengelige i denne versjonen."
   },
   "settingsGeneral": {
     "display": "Visning",
@@ -404,7 +417,9 @@
     "alwaysLoadImagesHelp": "Deaktiverer blokkering av bilder for alle eposter. Eksterne bilder lastes inn automatisk.",
     "alwaysLoadImagesWarningTitle": "Personvern- og sikkerthetsrisiko",
     "alwaysLoadImagesWarningDescription": "Innlasting av eksterne bilder kan la avsendere se IP-adressen din, bekrefte at du har lest en e-post og spore deg. Er du sikker på at du vil deaktivere blokkering av bilder?",
-    "disable": "Deaktiver"
+    "disable": "Deaktiver",
+    "darkComposerBody": "Mørkt skriveinnhold",
+    "darkComposerBodyHelp": "Bruk en mørk bakgrunn for meldingsteksten i skrivevinduet når Aerion er i mørk modus."
   },
   "settingsAccounts": {
     "emailAccounts": "E-postkontoer",
@@ -412,7 +427,8 @@
     "addAccount": "Legg til konto",
     "moveUp": "Flytt opp",
     "moveDown": "Flytt ned",
-    "editAccount": "Redigér konto"
+    "editAccount": "Redigér konto",
+    "deleteAccount": "Slett konto"
   },
   "settingsAbout": {
     "version": "Versjon {version}",
@@ -549,7 +565,35 @@
     "certFingerprint": "Fingeravtrykk:",
     "certExpires": "Utløpsdato:",
     "removeTrustedCert": "Fjern tiltrodd sertifikat",
-    "removeTrustedCertDescription": "Dette sertifikatet vil ikke lenger bli tiltrodd. Fremtidige tilkoblinger til denne tjeneren kan kreve at du aksepterer sertifikatet igjen."
+    "removeTrustedCertDescription": "Dette sertifikatet vil ikke lenger bli tiltrodd. Fremtidige tilkoblinger til denne tjeneren kan kreve at du aksepterer sertifikatet igjen.",
+    "enterPassword": "Skriv inn passord",
+    "customOAuthHelp": "Bruk din egen OAuth-app. Skriv inn utsteder-URL-en til tilbyderen din, så oppdager Aerion endepunktene automatisk.",
+    "customOAuthIssuer": "Utsteder-URL",
+    "customOAuthIssuerHelp": "Grunn-URL-en til tilbyderen din. Aerion leser dens /.well-known/openid-configuration-dokument.",
+    "customOAuthDiscover": "Oppdag",
+    "customOAuthDiscovered": "Endepunkter oppdaget",
+    "customOAuthManual": "Skriv inn endepunkter manuelt",
+    "customOAuthAuthUrl": "Autoriseringsendepunkt",
+    "customOAuthTokenUrl": "Token-endepunkt",
+    "customOAuthUserinfoUrl": "Brukerinfo-endepunkt",
+    "customOAuthClientId": "Client ID",
+    "customOAuthClientSecret": "Client secret",
+    "customOAuthClientSecretPlaceholder": "La stå tom for en offentlig klient (PKCE)",
+    "customOAuthScopes": "Scopes",
+    "customOAuthScopesHelp": "Atskilt med mellomrom. De fleste tjenere trenger offline_access for en oppdateringstoken.",
+    "customOAuthRedirectUri": "Redirect URI",
+    "customOAuthRedirectUriHelp": "Registrer denne i OAuth-appen din med regex/mønstertreff — loopback-porten tildeles dynamisk ved innlogging (RFC 8252).",
+    "usernameRequired": "Brukernavn er påkrevd",
+    "noOutgoingServer": "Ingen utgående tjener",
+    "noOutgoingServerHelp": "Deaktiverer sending for denne kontoen. Adressen vises ikke i Fra-menyen i skrivevinduet. Svar på meldinger mottatt her bruker den valgte identiteten din eller standard sendekonto.",
+    "replyForwardWith": "Svar/videresend med",
+    "replyForwardWithHelp": "Identiteten som forhåndsvelges i skrivevinduet når du svarer på eller videresender meldinger mottatt her.",
+    "replyForwardWithDefault": "Standard sendekonto",
+    "smtpAuthentication": "SMTP-autentisering",
+    "smtpUseSameAsIncoming": "Samme som innkommende tjener",
+    "smtpUsernamePlaceholder": "smtp-bruker@eksempel.com",
+    "smtpPasswordPlaceholder": "SMTP-passord",
+    "smtpCredsNote": "Hvis du angir et annet brukernavn og passord for SMTP, kan du endre det i «SMTP-autentisering»-delen under «Tjener»-fanen."
   },
   "identity": {
     "emailAddresses": "E-postadresser",
@@ -747,7 +791,18 @@
     "update": "Oppdater",
     "linked": "tilkoblet",
     "autoName": "{name} Kontakter",
-    "minutesFallback": "{value} minutter"
+    "minutesFallback": "{value} minutter",
+    "forceSync": "Tving ny synkronisering",
+    "forceSyncConfirmTitle": "Tving ny synkronisering av «{name}»?",
+    "forceSyncConfirmDescription": "Hent alle kontakter fra «{name}» på nytt fra tjeneren. Dette fyller inn felter (telefon, adresse, organisasjon, notater osv.) som kan mangle for kontakter som opprinnelig ble synkronisert under en eldre Aerion-versjon. Kan ta noen minutter for store adressebøker.",
+    "fillUrlAccount": "Fyll inn tjener-URL og velg en OAuth-konto",
+    "authentication": "Autentisering",
+    "authPassword": "Passord",
+    "authOAuth": "OAuth-konto",
+    "oauthAccount": "OAuth-konto",
+    "noCustomAccounts": "Ingen egendefinerte OAuth-kontoer. Legg til en e-postkonto med en egendefinert OAuth-tilbyder først, så kan den ligge til grunn for CardDAV her.",
+    "enableWriteAccess": "Aktiver skrivetilgang til denne kilden",
+    "enableWriteAccessDescription": "Tillat å redigere, opprette og slette kontakter på denne CardDAV-tjeneren. Bruker legitimasjonen ovenfor."
   },
   "certificate": {
     "title": "Stoler ikke på sertifikat",
@@ -896,5 +951,25 @@
       "successToast": "Write access enabled for {name}",
       "failureToast": "Failed to enable write access: {message}"
     }
+  },
+  "spellcheck": {
+    "title": "Stavekontroll",
+    "enable": "Kontroller stavemåte",
+    "enableHelp": "Strek under feilstavede ord mens du skriver.",
+    "languages": "Ordbøker",
+    "languagesHelp": "Et ord godtas hvis det er gyldig i minst ett av de aktiverte språkene.",
+    "addToDictionary": "Legg til i ordboken",
+    "ignore": "Ignorer",
+    "noSuggestions": "Ingen forslag",
+    "addedWords": "Tillagte ord",
+    "noAddedWords": "Ingen ord er lagt til ennå.",
+    "removeWord": "Fjern ord"
+  },
+  "oauthMissing": {
+    "title": "OAuth-legitimasjon mangler",
+    "intro": "Denne versjonen mangler Aerion OAuth-legitimasjon for:",
+    "implication": "Dette betyr at tilbyderne som mangler legitimasjon ikke vil fungere skikkelig. Dette skyldes sannsynligvis at du ikke installerte Aerion fra en offisiell kilde.",
+    "installInstruction": "For å installere Aerion fra en offisiell kilde, se:",
+    "dontShowAgain": "Ikke vis dette igjen"
   }
 }
