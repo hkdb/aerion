@@ -27,9 +27,13 @@ function ignoredFor(view: EditorView): Set<string> {
   return set
 }
 
-// A "word" is a run of letters/marks with internal apostrophes. Digits and
-// short tokens are skipped (identifiers, numbers, single letters).
-const WORD_RE = /[\p{L}][\p{L}\p{M}'’]*/gu
+// A "word" is a run of Latin-script letters/marks with internal apostrophes.
+// Digits and short tokens are skipped (identifiers, numbers, single letters).
+// Restricted to Latin script on purpose: every shipped dictionary is Latin
+// (SPELLCHECK_DICTS in locales.ts = en/cs/de/fr/it/nb), so non-Latin runs
+// (CJK, Cyrillic, Greek, …) can never be validated — leave them unflagged
+// instead of underlining everything. Revisit if a non-Latin dictionary ships.
+const WORD_RE = /[\p{Script=Latin}][\p{Script=Latin}\p{M}'’]*/gu
 
 type WordHit = { word: string; from: number; to: number }
 
