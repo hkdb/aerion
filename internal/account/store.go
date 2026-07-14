@@ -473,6 +473,28 @@ func (s *Store) SetEnabled(id string, enabled bool) error {
 	return nil
 }
 
+// SetOAuthStableID stores the account's stable OAuth identity ("<tid>:<oid>" for
+// Microsoft, "" otherwise), captured from the mail ID token. Incremental consent
+// grants are validated against this immutable identity instead of the mutable
+// email/UPN/primary-SMTP claim (#337/#328). Best-effort: a missing row is a no-op.
+func (s *Store) SetOAuthStableID(id, stableID string) error {
+	_, err := s.db.Exec("UPDATE accounts SET oauth_stable_id = ?, updated_at = ? WHERE id = ?", stableID, time.Now(), id)
+	if err != nil {
+		return fmt.Errorf("failed to update account oauth stable id: %w", err)
+	}
+	return nil
+}
+
+// GetOAuthStableID returns the account's stored stable OAuth identity, or "" if
+// none was captured (Google/legacy accounts).
+func (s *Store) GetOAuthStableID(id string) (string, error) {
+	var stableID string
+	if err := s.db.QueryRow("SELECT oauth_stable_id FROM accounts WHERE id = ?", id).Scan(&stableID); err != nil {
+		return "", fmt.Errorf("failed to get account oauth stable id: %w", err)
+	}
+	return stableID, nil
+}
+
 // Reorder updates the order of accounts
 func (s *Store) Reorder(ids []string) error {
 	tx, err := s.db.Begin()

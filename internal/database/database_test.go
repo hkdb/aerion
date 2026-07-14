@@ -187,7 +187,7 @@ func TestMigrationV32_LocalRecordIDsRewrittenToUUIDs(t *testing.T) {
 	// Drop v37's SMTP-receive-only / SMTP-creds columns + v38's
 	// reply_forward_identity_id on accounts so the re-application's ADD
 	// COLUMNs don't collide.
-	for _, col := range []string{"no_outgoing_server", "smtp_username", "encrypted_smtp_password", "reply_forward_identity_id"} {
+	for _, col := range []string{"no_outgoing_server", "smtp_username", "encrypted_smtp_password", "reply_forward_identity_id", "oauth_stable_id"} {
 		if _, err := db.Exec(`ALTER TABLE accounts DROP COLUMN ` + col); err != nil {
 			t.Fatalf("drop accounts.%s for re-migrate: %v", col, err)
 		}
@@ -338,8 +338,8 @@ func TestMigrationV33_CleansExistingOrphans(t *testing.T) {
 			t.Fatalf("drop oauth_tokens.%s for re-migrate: %v", col, err)
 		}
 	}
-	// Same for v37 + v38's accounts columns.
-	for _, col := range []string{"no_outgoing_server", "smtp_username", "encrypted_smtp_password", "reply_forward_identity_id"} {
+	// Same for v37 + v38 + v40's accounts columns.
+	for _, col := range []string{"no_outgoing_server", "smtp_username", "encrypted_smtp_password", "reply_forward_identity_id", "oauth_stable_id"} {
 		if _, err := db.Exec(`ALTER TABLE accounts DROP COLUMN ` + col); err != nil {
 			t.Fatalf("drop accounts.%s for re-migrate: %v", col, err)
 		}

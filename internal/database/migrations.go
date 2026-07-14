@@ -1301,4 +1301,18 @@ var migrations = []Migration{
 			ALTER TABLE messages ADD COLUMN body_failed INTEGER NOT NULL DEFAULT 0;
 		`,
 	},
+	{
+		Version: 40,
+		SQL: `
+			-- Stable OAuth account identity ("<tid>:<oid>" for Microsoft) captured
+			-- from the mail ID token. Incremental consent (calendar/contacts) is
+			-- validated against this immutable pair instead of the mutable email
+			-- claim — Microsoft returns the mailbox primary SMTP, which differs from
+			-- the sign-in UPN on multi-domain tenants and broke grant validation
+			-- (#337/#328). Empty for Google/legacy accounts, which fall back to the
+			-- email compare (their email claim is stable).
+
+			ALTER TABLE accounts ADD COLUMN oauth_stable_id TEXT NOT NULL DEFAULT '';
+		`,
+	},
 }

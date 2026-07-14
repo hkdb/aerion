@@ -158,7 +158,7 @@
         <GrantCalendarAccessButton
           provider="microsoft"
           accountId={accountId}
-          email={accountName}
+          email={accountEmail}
           idleLabel={$_('calendar.hooks.grantButton')}
           busyLabel={$_('calendar.hooks.granting')}
           onSuccess={() => loadCalendars()}

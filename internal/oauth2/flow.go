@@ -465,31 +465,59 @@ func generateState() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-// extractEmailFromIDToken extracts the email claim from a JWT ID token
-// This is a simple extraction without full JWT verification (we trust the token endpoint)
-func extractEmailFromIDToken(idToken string) (string, error) {
+// decodeIDTokenClaims decodes a JWT ID token's payload into out. No signature
+// verification — we trust the token endpoint we just exchanged with over TLS.
+func decodeIDTokenClaims(idToken string, out interface{}) error {
 	parts := strings.Split(idToken, ".")
 	if len(parts) != 3 {
-		return "", fmt.Errorf("invalid ID token format")
+		return fmt.Errorf("invalid ID token format")
 	}
-
 	// Decode payload (second part)
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
 		// Try standard base64 with padding
 		payload, err = base64.StdEncoding.DecodeString(parts[1] + "==")
 		if err != nil {
-			return "", fmt.Errorf("failed to decode ID token payload: %w", err)
+			return fmt.Errorf("failed to decode ID token payload: %w", err)
 		}
 	}
+	if err := json.Unmarshal(payload, out); err != nil {
+		return fmt.Errorf("failed to parse ID token claims: %w", err)
+	}
+	return nil
+}
 
+// extractEmailFromIDToken extracts the email claim from a JWT ID token.
+func extractEmailFromIDToken(idToken string) (string, error) {
 	var claims struct {
 		Email string `json:"email"`
 	}
-
-	if err := json.Unmarshal(payload, &claims); err != nil {
-		return "", fmt.Errorf("failed to parse ID token claims: %w", err)
+	if err := decodeIDTokenClaims(idToken, &claims); err != nil {
+		return "", err
 	}
-
 	return claims.Email, nil
+}
+
+// ExtractStableSubjectFromIDToken returns a stable, immutable account identity
+// from the ID token for incremental-consent validation. Microsoft ID tokens
+// carry `oid` (object ID) + `tid` (tenant ID) which — unlike email/UPN/primary
+// SMTP — never change and are identical across the mail and calendar/contacts
+// OAuth clients of the same account. Returns "<tid>:<oid>" when both are present,
+// otherwise "" (Google and others fall back to the email compare, whose email
+// claim is stable). Never fails: an empty/unparseable token yields "".
+func ExtractStableSubjectFromIDToken(idToken string) string {
+	if idToken == "" {
+		return ""
+	}
+	var claims struct {
+		OID string `json:"oid"`
+		TID string `json:"tid"`
+	}
+	if err := decodeIDTokenClaims(idToken, &claims); err != nil {
+		return ""
+	}
+	if claims.OID == "" || claims.TID == "" {
+		return ""
+	}
+	return claims.TID + ":" + claims.OID
 }

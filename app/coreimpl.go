@@ -318,7 +318,20 @@ func (a *extensionAuth) StartIncrementalConsent(req coreapi.StartIncrementalCons
 		return fmt.Errorf("incremental consent: no tokens returned")
 	}
 
-	if req.ExpectedEmail != "" && email != "" && !strings.EqualFold(email, req.ExpectedEmail) {
+	// Validate the grant came from the same account. Prefer the stable oid+tid
+	// identity — Microsoft's email/UPN/primary-SMTP are mutable and can differ
+	// across mail vs. the returned grant (#337/#328). Fall back to the email
+	// compare for Google / source-keyed / legacy accounts, where email is stable.
+	grantedStableID := oauth2.ExtractStableSubjectFromIDToken(tokens.IDToken)
+	expectedStableID := ""
+	if req.AccountID != "" {
+		expectedStableID, _ = a.app.accountStore.GetOAuthStableID(req.AccountID)
+	}
+	haveStablePair := expectedStableID != "" && grantedStableID != ""
+	if haveStablePair && expectedStableID != grantedStableID {
+		return fmt.Errorf("incremental consent: granted account does not match the expected account")
+	}
+	if !haveStablePair && req.ExpectedEmail != "" && email != "" && !strings.EqualFold(email, req.ExpectedEmail) {
 		return fmt.Errorf("incremental consent: granted account %q does not match expected account %q", email, req.ExpectedEmail)
 	}
 

@@ -291,6 +291,7 @@
           <li>Added Spellcheck - #277 - (Unfortunately increases the binary siz)</li>
           <li>Improved unread count and IDLE sync - #327</li>
           <li>True fix for duplicate e-mail add error - #318</li>
+          <li>Fixed calendar auth on add - #337</li>
         </ul>
       </description>
     </release>

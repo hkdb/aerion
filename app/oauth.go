@@ -108,6 +108,25 @@ func (a *App) StartOAuthFlow(provider string) error {
 // CompleteOAuthAccountSetup completes account setup after successful OAuth flow.
 // This should be called by the frontend after receiving oauth:success event.
 // It creates the account and saves the OAuth tokens from the completed flow.
+// persistOAuthStableID captures the stable account identity (Microsoft oid+tid)
+// from a mail OAuth ID token and stores it on the account, so incremental consent
+// (calendar/contacts) validates grants against an immutable identity instead of
+// the mutable email claim (#337/#328). Best-effort — logs on failure, no-op for
+// providers without oid+tid (e.g. Google).
+func (a *App) persistOAuthStableID(accountID string, tokens *oauth2.TokenResponse) {
+	if tokens == nil {
+		return
+	}
+	stableID := oauth2.ExtractStableSubjectFromIDToken(tokens.IDToken)
+	if stableID == "" {
+		return
+	}
+	if err := a.accountStore.SetOAuthStableID(accountID, stableID); err != nil {
+		log := logging.WithComponent("app.oauth")
+		log.Warn().Err(err).Str("accountID", accountID).Msg("Failed to persist OAuth stable identity")
+	}
+}
+
 func (a *App) CompleteOAuthAccountSetup(provider, email, accountName, displayName, color string) (*account.Account, error) {
 	log := logging.WithComponent("app.oauth")
 
@@ -215,6 +234,9 @@ func (a *App) CompleteOAuthAccountSetup(provider, email, accountName, displayNam
 	}
 
 	log.Debug().Str("accountID", acc.ID).Msg("OAuth tokens saved successfully")
+
+	// Capture the stable account identity (oid+tid) for incremental-consent validation.
+	a.persistOAuthStableID(acc.ID, a.pendingOAuthTokens)
 
 	// Clear pending tokens
 	a.pendingOAuthTokens = nil
@@ -400,6 +422,9 @@ func (a *App) CompleteCustomOAuthAccountSetup(config account.AccountConfig) (*ac
 		return nil, fmt.Errorf("failed to save custom OAuth provider: %w", err)
 	}
 
+	// Capture the stable account identity (oid+tid) for incremental-consent validation.
+	a.persistOAuthStableID(acc.ID, a.pendingOAuthTokens)
+
 	a.pendingOAuthTokens = nil
 	a.pendingOAuthEmail = ""
 	a.pendingCustomProvider = nil
@@ -462,6 +487,10 @@ func (a *App) SavePendingOAuthTokens(accountID string) error {
 	if err := a.credStore.SetOAuthTokens(accountID, tokens); err != nil {
 		return fmt.Errorf("failed to store OAuth tokens: %w", err)
 	}
+
+	// Re-capture the stable account identity (oid+tid) so accounts added before
+	// this existed self-heal on re-authorize (#337/#328).
+	a.persistOAuthStableID(accountID, a.pendingOAuthTokens)
 
 	// Propagate new tokens to any shared mailboxes linked to this account
 	sharedMailboxes, _ := a.accountStore.ListBySharedMailboxParent(accountID)
