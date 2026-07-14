@@ -8,6 +8,7 @@
 - Improved unread count and IDLE sync - [#327](https://github.com/hkdb/aerion/issues/327)
 - True fix for duplicate e-mail add error - [#318](https://github.com/hkdb/aerion/issues/318)
 - Fixed calendar auth on add - [#337](https://github.com/hkdb/aerion/issues/337)
+- Updated i18n translation
 
 
 **v0.3.1 - 07-08-2026**
