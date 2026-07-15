@@ -74,6 +74,16 @@ func (a *App) SetAccentBarUnread(enabled bool) error {
 	return a.settingsStore.SetAccentBarUnread(enabled)
 }
 
+// GetShowMessageListProfilePics returns whether contact profile pictures are shown in the message list
+func (a *App) GetShowMessageListProfilePics() (bool, error) {
+	return a.settingsStore.GetShowMessageListProfilePics()
+}
+
+// SetShowMessageListProfilePics enables or disables contact profile pictures in the message list
+func (a *App) SetShowMessageListProfilePics(enabled bool) error {
+	return a.settingsStore.SetShowMessageListProfilePics(enabled)
+}
+
 // GetShowMessageListCircles returns whether colored sender circles are shown in the message list
 func (a *App) GetShowMessageListCircles() (bool, error) {
 	return a.settingsStore.GetShowMessageListCircles()

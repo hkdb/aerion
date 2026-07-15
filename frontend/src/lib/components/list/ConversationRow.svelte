@@ -7,8 +7,10 @@
   // @ts-ignore - wailsjs path
   import { Star, Unstar } from '../../../../wailsjs/go/app/App'
   import MessageContextMenu from '$lib/components/common/MessageContextMenu.svelte'
+  import Avatar from '$lib/components/kit/Avatar.svelte'
   import { toasts } from '$lib/stores/toast'
-  import { getAccentBarUnread, getShowMessageListCircles } from '$lib/stores/settings.svelte'
+  import { getAccentBarUnread, getShowMessageListCircles, getShowMessageListProfilePics } from '$lib/stores/settings.svelte'
+  import { contactPhotos } from '$lib/stores/contactPhotos.svelte'
 
   interface Props {
     conversation: message.Conversation
@@ -137,6 +139,10 @@
       large: 'w-5 h-5',
     },
   }
+
+  // Pixel sizes matching densityClasses.avatar (w-8/10/12/14) so the photo
+  // avatar keeps the exact footprint of the colored circle it replaces.
+  const AVATAR_PX = { micro: 32, compact: 40, standard: 48, large: 56 } as const
 
   // Get display name for participants
   function getParticipantNames(): string {
@@ -290,15 +296,27 @@
       </button>
     </div>
 
-    <!-- Sender circle (colored, with initials) -->
+    <!-- Sender avatar: colored circle, or the contact's photo when enabled
+         (falling back to the colored circle when the contact has no photo) -->
     {#if getShowMessageListCircles()}
-      <div
-        class="{densityClasses.avatar[density]} rounded-full flex-shrink-0 flex items-center justify-center font-medium {getAvatarColor(
-          conversation
-        )}"
-      >
-        {getInitials(conversation)}
-      </div>
+      {#if getShowMessageListProfilePics()}
+        {@const avatarPhoto = contactPhotos.get(conversation.participants?.[0]?.email ?? '')}
+        <Avatar
+          email={conversation.participants?.[0]?.email || conversation.threadId}
+          name={conversation.participants?.[0]?.name}
+          size={AVATAR_PX[density]}
+          photoData={avatarPhoto?.data}
+          photoMediaType={avatarPhoto?.mediaType}
+        />
+      {:else}
+        <div
+          class="{densityClasses.avatar[density]} rounded-full flex-shrink-0 flex items-center justify-center font-medium {getAvatarColor(
+            conversation
+          )}"
+        >
+          {getInitials(conversation)}
+        </div>
+      {/if}
     {/if}
 
     <!-- Content -->

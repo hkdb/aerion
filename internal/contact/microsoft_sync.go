@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/hkdb/aerion/internal/logging"
@@ -132,6 +133,9 @@ func (s *MicrosoftContactsSyncer) SyncContactsDelta(accessToken, deltaLink strin
 		}
 	}
 
+	// Download photo bytes per contact (Graph doesn't return them inline).
+	s.enrichPhotos(accessToken, allRecords)
+
 	syncResult := &SyncResult{
 		Records:       allRecords,
 		DeletedIDs:    deletedIDs,
@@ -151,6 +155,32 @@ func (s *MicrosoftContactsSyncer) SyncContactsDelta(accessToken, deltaLink strin
 		Int("deleted_contacts", len(deletedIDs)).
 		Msg("Microsoft contacts incremental sync completed")
 	return syncResult, nil
+}
+
+// enrichPhotos downloads each contact's photo from Graph and stores it inline.
+// Graph never returns contact photos in the delta payload — each one is a
+// separate GET /me/contacts/{id}/photo/$value (binary). Best-effort and
+// sequential: 404 (the common "no photo" case) and any other failure simply
+// leave the record photo-less. On the first full sync this probes every
+// contact; incremental delta syncs only revisit changed contacts.
+func (s *MicrosoftContactsSyncer) enrichPhotos(accessToken string, records []SyncedRecord) {
+	for _, sr := range records {
+		if sr.Record == nil || sr.RemoteID == "" {
+			continue
+		}
+		photoURL := "https://graph.microsoft.com/v1.0/me/contacts/" + url.PathEscape(sr.RemoteID) + "/photo/$value"
+		req, err := http.NewRequest("GET", photoURL, nil)
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		data, mediaType, ok := fetchInlinePhoto(s.httpClient, req, maxInlinePhotoBytes)
+		if !ok {
+			continue
+		}
+		sr.Record.PhotoData = data
+		sr.Record.PhotoMediaType = mediaType
+	}
 }
 
 // msContactToRecord maps a Graph contact into the shared multi-field Record.

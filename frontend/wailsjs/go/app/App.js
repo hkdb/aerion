@@ -430,6 +430,10 @@ export function GetContact(arg1) {
   return window['go']['app']['App']['GetContact'](arg1);
 }
 
+export function GetContactPhotos(arg1) {
+  return window['go']['app']['App']['GetContactPhotos'](arg1);
+}
+
 export function GetContactSource(arg1) {
   return window['go']['app']['App']['GetContactSource'](arg1);
 }
@@ -640,6 +644,10 @@ export function GetSearchCountUnifiedInbox(arg1, arg2) {
 
 export function GetShowMessageListCircles() {
   return window['go']['app']['App']['GetShowMessageListCircles']();
+}
+
+export function GetShowMessageListProfilePics() {
+  return window['go']['app']['App']['GetShowMessageListProfilePics']();
 }
 
 export function GetShowTitleBar() {
@@ -1160,6 +1168,10 @@ export function SetSMIMESignPolicy(arg1, arg2) {
 
 export function SetShowMessageListCircles(arg1) {
   return window['go']['app']['App']['SetShowMessageListCircles'](arg1);
+}
+
+export function SetShowMessageListProfilePics(arg1) {
+  return window['go']['app']['App']['SetShowMessageListProfilePics'](arg1);
 }
 
 export function SetShowTitleBar(arg1) {

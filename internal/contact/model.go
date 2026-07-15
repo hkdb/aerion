@@ -9,7 +9,7 @@ import "time"
 type Contact struct {
 	Email       string    `json:"email"`
 	DisplayName string    `json:"display_name"`
-	Source      string    `json:"source"` // legacy: "aerion", "carddav", "vcard"; new unified mapping: "local"→"aerion", "carddav"→"carddav"
+	Source      string    `json:"source"`         // legacy: "aerion", "carddav", "vcard"; new unified mapping: "local"→"aerion", "carddav"→"carddav"
 	Kind        string    `json:"kind,omitempty"` // "manual" | "collected" — only set on local contacts
 	AvatarURL   string    `json:"avatar_url,omitempty"`
 	SendCount   int       `json:"send_count"`
@@ -45,18 +45,18 @@ type SearchResult struct {
 // Record is the rich, multi-field contact_records row + its sub-table data.
 // Returned by GetRecord/ListRecords, consumed by the Contacts extension.
 type Record struct {
-	ID         string    `json:"id"`
-	Source     string    `json:"source"`              // 'local' | 'carddav'
-	Kind       string    `json:"kind,omitempty"`      // local: 'manual' | 'collected'; empty for carddav
-	SourceRef  string    `json:"source_ref,omitempty"` // carddav: addressbook_id
-	Fn         string    `json:"fn"`                  // display name
-	NGiven     string    `json:"n_given,omitempty"`
-	NFamily    string    `json:"n_family,omitempty"`
-	Org        string    `json:"org,omitempty"`
-	Title      string    `json:"title,omitempty"`
-	Note       string    `json:"note,omitempty"`
-	Bday       string    `json:"bday,omitempty"`
-	Nickname   string    `json:"nickname,omitempty"`
+	ID        string `json:"id"`
+	Source    string `json:"source"`               // 'local' | 'carddav'
+	Kind      string `json:"kind,omitempty"`       // local: 'manual' | 'collected'; empty for carddav
+	SourceRef string `json:"source_ref,omitempty"` // carddav: addressbook_id
+	Fn        string `json:"fn"`                   // display name
+	NGiven    string `json:"n_given,omitempty"`
+	NFamily   string `json:"n_family,omitempty"`
+	Org       string `json:"org,omitempty"`
+	Title     string `json:"title,omitempty"`
+	Note      string `json:"note,omitempty"`
+	Bday      string `json:"bday,omitempty"`
+	Nickname  string `json:"nickname,omitempty"`
 	// Photo fields (Phase 2b.2.b.2). Flat-scalar pattern matching Org/Title/Note.
 	// At most one of {PhotoData + PhotoMediaType} OR PhotoURL is populated:
 	//   - PhotoData (base64) + PhotoMediaType (e.g. "image/jpeg") = inline embed
@@ -67,9 +67,9 @@ type Record struct {
 	PhotoData      string    `json:"photo_data,omitempty"`
 	PhotoMediaType string    `json:"photo_media_type,omitempty"`
 	PhotoURL       string    `json:"photo_url,omitempty"`
-	VCardRaw   string    `json:"-"` // preserved for round-trip; not exposed to JSON consumers
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	VCardRaw       string    `json:"-"` // preserved for round-trip; not exposed to JSON consumers
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 
 	// Sub-table data — populated by GetRecord and (optionally) ListRecords.
 	Emails     []RecordEmail   `json:"emails,omitempty"`
@@ -78,6 +78,17 @@ type Record struct {
 	URLs       []RecordURL     `json:"urls,omitempty"`
 	IMPPs      []RecordIMPP    `json:"impps,omitempty"`
 	Categories []string        `json:"categories,omitempty"`
+}
+
+// ContactPhoto is a minimal inline-photo payload for a single email, used to
+// render message-list avatars. Returned as a slice (not a map) because Wails
+// codegen reliably emits slice-element structs but not map-value structs. Only
+// contacts with an inline photo (PhotoData + PhotoMediaType) appear; URL-ref-only
+// contacts are omitted.
+type ContactPhoto struct {
+	Email     string `json:"email"`
+	Data      string `json:"data"`
+	MediaType string `json:"mediaType"`
 }
 
 // RecordEmail is a single email belonging to a Record. Carries the per-email

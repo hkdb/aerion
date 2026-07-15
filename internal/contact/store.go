@@ -609,6 +609,72 @@ func (s *Store) GetRecordByEmail(email string) (*Record, error) {
 	return s.GetRecord(recordID)
 }
 
+// GetPhotosByEmails returns inline photos for the given emails, one entry per
+// lowercased email that has one. Only emails whose most autocomplete-relevant
+// record has an inline photo (photo_data + photo_media_type) appear; emails with
+// no contact, no photo, or a URL-ref-only photo are omitted. A single query
+// resolves the whole batch — callers must never loop per-email.
+func (s *Store) GetPhotosByEmails(emails []string) ([]ContactPhoto, error) {
+	// Normalize + dedupe.
+	seen := make(map[string]bool, len(emails))
+	norm := make([]string, 0, len(emails))
+	for _, e := range emails {
+		e = strings.ToLower(strings.TrimSpace(e))
+		if e == "" || seen[e] {
+			continue
+		}
+		seen[e] = true
+		norm = append(norm, e)
+	}
+	if len(norm) == 0 {
+		return nil, nil
+	}
+
+	placeholders := make([]string, len(norm))
+	args := make([]any, len(norm))
+	for i, e := range norm {
+		placeholders[i] = "?"
+		args[i] = e
+	}
+
+	// Rank by send_count/last_used like GetRecordByEmail so the chosen photo
+	// matches the record autocomplete would surface for that email.
+	query := fmt.Sprintf(`
+		SELECT ce.email, cr.photo_data, cr.photo_media_type
+		FROM contact_emails ce
+		JOIN contact_records cr ON cr.id = ce.record_id
+		WHERE ce.email IN (%s)
+		  AND cr.photo_data IS NOT NULL AND cr.photo_data != ''
+		  AND cr.photo_media_type IS NOT NULL AND cr.photo_media_type != ''
+		ORDER BY ce.send_count DESC, ce.last_used DESC
+	`, strings.Join(placeholders, ","))
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("get photos by emails: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]ContactPhoto, 0, len(norm))
+	picked := make(map[string]bool, len(norm))
+	for rows.Next() {
+		var email, data, mediaType string
+		if err := rows.Scan(&email, &data, &mediaType); err != nil {
+			return nil, fmt.Errorf("scan photo row: %w", err)
+		}
+		email = strings.ToLower(email)
+		if picked[email] {
+			continue // keep the highest-ranked (first) row per email
+		}
+		picked[email] = true
+		out = append(out, ContactPhoto{Email: email, Data: data, MediaType: mediaType})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate photo rows: %w", err)
+	}
+	return out, nil
+}
+
 // GetRecord returns a single contact record by id, with all sub-table data
 // populated (emails, phones, addresses, urls, impps, categories).
 // Returns (nil, nil) when not found.

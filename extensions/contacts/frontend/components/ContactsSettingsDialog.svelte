@@ -105,6 +105,14 @@
       return
     }
 
+    openWriteAccessPicker(source)
+  }
+
+  // Open the account-picker consent flow for an OAuth (Google/Microsoft)
+  // source. Used both to grant write access initially and to reauthorize a
+  // source whose token grant went stale — re-running Contacts_EnableWriteAccess
+  // refreshes the tokens (writable stays on).
+  function openWriteAccessPicker(source: v1.ContactSource) {
     if (source.type !== 'google' && source.type !== 'microsoft') return
     pickerProvider = source.type
     pickerSourceID = source.id
@@ -179,17 +187,30 @@
                   </div>
                 </div>
                 {#if source.writable}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onclick={() => disableWriteAccess(source)}
-                    disabled={pendingWriteAccess[source.id]}
-                  >
-                    {#if pendingWriteAccess[source.id]}
-                      <Icon icon="mdi:loading" class="w-4 h-4 mr-1 animate-spin" />
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    {#if source.type === 'google' || source.type === 'microsoft'}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onclick={() => openWriteAccessPicker(source)}
+                        disabled={pendingWriteAccess[source.id]}
+                      >
+                        <Icon icon="mdi:refresh" class="w-4 h-4 mr-1" />
+                        {$_('contacts.settings.reauthorizeWriteAccess')}
+                      </Button>
                     {/if}
-                    {$_('contacts.settings.disableWriteAccess')}
-                  </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onclick={() => disableWriteAccess(source)}
+                      disabled={pendingWriteAccess[source.id]}
+                    >
+                      {#if pendingWriteAccess[source.id]}
+                        <Icon icon="mdi:loading" class="w-4 h-4 mr-1 animate-spin" />
+                      {/if}
+                      {$_('contacts.settings.disableWriteAccess')}
+                    </Button>
+                  </div>
                 {:else}
                   <Button
                     size="sm"

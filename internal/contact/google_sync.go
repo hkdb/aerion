@@ -65,7 +65,7 @@ func (s *GoogleContactsSyncer) SyncContactsDelta(accessToken, syncToken string) 
 
 	for {
 		// Build API URL with pagination and sync token
-		apiURL := "https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers,addresses,organizations&pageSize=1000"
+		apiURL := "https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers,addresses,organizations,photos&pageSize=1000"
 		if pageToken != "" {
 			apiURL += "&pageToken=" + pageToken
 		}
@@ -171,6 +171,9 @@ func (s *GoogleContactsSyncer) SyncContactsDelta(accessToken, syncToken string) 
 
 		// Check for more pages
 		if result.NextPageToken == "" {
+			// Download photo bytes for the collected records (best-effort).
+			s.enrichPhotos(allRecords)
+
 			// Store the next sync token for future incremental syncs
 			syncResult := &SyncResult{
 				Records:       allRecords,
@@ -213,7 +216,15 @@ type googleConnection struct {
 	PhoneNumbers   []googlePhone             `json:"phoneNumbers"`
 	Addresses      []googleAddress           `json:"addresses"`
 	Organizations  []googleOrganization      `json:"organizations"`
+	Photos         []googlePhoto             `json:"photos"`
 	Metadata       *googleConnectionMetadata `json:"metadata,omitempty"` // For detecting deleted contacts
+}
+
+// googlePhoto is a People API photo. Default==true marks the auto-generated
+// silhouette avatar, which we skip. URL is a public googleusercontent link.
+type googlePhoto struct {
+	URL     string `json:"url"`
+	Default bool   `json:"default"`
 }
 
 type googlePhone struct {
@@ -233,6 +244,29 @@ type googleAddress struct {
 type googleOrganization struct {
 	Name  string `json:"name"`
 	Title string `json:"title"`
+}
+
+// enrichPhotos downloads the photo bytes for each record that carries a photo
+// URL (set by googleConnToRecord) and stores them inline. Best-effort and
+// sequential: any failure leaves that record photo-less and the avatar falls
+// back to a colored circle. Google photo URLs are public googleusercontent
+// links, so no Authorization header is needed.
+func (s *GoogleContactsSyncer) enrichPhotos(records []SyncedRecord) {
+	for _, sr := range records {
+		if sr.Record == nil || sr.Record.PhotoURL == "" {
+			continue
+		}
+		req, err := http.NewRequest("GET", sr.Record.PhotoURL, nil)
+		if err != nil {
+			continue
+		}
+		data, mediaType, ok := fetchInlinePhoto(s.httpClient, req, maxInlinePhotoBytes)
+		if !ok {
+			continue
+		}
+		sr.Record.PhotoData = data
+		sr.Record.PhotoMediaType = mediaType
+	}
 }
 
 // googleConnToRecord maps a People API connection into the shared multi-field
@@ -273,6 +307,16 @@ func googleConnToRecord(conn googleConnection) *Record {
 			Postcode: a.PostalCode,
 			Country:  a.Country,
 		})
+	}
+	// Record the first real photo URL (skip auto-generated silhouettes). Bytes
+	// are downloaded later in the enrichment pass; the People API default URL is
+	// already ~100px, so no resizing is needed.
+	for _, p := range conn.Photos {
+		if p.Default || p.URL == "" {
+			continue
+		}
+		rec.PhotoURL = p.URL
+		break
 	}
 	if rec.Fn == "" && len(rec.Emails) == 0 && len(rec.Phones) == 0 {
 		return nil

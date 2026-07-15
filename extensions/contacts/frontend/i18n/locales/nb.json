@@ -134,6 +134,7 @@
       "writeAccessRowSubtitleEnabled": "Skrivetilgang aktivert",
       "enableWriteAccess": "Aktiver skrivetilgang",
       "disableWriteAccess": "Deaktiver skrivetilgang",
+      "reauthorizeWriteAccess": "Godkjenn på nytt",
       "writeAccessEnabled": "Skrivetilgang aktivert for {name}",
       "writeAccessDisabled": "Skrivetilgang deaktivert for {name}",
       "writeAccessDisableFailed": "Klarte ikke å deaktivere skrivetilgang",

@@ -233,6 +233,8 @@ export function GetConnectedComposers():Promise<number>;
 
 export function GetContact(arg1:string):Promise<contact.Contact>;
 
+export function GetContactPhotos(arg1:Array<string>):Promise<Array<contact.ContactPhoto>>;
+
 export function GetContactSource(arg1:string):Promise<carddav.Source>;
 
 export function GetContactSourceErrors():Promise<Array<carddav.SourceError>>;
@@ -338,6 +340,8 @@ export function GetSearchCount(arg1:string,arg2:string,arg3:string,arg4:string):
 export function GetSearchCountUnifiedInbox(arg1:string,arg2:string):Promise<number>;
 
 export function GetShowMessageListCircles():Promise<boolean>;
+
+export function GetShowMessageListProfilePics():Promise<boolean>;
 
 export function GetShowTitleBar():Promise<boolean>;
 
@@ -598,6 +602,8 @@ export function SetSMIMEEncryptPolicy(arg1:string,arg2:string):Promise<void>;
 export function SetSMIMESignPolicy(arg1:string,arg2:string):Promise<void>;
 
 export function SetShowMessageListCircles(arg1:boolean):Promise<void>;
+
+export function SetShowMessageListProfilePics(arg1:boolean):Promise<void>;
 
 export function SetShowTitleBar(arg1:boolean):Promise<void>;
 

@@ -134,6 +134,7 @@
       "writeAccessRowSubtitleEnabled": "已啟用寫入權限",
       "enableWriteAccess": "啟用寫入權限",
       "disableWriteAccess": "停用寫入權限",
+      "reauthorizeWriteAccess": "重新授權",
       "writeAccessEnabled": "已為 {name} 啟用寫入權限",
       "writeAccessDisabled": "已為 {name} 停用寫入權限",
       "writeAccessDisableFailed": "停用寫入權限失敗",

@@ -15,32 +15,33 @@ import (
 
 // Known setting keys
 const (
-	KeyReadReceiptResponsePolicy = "read_receipt_response_policy"
-	KeyMarkAsReadDelay           = "mark_as_read_delay"
-	KeyMessageListDensity        = "message_list_density"
-	KeyMessageListSortOrder      = "message_list_sort_order"
-	KeyThemeMode                 = "theme_mode"
-	KeyShowTitleBar              = "show_title_bar"
-	KeyTermsAccepted             = "terms_accepted"
-	KeyRunBackground             = "run_background"
-	KeyStartHidden               = "start_hidden"
-	KeyAutostart                 = "autostart"
-	KeyLanguage                  = "language"
-	KeyComposerMode              = "composer_mode"
-	KeyMailtoMode                = "mailto_mode"
-	KeyComposerFormat            = "composer_format"
-	KeyNativeTitleBar            = "native_titlebar"
-	KeyAlwaysLoadImages          = "always_load_images"
-	KeyDarkMailContent           = "dark_mail_content"
-	KeyDarkComposerBody          = "dark_composer_body"
-	KeyAccentBarUnread           = "accent_bar_unread"
-	KeyShowMessageListCircles    = "show_message_list_circles"
-	KeyShowViewerCircles         = "show_viewer_circles"
-	KeyLastSeenVersion           = "last_seen_version"       // for "What's new in this version" launch dialog
-	KeyOAuthWarningDisabled      = "oauth_warning_disabled"  // user toggled "Don't show again" on the missing-OAuth-creds launch warning
-	KeySpellcheckEnabled         = "spellcheck_enabled"      // composer spellcheck master toggle (defaults on)
-	KeySpellcheckLanguages       = "spellcheck_languages"    // JSON array of enabled dictionary codes, e.g. ["en","de"]
-	KeySpellcheckCustomWords     = "spellcheck_custom_words" // JSON array of user-added dictionary words
+	KeyReadReceiptResponsePolicy  = "read_receipt_response_policy"
+	KeyMarkAsReadDelay            = "mark_as_read_delay"
+	KeyMessageListDensity         = "message_list_density"
+	KeyMessageListSortOrder       = "message_list_sort_order"
+	KeyThemeMode                  = "theme_mode"
+	KeyShowTitleBar               = "show_title_bar"
+	KeyTermsAccepted              = "terms_accepted"
+	KeyRunBackground              = "run_background"
+	KeyStartHidden                = "start_hidden"
+	KeyAutostart                  = "autostart"
+	KeyLanguage                   = "language"
+	KeyComposerMode               = "composer_mode"
+	KeyMailtoMode                 = "mailto_mode"
+	KeyComposerFormat             = "composer_format"
+	KeyNativeTitleBar             = "native_titlebar"
+	KeyAlwaysLoadImages           = "always_load_images"
+	KeyDarkMailContent            = "dark_mail_content"
+	KeyDarkComposerBody           = "dark_composer_body"
+	KeyAccentBarUnread            = "accent_bar_unread"
+	KeyShowMessageListCircles     = "show_message_list_circles"
+	KeyShowMessageListProfilePics = "show_message_list_profile_pics" // render contact photos in the message-list avatar slot (default off)
+	KeyShowViewerCircles          = "show_viewer_circles"
+	KeyLastSeenVersion            = "last_seen_version"       // for "What's new in this version" launch dialog
+	KeyOAuthWarningDisabled       = "oauth_warning_disabled"  // user toggled "Don't show again" on the missing-OAuth-creds launch warning
+	KeySpellcheckEnabled          = "spellcheck_enabled"      // composer spellcheck master toggle (defaults on)
+	KeySpellcheckLanguages        = "spellcheck_languages"    // JSON array of enabled dictionary codes, e.g. ["en","de"]
+	KeySpellcheckCustomWords      = "spellcheck_custom_words" // JSON array of user-added dictionary words
 )
 
 // Extension enable/disable keys. Format: extension_<name>_enabled.
@@ -319,6 +320,26 @@ func (s *Store) SetShowMessageListCircles(enabled bool) error {
 		v = "true"
 	}
 	return s.Set(KeyShowMessageListCircles, v)
+}
+
+// GetShowMessageListProfilePics returns whether contact profile pictures are
+// shown in the message-list avatar slot (in place of the colored circle).
+// Default: false.
+func (s *Store) GetShowMessageListProfilePics() (bool, error) {
+	value, err := s.Get(KeyShowMessageListProfilePics)
+	if err != nil {
+		return false, err
+	}
+	return value == "true", nil
+}
+
+// SetShowMessageListProfilePics enables or disables contact profile pictures in the message list
+func (s *Store) SetShowMessageListProfilePics(enabled bool) error {
+	v := "false"
+	if enabled {
+		v = "true"
+	}
+	return s.Set(KeyShowMessageListProfilePics, v)
 }
 
 // GetShowViewerCircles returns whether colored sender circles

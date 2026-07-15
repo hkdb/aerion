@@ -134,6 +134,7 @@
       "writeAccessRowSubtitleEnabled": "Đã bật quyền ghi",
       "enableWriteAccess": "Bật quyền ghi",
       "disableWriteAccess": "Tắt quyền ghi",
+      "reauthorizeWriteAccess": "Xác thực lại",
       "writeAccessEnabled": "Đã bật quyền ghi cho {name}",
       "writeAccessDisabled": "Đã tắt quyền ghi cho {name}",
       "writeAccessDisableFailed": "Không thể tắt quyền ghi.",

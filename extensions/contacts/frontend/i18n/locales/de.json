@@ -134,6 +134,7 @@
       "writeAccessRowSubtitleEnabled": "Schreibzugriff aktiviert",
       "enableWriteAccess": "Schreibzugriff aktivieren",
       "disableWriteAccess": "Schreibzugriff deaktivieren",
+      "reauthorizeWriteAccess": "Neu autorisieren",
       "writeAccessEnabled": "Schreibzugriff für {name} aktiviert",
       "writeAccessDisabled": "Schreibzugriff für {name} deaktiviert",
       "writeAccessDisableFailed": "Schreibzugriff konnte nicht deaktiviert werden",

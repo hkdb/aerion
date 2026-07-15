@@ -134,6 +134,7 @@
       "writeAccessRowSubtitleEnabled": "已启用写入权限",
       "enableWriteAccess": "启用写入权限",
       "disableWriteAccess": "禁用写入权限",
+      "reauthorizeWriteAccess": "重新授权",
       "writeAccessEnabled": "已为 {name} 启用写入权限",
       "writeAccessDisabled": "已为 {name} 禁用写入权限",
       "writeAccessDisableFailed": "禁用写入权限失败",

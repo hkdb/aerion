@@ -28,6 +28,7 @@
     onLanguageChange: (value: string) => void
     accentBarUnread: boolean
     showMessageListCircles: boolean
+    showMessageListProfilePics: boolean
     showViewerCircles: boolean
     darkMailContent: boolean
     darkComposerBody: boolean
@@ -53,6 +54,7 @@
     onLanguageChange,
     accentBarUnread = $bindable(),
     showMessageListCircles = $bindable(),
+    showMessageListProfilePics = $bindable(),
     showViewerCircles = $bindable(),
     darkMailContent = $bindable(),
     darkComposerBody = $bindable(),
@@ -318,6 +320,22 @@
         <Switch
           id="show-viewer-circles"
           bind:checked={showViewerCircles}
+        />
+      </div>
+    </div>
+
+    <!-- Show contact profile pictures in message list -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <Label for="show-message-list-profile-pics">{$_('settingsGeneral.showMessageListProfilePics')}</Label>
+          <p class="text-xs text-muted-foreground">
+            {$_('settingsGeneral.showMessageListProfilePicsHelp')}
+          </p>
+        </div>
+        <Switch
+          id="show-message-list-profile-pics"
+          bind:checked={showMessageListProfilePics}
         />
       </div>
     </div>

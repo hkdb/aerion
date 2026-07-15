@@ -1652,6 +1652,22 @@ export namespace contact {
 		    return a;
 		}
 	}
+	export class ContactPhoto {
+	    email: string;
+	    data: string;
+	    mediaType: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ContactPhoto(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.email = source["email"];
+	        this.data = source["data"];
+	        this.mediaType = source["mediaType"];
+	    }
+	}
 
 }
 

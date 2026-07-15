@@ -134,6 +134,7 @@
       "writeAccessRowSubtitleEnabled": "Zápis povolen",
       "enableWriteAccess": "Povolit zápis",
       "disableWriteAccess": "Zakázat zápis",
+      "reauthorizeWriteAccess": "Znovu autorizovat",
       "writeAccessEnabled": "Přístup k zápisu povolen pro {name}",
       "writeAccessDisabled": "Přístup k zápisu zakázán pro {name}",
       "writeAccessDisableFailed": "Nepodařilo se zakázat přístup k zápisu",

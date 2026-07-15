@@ -134,6 +134,7 @@
       "writeAccessRowSubtitleEnabled": "Write access enabled",
       "enableWriteAccess": "Enable write access",
       "disableWriteAccess": "Disable write access",
+      "reauthorizeWriteAccess": "Re-authorize",
       "writeAccessEnabled": "Write access enabled for {name}",
       "writeAccessDisabled": "Write access disabled for {name}",
       "writeAccessDisableFailed": "Failed to disable write access",

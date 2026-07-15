@@ -43,14 +43,14 @@ func retryDBOperation(operation func() error, maxRetries int, baseDelay time.Dur
 
 // Syncer handles syncing contacts from CardDAV/Google/Microsoft sources
 type Syncer struct {
-	store            *Store
-	credStore        *credentials.Store
-	getAccountToken  AccessTokenGetter // Gets OAuth token from linked email account
-	getSourceToken   AccessTokenGetter // Gets OAuth token from standalone contact source
-	googleSyncer     *contact.GoogleContactsSyncer
-	microsoftSyncer  *contact.MicrosoftContactsSyncer
-	onSyncComplete   func(sourceID string) // optional: fired after a source syncs successfully
-	log              zerolog.Logger
+	store           *Store
+	credStore       *credentials.Store
+	getAccountToken AccessTokenGetter // Gets OAuth token from linked email account
+	getSourceToken  AccessTokenGetter // Gets OAuth token from standalone contact source
+	googleSyncer    *contact.GoogleContactsSyncer
+	microsoftSyncer *contact.MicrosoftContactsSyncer
+	onSyncComplete  func(sourceID string) // optional: fired after a source syncs successfully
+	log             zerolog.Logger
 }
 
 // NewSyncer creates a new contact syncer
@@ -440,16 +440,19 @@ func buildRecordSyncEntries(addressbookID string, parsed []*ParsedRecord) []Reco
 // into the generic contact.Record + sub-tables used by UpsertRecordTx.
 func parsedRecordToContactRecord(pr *ParsedRecord) *contact.Record {
 	rec := &contact.Record{
-		Source:   "carddav",
-		Fn:       pr.FN,
-		NGiven:   pr.NGiven,
-		NFamily:  pr.NFamily,
-		Org:      pr.Org,
-		Title:    pr.Title,
-		Note:     pr.Note,
-		Bday:     pr.Bday,
-		Nickname: pr.Nickname,
-		VCardRaw: pr.VCardRaw,
+		Source:         "carddav",
+		Fn:             pr.FN,
+		NGiven:         pr.NGiven,
+		NFamily:        pr.NFamily,
+		Org:            pr.Org,
+		Title:          pr.Title,
+		Note:           pr.Note,
+		Bday:           pr.Bday,
+		Nickname:       pr.Nickname,
+		PhotoData:      pr.PhotoData,
+		PhotoMediaType: pr.PhotoMediaType,
+		PhotoURL:       pr.PhotoURL,
+		VCardRaw:       pr.VCardRaw,
 	}
 	for _, e := range pr.Emails {
 		rec.Emails = append(rec.Emails, contact.RecordEmail{

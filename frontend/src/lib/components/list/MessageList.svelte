@@ -14,7 +14,8 @@
   import { message } from '../../../../wailsjs/go/models'
   // @ts-ignore - wailsjs runtime
   import { EventsOn, EventsOff } from '../../../../wailsjs/runtime/runtime'
-  import { getMessageListDensity, getMessageListSortOrder, setMessageListSortOrder } from '$lib/stores/settings.svelte'
+  import { getMessageListDensity, getMessageListSortOrder, setMessageListSortOrder, getShowMessageListProfilePics } from '$lib/stores/settings.svelte'
+  import { contactPhotos } from '$lib/stores/contactPhotos.svelte'
   import { accountStore } from '$lib/stores/accounts.svelte'
   import { getLayoutMode, hideViewer } from '$lib/stores/layout.svelte'
   import { isDialogGuardActive } from '$lib/stores/dialogGuard'
@@ -732,6 +733,25 @@
       ? (serverSearchMode ? serverSearchTotalCount : searchTotalCount)
       : totalCount
   )
+
+  // Opt-in contact photos: batch-prefetch the visible rows' avatar emails in one
+  // Wails call (never per-row). Debounced (~150ms, cancelled via effect cleanup)
+  // so fast folder switching only fetches the folder you land on. participants[0]
+  // is already folder-aware (recipient in Sent/Drafts, sender elsewhere), and the
+  // cache serves repeat contacts / return visits instantly. Feature off ⇒ no calls.
+  $effect(() => {
+    if (!getShowMessageListProfilePics()) return
+    const list = activeList
+    const t = setTimeout(() => {
+      const emails: string[] = []
+      for (const c of list) {
+        const email = c?.participants?.[0]?.email
+        if (email) emails.push(email)
+      }
+      void contactPhotos.ensure(emails)
+    }, 150)
+    return () => clearTimeout(t)
+  })
 
   function toggleSetEntry(set: Set<string>, key: string) {
     if (set.has(key)) {

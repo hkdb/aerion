@@ -83,3 +83,14 @@ func (a *App) DeleteContact(id string) error {
 func (a *App) ListContacts(limit int) ([]*contact.Contact, error) {
 	return a.contactStore.List(limit)
 }
+
+// GetContactPhotos returns inline contact photos for the given emails, keyed by
+// lowercased email. Used by the message list to render contact profile pictures
+// in the avatar slot (opt-in setting). Resolves the whole batch in one query —
+// the frontend batches per list load rather than calling per row.
+func (a *App) GetContactPhotos(emails []string) ([]contact.ContactPhoto, error) {
+	if len(emails) == 0 {
+		return []contact.ContactPhoto{}, nil
+	}
+	return a.contactStore.GetPhotosByEmails(emails)
+}

@@ -257,7 +257,7 @@
   >
     {#snippet row(c: v1.Contact, { selected })}
       <ListRow {selected} onclick={() => activateContact(c.id)}>
-        <Avatar email={primaryEmail(c)} name={c.name} density="standard" />
+        <Avatar email={primaryEmail(c)} name={c.name} density="standard" photoData={c.photoData} photoMediaType={c.photoMediaType} />
         <span class="flex flex-col min-w-0 flex-1">
           <span class="font-medium truncate text-foreground">{c.name || primaryEmail(c) || $_('contacts.common.unnamed')}</span>
           {#if primaryEmail(c) && primaryEmail(c) !== c.name}
