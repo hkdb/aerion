@@ -55,6 +55,7 @@
         <ul class="list-disc pl-6 space-y-1">
           <li>✏️ Spellcheck functionality in the composer has been added</li>
           <li>📩 Improved sync and pushed changes (IDLE)</li>
+          <li>📑 Improved profile pic support - Requires force re-sync of contacts</li>
           <li>🐛 Bug fixes and improvements</li>
         </ul>
 

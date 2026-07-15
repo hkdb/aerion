@@ -288,14 +288,14 @@
     <release version="0.3.2" date="2026-07-22">
       <description>
         <ul>
-          <li>Added Spellcheck - #277 - (Unfortunately increases the binary siz)</li>
-          <li>Improved profile pic support - #183</li>
+          <li>Added Spellcheck - #277</li>
+          <li>Improved profile pic support - #183 - Requires force resync of contacts</li>
           <li>Added re-auth button to contact write</li>
           <li>Improved unread count and IDLE sync - #327</li>
           <li>True fix for duplicate e-mail add error - #318</li>
           <li>Fixed calendar auth on add - #337</li>
           <li>Added guard against wails bridge saturation dervied from calendar rapid view switch</li>
-          <li>Fixed CarDAV sync profile pic bug</li>
+          <li>Fixed CarDAV sync profile pic bug - May require force resync of contacts</li>
           <li>Updated i18n translation</li>
         </ul>
       </description>

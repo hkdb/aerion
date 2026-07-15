@@ -4,14 +4,14 @@
 **v0.3.2 - 07-22-2026**
 ---
 
-- Added Spellcheck - [#277](https://github.com/hkdb/aerion/issues/277) - (Unfortunately increases the binary size)
-- Improved profile pic support - [#183](https://github.com/hkdb/issues/183)
+- Added Spellcheck - [#277](https://github.com/hkdb/aerion/issues/277) 
+- Improved profile pic support - [#183](https://github.com/hkdb/issues/183) - Requires force resync of contacts
 - Added re-auth button to contact write
 - Improved unread count and IDLE sync - [#327](https://github.com/hkdb/aerion/issues/327)
 - True fix for duplicate e-mail add error - [#318](https://github.com/hkdb/aerion/issues/318)
 - Fixed calendar auth on add - [#337](https://github.com/hkdb/aerion/issues/337)
 - Added guard against wails bridge saturation dervied from calendar rapid view switch
-- Fixed CarDAV sync profile pic bug
+- Fixed CarDAV sync profile pic bug - May require a force resync of contacts
 - Updated i18n translation
 
 
