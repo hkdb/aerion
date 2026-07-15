@@ -83,12 +83,17 @@
   }
 
   // Auto-refetch events whenever the visible calendar set OR the visible
-  // window changes. Uses fetchRange's lastFetchKey dedup so rapid state
-  // changes during navigation don't pile up redundant Wails calls.
+  // window changes. Debounced (~120ms, cancelled via the effect cleanup) so
+  // rapid prev/next paging coalesces into one Wails call instead of flooding
+  // the bridge with a per-click fetch. fetchRange's lastFetchKey stays as the
+  // in-flight safety net for the settled call.
   $effect(() => {
     const ids = calendarSources.visibleCalendarIDs
     const range = calendarView.visibleRange
-    void events.fetchRange(ids, range.fromUnix, range.toUnix)
+    const t = setTimeout(() => {
+      void events.fetchRange(ids, range.fromUnix, range.toUnix)
+    }, 120)
+    return () => clearTimeout(t)
   })
 
   // Keyboard shortcuts registered via the extension-shortcut registry. The

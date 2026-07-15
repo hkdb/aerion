@@ -292,6 +292,7 @@
           <li>Improved unread count and IDLE sync - #327</li>
           <li>True fix for duplicate e-mail add error - #318</li>
           <li>Fixed calendar auth on add - #337</li>
+          <li>Added guard against wails bridge saturation dervied from calendar rapid view switch</li>
           <li>Updated i18n translation</li>
         </ul>
       </description>
