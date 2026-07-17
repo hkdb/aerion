@@ -12,6 +12,7 @@
 - Fixed calendar auth on add - [#337](https://github.com/hkdb/aerion/issues/337)
 - Added guard against wails bridge saturation dervied from calendar rapid view switch
 - Fixed CarDAV sync profile pic bug - May require a force resync of contacts
+- Fixed toast cutoff in mobile - [#339](https://github.com/hkdb/aerion/issues/339)
 - Updated i18n translation
 
 
