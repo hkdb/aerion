@@ -14,6 +14,8 @@ import (
 )
 
 const (
+	linuxDesktopEntry = "io.github.hkdb.Aerion"
+
 	// Portal backend (preferred when .desktop file is installed)
 	dbusPortalDest      = "org.freedesktop.portal.Desktop"
 	dbusPortalPath      = "/org/freedesktop/portal/desktop"
@@ -31,6 +33,14 @@ const (
 	backendPortal notificationBackend = iota
 	backendDirect
 )
+
+// portalIcon is the D-Bus (sv) representation of a serialized GIcon expected
+// by the notification portal. The value for a themed icon is an array of icon
+// names, wrapped in a variant.
+type portalIcon struct {
+	Kind  string
+	Value dbus.Variant
+}
 
 type linuxNotifier struct {
 	appName       string
@@ -207,13 +217,7 @@ func (n *linuxNotifier) showPortal(notif Notification) (uint32, error) {
 	// Generate unique string ID for this notification
 	id := n.generateNotificationID()
 
-	// Build notification as vardict (map[string]dbus.Variant)
-	notification := map[string]dbus.Variant{
-		"title":          dbus.MakeVariant(notif.Title),
-		"body":           dbus.MakeVariant(notif.Body),
-		"priority":       dbus.MakeVariant("normal"),
-		"default-action": dbus.MakeVariant("default"),
-	}
+	notification := portalNotificationPayload(notif)
 
 	// Call AddNotification method with ID and notification vardict
 	call := obj.Call(
@@ -242,17 +246,31 @@ func (n *linuxNotifier) showPortal(notif Notification) (uint32, error) {
 	return numericID, nil
 }
 
+func portalNotificationPayload(notif Notification) map[string]dbus.Variant {
+	icon := notif.Icon
+	if icon == "" {
+		icon = linuxDesktopEntry
+	}
+
+	return map[string]dbus.Variant{
+		"title":    dbus.MakeVariant(notif.Title),
+		"body":     dbus.MakeVariant(notif.Body),
+		"priority": dbus.MakeVariant("normal"),
+		"icon": dbus.MakeVariant(portalIcon{
+			Kind:  "themed",
+			Value: dbus.MakeVariant([]string{icon}),
+		}),
+		"default-action": dbus.MakeVariant("open"),
+	}
+}
+
 func (n *linuxNotifier) showDirect(notif Notification) (uint32, error) {
 	obj := n.conn.Object(dbusNotifyDest, dbusNotifyPath)
 
 	// Actions: "default" is the click action
 	actions := []string{"default", "Open"}
 
-	// Hints for better notification behavior
-	hints := map[string]dbus.Variant{
-		"urgency":  dbus.MakeVariant(byte(1)), // Normal urgency
-		"category": dbus.MakeVariant("email.arrived"),
-	}
+	hints := directNotificationHints()
 
 	// Icon - use mail icon
 	icon := notif.Icon
@@ -290,6 +308,14 @@ func (n *linuxNotifier) showDirect(notif Notification) (uint32, error) {
 
 	n.log.Debug().Uint32("id", id).Str("title", notif.Title).Msg("Notification shown via direct D-Bus")
 	return id, nil
+}
+
+func directNotificationHints() map[string]dbus.Variant {
+	return map[string]dbus.Variant{
+		"urgency":       dbus.MakeVariant(byte(1)), // Normal urgency
+		"category":      dbus.MakeVariant("email.arrived"),
+		"desktop-entry": dbus.MakeVariant(linuxDesktopEntry),
+	}
 }
 
 func (n *linuxNotifier) SetClickHandler(handler ClickHandler) {
@@ -360,8 +386,10 @@ func (n *linuxNotifier) handlePortalAction(id string, action string) {
 		return
 	}
 
-	// Handle "default" action (click on notification or Open button)
-	if action == "default" && handler != nil {
+	// The portal sends "open" when the notification body is clicked. Accept
+	// "default" as well for notifications created by older Aerion versions
+	// that may still be present in the notification history.
+	if (action == "open" || action == "default") && handler != nil {
 		n.log.Info().
 			Str("accountId", data.AccountID).
 			Str("folderId", data.FolderID).
