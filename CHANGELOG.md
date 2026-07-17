@@ -1,10 +1,10 @@
 # CHANGELOG
 
 
-**v0.3.2 - 07-22-2026**
+**v0.3.2 - 07-16-2026**
 ---
 
-- Added Spellcheck - [#277](https://github.com/hkdb/aerion/issues/277) 
+- Added Spellcheck for languages using Latin alphabet - [#277](https://github.com/hkdb/aerion/issues/277) 
 - Improved profile pic support - [#183](https://github.com/hkdb/issues/183) - Requires force resync of contacts
 - Added re-auth button to contact write
 - Improved unread count and IDLE sync - [#327](https://github.com/hkdb/aerion/issues/327)
@@ -12,7 +12,7 @@
 - Fixed calendar auth on add - [#337](https://github.com/hkdb/aerion/issues/337)
 - Added guard against wails bridge saturation dervied from calendar rapid view switch
 - Fixed CarDAV sync profile pic bug - May require a force resync of contacts
-- Fixed toast cutoff in mobile - [#339](https://github.com/hkdb/aerion/issues/339)
+- Fixed toast cutoff in mobile layout - [#339](https://github.com/hkdb/aerion/issues/339)
 - Updated i18n translation
 
 
