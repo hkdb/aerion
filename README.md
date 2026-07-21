@@ -36,6 +36,10 @@ A standalone lightweight e-mail client inspired by [Geary](https://wiki.gnome.or
 ### 🖥 OS Support
 ---
 
+[![Packaging status](https://repology.org/badge/vertical-allrepos/aerion.svg)](https://repology.org/project/aerion/versions)
+
+Pre-built binaries are also available in the [Release Assets](https://github.com/hkdb/aerion/releases).
+
 Although Linux is a first-class citizen here, it also works on:
 
 - MacOS
