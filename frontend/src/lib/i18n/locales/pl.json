@@ -831,7 +831,7 @@
     "defaultPGPKeyUpdated": "Domyślny klucz PGP zaktualizowany",
     "failedToSetDefaultPGPKey": "Nie udało się ustawić domyślnego klucza PGP",
     "failedToUpdatePGPSignPolicy": "Nie udało się zaktualizować polityki podpisywania PGP",
-    "failedToUpdatePGPEncryptPolicy": "Nie udało się zaktualizować polityki szyfrowania PGP",
+    "failedToUpdatePGPEncryptionPolicy": "Nie udało się zaktualizować polityki szyfrowania PGP",
     "recipientPGPKeyImported": "Klucz PGP zaimportowany dla {email}",
     "recipientPGPKeyRemoved": "Klucz PGP odbiorcy usunięty",
     "failedToRemoveRecipientPGPKey": "Nie udało się usunąć klucza PGP odbiorcy",
@@ -1059,6 +1059,18 @@
     "noDomains": "Brak domen na liście dozwolonych. Użyj \"Zawsze ładuj > Dla domeny\" w przeglądarce e-maila, aby dodać domeny.",
     "removeButton": "Usuń z listy dozwolonych",
     "removed": "Usunięto z listy dozwolonych"
+  },
+  "spellcheck": {
+    "title": "Sprawdzanie pisowni",
+    "enable": "Sprawdzaj pisownię",
+    "enableHelp": "Podkreślaj błędnie napisane słowa podczas tworzenia wiadomości.",
+    "languages": "Słowniki",
+    "languagesHelp": "Słowo jest uznawane za poprawne, jeśli występuje w dowolnym z włączonych języków.",
+    "addToDictionary": "Dodaj do słownika",
+    "ignore": "Ignoruj",
+    "noSuggestions": "Brak sugestii",
+    "addedWords": "Dodane słowa",
+    "noAddedWords": "Brak jeszcze dodanych słów.",
+    "removeWord": "Usuń słowo"
   }
 }
-
