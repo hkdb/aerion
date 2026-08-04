@@ -10,6 +10,7 @@
   <summary xml:lang="fr">Client e-mail open-source léger pour Linux</summary>
   <summary xml:lang="it">Leggero client di posta elettronica open-source per Linux</summary>
   <summary xml:lang="nb">Lettvekt e-postklient for Linux med åpen kildekode</summary>
+  <summary xml:lang="pl">Lekki klient poczty e-mail open-source dla Linuksa</summary>
   <summary xml:lang="vi">Ứng dụng email nhẹ mã nguồn mở dành cho Linux</summary>
   <summary xml:lang="zh-CN">一款现代化，轻量级的开源 Linux 电子邮件客户端应用程序</summary>
   <summary xml:lang="zh-HK">一款現代化，輕量級的開源 Linux 電子郵件客戶端應用程式</summary>
@@ -39,6 +40,10 @@
       Aerion er en moderne og lettvekt e-postklient inspirert av Geary, fokusert på
       effektiv ressursbruk og en ren brukeropplevelse.
     </p>
+    <p xml:lang="pl">
+      Aerion to nowoczesny, lekki klient poczty e-mail inspirowany aplikacją Geary, stawiający na
+      niskie zużycie zasobów i przejrzysty interfejs użytkownika.
+    </p>
     <p xml:lang="vi">
       Aerion là ứng dụng email hiện đại và nhẹ, được lấy cảm hứng từ Geary, tập trung vào
       hiệu quả sử dụng tài nguyên và trải nghiệm người dùng gọn gàng.
@@ -59,6 +64,7 @@
     <p xml:lang="fr">Fonctionnalités :</p>
     <p xml:lang="it">Funzionalità:</p>
     <p xml:lang="nb">Funksjoner:</p>
+    <p xml:lang="pl">Funkcje:</p>
     <p xml:lang="vi">Tính năng:</p>
     <p xml:lang="zh-CN">功能特色：</p>
     <p xml:lang="zh-HK">功能特色：</p>
@@ -71,6 +77,7 @@
       <li xml:lang="fr">Plusieurs comptes e-mail avec une boîte de réception unifiée</li>
       <li xml:lang="it">Account multipli con un'unica casella di posta elettronica unificata</li>
       <li xml:lang="nb">Bruk flere e-postkontoer med en felles innboks</li>
+      <li xml:lang="pl">Obsługa wielu kont z połączoną skrzynką odbiorczą</li>
       <li xml:lang="vi">Nhiều tài khoản email với hộp thư đến hợp nhất</li>
       <li xml:lang="zh-CN">多账号支持与统一收件箱</li>
       <li xml:lang="zh-HK">多帳戶支援與統一收件箱</li>
@@ -82,6 +89,7 @@
       <li xml:lang="fr">Prise en charge de Gmail, Outlook et IMAP/SMTP générique</li>
       <li xml:lang="it">Supporta Gmail, Outlook e servizi IMAP/SMTP generici</li>
       <li xml:lang="nb">Støtte for Gmail, Outlook og øvrige tjenester via IMAP/SMTP</li>
+      <li xml:lang="pl">Wsparcie dla Gmaila, Outlooka oraz standardowych protokołów IMAP/SMTP</li>
       <li xml:lang="vi">Hỗ trợ Gmail, Outlook và IMAP/SMTP thông thường</li>
       <li xml:lang="zh-CN">支持 Gmail、Outlook 及通用 IMAP/SMTP</li>
       <li xml:lang="zh-HK">支援 Gmail、Outlook 及通用 IMAP/SMTP</li>
@@ -93,6 +101,7 @@
       <li xml:lang="fr">Affichage des messages par fil de discussion</li>
       <li xml:lang="it">Visualizzazione dei messaggi in discussioni</li>
       <li xml:lang="nb">Vise samtaler som tråder</li>
+      <li xml:lang="pl">Grupowanie wiadomości w wątki konwersacji</li>
       <li xml:lang="vi">Xem email theo chuỗi hội thoại</li>
       <li xml:lang="zh-CN">会话线程视图</li>
       <li xml:lang="zh-HK">對話串檢視</li>
@@ -104,10 +113,11 @@
       <li xml:lang="fr">Éditeur de message WYSIWYG en texte enrichi avec TipTap</li>
       <li xml:lang="it">Editor WYSIWYG con formato Rich Text e supporto TipTap</li>
       <li xml:lang="nb">Enkel WYSIWYG-skriving med rik tekst med TipTap</li>
+      <li xml:lang="pl">Edytor sformatowanego tekstu WYSIWYG oparty na TipTap</li>
       <li xml:lang="vi">Trình soạn thảo trực quan văn bản phong phú với trình chỉnh sửa TipTap</li>
       <li xml:lang="zh-CN">使用 TipTap 编辑器的所见即所得撰写界面</li>
       <li xml:lang="zh-HK">使用 TipTap 編輯器的所見即所得撰寫界面</li>
-      <li xml:lang="zh-TW">使用 TipTap 編輯器的所見即所得撰寫介面</li>
+      <li xml:lang="zh-TW">使用 TipTap 編輯器的所見即所得介面</li>
 
       <li>Contact sync (CardDAV, Google, Microsoft) for auto-completion</li>
       <li xml:lang="cs">Synchronizace kontaktů (CardDAV, Google, Microsoft) pro automatické doplňování</li>
@@ -115,6 +125,7 @@
       <li xml:lang="fr">Synchronisation des contacts (CardDAV, Google, Microsoft) pour l'auto-complétion</li>
       <li xml:lang="it">Sincronizzazione dei contatti (CardDAV, Google, Microsoft) tramite compilazione automatica</li>
       <li xml:lang="nb">Synkronisere kontakter via CardDAV, Google eller Microsoft for automatisk fullføring</li>
+      <li xml:lang="pl">Synchronizacja kontaktów (CardDAV, Google, Microsoft) dla automatycznego uzupełniania</li>
       <li xml:lang="vi">Đồng bộ danh bạ (CardDAV, Google, Microsoft) để tự động gợi ý danh bạ</li>
       <li xml:lang="zh-CN">联系人同步（CardDAV、Google、Microsoft）与自动补全</li>
       <li xml:lang="zh-HK">聯絡人同步（CardDAV、Google、Microsoft）與自動完成</li>
@@ -126,6 +137,7 @@
       <li xml:lang="fr">Mode sombre et thèmes de couleurs multiples</li>
       <li xml:lang="it">Modalità scura e molteplici temi colorati</li>
       <li xml:lang="nb">Mørk modus og flere fargelagte temaer</li>
+      <li xml:lang="pl">Tryb ciemny oraz wybór wielu motywów kolorystycznych</li>
       <li xml:lang="vi">Chế độ tối và nhiều giao diện màu sắc</li>
       <li xml:lang="zh-CN">深色模式与多种颜色主题</li>
       <li xml:lang="zh-HK">深色模式與多種色彩主題</li>
@@ -137,6 +149,7 @@
       <li xml:lang="fr">Navigation au clavier avec raccourcis de style Vim</li>
       <li xml:lang="it">Navigazione rapida tramite tastiera con scorciatoie nello stile Vim</li>
       <li xml:lang="nb">Tastaturvennlig navigasjon med Vim-aktige snarveier</li>
+      <li xml:lang="pl">Wygodna nawigacja klawiaturą ze skrótami w stylu Vima</li>
       <li xml:lang="vi">Điều hướng thân thiện với bàn phím với phím tắt theo phong cách Vim</li>
       <li xml:lang="zh-CN">支持 Vim 风格快捷键的键盘导航</li>
       <li xml:lang="zh-HK">支援 Vim 風格快捷鍵的鍵盤導航</li>
@@ -148,6 +161,7 @@
       <li xml:lang="fr">Fenêtre de rédaction détachable</li>
       <li xml:lang="it">Finestra di scrittura dei messaggi separabile</li>
       <li xml:lang="nb">Avtagbart vindu for skriving</li>
+      <li xml:lang="pl">Osobne, odłączane okno tworzenia wiadomości</li>
       <li xml:lang="vi">Cửa sổ soạn thảo có thể tách rời</li>
       <li xml:lang="zh-CN">可分离的撰写窗口</li>
       <li xml:lang="zh-HK">可分離的撰寫視窗</li>
@@ -159,6 +173,7 @@
       <li xml:lang="fr">Suppression basique des éléments de suivi des e-mails</li>
       <li xml:lang="it">Rimozione basica degli elementi di tracciamento dalle email</li>
       <li xml:lang="nb">Fjerning av enkle sporingselementer fra e-poster</li>
+      <li xml:lang="pl">Podstawowe usuwanie elementów śledzących z wiadomości e-mail</li>
       <li xml:lang="vi">Loại bỏ cơ bản các thành phần theo dõi khỏi email</li>
       <li xml:lang="zh-CN">基本的邮件追踪元素移除</li>
       <li xml:lang="zh-HK">基本的郵件追蹤元素移除</li>
@@ -170,6 +185,7 @@
       <li xml:lang="fr">Prise en charge de PGP et S/MIME</li>
       <li xml:lang="it">Supporto per PGP e S/MIME</li>
       <li xml:lang="nb">Støtte for PGP og S/MIME</li>
+      <li xml:lang="pl">Obsługa szyfrowania PGP i S/MIME</li>
       <li xml:lang="vi">Hỗ trợ PGP và S/MIME</li>
       <li xml:lang="zh-CN">PGP 与 S/MIME 支持</li>
       <li xml:lang="zh-HK">PGP 與 S/MIME 支援</li>
@@ -181,6 +197,7 @@
       <li xml:lang="fr">Extension Contacts (ALPHA)</li>
       <li xml:lang="it">Estensione Contatti (ALPHA)</li>
       <li xml:lang="nb">Kontakter-utvidelse (ALPHA)</li>
+      <li xml:lang="pl">Rozszerzenie Kontakty (ALPHA)</li>
       <li xml:lang="vi">Tiện ích Danh bạ (ALPHA)</li>
       <li xml:lang="zh-CN">联系人扩展（ALPHA）</li>
       <li xml:lang="zh-HK">聯絡人擴充功能（ALPHA）</li>
@@ -192,6 +209,7 @@
       <li xml:lang="fr">Extension Calendrier (ALPHA)</li>
       <li xml:lang="it">Estensione Calendario (ALPHA)</li>
       <li xml:lang="nb">Kalender-utvidelse (ALPHA)</li>
+      <li xml:lang="pl">Rozszerzenie Kalendarz (ALPHA)</li>
       <li xml:lang="vi">Tiện ích Lịch (ALPHA)</li>
       <li xml:lang="zh-CN">日历扩展（ALPHA）</li>
       <li xml:lang="zh-HK">日曆擴充功能（ALPHA）</li>
@@ -203,6 +221,7 @@
       <li xml:lang="fr">Prise en charge d'OAuth personnalisé pour IMAP, SMTP, CardDAV et CalDAV génériques</li>
       <li xml:lang="it">Supporto per OAuth personalizzato per IMAP, SMTP, CardDAV e CalDAV generici</li>
       <li xml:lang="nb">Støtte for tilpasset OAuth for generisk IMAP, SMTP, CardDAV og CalDAV</li>
+      <li xml:lang="pl">Obsługa własnego OAuth dla standardowych IMAP, SMTP, CardDAV i CalDAV</li>
       <li xml:lang="vi">Hỗ trợ OAuth tùy chỉnh cho IMAP, SMTP, CardDAV và CalDAV thông thường</li>
       <li xml:lang="zh-CN">为通用 IMAP、SMTP、CardDAV 和 CalDAV 提供自定义 OAuth 支持</li>
       <li xml:lang="zh-HK">為通用 IMAP、SMTP、CardDAV 和 CalDAV 提供自訂 OAuth 支援</li>
@@ -221,6 +240,7 @@
       <caption xml:lang="fr">Fenêtre principale d'Aerion affichant la boîte de réception</caption>
       <caption xml:lang="it">Finestra principale di Aerion mostrante la casella di posta</caption>
       <caption xml:lang="nb">Aerion-vindu som viser innboks</caption>
+      <caption xml:lang="pl">Główne okno aplikacji Aerion z widokiem skrzynki odbiorczej</caption>
       <caption xml:lang="vi">Cửa sổ chính của Aerion hiển thị hộp thư đến</caption>
       <caption xml:lang="zh-CN">Aerion 主窗口显示收件箱</caption>
       <caption xml:lang="zh-HK">Aerion 主視窗顯示收件箱</caption>
@@ -268,6 +288,11 @@
 
     <keyword xml:lang="nb">e-post</keyword>
     <keyword xml:lang="nb">melding</keyword>
+
+    <keyword xml:lang="pl">email</keyword>
+    <keyword xml:lang="pl">e-mail</keyword>
+    <keyword xml:lang="pl">poczta</keyword>
+    <keyword xml:lang="pl">wiadomości</keyword>
 
     <keyword xml:lang="vi">thư điện tử</keyword>
     <keyword xml:lang="vi">hộp thư</keyword>
@@ -348,6 +373,7 @@
     </release>
     <release version="0.3.0" date="2026-06-23">
       <description>
+        <p>Note: As of 2026-04-26, Aerion is CASA Tier 2 certified and verified by Google so OAuth2 signin is no longer blocked.</p>
         <ul>
           <li>Prepared CardDav infra for extensibility</li>
           <li>Added Extension infrastructure</li>
@@ -475,11 +501,8 @@
     </release>
     <release version="0.1.39" date="2026-04-27">
       <description>
-        
         <p>As of 2026-04-26, Aerion is CASA Tier 2 certified and verified by Google so oAuth2 signin will no longer be blocked.</p>
-
         <p>v0.1.39 is a major milestone that includes some remaining originally planned basic features and a substantial amount of bug fixes/refinements focused on making existing features much more reliable/stable. It will serve as a solid foundation for us to continue the further development of this mail client.</p>
-
         <ul>
           <li>Added image block logic to composer to avoid leaks</li>
           <li>Added folder subscription for auto sync - #83</li>
@@ -514,7 +537,7 @@
           <li>Fixed name and subject preview decoding - #104</li>
           <li>Fixed provider icons consistency - #102</li>
           <li>Added better pgp and s/mime error feedback</li>
-          <li>Added a wider range of PGP keys and S/MIME certs support - #107</li> 
+          <li>Added a wider range of PGP keys and S/MIME certs support - #107</li>
         </ul>
       </description>
     </release>
@@ -638,7 +661,7 @@
           <li>Toast message to provide feedback for successful link clicks</li>
           <li>Cross accounts from field</li>
           <li>Handle external mailto calls</li>
-          <li>Added composer tab in settings</li> 
+          <li>Added composer tab in settings</li>
           <li>Allow setting detached composer as default</li>
           <li>Choose default or detached composer to handle mailto links</li>
           <li>Allow setting plaintext as default</li>
@@ -647,265 +670,8 @@
           <li>Fixed drag and drop inline images and attachments - #41</li>
           <li>Fixed star buttons and states - #42</li>
           <li>Fixed links in threads #48</li>
-          <li>Fixed attachment logic and extraction for non-text parts - needs a force resync to apply</li>
-          <li>Fixed orphaned drafts - #47</li>
-          <li>Fixed flatpak attachment download - #51</li>
-          <li>Consolidated duplicate code between composer and detached composer</li>
-          <li>Close conversation viewer if deleted</li>
-          <li>Don't auto-open next message if in vertical mobile layout - #30</li>
-          <li>Fixed empty from field - #39</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.28" date="2026-02-24">
-      <description>
-        <ul>
-          <li>Slight visual adjustments to the message list checkboxes</li>
-          <li>Always show checkboxes on message list when in vertical mobile layout - #30</li>
-          <li>Added per folder filters for unread, starred, and attachments - #37</li>
-          <li>Refactored MessageList.svelte for better maintainability and performance</li>
-          <li>Resuming Flathub submission</li>
-        </ul>
-        <p>NOTE: A massive amount of features and fixes were in v0.1.25 - v0.1.27 which were not released in Flathub. Check the Release Page (https://github.com/hkdb/aerion/releases) to see these changes.</p>
-      </description>
-    </release>
-    <release version="0.1.27" date="2026-02-23">
-      <description>
-        <ul>
-          <li>Made IMAP folders with sub-folders collapsible</li>
-          <li>Identity aware PGP and S/MIME</li>
-          <li>Improved guard rails for PGP and S/MIME import, sign, encrypt, and decrypt</li>
-          <li>Added multi-language support for missing dynamic message translations</li>
-          <li>Proper flatpak implementation of autostart on login - #33</li>
-          <li>Fixed nested IMAP folders fetching - #34</li>
-          <li>Fixed empty or encrypted body preview in message list</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.26" date="2026-02-22">
-      <description>
-        <ul>
-          <li>Fixed delete silently failing on proton and other generic providers - #31</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.25" date="2026-02-21">
-      <description>
-        <ul>
-          <li>Added run in background - #15</li>
-          <li>Added launch hidden - #15</li>
-          <li>Added launch on startup - #15</li>
-          <li>Added Wake and net detection for Windows and Mac</li>
-          <li>Added Clickable notifications for Windows and Mac</li>
-          <li>Added Empty Trash button for Trash folders - #21</li>
-          <li>Added multi-language support foundation - #10</li>
-          <li>Added 中文(香港), 中文(台灣), 中文(中国)</li>
-          <li>Added IMAP search - #24</li>
-          <li>Added Responsive layout to handle both tiling and mobile - #8</li>
-          <li>Fixed sync race condition when moving message during post move sync</li>
-          <li>Fixed Trash folder detection to include Bin</li>
-          <li>Cleaned up and reorganized sync engine code to be more maintainable</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.24" date="2026-02-18">
-      <description>
-        <ul>
-          <li>GMail app password fix - #22</li>
-          <li>Fixed dialog boxes blurry fonts - #23</li>
-          <li>Added context menu to folder pane - #21</li>
-          <li>Close conversation viewer when a message is marked as unread</li>
-          <li>Added right alt for triggering context menu with keyboard</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.23" date="2026-02-16">
-      <description>
-        <ul>
-          <li>Fixed race condition on marking message read when notification clicked</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.22" date="2026-02-16">
-      <description>
-        <ul>
-          <li>Fixed wake from sleep flow - #17</li>
-          <li>Added proper network state monitoring</li>
-          <li>Improved wake, scheduled syncs, idle, and status logic with net state</li>
-          <li>Added proper logic for offline mode</li>
-          <li>Fixed S/MIME algo - #13</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.21" date="2026-02-14">
-      <description>
-        <ul>
-          <li>Added PGP support - needs more testing</li>
-          <li>Added S/MIME support - needs more testing</li>
-          <li>Fixed composer rapid enter lag issue with 0 margin p instead of br</li>
-          <li>Added auto refresh of draft folder on discard</li>
-          <li>Added logic to prevent uneccessary reloads of loaded conversations if there's no change</li>
-          <li>Fixed draft synced to server indication regression</li>
-          <li>Fixed inserted images and attachments saved in draft folder</li>
-          <li>Max window size fix #4</li>
-          <li>Auto-focus to the To: field on launch of new composer and on forwards</li>
-          <li>Fixed reliability issues with attach file and insert image</li>
-          <li>Fixed deletion while syncing</li>
-          <li>Improved dead connections handling which makes wake from sleep more reliable and should fix #9</li>
-          <li>Fixed delete mail from trash #9</li>
-          <li>Added reply, reply-all, and forward of a specific message</li>
-          <li>Fixed move mail from trash back to inbox</li>
-          <li>Improved Sent Folder detection (Wrong sent folder mapping will break threading)</li>
-          <li>Ctrl+A when focused on message list will select all messages #14</li>
-          <li>Ctrl+A when focused on conversation viewer will select all text of the expanded email in viewport</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.20" date="2026-02-11">
-      <description>
-        <ul>
-          <li>Added resolution change detection</li>
-          <li>Added trusted self-signed cert flow and store</li>
-          <li>Improvied imap login logic</li>
-          <li>Improved image blocking to include CSS loaded images</li>
-          <li>Enabled horizontal scrolling in conversation viewer</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.19" date="2026-02-09">
-      <description>
-        <ul>
-          <li>Fixed terms acceptance visibility</li>
-          <li>Enhanced system theme detection</li>
-          <li>Fixed idle.go/server.go</li>
-          <li>Implemented a workaround for calling dialog through portal</li>
-          <li>Removed redundant desktop-file-edit commands from Flatpak manifest</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.18" date="2026-02-08">
-      <description>
-        <ul>
-          <li>Converted to Flathub build from source</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.17" date="2026-02-07">
-      <description>
-        <ul>
-          <li>Added refresh conversation viewer if new mail arrives in the thread</li>
-          <li>Added auto scroll to the bottom (newest mail) in conversation viewer on long threads</li>
-          <li>GA/Flathub submission fix</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.16" date="2026-02-07">
-      <description>
-        <ul>
-          <li>Removed flatpak perm that's already allowed by default</li>
-          <li>Fixed hash calculation for Flatpak build and Flathub submission</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.15" date="2026-02-06">
-      <description>
-        <ul>
-          <li>Refactored Linux notifications to use org.freedesktop.portal.Desktop</li>
-          <li>Kept DBUS direct notifications if launched with --dbus-notify</li>
-          <li>Added trigger to refocus to Aerion if notification is clicked</li>
-          <li>Added install.sh and uninstall.sh to Linux binary release</li>
-          <li>Distribute binary tarballs with assets instead of just binary for Linux</li>
-          <li>Fixed flatpak app ID</li>
-          <li>Flathub submission fixes</li>
-          <li>New Github Actions worksflow that makes much more sense</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.14" date="2026-02-05">
-      <description>
-        <ul>
-          <li>Finalized flatpak submission</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.13" date="2026-02-04">
-      <description>
-        <ul>
-          <li>Fixed links that don't open in browser (ie. Linkedin, etc)</li>
-          <li>Added show link on hover</li>
-          <li>Added context menu for links so users can choose to copy the link instead of clicking it directly</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.12" date="2026-02-03">
-      <description>
-        <ul>
-          <li>Removed AppImage build</li>
-          <li>Implemented Flatpak build</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.11" date="2026-02-02">
-      <description>
-        <ul>
-          <li>Fixed detached composer theme</li>
-          <li>Fixed message focus on refresh</li>
-          <li>Improved transitions for smoother UX</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.10" date="2026-02-02">
-      <description>
-        <ul>
-          <li>Added multiple color themes</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.1.9" date="2026-01-29">
-      <description>
-        <ul>
-          <li>Added ability to disable window title bar in settings</li>
         </ul>
       </description>
     </release>
   </releases>
-
-  <content_rating type="oars-1.1">
-    <content_attribute id="violence-cartoon">none</content_attribute>
-    <content_attribute id="violence-fantasy">none</content_attribute>
-    <content_attribute id="violence-realistic">none</content_attribute>
-    <content_attribute id="violence-bloodshed">none</content_attribute>
-    <content_attribute id="violence-sexual">none</content_attribute>
-    <content_attribute id="violence-desecration">none</content_attribute>
-    <content_attribute id="violence-slavery">none</content_attribute>
-    <content_attribute id="violence-worship">none</content_attribute>
-    <content_attribute id="drugs-alcohol">none</content_attribute>
-    <content_attribute id="drugs-narcotics">none</content_attribute>
-    <content_attribute id="drugs-tobacco">none</content_attribute>
-    <content_attribute id="sex-nudity">none</content_attribute>
-    <content_attribute id="sex-themes">none</content_attribute>
-    <content_attribute id="sex-homosexuality">none</content_attribute>
-    <content_attribute id="sex-prostitution">none</content_attribute>
-    <content_attribute id="sex-adultery">none</content_attribute>
-    <content_attribute id="sex-appearance">none</content_attribute>
-    <content_attribute id="language-profanity">none</content_attribute>
-    <content_attribute id="language-humor">none</content_attribute>
-    <content_attribute id="language-discrimination">none</content_attribute>
-    <content_attribute id="social-chat">intense</content_attribute>
-    <content_attribute id="social-info">none</content_attribute>
-    <content_attribute id="social-audio">none</content_attribute>
-    <content_attribute id="social-location">none</content_attribute>
-    <content_attribute id="social-contacts">intense</content_attribute>
-    <content_attribute id="money-purchasing">none</content_attribute>
-    <content_attribute id="money-gambling">none</content_attribute>
-  </content_rating>
-
-  <supports>
-    <control>pointing</control>
-    <control>keyboard</control>
-  </supports>
-
-  <requires>
-    <internet>always</internet>
-  </requires>
 </component>
