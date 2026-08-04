@@ -393,6 +393,8 @@
     "darkMailContentHelp": "Použít tmavý filtr na obsah e-mailových zpráv, když je Aerion v tmavém režimu.",
     "darkComposerBody": "Tmavé pozadí editoru",
     "darkComposerBodyHelp": "Použít tmavé pozadí u editoru pro psaní zprávy, když je Aerion v tmavém režimu.",
+    "alwaysShowCheckbox": "Vždy zobrazit zaškrtávací políčko u zprávy",
+    "alwaysShowCheckboxHelp": "Vyhradit v seznamu zpráv stálý sloupec se zaškrtávacím políčkem místo jeho odkrývání při najetí myší nebo přejetí.",
     "selectDensity": "Vybrat hustotu",
     "readReceipts": "Potvrzení o přečtení",
     "readReceiptPolicy": "Když někdo požaduje potvrzení o přečtení",

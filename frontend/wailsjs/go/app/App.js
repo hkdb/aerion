@@ -390,6 +390,10 @@ export function GetAlwaysLoadImages() {
   return window['go']['app']['App']['GetAlwaysLoadImages']();
 }
 
+export function GetAlwaysShowMessageCheckbox() {
+  return window['go']['app']['App']['GetAlwaysShowMessageCheckbox']();
+}
+
 export function GetAppInfo() {
   return window['go']['app']['App']['GetAppInfo']();
 }
@@ -1060,6 +1064,10 @@ export function SetAddressbookEnabled(arg1, arg2) {
 
 export function SetAlwaysLoadImages(arg1) {
   return window['go']['app']['App']['SetAlwaysLoadImages'](arg1);
+}
+
+export function SetAlwaysShowMessageCheckbox(arg1) {
+  return window['go']['app']['App']['SetAlwaysShowMessageCheckbox'](arg1);
 }
 
 export function SetAutostart(arg1) {

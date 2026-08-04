@@ -395,6 +395,8 @@
     "darkMailContentHelp": "Bruk et mørkt filter på innhold i e-postmeldinger når Aerion er i mørk modus.",
     "darkComposerBody": "Mørkt skriveinnhold",
     "darkComposerBodyHelp": "Bruk en mørk bakgrunn for meldingsteksten i skrivevinduet når Aerion er i mørk modus.",
+    "alwaysShowCheckbox": "Vis alltid avkrysningsboksen ved meldingen",
+    "alwaysShowCheckboxHelp": "Reserver en fast kolonne for avkrysningsbokser i meldingslisten i stedet for å vise dem når du holder pekeren over eller sveiper.",
     "selectDensity": "Velg tetthet",
     "readReceipts": "Lesekvitteringer",
     "readReceiptPolicy": "Når noen ber om en lesekvittering",

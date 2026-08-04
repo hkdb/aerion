@@ -29,6 +29,7 @@
     accentBarUnread: boolean
     showMessageListCircles: boolean
     showMessageListProfilePics: boolean
+    alwaysShowMessageCheckbox: boolean
     showViewerCircles: boolean
     darkMailContent: boolean
     darkComposerBody: boolean
@@ -55,6 +56,7 @@
     accentBarUnread = $bindable(),
     showMessageListCircles = $bindable(),
     showMessageListProfilePics = $bindable(),
+    alwaysShowMessageCheckbox = $bindable(),
     showViewerCircles = $bindable(),
     darkMailContent = $bindable(),
     darkComposerBody = $bindable(),
@@ -291,6 +293,23 @@
         </div>
       </div>
     {/if}
+
+    <!-- Always show checkbox next to message — reserve the fixed checkbox
+         column instead of the hover/swipe slide-reveal -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <Label for="always-show-message-checkbox">{$_('settingsGeneral.alwaysShowCheckbox')}</Label>
+          <p class="text-xs text-muted-foreground">
+            {$_('settingsGeneral.alwaysShowCheckboxHelp')}
+          </p>
+        </div>
+        <Switch
+          id="always-show-message-checkbox"
+          bind:checked={alwaysShowMessageCheckbox}
+        />
+      </div>
+    </div>
 
     <!-- Show colored circles in message list -->
     <div class="space-y-2">

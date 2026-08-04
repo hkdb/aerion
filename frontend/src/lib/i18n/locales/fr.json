@@ -393,6 +393,8 @@
     "darkMailContentHelp": "Appliquer un filtre sombre au contenu des messages e-mail lorsque Aerion est en mode sombre.",
     "darkComposerBody": "Corps de l'éditeur sombre",
     "darkComposerBodyHelp": "Utiliser un fond sombre pour le corps du message dans l'éditeur lorsque Aerion est en mode sombre.",
+    "alwaysShowCheckbox": "Toujours afficher la case à cocher à côté du message",
+    "alwaysShowCheckboxHelp": "Réserver une colonne fixe pour les cases à cocher dans la liste des messages au lieu de les révéler au survol ou par balayage.",
     "selectDensity": "Sélectionner la densité",
     "readReceipts": "Accusés de réception",
     "readReceiptPolicy": "Lorsqu'on vous demande un accusé",

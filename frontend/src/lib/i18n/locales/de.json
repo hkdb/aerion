@@ -393,6 +393,8 @@
     "darkMailContentHelp": "Einen Dunkelfilter auf den E-Mail-Inhalt anwenden, wenn Aerion im Dunkelmodus ist.",
     "darkComposerBody": "Dunkler Editor-Hintergrund",
     "darkComposerBodyHelp": "Einen dunklen Hintergrund für den Editor-Bereich verwenden, wenn Aerion im Dunkelmodus ist.",
+    "alwaysShowCheckbox": "Kontrollkästchen neben Nachrichten immer anzeigen",
+    "alwaysShowCheckboxHelp": "Eine feste Spalte für Kontrollkästchen in der Nachrichtenliste reservieren, statt sie erst beim Überfahren oder Wischen einzublenden.",
     "selectDensity": "Dichte auswählen",
     "readReceipts": "Lesebestätigungen",
     "readReceiptPolicy": "Wenn jemand eine Lesebestätigung anfordert",

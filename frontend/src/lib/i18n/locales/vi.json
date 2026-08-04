@@ -393,6 +393,8 @@
     "darkMailContentHelp": "Áp dụng bộ lọc tối cho nội dung thư khi Aerion ở chế độ tối.",
     "darkComposerBody": "Nền tối cho trình soạn thảo",
     "darkComposerBodyHelp": "Dùng nền tối cho nội dung soạn thư khi Aerion ở chế độ tối.",
+    "alwaysShowCheckbox": "Luôn hiện ô chọn cạnh thư",
+    "alwaysShowCheckboxHelp": "Giữ một cột ô chọn cố định trong danh sách thư thay vì chỉ hiện khi di chuột hoặc vuốt.",
     "selectDensity": "Chọn mật độ",
     "readReceipts": "Xác nhận đã đọc",
     "readReceiptPolicy": "Khi ai đó yêu cầu xác nhận đã đọc",

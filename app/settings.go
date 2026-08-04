@@ -84,6 +84,16 @@ func (a *App) SetShowMessageListProfilePics(enabled bool) error {
 	return a.settingsStore.SetShowMessageListProfilePics(enabled)
 }
 
+// GetAlwaysShowMessageCheckbox returns whether the message list reserves a fixed checkbox column
+func (a *App) GetAlwaysShowMessageCheckbox() (bool, error) {
+	return a.settingsStore.GetAlwaysShowMessageCheckbox()
+}
+
+// SetAlwaysShowMessageCheckbox enables or disables the always-reserved checkbox column
+func (a *App) SetAlwaysShowMessageCheckbox(enabled bool) error {
+	return a.settingsStore.SetAlwaysShowMessageCheckbox(enabled)
+}
+
 // GetShowMessageListCircles returns whether colored sender circles are shown in the message list
 func (a *App) GetShowMessageListCircles() (bool, error) {
 	return a.settingsStore.GetShowMessageListCircles()

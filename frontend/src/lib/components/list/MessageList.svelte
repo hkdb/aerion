@@ -1674,6 +1674,7 @@
               onClearSelection={clearSelection}
               onActionComplete={handleActionComplete}
               {onReply}
+              onDelete={(ids) => requestDelete(ids)}
             />
           {/each}
 
@@ -1750,6 +1751,7 @@
             onClearSelection={clearSelection}
             onActionComplete={handleActionComplete}
             {onReply}
+            onDelete={(ids) => requestDelete(ids)}
           />
         {/each}
 
@@ -1816,6 +1818,7 @@
           onClearSelection={clearSelection}
           onActionComplete={handleActionComplete}
           {onReply}
+          onDelete={(ids) => requestDelete(ids)}
         />
       {/each}
 

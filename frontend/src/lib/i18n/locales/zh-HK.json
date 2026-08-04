@@ -393,6 +393,8 @@
     "darkMailContentHelp": "當 Aerion 處於深色模式時，對郵件內容套用深色濾鏡。",
     "darkComposerBody": "編輯器背景深色化",
     "darkComposerBodyHelp": "當 Aerion 處於深色模式時，為編輯器正文使用深色背景。",
+    "alwaysShowCheckbox": "永遠顯示郵件旁的核取方塊",
+    "alwaysShowCheckboxHelp": "在郵件列表中保留固定的核取方塊欄位，而不是在懸停或滑動時才顯示。",
     "selectDensity": "選擇密度",
     "readReceipts": "讀取回條",
     "readReceiptPolicy": "當有人要求讀取回條時",
