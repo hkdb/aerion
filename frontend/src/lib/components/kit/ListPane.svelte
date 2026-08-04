@@ -206,7 +206,7 @@
       onSelect(items[items.length - 1].id)
       return
     }
-    if (KEY.LIST_OPEN(e)) {
+    if (KEY.LIST_OPEN(e) || KEY.LIST_VIEW(e)) {
       const id = selectedId
       if (!id) return
       // No fallback to onSelect — that would couple "highlight changed" with

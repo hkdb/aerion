@@ -300,6 +300,7 @@
           <li>Fixed typo in autostart code - #33</li>
           <li>Updated nb translations - PR #371</li>
           <li>Added g, G, alt+g, alt+G, alt+c, alt+m shortcuts - #351</li>
+          <li>Backfilled v to contact list</li>
         </ul>
       </description>
     </release>

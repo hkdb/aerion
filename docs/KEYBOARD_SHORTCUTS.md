@@ -85,7 +85,7 @@ These shortcuts depend on which pane is focused. They are disabled when typing i
 | `Alt+C` | Toggle "Copy to folder" dialog for the focused message |
 | `Alt(R)` | Brings up context menu for the selected message(s) |
 
-`G` / `Shift+G` also work in extension list panes (e.g., Contacts list, Calendar agenda).
+`G` / `Shift+G` / `V` also work in extension list panes (e.g., Contacts list, Calendar agenda).
 
 ### Conversation Viewer
 

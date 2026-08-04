@@ -56,6 +56,10 @@ export const LIST_TOGGLE_CHECK = (e: KeyboardEvent): boolean =>
 export const LIST_OPEN = (e: KeyboardEvent): boolean =>
   e.key === 'Enter' && noMods(e)
 
+// V — open/view the focused list item (alias of Enter, mail parity)
+export const LIST_VIEW = (e: KeyboardEvent): boolean =>
+  e.key === 'v' && noMods(e)
+
 export const LIST_SELECT_ALL = (e: KeyboardEvent): boolean =>
   e.key.toLowerCase() === 'a' && ctrlOrMeta(e) && !e.shiftKey
 
@@ -103,6 +107,7 @@ export const KEY = {
   LIST_LAST,
   LIST_TOGGLE_CHECK,
   LIST_OPEN,
+  LIST_VIEW,
   LIST_SELECT_ALL,
   LIST_DELETE,
   PANE_FOCUS_NEXT,

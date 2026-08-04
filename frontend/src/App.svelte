@@ -1385,15 +1385,18 @@
       return
     }
 
+    // V — open the keyboard-focused conversation in the viewer (alias of
+    // Enter; shared predicate — kit list panes consume KEY.LIST_VIEW locally)
+    if (KEY.LIST_VIEW(e)) {
+      if (focusedPane === 'messageList') {
+        e.preventDefault()
+        messageListRef?.openSelected()
+      }
+      return
+    }
+
     // Single-key shortcuts
     switch (e.key) {
-      case 'v':
-        // Open the keyboard-focused conversation in the viewer (alias of Enter)
-        if (focusedPane === 'messageList') {
-          e.preventDefault()
-          messageListRef?.openSelected()
-        }
-        return
       case 's':
         if (messageListRef?.hasCheckedMessages()) {
           handleBulkToggleStar(messageListRef.getCheckedMessageIds(), messageListRef.getCheckedHasUnstarred())
