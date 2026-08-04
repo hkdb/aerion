@@ -31,6 +31,8 @@ These shortcuts work anywhere in the application (unless in composer).
 |----------|--------|
 | `Alt+Up` / `Alt+K` | Navigate to previous folder |
 | `Alt+Down` / `Alt+J` | Navigate to next folder |
+| `Alt+G` | Jump to top of sidebar (All Inboxes when present) |
+| `Alt+Shift+G` | Jump to last visible folder (last account header if all trees are collapsed) |
 | `Alt+Enter` | Expand/collapse focused account folder tree |
 | `Alt(L)+Alt(R)` | Brings up context menu for the focused folder |
 
@@ -61,6 +63,7 @@ These shortcuts depend on which pane is focused. They are disabled when typing i
 |----------|--------|
 | `Up` / `K` | Navigate to previous folder |
 | `Down` / `J` | Navigate to next folder |
+| `Alt+G` / `Alt+Shift+G` | Jump to top of sidebar / last visible folder |
 | `Alt + Enter` / `Space` | Expand/collapse account (when account header is focused) |
 | `Alt(L) + Alt(R)` | Brings up context menu for the focused folder |
 
@@ -144,6 +147,8 @@ These only work when the composer is open.
 NAVIGATION
   Alt + Arrow Keys    Pane focus (Left/Right) or Folder nav (Up/Down)
   Alt + H/J/K/L       Vim-style: pane (H/L) or folder (J/K)
+  Alt + G             Jump to top of sidebar (All Inboxes)
+  Alt + Shift + G     Jump to last visible folder
   Alt(L) + Alt(R)     Brings context menu up for the focused folder
   Alt + Enter         Expand/collapse account
   Ctrl + Tab          Switch to next extension on rail

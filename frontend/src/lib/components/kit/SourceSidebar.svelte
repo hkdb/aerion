@@ -74,6 +74,12 @@
     onSelect(allItems[next].id)
   }
 
+  // Jump to first / last item (Alt+G / Alt+Shift+G via paneNav)
+  function jumpTo(index: number) {
+    if (allItems.length === 0) return
+    onSelect(allItems[index].id)
+  }
+
   function handleKeyDown(e: KeyboardEvent) {
     if (KEY.LIST_NEXT(e)) {
       e.preventDefault()
@@ -112,6 +118,8 @@
   onMount(() => registerPaneNav(focusSlot, {
     navigateNext: () => move(1),
     navigatePrev: () => move(-1),
+    navigateFirst: () => jumpTo(0),
+    navigateLast: () => jumpTo(allItems.length - 1),
     activate: () => { if (selectedId) onSelect(selectedId) },
   }))
 

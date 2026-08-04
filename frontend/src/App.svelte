@@ -1189,6 +1189,28 @@
         return
       }
 
+      // Alt+G / Alt+Shift+G — jump to the first sidebar item (All Inboxes
+      // when present) or the last visible one (last account header when all
+      // folder trees are collapsed).
+      if (KEY.SIDEBAR_FIRST(e)) {
+        e.preventDefault()
+        if (isMailActive()) {
+          sidebarRef?.selectFirstFolder()
+          return
+        }
+        getPaneNav('sidebar')?.navigateFirst?.()
+        return
+      }
+      if (KEY.SIDEBAR_LAST(e)) {
+        e.preventDefault()
+        if (isMailActive()) {
+          sidebarRef?.selectLastFolder()
+          return
+        }
+        getPaneNav('sidebar')?.navigateLast?.()
+        return
+      }
+
       // Alt+M / Alt+C — move/copy folder picker for the keyboard-focused
       // message. Open path only: the picker sets the dialog guard, so the
       // close/switch press is handled pre-guard near the top of this handler.

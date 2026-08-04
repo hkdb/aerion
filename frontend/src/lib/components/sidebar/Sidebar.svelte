@@ -423,6 +423,21 @@
     selectFolderByIndex(navList, newIndex)
   }
 
+  // Jump to the top sidebar item — All Inboxes when present (Alt+G)
+  export function selectFirstFolder() {
+    const navList = buildFolderNavList()
+    if (navList.length === 0) return
+    selectFolderByIndex(navList, 0)
+  }
+
+  // Jump to the last visible item: last folder of the last expanded account,
+  // or the last account header when all trees are collapsed (Alt+Shift+G)
+  export function selectLastFolder() {
+    const navList = buildFolderNavList()
+    if (navList.length === 0) return
+    selectFolderByIndex(navList, navList.length - 1)
+  }
+
   // Scroll an item into view
   function scrollItemIntoView(item: FolderNavItem) {
     if (!scrollContainer) return

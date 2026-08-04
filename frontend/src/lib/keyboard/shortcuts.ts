@@ -79,6 +79,13 @@ export const SIDEBAR_NEXT = (e: KeyboardEvent): boolean =>
 export const SIDEBAR_PREV = (e: KeyboardEvent): boolean =>
   altOnly(e) && (e.key === 'k' || e.key === 'ArrowUp')
 
+// Jump to first / last visible sidebar item — Alt+G / Alt+Shift+G
+export const SIDEBAR_FIRST = (e: KeyboardEvent): boolean =>
+  altOnly(e) && e.key === 'g'
+
+export const SIDEBAR_LAST = (e: KeyboardEvent): boolean =>
+  altOnly(e) && e.shiftKey && (e.key === 'G' || e.key === 'g')
+
 // Move/Copy folder-picker dialog for the focused message-list row — Alt+M / Alt+C
 export const LIST_MOVE_TO = (e: KeyboardEvent): boolean =>
   altOnly(e) && e.key === 'm'
@@ -102,6 +109,8 @@ export const KEY = {
   PANE_FOCUS_PREV,
   SIDEBAR_NEXT,
   SIDEBAR_PREV,
+  SIDEBAR_FIRST,
+  SIDEBAR_LAST,
   LIST_MOVE_TO,
   LIST_COPY_TO,
 }
