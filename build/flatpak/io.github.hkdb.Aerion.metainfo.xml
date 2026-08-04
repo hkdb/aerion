@@ -298,6 +298,7 @@
           <li>Improved CalDAV discovery - #363</li>
           <li>Basic CarDAV (Mailfence) support - #366</li>
           <li>Fixed typo in autostart code - #33</li>
+          <li>Updated nb translations - PR #371</li>
         </ul>
       </description>
     </release>

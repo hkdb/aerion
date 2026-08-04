@@ -103,7 +103,7 @@
       "addressCountry": "Land",
       "org": "Organisasjon",
       "titleField": "Tittel",
-      "urls": "Nettadresse",
+      "urls": "Nettadresser",
       "addUrl": "Legg til nettadresse",
       "urlPlaceholder": "https://eksempel.no",
       "removeUrl": "Fjern nettadresse",
