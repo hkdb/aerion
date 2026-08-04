@@ -190,6 +190,22 @@
       move(-1)
       return
     }
+    // g / Shift+G — jump to first / last item. Scroll-into-view rides the
+    // existing selectedId $effect above.
+    if (KEY.LIST_FIRST(e)) {
+      e.preventDefault()
+      e.stopPropagation()
+      if (items.length === 0) return
+      onSelect(items[0].id)
+      return
+    }
+    if (KEY.LIST_LAST(e)) {
+      e.preventDefault()
+      e.stopPropagation()
+      if (items.length === 0) return
+      onSelect(items[items.length - 1].id)
+      return
+    }
     if (KEY.LIST_OPEN(e)) {
       const id = selectedId
       if (!id) return

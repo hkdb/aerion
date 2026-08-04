@@ -865,6 +865,21 @@
     // (bits-ui portals mount [role="menu"] only while open)
     if (document.querySelector('[role="menu"]')) return
 
+    // Alt+M/Alt+C toggle the message list's folder picker. While it's open the
+    // dialog guard below swallows all keys, so close/switch is handled here.
+    if (messageListRef?.isFolderPickerOpen()) {
+      if (KEY.LIST_MOVE_TO(e)) {
+        e.preventDefault()
+        messageListRef.toggleMoveToDialog()
+        return
+      }
+      if (KEY.LIST_COPY_TO(e)) {
+        e.preventDefault()
+        messageListRef.toggleCopyToDialog()
+        return
+      }
+    }
+
     // Don't intercept while a modal dialog has the guard active — keystrokes
     // (especially Ctrl+A) should target dialog inputs, not the background.
     if (isDialogGuardActive()) return
@@ -1174,6 +1189,22 @@
         return
       }
 
+      // Alt+M / Alt+C — move/copy folder picker for the keyboard-focused
+      // message. Open path only: the picker sets the dialog guard, so the
+      // close/switch press is handled pre-guard near the top of this handler.
+      if (KEY.LIST_MOVE_TO(e)) {
+        if (!isMailActive()) return
+        e.preventDefault()
+        messageListRef?.toggleMoveToDialog()
+        return
+      }
+      if (KEY.LIST_COPY_TO(e)) {
+        if (!isMailActive()) return
+        e.preventDefault()
+        messageListRef?.toggleCopyToDialog()
+        return
+      }
+
       // Alt+Enter — mail sidebar expand/collapse. Keep inline switch for
       // single residual case.
       switch (e.key) {
@@ -1313,6 +1344,23 @@
           messageListRef?.toggleCheck()
         }
         return
+    }
+
+    // g / Shift+G — jump to first / last loaded message (shared predicates —
+    // kit list panes consume the same KEY.LIST_FIRST/LIST_LAST locally)
+    if (KEY.LIST_FIRST(e)) {
+      if (!isMailActive()) return
+      if (focusedPane !== 'messageList') return
+      e.preventDefault()
+      messageListRef?.selectFirst()
+      return
+    }
+    if (KEY.LIST_LAST(e)) {
+      if (!isMailActive()) return
+      if (focusedPane !== 'messageList') return
+      e.preventDefault()
+      messageListRef?.selectLast()
+      return
     }
 
     // Single-key shortcuts

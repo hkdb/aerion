@@ -15,6 +15,7 @@
 - Basic CarDAV (Mailfence) support - [#366](https://github.com/hkdb/aerion/issues/366)
 - Fixed typo in autostart code - [#33](https://github.com/hkdb/aerion/issues/33)
 - Updated nb translations - [PR #371](https://github.com/hkdb/aerion/pull/371)
+- Added g, G, alt+c, alt+m shortcuts - [#351](https://github.com/hkdb/aerion/issues/351)
 
 
 **v0.3.2 - 07-16-2026**

@@ -70,13 +70,19 @@ These shortcuts depend on which pane is focused. They are disabled when typing i
 |----------|--------|
 | `Up` / `K` | Select previous conversation |
 | `Down` / `J` | Select next conversation |
+| `G` (lowercase) | Select + scroll to first conversation |
+| `Shift+G` | Select + scroll to last loaded conversation (does not auto-load more) |
 | `Shift+Up` / `Shift+K` | Select previous + toggle checkbox |
 | `Shift+Down` / `Shift+J` | Select next + toggle checkbox |
 | `Space` | Toggle checkbox on current conversation |
 | `Enter` / `V` | Open selected conversation in viewer |
 | `D` | Delete selected/checked message(s) — move to Trash (same as `Delete`) |
 | `CTRL+A` | Select all messages in folder |
+| `Alt+M` | Toggle "Move to folder" dialog for the focused message |
+| `Alt+C` | Toggle "Copy to folder" dialog for the focused message |
 | `Alt(R)` | Brings up context menu for the selected message(s) |
+
+`G` / `Shift+G` also work in extension list panes (e.g., Contacts list, Calendar agenda).
 
 ### Conversation Viewer
 
@@ -167,6 +173,9 @@ MESSAGE ACTIONS
   Ctrl + K            Archive
   Ctrl + J            Spam
   V                   View message
+  G / Shift + G       Jump to first / last loaded message
+  Alt + M             Move to folder
+  Alt + C             Copy to folder
   Delete / D          Trash
   Shift + Delete      Permanent delete
   Alt(R)              Context Menu

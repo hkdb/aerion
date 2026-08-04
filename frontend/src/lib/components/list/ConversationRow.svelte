@@ -69,6 +69,17 @@
   // Check if we're in search mode (have highlighted content)
   const isSearchResult = $derived(!!highlightedSubject || !!highlightedSnippet)
 
+  // Forward keyboard access (Alt+M / Alt+C) to this row's context-menu folder picker
+  let contextMenuRef: MessageContextMenu | null = null
+
+  export function isFolderPickerOpen(): boolean {
+    return contextMenuRef?.isFolderPickerOpen() ?? false
+  }
+
+  export function toggleFolderPicker(mode: 'move' | 'copy') {
+    contextMenuRef?.toggleFolderPicker(mode)
+  }
+
   // Density-based class mappings
   // micro = smallest (power users), compact = small, standard = default, large = accessibility
   const densityClasses = {
@@ -256,6 +267,7 @@
 </script>
 
 <MessageContextMenu
+  bind:this={contextMenuRef}
   messageIds={contextMenuMessageIds}
   {accountId}
   currentFolderId={folderId}

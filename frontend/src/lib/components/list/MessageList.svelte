@@ -1078,6 +1078,26 @@
     }
   }
 
+  // Select + scroll to the first message (g)
+  export function selectFirst() {
+    if (activeList.length === 0) return
+    selectedThreadId = activeList[0].threadId
+    scrollToIndex(0)
+    // Blur any focused element so Enter key triggers openSelected() instead of the button
+    ;(document.activeElement as HTMLElement)?.blur?.()
+  }
+
+  // Select + scroll to the last LOADED message (G) — does not paginate,
+  // consistent with j/k stopping at the loaded window
+  export function selectLast() {
+    if (activeList.length === 0) return
+    const last = activeList.length - 1
+    selectedThreadId = activeList[last].threadId
+    scrollToIndex(last)
+    // Blur any focused element so Enter key triggers openSelected() instead of the button
+    ;(document.activeElement as HTMLElement)?.blur?.()
+  }
+
   // Open the currently selected conversation (exposed for keyboard navigation)
   export function openSelected() {
     if (!selectedThreadId) return
@@ -1259,6 +1279,27 @@
       clientX: rect.right,
       clientY: rect.top + rect.height / 2,
     }))
+  }
+
+  // Row component refs keyed by threadId — lets keyboard shortcuts reach the
+  // focused row's context-menu folder picker (Alt+M / Alt+C)
+  let rowRefs: Record<string, ConversationRow | null> = {}
+
+  function getFocusedRowRef(): ConversationRow | null {
+    if (!selectedThreadId) return null
+    return rowRefs[selectedThreadId] ?? null
+  }
+
+  export function isFolderPickerOpen(): boolean {
+    return getFocusedRowRef()?.isFolderPickerOpen() ?? false
+  }
+
+  export function toggleMoveToDialog() {
+    getFocusedRowRef()?.toggleFolderPicker('move')
+  }
+
+  export function toggleCopyToDialog() {
+    getFocusedRowRef()?.toggleFolderPicker('copy')
   }
 
   // Permanent delete confirmation state
@@ -1616,6 +1657,7 @@
             {@const resultAccountId = result.accountId || accountId}
             {@const resultFolderId = result.folderId || folderId}
             <ConversationRow
+              bind:this={rowRefs[result.threadId]}
               conversation={result}
               density={getMessageListDensity()}
               selected={selectedThreadId === result.threadId}
@@ -1684,6 +1726,7 @@
           {@const resultAccountColor = result.accountColor || ''}
           {@const resultAccountName = result.accountName || ''}
           <ConversationRow
+            bind:this={rowRefs[result.threadId]}
             conversation={result}
             density={getMessageListDensity()}
             selected={selectedThreadId === result.threadId}
@@ -1754,6 +1797,7 @@
         {@const convAccountColor = (conv as any).accountColor || ''}
         {@const convAccountName = (conv as any).accountName || ''}
         <ConversationRow
+          bind:this={rowRefs[conv.threadId]}
           conversation={conv}
           density={getMessageListDensity()}
           selected={selectedThreadId === conv.threadId}

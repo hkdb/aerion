@@ -43,6 +43,13 @@ export const LIST_PREV_CHECK = (e: KeyboardEvent): boolean =>
   e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey &&
   (e.key === 'K' || e.key === 'k' || e.key === 'ArrowUp')
 
+// Jump to first / last item in a list — g / Shift+G (vim-style)
+export const LIST_FIRST = (e: KeyboardEvent): boolean =>
+  e.key === 'g' && noMods(e)
+
+export const LIST_LAST = (e: KeyboardEvent): boolean =>
+  e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'G' || e.key === 'g')
+
 export const LIST_TOGGLE_CHECK = (e: KeyboardEvent): boolean =>
   e.key === ' ' && noMods(e)
 
@@ -72,12 +79,21 @@ export const SIDEBAR_NEXT = (e: KeyboardEvent): boolean =>
 export const SIDEBAR_PREV = (e: KeyboardEvent): boolean =>
   altOnly(e) && (e.key === 'k' || e.key === 'ArrowUp')
 
+// Move/Copy folder-picker dialog for the focused message-list row — Alt+M / Alt+C
+export const LIST_MOVE_TO = (e: KeyboardEvent): boolean =>
+  altOnly(e) && e.key === 'm'
+
+export const LIST_COPY_TO = (e: KeyboardEvent): boolean =>
+  altOnly(e) && e.key === 'c'
+
 // Convenience: namespace export for predicates that the kit imports as a group.
 export const KEY = {
   LIST_NEXT,
   LIST_PREV,
   LIST_NEXT_CHECK,
   LIST_PREV_CHECK,
+  LIST_FIRST,
+  LIST_LAST,
   LIST_TOGGLE_CHECK,
   LIST_OPEN,
   LIST_SELECT_ALL,
@@ -86,6 +102,8 @@ export const KEY = {
   PANE_FOCUS_PREV,
   SIDEBAR_NEXT,
   SIDEBAR_PREV,
+  LIST_MOVE_TO,
+  LIST_COPY_TO,
 }
 
 // matchesAny is a small helper for cases where several predicates should be
