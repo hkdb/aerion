@@ -56,6 +56,7 @@
           <li>⚗️ The message list has been redesigned to have messages cover the checkboxes on the left and will shift to the right to show the checkboxes on mouseover individually. This can be turned off by toggling, "Always show checkbox next to message" to revert to the original design.</li>
           <li>🐁 Added left and right swipe gestures. Swipe right to select and swipe left to delete.</li>
           <li>✏️ Added manual config of auth mechanism</li>
+          <li>🚀 Added g, G, alt+g, alt+G, alt+c, alt+m shortcuts</li>
           <li>📩 Improved sync guards to improve stability</li>
           <li>🐛 Bug fixes and improvements</li>
         </ul>
