@@ -304,6 +304,7 @@
           <li>Added g, G, alt+g, alt+G, alt+c, alt+m shortcuts - #351</li>
           <li>Backfilled v to contact list</li>
           <li>Fixed .desktop - #356 - #367</li>
+          <li>Fixed attachment leak on reply - #381</li>
         </ul>
       </description>
     </release>

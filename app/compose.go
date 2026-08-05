@@ -803,6 +803,14 @@ func (a *App) PrepareReply(messageID, mode string) (*smtp.ComposeMessage, error)
 		log.Warn().Err(inlineErr).Msg("Failed to get inline attachments for reply/forward")
 	}
 	for cid, dataURL := range inlineMap {
+		// Replies include an "inline" attachment only when the quoted HTML
+		// actually embeds it — mailers stamp Content-IDs on ordinary document
+		// attachments, and re-attaching those sends phantom copies with the
+		// cid as filename (#381). Forwards keep every part (the forwarder
+		// wants the documents).
+		if mode != "forward" && !quotedHTMLReferencesCID(quotedHTML, cid) {
+			continue
+		}
 		ct, b64 := parseDataURL(dataURL)
 		if b64 == "" {
 			continue
@@ -832,6 +840,15 @@ func (a *App) PrepareReply(messageID, mode string) (*smtp.ComposeMessage, error)
 		References:  refs,
 		Attachments: attachments,
 	}, nil
+}
+
+// quotedHTMLReferencesCID reports whether the quoted HTML actually references
+// the given (bracket-stripped) Content-ID. Guards against re-attaching
+// misclassified "inline" documents that the reply body never embeds (#381).
+// Plain substring match errs toward keeping an attachment when the cid
+// appears anywhere in the body, regardless of quote style.
+func quotedHTMLReferencesCID(html, cid string) bool {
+	return strings.Contains(html, "cid:"+cid)
 }
 
 // fetchForwardAttachments fetches regular (non-inline) attachment content from IMAP

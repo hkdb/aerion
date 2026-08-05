@@ -20,6 +20,7 @@
 - Added g, G, alt+g, alt+G, alt+c, alt+m shortcuts - [#351](https://github.com/hkdb/aerion/issues/351)
 - Backfilled v to contact list
 - Fixed .desktop - [#356](https://github.com/hkdb/aerion/issues/356) - [#367](https://github.com/hkdb/aerion/issues/367)
+- Fixed attachment leak on reply - [#381](https://github.com/hkdb/aerion/issues/381)
 
 
 **v0.3.2 - 07-16-2026**
