@@ -10,9 +10,13 @@ import (
 // mailfenceServer replicates the minimal DAV behavior from issue #366:
 // sync-collection REPORTs get 501, addressbook-query REPORTs get 409, and
 // only PROPFIND enumeration + (configurably) multiget or plain GET work.
+// Round-2 quirks baked in: multiget responses volunteer a malformed
+// getlastmodified (non-RFC1123 day), and GETs serve the legacy text/x-vcard
+// MIME type (overridable via getContentType).
 type mailfenceServer struct {
 	srv            *httptest.Server
 	rejectMultiget bool
+	getContentType string
 	requests       []string
 }
 
@@ -22,7 +26,7 @@ const (
 )
 
 func newMailfenceServer(rejectMultiget bool) *mailfenceServer {
-	m := &mailfenceServer{rejectMultiget: rejectMultiget}
+	m := &mailfenceServer{rejectMultiget: rejectMultiget, getContentType: "text/x-vcard"}
 	m.srv = httptest.NewServer(http.HandlerFunc(m.handle))
 	return m
 }
@@ -51,12 +55,16 @@ func (m *mailfenceServer) handle(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 		w.WriteHeader(http.StatusMultiStatus)
+		// Mailfence volunteers getlastmodified with a non-RFC1123 day even
+		// when not requested (#366) — the parser must ignore it.
 		w.Write([]byte(`<?xml version="1.0"?>` + //nolint:errcheck
 			`<d:multistatus xmlns:d="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav">` +
 			`<d:response><d:href>/addressbook/alice.vcf</d:href><d:propstat><d:prop>` +
+			`<d:getlastmodified>Tue, 8 Jul 2025 19:41:18 GMT</d:getlastmodified>` +
 			`<d:getetag>"e-alice"</d:getetag><card:address-data>` + vcardAlice + `</card:address-data>` +
 			`</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>` +
 			`<d:response><d:href>/addressbook/bob.vcf</d:href><d:propstat><d:prop>` +
+			`<d:getlastmodified>Tue, 8 Jul 2025 19:41:18 GMT</d:getlastmodified>` +
 			`<d:getetag>"e-bob"</d:getetag><card:address-data>` + vcardBob + `</card:address-data>` +
 			`</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>` +
 			`</d:multistatus>`))
@@ -76,11 +84,11 @@ func (m *mailfenceServer) handle(w http.ResponseWriter, r *http.Request) {
 			`</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>` +
 			`</d:multistatus>`))
 	case r.Method == "GET" && r.URL.Path == "/addressbook/alice.vcf":
-		w.Header().Set("Content-Type", "text/vcard; charset=utf-8")
+		w.Header().Set("Content-Type", m.getContentType+"; charset=utf-8")
 		w.Header().Set("ETag", `"e-alice"`)
 		w.Write([]byte(vcardAlice)) //nolint:errcheck
 	case r.Method == "GET" && r.URL.Path == "/addressbook/bob.vcf":
-		w.Header().Set("Content-Type", "text/vcard; charset=utf-8")
+		w.Header().Set("Content-Type", m.getContentType+"; charset=utf-8")
 		w.Header().Set("ETag", `"e-bob"`)
 		w.Write([]byte(vcardBob)) //nolint:errcheck
 	default:
@@ -112,6 +120,24 @@ func TestFetchContactsEnumerate_Multiget(t *testing.T) {
 		t.Fatalf("FetchContactsEnumerate: %v", err)
 	}
 	assertAliceBob(t, records)
+}
+
+// TestFetchContactsEnumerate_GetRejectsUnknownContentType proves the GET
+// fallback's MIME whitelist stays strict: text/vcard and legacy text/x-vcard
+// pass, anything else errors.
+func TestFetchContactsEnumerate_GetRejectsUnknownContentType(t *testing.T) {
+	m := newMailfenceServer(true)
+	defer m.close()
+	m.getContentType = "text/html"
+
+	c := newTestClient(t, m.srv.URL)
+	_, err := c.FetchContactsEnumerate("/addressbook/")
+	if err == nil {
+		t.Fatal("expected error for Content-Type text/html, got nil")
+	}
+	if !strings.Contains(err.Error(), "unexpected Content-Type") {
+		t.Fatalf("expected Content-Type rejection, got: %v", err)
+	}
 }
 
 func TestFetchContactsEnumerate_GetFallback(t *testing.T) {

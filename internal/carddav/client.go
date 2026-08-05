@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"strings"
@@ -819,11 +820,12 @@ func (c *Client) FetchContactsEnumerate(addressbookPath string) ([]*ParsedRecord
 		return nil, nil
 	}
 
-	abClient, err := carddav.NewClient(httpClient, fullPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create client for addressbook: %w", err)
-	}
-	records, err := c.fetchContactsByPath(abClient, addressbookPath, paths)
+	// Hand-rolled multiget rather than go-webdav's: that one unconditionally
+	// requests getlastmodified and hard-fails on unparseable values — exactly
+	// what this server class returns (Mailfence emits non-RFC1123 dates,
+	// #366). Requesting only getetag + address-data sidesteps it entirely.
+	c.log.Debug().Int("count", len(paths)).Msg("Fetching records via minimal multiget")
+	records, err := multigetVCards(ctx, httpClient, fullPath, paths)
 	if err == nil {
 		return records, nil
 	}
@@ -833,17 +835,159 @@ func (c *Client) FetchContactsEnumerate(addressbookPath string) ([]*ParsedRecord
 	c.log.Debug().Err(err).Msg("Multiget rejected, fetching vCards individually via GET")
 	records = make([]*ParsedRecord, 0, len(paths))
 	for _, p := range paths {
-		obj, getErr := abClient.GetAddressObject(ctx, p)
+		parsed, getErr := c.fetchVCardByGET(ctx, httpClient, p)
 		if getErr != nil {
 			return nil, fmt.Errorf("failed to fetch %s: %w", p, getErr)
 		}
-		parsed := parseVCard(*obj)
 		if parsed == nil {
 			continue
 		}
 		records = append(records, parsed)
 	}
 	return records, nil
+}
+
+// multigetVCards fetches vCard bodies with a minimal addressbook-multiget
+// REPORT requesting only getetag + address-data (RFC 6352 §8.7 — the client
+// chooses the props), parsed tolerantly. Unlike go-webdav's multiget it never
+// requests getlastmodified, so servers with malformed timestamps (#366) can't
+// poison the response.
+func multigetVCards(ctx context.Context, httpClient webdav.HTTPClient, fullPath string, paths []string) ([]*ParsedRecord, error) {
+	var body strings.Builder
+	body.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
+	body.WriteString(`<C:addressbook-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">`)
+	body.WriteString(`<D:prop><D:getetag/><C:address-data/></D:prop>`)
+	for _, p := range paths {
+		body.WriteString(`<D:href>`)
+		if err := xml.EscapeText(&body, []byte(p)); err != nil {
+			return nil, fmt.Errorf("encode multiget href: %w", err)
+		}
+		body.WriteString(`</D:href>`)
+	}
+	body.WriteString(`</C:addressbook-multiget>`)
+
+	req, err := http.NewRequestWithContext(ctx, "REPORT", fullPath, strings.NewReader(body.String()))
+	if err != nil {
+		return nil, fmt.Errorf("build multiget REPORT: %w", err)
+	}
+	req.Header.Set("Depth", "1")
+	req.Header.Set("Content-Type", "application/xml")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("multiget REPORT: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusMultiStatus {
+		io.Copy(io.Discard, resp.Body) //nolint:errcheck // best-effort drain
+		return nil, fmt.Errorf("multiget REPORT: %s", resp.Status)
+	}
+
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read multiget response: %w", err)
+	}
+
+	// Tolerant decode: unknown props (e.g. a getlastmodified the server
+	// volunteers anyway) are simply ignored.
+	var ms struct {
+		XMLName  xml.Name `xml:"DAV: multistatus"`
+		Response []struct {
+			Href     string `xml:"href"`
+			Propstat []struct {
+				Prop struct {
+					ETag        string `xml:"getetag"`
+					AddressData string `xml:"urn:ietf:params:xml:ns:carddav address-data"`
+				} `xml:"prop"`
+			} `xml:"propstat"`
+		} `xml:"response"`
+	}
+	if err := xml.Unmarshal(raw, &ms); err != nil {
+		return nil, fmt.Errorf("parse multiget response: %w", err)
+	}
+
+	records := make([]*ParsedRecord, 0, len(ms.Response))
+	for _, r := range ms.Response {
+		href := strings.TrimSpace(r.Href)
+		if strings.HasPrefix(href, "http://") || strings.HasPrefix(href, "https://") {
+			if u, uerr := url.Parse(href); uerr == nil {
+				href = u.Path
+			}
+		}
+		etag := ""
+		data := ""
+		for _, ps := range r.Propstat {
+			if ps.Prop.ETag != "" {
+				etag = ps.Prop.ETag
+			}
+			if ps.Prop.AddressData != "" {
+				data = ps.Prop.AddressData
+			}
+		}
+		if href == "" || data == "" {
+			continue
+		}
+		card, decErr := vcard.NewDecoder(strings.NewReader(data)).Decode()
+		if decErr != nil {
+			continue
+		}
+		parsed := parseVCard(carddav.AddressObject{
+			Path: href,
+			ETag: strings.Trim(etag, `"`),
+			Card: card,
+		})
+		if parsed == nil {
+			continue
+		}
+		records = append(records, parsed)
+	}
+	return records, nil
+}
+
+// fetchVCardByGET fetches a single vCard with a plain GET. Accepts exactly
+// text/vcard and the pre-RFC6350 legacy text/x-vcard (#366, Mailfence) —
+// anything else is rejected. Returns nil (no error) for an unparseable card.
+func (c *Client) fetchVCardByGET(ctx context.Context, httpClient webdav.HTTPClient, path string) (*ParsedRecord, error) {
+	fullURL := resolveURL(c.baseURL, path)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build GET: %w", err)
+	}
+	req.Header.Set("Accept", "text/vcard")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("GET: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body) //nolint:errcheck // best-effort drain
+		return nil, fmt.Errorf("GET: %s", resp.Status)
+	}
+
+	mediaType := resp.Header.Get("Content-Type")
+	if parsed, _, mtErr := mime.ParseMediaType(mediaType); mtErr == nil {
+		mediaType = parsed
+	}
+	mediaType = strings.ToLower(mediaType)
+	if mediaType != "text/vcard" && mediaType != "text/x-vcard" {
+		return nil, fmt.Errorf("unexpected Content-Type %q", resp.Header.Get("Content-Type"))
+	}
+
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read vCard body: %w", err)
+	}
+	card, err := vcard.NewDecoder(bytes.NewReader(raw)).Decode()
+	if err != nil {
+		return nil, fmt.Errorf("parse vCard: %w", err)
+	}
+
+	return parseVCard(carddav.AddressObject{
+		Path: path,
+		ETag: strings.Trim(resp.Header.Get("ETag"), `"`),
+		Card: card,
+	}), nil
 }
 
 // enumerateVCardHrefs lists a collection's member hrefs with a minimal
