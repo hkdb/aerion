@@ -91,7 +91,15 @@
   }
 
   export function toggleFolderPicker(mode: 'move' | 'copy') {
-    contextMenuRef?.toggleFolderPicker(mode)
+    if (!contextMenuRef) return
+    // Same target rule as the Delete key: any checked messages act as a set,
+    // otherwise the focused row. Applied only on the press that OPENS the
+    // picker (close/switch presses keep the target locked), and never
+    // mutates the selection — canceling the dialog keeps checkboxes intact.
+    if (!contextMenuRef.isFolderPickerOpen()) {
+      useMultiSelect = selectedMessageIds.length > 0
+    }
+    contextMenuRef.toggleFolderPicker(mode)
   }
 
   // Density-based class mappings
