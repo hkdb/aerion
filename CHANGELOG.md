@@ -19,6 +19,7 @@
 - Updated nb translations - [PR #371](https://github.com/hkdb/aerion/pull/371)
 - Added g, G, alt+g, alt+G, alt+c, alt+m shortcuts - [#351](https://github.com/hkdb/aerion/issues/351)
 - Backfilled v to contact list
+- Fixed .desktop - [#356](https://github.com/hkdb/aerion/issues/356) - [#367](https://github.com/hkdb/aerion/issues/367)
 
 
 **v0.3.2 - 07-16-2026**

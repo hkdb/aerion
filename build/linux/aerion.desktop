@@ -39,7 +39,7 @@ Terminal=false
 Categories=Network;Email;
 MimeType=x-scheme-handler/mailto;
 StartupNotify=true
-StartupWMClass=io.github.hkdb.Aerion
+StartupWMClass=Aerion
 X-GNOME-UsesNotifications=true
 Actions=compose;
 
