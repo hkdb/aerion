@@ -288,7 +288,7 @@
     <release version="0.3.3" date="2026-07-30">
       <description>
         <ul>
-          <li>Message list redesign - #70</li>
+          <li>Message list redesign - #70 - #340</li>
           <li>Added swipe gestures - right select and left delete - #68</li>
           <li>Added manual config of IMAP/SMTP auth mech</li>
           <li>Added digest auth for contacts and calendars - #313</li>

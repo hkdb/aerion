@@ -4,7 +4,7 @@
 **v0.3.3 - 07-30-2026**
 ---
 
-- Message list redesign - [#70](https://github.com/hkdb/aerion/issues/70)
+- Message list redesign - [#70](https://github.com/hkdb/aerion/issues/70) + [#340](https://github.com/hkdb/aerion/issues/340)
 - Added swipe gestures - right select and left delete - [#68](https://github.com/hkdb/aerion/issues/68)
 - Added manual config of IMAP/SMTP auth mech
 - Added digest auth for contacts and calendars - [#313](https://github.com/hkdb/aerion/issues/313)
