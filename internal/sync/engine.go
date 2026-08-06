@@ -97,6 +97,11 @@ type Engine struct {
 	// mailboxes on the CONDSTORE fast-path (see runFlagSync / condstore.go).
 	flagSweepMu      gosync.Mutex
 	flagSweepCounter map[string]int
+
+	// Per-folder serialization of sync runs (see folderlock.go). Header/flag
+	// reconciles and body fetches lock under separate key namespaces so a
+	// header sync never queues behind a long body download.
+	folderLocks folderLocks
 }
 
 // NewEngine creates a new sync engine
@@ -111,6 +116,7 @@ func NewEngine(pool *imapPkg.Pool, accountStore *account.Store, folderStore *fol
 		sanitizer:        email.NewSanitizer(),
 		log:              logging.WithComponent("sync"),
 		flagSweepCounter: map[string]int{},
+		folderLocks:      folderLocks{locks: map[string]chan struct{}{}},
 	}
 }
 

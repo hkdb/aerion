@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	goSync "sync"
 	"time"
 
 	"github.com/hkdb/aerion/internal/folder"
@@ -101,14 +102,19 @@ func (a *App) processIdleEvents(ctx context.Context) {
 	defer recoverPanic("app.idle", "process IDLE events")
 	log := logging.WithComponent("app.idle")
 
+	// timerMu guards the debounce/defer timer maps below. The event loop and
+	// the self-re-arming timer callbacks (own-expunge deferral) both write them.
+	var timerMu goSync.Mutex
 	// Per-account debounce for flag-change re-syncs. A single read/unread action
 	// on another client can emit a burst of unilateral FETCHes; coalesce them
-	// into one inbox flag re-sync so IDLE stays light. Accessed only from this
-	// goroutine, so no lock needed.
+	// into one inbox flag re-sync so IDLE stays light.
 	flagDebounce := make(map[string]*time.Timer)
 	// Same idea for EXPUNGE: a bulk delete/move on another client emits a burst
 	// of EXPUNGEs; coalesce them into one lightweight deletion reconcile.
 	expungeDebounce := make(map[string]*time.Timer)
+	// Per-account deferral for new-mail syncs suppressed during our own
+	// move/delete bursts (see ownExpungeEchoSuppress).
+	newMailDeferred := make(map[string]*time.Timer)
 
 	for {
 		select {
@@ -124,8 +130,36 @@ func (a *App) processIdleEvents(ctx context.Context) {
 
 			switch event.Type {
 			case imap.EventNewMail:
-				// New mail arrived - trigger sync for this account's INBOX
-				go a.handleIdleNewMail(event)
+				// New mail arrived - trigger sync for this account's INBOX.
+				// Gmail/Outlook signal deletes via EXISTS, so this path also
+				// fires on the echo of our OWN deletes — and the reconcile it
+				// triggers can snapshot the server while a later delete's
+				// EXPUNGE is still in flight, re-inserting a just-deleted
+				// message that then flickers back into the list. While our own
+				// move/delete is in flight, DEFER (not drop) so real new mail
+				// still lands once the burst quiets.
+				if !a.recentOwnExpunge(event.AccountID) {
+					go a.handleIdleNewMail(event)
+					break
+				}
+				log.Debug().Str("accountID", event.AccountID).Msg("Deferring IDLE new-mail sync - own delete/move in flight")
+				ev := event
+				var fireNewMail func()
+				fireNewMail = func() {
+					if a.recentOwnExpunge(ev.AccountID) {
+						timerMu.Lock()
+						newMailDeferred[ev.AccountID] = time.AfterFunc(idleExpungeDebounce, fireNewMail)
+						timerMu.Unlock()
+						return
+					}
+					a.handleIdleNewMail(ev)
+				}
+				timerMu.Lock()
+				if t := newMailDeferred[ev.AccountID]; t != nil {
+					t.Stop()
+				}
+				newMailDeferred[ev.AccountID] = time.AfterFunc(idleExpungeDebounce, fireNewMail)
+				timerMu.Unlock()
 
 			case imap.EventExpunge:
 				// A message was removed on the server. RFC-strict servers (Dovecot,
@@ -133,14 +167,28 @@ func (a *App) processIdleEvents(ctx context.Context) {
 				// EXISTS — so, unlike Gmail, nothing trips the new-mail path and the
 				// deletion would otherwise wait for the next scheduled sync. Debounce
 				// a burst (bulk delete/move) into one lightweight reconcile whose UID
-				// diff removes the rows. INBOX only, matching IDLE's scope.
+				// diff removes the rows. While our OWN move/delete is in flight the
+				// event is our echo — keep re-arming until the burst quiets so the
+				// reconcile can't race an in-flight EXPUNGE and re-insert a
+				// just-deleted message. INBOX only, matching IDLE's scope.
 				acctID := event.AccountID
+				var fireExpunge func()
+				fireExpunge = func() {
+					if a.recentOwnExpunge(acctID) {
+						log.Debug().Str("accountID", acctID).Msg("Deferring IDLE expunge reconcile - own delete/move in flight")
+						timerMu.Lock()
+						expungeDebounce[acctID] = time.AfterFunc(idleExpungeDebounce, fireExpunge)
+						timerMu.Unlock()
+						return
+					}
+					a.handleIdleExpunge(acctID)
+				}
+				timerMu.Lock()
 				if t := expungeDebounce[acctID]; t != nil {
 					t.Stop()
 				}
-				expungeDebounce[acctID] = time.AfterFunc(idleExpungeDebounce, func() {
-					a.handleIdleExpunge(acctID)
-				})
+				expungeDebounce[acctID] = time.AfterFunc(idleExpungeDebounce, fireExpunge)
+				timerMu.Unlock()
 
 			case imap.EventFlagsChanged:
 				// A flag changed on the server. Debounce, then re-sync the inbox
@@ -154,12 +202,14 @@ func (a *App) processIdleEvents(ctx context.Context) {
 					log.Debug().Str("accountID", acctID).Msg("Ignoring IDLE flag echo of our own change")
 					break
 				}
+				timerMu.Lock()
 				if t := flagDebounce[acctID]; t != nil {
 					t.Stop()
 				}
 				flagDebounce[acctID] = time.AfterFunc(idleFlagResyncDebounce, func() {
 					a.handleIdleFlagsChanged(acctID)
 				})
+				timerMu.Unlock()
 			}
 		}
 	}
@@ -332,6 +382,34 @@ func (a *App) recentOwnFlagChange(accountID string) bool {
 	defer a.ownFlagMu.Unlock()
 	t, ok := a.ownFlagChangeAt[accountID]
 	return ok && time.Since(t) < ownFlagEchoSuppress
+}
+
+// ownExpungeEchoSuppress is how long after Aerion runs its own move/delete IMAP
+// operation we treat incoming IDLE EXPUNGE/EXISTS notifications as echoes of
+// that operation and DEFER the inbox reconcile they would trigger. During a
+// rapid-delete burst the reconcile's remote UID snapshot can race a still-in-
+// flight EXPUNGE and re-insert a just-deleted message, which then flickers back
+// into the list until the next sync removes it again. Our own deletes are
+// already applied locally, so the reconcile is only needed once the burst
+// quiets. Noted at both start and completion of each op, so the window extends
+// past slow operations.
+const ownExpungeEchoSuppress = 5 * time.Second
+
+// noteOwnExpunge records that Aerion just ran (or is running) a move/delete
+// IMAP operation for an account.
+func (a *App) noteOwnExpunge(accountID string) {
+	a.ownFlagMu.Lock()
+	a.ownExpungeAt[accountID] = time.Now()
+	a.ownFlagMu.Unlock()
+}
+
+// recentOwnExpunge reports whether Aerion ran a move/delete IMAP operation for
+// the account within the suppression window.
+func (a *App) recentOwnExpunge(accountID string) bool {
+	a.ownFlagMu.Lock()
+	defer a.ownFlagMu.Unlock()
+	t, ok := a.ownExpungeAt[accountID]
+	return ok && time.Since(t) < ownExpungeEchoSuppress
 }
 
 // handleIdleFlagsChanged reconciles the inbox after a flag change on the server

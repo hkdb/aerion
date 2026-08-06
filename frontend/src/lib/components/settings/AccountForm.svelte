@@ -11,6 +11,7 @@
     detectProvider,
     getCustomProvider,
     securityOptions,
+    authMechanismOptions,
     syncPeriodOptions,
     syncIntervalOptions,
     isOAuthProvider,
@@ -130,12 +131,14 @@
   let imapHost = $state('')
   let imapPort = $state(993)
   let imapSecurity = $state<string>('tls')
+  let imapAuthMechanism = $state('auto')
   let smtpHost = $state('')
   let smtpPort = $state(587)
   let smtpSecurity = $state<string>('starttls')
   let noOutgoingServer = $state(false)
   let smtpUsername = $state('')
   let smtpPassword = $state('')
+  let smtpAuthMechanism = $state('auto')
   let smtpUseSameAsIncoming = $state(true)
   // Auto-mirror IMAP host into SMTP host for new Generic accounts: most
   // providers use the same hostname or a near-identical subdomain swap,
@@ -170,6 +173,10 @@
   // Helper functions to get labels
   function getSecurityLabel(value: string): string {
     return securityOptions.find(opt => opt.value === value)?.label || value
+  }
+
+  function getAuthMechanismLabel(value: string): string {
+    return authMechanismOptions.find(opt => opt.value === value)?.label || value
   }
 
   function getSyncPeriodLabel(value: string): string {
@@ -256,9 +263,11 @@
       imapHost = editAccount.imapHost
       imapPort = editAccount.imapPort
       imapSecurity = editAccount.imapSecurity
+      imapAuthMechanism = editAccount.imapAuthMechanism || 'auto'
       smtpHost = editAccount.smtpHost
       smtpPort = editAccount.smtpPort
       smtpSecurity = editAccount.smtpSecurity
+      smtpAuthMechanism = editAccount.smtpAuthMechanism || 'auto'
       syncPeriodDays = String(editAccount.syncPeriodDays)
       // @ts-ignore - syncInterval from backend
       syncInterval = String(editAccount.syncInterval ?? 30)
@@ -506,12 +515,14 @@
       imapHost,
       imapPort,
       imapSecurity,
+      imapAuthMechanism,
       smtpHost,
       smtpPort,
       smtpSecurity,
       noOutgoingServer,
       smtpUsername,
       smtpPassword,
+      smtpAuthMechanism,
       replyForwardIdentityId: replyForwardIdentityID,
       authType: authMethod,
       syncPeriodDays: Number(syncPeriodDays),
@@ -1220,6 +1231,25 @@
                 </div>
               </div>
             </div>
+            {#if isGenericProvider}
+              <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-2">
+                  <Label>{$_('account.authMechanism')}</Label>
+                  <Select.Root bind:value={imapAuthMechanism}>
+                    <Select.Trigger class="h-10">
+                      <Select.Value placeholder="Select">
+                        {getAuthMechanismLabel(imapAuthMechanism)}
+                      </Select.Value>
+                    </Select.Trigger>
+                    <Select.Content>
+                      {#each authMechanismOptions as opt (opt.value)}
+                        <Select.Item value={opt.value} label={opt.label} />
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                </div>
+              </div>
+            {/if}
           </div>
 
           <!-- "No outgoing server" toggle (above SMTP). When on, SMTP +
@@ -1364,6 +1394,21 @@
                       {#if errors.smtpPassword}
                         <p class="text-sm text-destructive">{errors.smtpPassword}</p>
                       {/if}
+                    </div>
+                    <div class="space-y-2">
+                      <Label>{$_('account.authMechanism')}</Label>
+                      <Select.Root bind:value={smtpAuthMechanism}>
+                        <Select.Trigger class="h-10">
+                          <Select.Value placeholder="Select">
+                            {getAuthMechanismLabel(smtpAuthMechanism)}
+                          </Select.Value>
+                        </Select.Trigger>
+                        <Select.Content>
+                          {#each authMechanismOptions as opt (opt.value)}
+                            <Select.Item value={opt.value} label={opt.label} />
+                          {/each}
+                        </Select.Content>
+                      </Select.Root>
                     </div>
                   </div>
                 {/if}

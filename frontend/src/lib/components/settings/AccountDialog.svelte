@@ -64,12 +64,14 @@
   let imapHost = $state('')
   let imapPort = $state(993)
   let imapSecurity = $state('tls')
+  let imapAuthMechanism = $state('auto')
   let smtpHost = $state('')
   let smtpPort = $state(587)
   let smtpSecurity = $state('starttls')
   let noOutgoingServer = $state(false)
   let smtpUsername = $state('')
   let smtpPassword = $state('')
+  let smtpAuthMechanism = $state('auto')
   let replyForwardIdentityID = $state('')
   let allIdentityGroups = $state<app.AccountIdentityGroup[]>([])
   let syncPeriodDays = $state('180')
@@ -114,12 +116,14 @@
       imapHost = editAccount.imapHost
       imapPort = editAccount.imapPort
       imapSecurity = editAccount.imapSecurity
+      imapAuthMechanism = editAccount.imapAuthMechanism || 'auto'
       smtpHost = editAccount.smtpHost
       smtpPort = editAccount.smtpPort
       smtpSecurity = editAccount.smtpSecurity
       noOutgoingServer = editAccount.noOutgoingServer || false
       smtpUsername = editAccount.smtpUsername || ''
       smtpPassword = ''  // never echo a stored password back; blank means "keep existing"
+      smtpAuthMechanism = editAccount.smtpAuthMechanism || 'auto'
       replyForwardIdentityID = editAccount.replyForwardIdentityId || ''
       loadAllIdentityGroups()
       syncPeriodDays = String(editAccount.syncPeriodDays)
@@ -222,12 +226,14 @@
         imapHost,
         imapPort,
         imapSecurity,
+        imapAuthMechanism,
         smtpHost,
         smtpPort,
         smtpSecurity,
         noOutgoingServer,
         smtpUsername,
         smtpPassword, // Empty = keep current (when SMTPUsername unchanged) or skip (when toggle is on)
+        smtpAuthMechanism,
         replyForwardIdentityId: replyForwardIdentityID,
         authType,
         syncPeriodDays: Number(syncPeriodDays),
@@ -465,12 +471,14 @@
               bind:imapHost
               bind:imapPort
               bind:imapSecurity
+              bind:imapAuthMechanism
               bind:smtpHost
               bind:smtpPort
               bind:smtpSecurity
               bind:noOutgoingServer
               bind:smtpUsername
               bind:smtpPassword
+              bind:smtpAuthMechanism
               bind:replyForwardIdentityID
               {availableIdentityGroups}
               {isGenericProvider}
@@ -487,12 +495,14 @@
               onImapHostChange={(v) => imapHost = v}
               onImapPortChange={(v) => imapPort = v}
               onImapSecurityChange={(v) => imapSecurity = v}
+              onImapAuthMechanismChange={(v) => imapAuthMechanism = v}
               onSmtpHostChange={(v) => smtpHost = v}
               onSmtpPortChange={(v) => smtpPort = v}
               onSmtpSecurityChange={(v) => smtpSecurity = v}
               onNoOutgoingServerChange={(v) => noOutgoingServer = v}
               onSmtpUsernameChange={(v) => smtpUsername = v}
               onSmtpPasswordChange={(v) => smtpPassword = v}
+              onSmtpAuthMechanismChange={(v) => smtpAuthMechanism = v}
               onReplyForwardIdentityIDChange={(v) => replyForwardIdentityID = v}
               onSyncIntervalChange={(v) => syncInterval = v}
               onReadReceiptPolicyChange={(v) => readReceiptRequestPolicy = v}

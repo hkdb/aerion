@@ -84,6 +84,16 @@ func (a *App) SetShowMessageListProfilePics(enabled bool) error {
 	return a.settingsStore.SetShowMessageListProfilePics(enabled)
 }
 
+// GetAlwaysShowMessageCheckbox returns whether the message list reserves a fixed checkbox column
+func (a *App) GetAlwaysShowMessageCheckbox() (bool, error) {
+	return a.settingsStore.GetAlwaysShowMessageCheckbox()
+}
+
+// SetAlwaysShowMessageCheckbox enables or disables the always-reserved checkbox column
+func (a *App) SetAlwaysShowMessageCheckbox(enabled bool) error {
+	return a.settingsStore.SetAlwaysShowMessageCheckbox(enabled)
+}
+
 // GetShowMessageListCircles returns whether colored sender circles are shown in the message list
 func (a *App) GetShowMessageListCircles() (bool, error) {
 	return a.settingsStore.GetShowMessageListCircles()
@@ -445,11 +455,12 @@ func (a *App) SendReadReceipt(accountID, messageID string) error {
 
 	// Create SMTP config
 	smtpConfig := smtp.ClientConfig{
-		Host:      acc.SMTPHost,
-		Port:      acc.SMTPPort,
-		Username:  acc.Username,
-		Security:  smtp.SecurityType(acc.SMTPSecurity),
-		TLSConfig: certificate.BuildTLSConfig(acc.SMTPHost, a.certStore),
+		Host:          acc.SMTPHost,
+		Port:          acc.SMTPPort,
+		Username:      acc.Username,
+		Security:      smtp.SecurityType(acc.SMTPSecurity),
+		AuthMechanism: string(acc.EffectiveSMTPAuthMechanism()),
+		TLSConfig:     certificate.BuildTLSConfig(acc.SMTPHost, a.certStore),
 	}
 
 	// Handle authentication based on auth type

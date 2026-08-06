@@ -71,7 +71,7 @@ func (p caldavProvider) davClient(src Source, timeout time.Duration) (webdav.HTT
 	if password == "" {
 		return nil, fmt.Errorf("no password stored for source — re-add it in settings")
 	}
-	return webdav.HTTPClientWithBasicAuth(davutil.NewHTTPClient(timeout), src.Username, password), nil
+	return davutil.NewBasicDigestHTTPClient(src.Username, password, timeout), nil
 }
 
 // --- Sync (lifted from Syncer.syncCalendar) --------------------------------

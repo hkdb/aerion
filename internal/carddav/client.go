@@ -3,8 +3,10 @@ package carddav
 import (
 	"bytes"
 	"context"
+	"encoding/xml"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,14 +19,6 @@ import (
 	"github.com/hkdb/aerion/internal/logging"
 	"github.com/rs/zerolog"
 )
-
-// newHTTPClient builds an HTTP client with the WebDAV xmlfix transport
-// applied. Both this package and calendar's CalDAV provider use the same
-// shared shape — see internal/kit/davutil. The local helper stays as a
-// thin alias so existing call sites don't churn.
-func newHTTPClient(timeout time.Duration) *http.Client {
-	return davutil.NewHTTPClient(timeout)
-}
 
 // Client wraps the CardDAV client with discovery and convenience methods
 type Client struct {
@@ -42,14 +36,14 @@ type Client struct {
 
 // addressbookHTTPClient returns the go-webdav HTTPClient for a per-addressbook
 // operation. When the Client was built with a caller-supplied (bearer) client,
-// that client carries the auth and is reused as-is. Otherwise a Basic-auth
-// client is built from the stored credentials with the requested timeout
-// (preserving the original per-operation timeouts).
+// that client carries the auth and is reused as-is. Otherwise a password-auth
+// (Basic with Digest upgrade) client is built from the stored credentials with
+// the requested timeout (preserving the original per-operation timeouts).
 func (c *Client) addressbookHTTPClient(timeout time.Duration) webdav.HTTPClient {
 	if c.injected != nil {
 		return c.injected
 	}
-	return webdav.HTTPClientWithBasicAuth(newHTTPClient(timeout), c.username, c.password)
+	return davutil.NewBasicDigestHTTPClient(c.username, c.password, timeout)
 }
 
 // normalizeURL parses baseURL and defaults a missing scheme to https.
@@ -71,8 +65,9 @@ func NewClient(baseURL, username, password string) (*Client, error) {
 		return nil, err
 	}
 
-	// Create HTTP client with XML-fix transport, wrapped for Basic auth.
-	httpClient := webdav.HTTPClientWithBasicAuth(newHTTPClient(30*time.Second), username, password)
+	// Create HTTP client with XML-fix transport and password auth (Basic,
+	// upgrading to Digest on challenge).
+	httpClient := davutil.NewBasicDigestHTTPClient(username, password, 30*time.Second)
 
 	client, err := carddav.NewClient(httpClient, parsedURL.String())
 	if err != nil {
@@ -117,7 +112,7 @@ func NewClientWithHTTPClient(httpClient webdav.HTTPClient, baseURL string) (*Cli
 // 2. Direct PROPFIND on the URL
 // 3. Common paths (/remote.php/dav for Nextcloud, etc.)
 func DiscoverAddressbooks(baseURL, username, password string) ([]AddressbookInfo, error) {
-	httpClient := webdav.HTTPClientWithBasicAuth(newHTTPClient(30*time.Second), username, password)
+	httpClient := davutil.NewBasicDigestHTTPClient(username, password, 30*time.Second)
 	return discoverAddressbooks(baseURL, username, httpClient)
 }
 
@@ -150,6 +145,9 @@ func discoverAddressbooks(baseURL, username string, httpClient webdav.HTTPClient
 	if err == nil && len(addressbooks) > 0 {
 		return addressbooks, nil
 	}
+	// The direct-URL attempt's error is the most user-relevant one — later
+	// fallback rungs can fail for unrelated reasons and would mask it (#363).
+	directErr := err
 	log.Debug().Err(err).Msg("Direct URL discovery failed, trying .well-known")
 
 	// Method 2: Try .well-known/carddav
@@ -178,6 +176,9 @@ func discoverAddressbooks(baseURL, username string, httpClient webdav.HTTPClient
 		}
 	}
 
+	if directErr != nil {
+		return nil, fmt.Errorf("no addressbooks found at %s: %w", baseURL, directErr)
+	}
 	return nil, fmt.Errorf("no addressbooks found at %s", baseURL)
 }
 
@@ -193,9 +194,17 @@ func tryDiscoverFromURL(ctx context.Context, httpClient webdav.HTTPClient, urlSt
 	// Try to find the current user's principal
 	principal, err := client.FindCurrentUserPrincipal(ctx)
 	if err != nil {
-		log.Debug().Err(err).Msg("FindCurrentUserPrincipal failed")
-		// Try the URL directly as addressbook home
-		return tryListAddressbooksAt(ctx, httpClient, urlStr, log)
+		// go-webdav's probe path.Join-strips a trailing slash from the request
+		// path, 404ing servers that serve the collection only at "/x/"
+		// (SabreDAV/Davis, #363). Retry with a raw PROPFIND that keeps the URL
+		// exactly as given (and once with "/" appended).
+		rawPrincipal, rawErr := davutil.FindCurrentUserPrincipalRaw(ctx, httpClient, urlStr)
+		if rawErr != nil {
+			log.Debug().Err(err).Msg("FindCurrentUserPrincipal failed")
+			// Try the URL directly as addressbook home
+			return tryListAddressbooksAt(ctx, httpClient, urlStr, log)
+		}
+		principal = rawPrincipal
 	}
 
 	log.Debug().Str("principal", principal).Msg("Found principal")
@@ -787,6 +796,279 @@ func (c *Client) SyncAddressbook(addressbookPath, syncToken string) (*SyncResult
 		Msg("Incremental sync completed")
 
 	return result, nil
+}
+
+// FetchContactsEnumerate fetches all contacts using only baseline WebDAV
+// primitives: a Depth:1 PROPFIND to enumerate the collection's vCard hrefs,
+// then addressbook-multiget for the bodies, then per-href GET when the server
+// rejects multiget REPORTs too. Third sync tier for minimal servers
+// (Mailfence, #366) that 501 sync-collection AND 409 addressbook-query. The
+// enumeration is hand-rolled rather than go-webdav's ReadDir because ReadDir
+// hard-requires getcontentlength on file entries — exactly the kind of
+// property this server class omits.
+func (c *Client) FetchContactsEnumerate(addressbookPath string) ([]*ParsedRecord, error) {
+	ctx := context.Background()
+	fullPath := resolveURL(c.baseURL, addressbookPath)
+	httpClient := c.addressbookHTTPClient(60 * time.Second)
+
+	paths, err := enumerateVCardHrefs(ctx, httpClient, fullPath, addressbookPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to enumerate addressbook: %w", err)
+	}
+	c.log.Debug().Int("count", len(paths)).Str("path", addressbookPath).Msg("Enumerated vCard hrefs via PROPFIND")
+	if len(paths) == 0 {
+		return nil, nil
+	}
+
+	// Hand-rolled multiget rather than go-webdav's: that one unconditionally
+	// requests getlastmodified and hard-fails on unparseable values — exactly
+	// what this server class returns (Mailfence emits non-RFC1123 dates,
+	// #366). Requesting only getetag + address-data sidesteps it entirely.
+	c.log.Debug().Int("count", len(paths)).Msg("Fetching records via minimal multiget")
+	records, err := multigetVCards(ctx, httpClient, fullPath, paths)
+	if err == nil {
+		return records, nil
+	}
+
+	// Last resort: a server that rejects REPORTs entirely — fetch each vCard
+	// with a plain GET.
+	c.log.Debug().Err(err).Msg("Multiget rejected, fetching vCards individually via GET")
+	records = make([]*ParsedRecord, 0, len(paths))
+	for _, p := range paths {
+		parsed, getErr := c.fetchVCardByGET(ctx, httpClient, p)
+		if getErr != nil {
+			return nil, fmt.Errorf("failed to fetch %s: %w", p, getErr)
+		}
+		if parsed == nil {
+			continue
+		}
+		records = append(records, parsed)
+	}
+	return records, nil
+}
+
+// multigetVCards fetches vCard bodies with a minimal addressbook-multiget
+// REPORT requesting only getetag + address-data (RFC 6352 §8.7 — the client
+// chooses the props), parsed tolerantly. Unlike go-webdav's multiget it never
+// requests getlastmodified, so servers with malformed timestamps (#366) can't
+// poison the response.
+func multigetVCards(ctx context.Context, httpClient webdav.HTTPClient, fullPath string, paths []string) ([]*ParsedRecord, error) {
+	var body strings.Builder
+	body.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
+	body.WriteString(`<C:addressbook-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">`)
+	body.WriteString(`<D:prop><D:getetag/><C:address-data/></D:prop>`)
+	for _, p := range paths {
+		body.WriteString(`<D:href>`)
+		if err := xml.EscapeText(&body, []byte(p)); err != nil {
+			return nil, fmt.Errorf("encode multiget href: %w", err)
+		}
+		body.WriteString(`</D:href>`)
+	}
+	body.WriteString(`</C:addressbook-multiget>`)
+
+	req, err := http.NewRequestWithContext(ctx, "REPORT", fullPath, strings.NewReader(body.String()))
+	if err != nil {
+		return nil, fmt.Errorf("build multiget REPORT: %w", err)
+	}
+	req.Header.Set("Depth", "1")
+	req.Header.Set("Content-Type", "application/xml")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("multiget REPORT: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusMultiStatus {
+		io.Copy(io.Discard, resp.Body) //nolint:errcheck // best-effort drain
+		return nil, fmt.Errorf("multiget REPORT: %s", resp.Status)
+	}
+
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read multiget response: %w", err)
+	}
+
+	// Tolerant decode: unknown props (e.g. a getlastmodified the server
+	// volunteers anyway) are simply ignored.
+	var ms struct {
+		XMLName  xml.Name `xml:"DAV: multistatus"`
+		Response []struct {
+			Href     string `xml:"href"`
+			Propstat []struct {
+				Prop struct {
+					ETag        string `xml:"getetag"`
+					AddressData string `xml:"urn:ietf:params:xml:ns:carddav address-data"`
+				} `xml:"prop"`
+			} `xml:"propstat"`
+		} `xml:"response"`
+	}
+	if err := xml.Unmarshal(raw, &ms); err != nil {
+		return nil, fmt.Errorf("parse multiget response: %w", err)
+	}
+
+	records := make([]*ParsedRecord, 0, len(ms.Response))
+	for _, r := range ms.Response {
+		href := strings.TrimSpace(r.Href)
+		if strings.HasPrefix(href, "http://") || strings.HasPrefix(href, "https://") {
+			if u, uerr := url.Parse(href); uerr == nil {
+				href = u.Path
+			}
+		}
+		etag := ""
+		data := ""
+		for _, ps := range r.Propstat {
+			if ps.Prop.ETag != "" {
+				etag = ps.Prop.ETag
+			}
+			if ps.Prop.AddressData != "" {
+				data = ps.Prop.AddressData
+			}
+		}
+		if href == "" || data == "" {
+			continue
+		}
+		card, decErr := vcard.NewDecoder(strings.NewReader(data)).Decode()
+		if decErr != nil {
+			continue
+		}
+		parsed := parseVCard(carddav.AddressObject{
+			Path: href,
+			ETag: strings.Trim(etag, `"`),
+			Card: card,
+		})
+		if parsed == nil {
+			continue
+		}
+		records = append(records, parsed)
+	}
+	return records, nil
+}
+
+// fetchVCardByGET fetches a single vCard with a plain GET. Accepts exactly
+// text/vcard and the pre-RFC6350 legacy text/x-vcard (#366, Mailfence) —
+// anything else is rejected. Returns nil (no error) for an unparseable card.
+func (c *Client) fetchVCardByGET(ctx context.Context, httpClient webdav.HTTPClient, path string) (*ParsedRecord, error) {
+	fullURL := resolveURL(c.baseURL, path)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build GET: %w", err)
+	}
+	req.Header.Set("Accept", "text/vcard")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("GET: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body) //nolint:errcheck // best-effort drain
+		return nil, fmt.Errorf("GET: %s", resp.Status)
+	}
+
+	mediaType := resp.Header.Get("Content-Type")
+	if parsed, _, mtErr := mime.ParseMediaType(mediaType); mtErr == nil {
+		mediaType = parsed
+	}
+	mediaType = strings.ToLower(mediaType)
+	if mediaType != "text/vcard" && mediaType != "text/x-vcard" {
+		return nil, fmt.Errorf("unexpected Content-Type %q", resp.Header.Get("Content-Type"))
+	}
+
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read vCard body: %w", err)
+	}
+	card, err := vcard.NewDecoder(bytes.NewReader(raw)).Decode()
+	if err != nil {
+		return nil, fmt.Errorf("parse vCard: %w", err)
+	}
+
+	return parseVCard(carddav.AddressObject{
+		Path: path,
+		ETag: strings.Trim(resp.Header.Get("ETag"), `"`),
+		Card: card,
+	}), nil
+}
+
+// enumerateVCardHrefs lists a collection's member hrefs with a minimal
+// Depth:1 PROPFIND (resourcetype + getcontenttype only) and a tolerant parse.
+// Collections (including the addressbook itself) are skipped; untyped members
+// are kept — minimal servers often omit getcontenttype for vCards.
+func enumerateVCardHrefs(ctx context.Context, httpClient webdav.HTTPClient, fullPath, addressbookPath string) ([]string, error) {
+	const propfindBody = `<?xml version="1.0" encoding="UTF-8"?>` +
+		`<D:propfind xmlns:D="DAV:"><D:prop><D:resourcetype/><D:getcontenttype/></D:prop></D:propfind>`
+	req, err := http.NewRequestWithContext(ctx, "PROPFIND", fullPath, strings.NewReader(propfindBody))
+	if err != nil {
+		return nil, fmt.Errorf("build enumeration PROPFIND: %w", err)
+	}
+	req.Header.Set("Depth", "1")
+	req.Header.Set("Content-Type", "application/xml")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("enumeration PROPFIND: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusMultiStatus {
+		io.Copy(io.Discard, resp.Body) //nolint:errcheck // best-effort drain
+		return nil, fmt.Errorf("enumeration PROPFIND: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read enumeration response: %w", err)
+	}
+
+	var ms struct {
+		XMLName  xml.Name `xml:"DAV: multistatus"`
+		Response []struct {
+			Href     string `xml:"href"`
+			Propstat []struct {
+				Prop struct {
+					ResourceType struct {
+						Collection *struct{} `xml:"collection"`
+					} `xml:"resourcetype"`
+					ContentType string `xml:"getcontenttype"`
+				} `xml:"prop"`
+			} `xml:"propstat"`
+		} `xml:"response"`
+	}
+	if err := xml.Unmarshal(body, &ms); err != nil {
+		return nil, fmt.Errorf("parse enumeration response: %w", err)
+	}
+
+	collection := strings.TrimSuffix(addressbookPath, "/")
+	var paths []string
+	for _, r := range ms.Response {
+		href := strings.TrimSpace(r.Href)
+		if href == "" {
+			continue
+		}
+		// Some servers return absolute URLs in hrefs — reduce to the path.
+		if strings.HasPrefix(href, "http://") || strings.HasPrefix(href, "https://") {
+			if u, uerr := url.Parse(href); uerr == nil {
+				href = u.Path
+			}
+		}
+		isCollection := false
+		contentType := ""
+		for _, ps := range r.Propstat {
+			if ps.Prop.ResourceType.Collection != nil {
+				isCollection = true
+			}
+			if ps.Prop.ContentType != "" {
+				contentType = ps.Prop.ContentType
+			}
+		}
+		if isCollection || strings.TrimSuffix(href, "/") == collection {
+			continue
+		}
+		if contentType != "" && !strings.Contains(contentType, "vcard") && !strings.HasSuffix(href, ".vcf") {
+			continue
+		}
+		paths = append(paths, href)
+	}
+	return paths, nil
 }
 
 // fetchContactsByPath fetches records by their paths using addressbook-multiget.

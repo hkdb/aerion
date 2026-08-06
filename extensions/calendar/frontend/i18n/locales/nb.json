@@ -9,12 +9,12 @@
       "close": "Lukk"
     },
     "write": {
-      "queued": "Lagret — synkroniseres når du er tilkoblet igjen.",
+      "queued": "Lagret – synkroniseres når du er tilkoblet igjen.",
       "conflict": "Denne hendelsen ble endret på tjeneren. Åpne den og bruk endringen din på nytt."
     },
     "drag": {
       "errorSave": "Klarte ikke å lagre hendelsen: {message}",
-      "recurringHint": "Dra er ikke tilgjengelig for gjentakende hendelser. Bruk detaljvisningen for å redigere."
+      "recurringHint": "Dra og slipp er ikke tilgjengelig for gjentakende hendelser. Bruk detaljvisningen for å redigere."
     },
     "hooks": {
       "loading": "Laster kalenderne dine…",
@@ -31,7 +31,7 @@
       "skip": "Hopp over",
       "setup": "Sett opp",
       "done": "Ferdig",
-      "completeMessage": "Kalenderkilde lagt til — synkroniserer nå.",
+      "completeMessage": "Kalenderkilde lagt til – synkroniserer nå.",
       "successToast": "Kalendere lagt til for {name}.",
       "errorPick": "Velg minst én kalender.",
       "errorName": "Kildenavn er påkrevd."
@@ -109,7 +109,7 @@
       "providerLabelGoogle": "Google",
       "providerLabelMicrosoft": "Outlook",
       "organizerEmailLabel": "Arrangørens e-post",
-      "organizerEmailPlaceholder": "deg@example.com",
+      "organizerEmailPlaceholder": "deg@eksempel.no",
       "organizerEmailPrompt": "Tjeneren din publiserte ikke en kalenderbrukeradresse. Skriv inn e-posten Aerion skal bruke som møtearrangør for hendelser på denne kilden.",
       "organizerEmailHelp": "Dette er adressen som vises som ORGANIZER på hendelser du oppretter her.",
       "organizerEmailInvalid": "Skriv inn en gyldig e-postadresse."
@@ -160,13 +160,13 @@
     "settings": {
       "title": "Kalenderinnstillinger",
       "localCalendarsSection": "Lokale kalendere",
-      "noLocalCalendars": "Ingen lokale kalendere ennå — legg til en for å opprette hendelser.",
+      "noLocalCalendars": "Ingen lokale kalendere ennå – legg til en for å opprette hendelser.",
       "addLocalCalendar": "Legg til lokal kalender",
       "calendarDeleted": "Slettet den lokale kalenderen «{name}»",
       "deleteCalendarConfirmTitle": "Slette {name}?",
       "deleteCalendarConfirmDescription": "Alle hendelser i denne kalenderen fjernes. Dette kan ikke angres.",
       "sourcesSection": "Kilder",
-      "noSources": "Ingen kilder ennå — legg til en for å begynne å synkronisere.",
+      "noSources": "Ingen kilder ennå – legg til en for å begynne å synkronisere.",
       "calendarCount": "{count} kalendere",
       "calendarCountOne": "1 kalender",
       "lastSync": "Synkronisert for {time} siden",
@@ -209,7 +209,7 @@
       "addGoogleErrorAccount": "Velg en konto.",
       "addGoogleErrorPick": "Velg minst én kalender.",
       "addGoogleErrorName": "Kildenavn er påkrevd.",
-      "addGoogleToastSuccess": "Google-kalendere lagt til — synkroniserer nå.",
+      "addGoogleToastSuccess": "Google-kalendere lagt til – synkroniserer nå.",
       "addGoogleToastError": "Klarte ikke å legge til Google-kalender: {message}",
       "addOutlook": "Legg til Outlook-kalender",
       "addOutlookTitle": "Legg til Outlook-kalender",
@@ -231,13 +231,13 @@
       "addOutlookErrorAccount": "Velg en konto.",
       "addOutlookErrorPick": "Velg minst én kalender.",
       "addOutlookErrorName": "Kildenavn er påkrevd.",
-      "addOutlookToastSuccess": "Outlook-kalendere lagt til — synkroniserer nå.",
+      "addOutlookToastSuccess": "Outlook-kalendere lagt til – synkroniserer nå.",
       "addOutlookToastError": "Klarte ikke å legge til Outlook-kalender: {message}",
       "organizerEmailLabel": "Arrangørens e-post",
-      "organizerEmailPlaceholder": "deg@example.com",
+      "organizerEmailPlaceholder": "deg@eksempel.no",
       "organizerEmailSaved": "Arrangørens e-post oppdatert",
       "organizerEmailReprobed": "Fant {count} adresse(r) på tjeneren",
-      "organizerEmailReprobeEmpty": "Tjeneren publiserer fortsatt ikke en kalenderbrukeradresse — skriv inn en ovenfor og lagre.",
+      "organizerEmailReprobeEmpty": "Tjeneren publiserer fortsatt ikke en kalenderbrukeradresse – skriv inn en ovenfor og lagre.",
       "organizerEmailReprobeTitle": "Undersøk tjeneren på nytt etter kalenderbrukeradresser",
       "renameTitle": "Gi kilden nytt navn",
       "renameToastSuccess": "Fikk nytt navn til «{name}»",
@@ -281,7 +281,7 @@
       "dialogSend": "Send oppdatering",
       "dialogDontSend": "Ikke send",
       "dialogCancel": "Avbryt",
-      "dialogNoteMicrosoft": "Microsoft Graph kan sende invitasjoner uansett hva du velger — v1.0-API-et har ingen dokumentert mekanisme for å undertrykke dem.",
+      "dialogNoteMicrosoft": "Microsoft Graph kan sende invitasjoner uansett hva du velger – v1.0-API-et har ingen dokumentert mekanisme for å undertrykke dem.",
       "dialogNoteCalDAVNone": "Denne CalDAV-tjeneren støtter ikke automatisk levering av invitasjoner, så oppdateringer sendes ikke til deltakerne.",
       "findATime": "Finn et tidspunkt",
       "findATimeTitle": "Finn et tidspunkt som passer",

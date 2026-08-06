@@ -541,6 +541,12 @@ func (a *App) moveMessagesToIMAP(messages []*message.Message, sourceFolderID str
 		return nil
 	}
 
+	// Mark the IDLE echo-suppression window at start AND completion so the
+	// EXISTS/EXPUNGE echoes of this op defer the inbox reconcile instead of
+	// racing our own in-flight EXPUNGE (see ownExpungeEchoSuppress).
+	a.noteOwnExpunge(accountID)
+	defer a.noteOwnExpunge(accountID)
+
 	err = a.withIMAPRetry(accountID, func(conn *imap.Client) error {
 		// Select source mailbox
 		log.Debug().Str("mailbox", sourceFolder.Path).Msg("Selecting source mailbox")
@@ -982,6 +988,10 @@ func (a *App) removeFromIMAPFolder(messages []*message.Message, folderID string)
 		return nil
 	}
 
+	// See ownExpungeEchoSuppress — defer the IDLE echo of our own delete.
+	a.noteOwnExpunge(messages[0].AccountID)
+	defer a.noteOwnExpunge(messages[0].AccountID)
+
 	return a.withIMAPRetry(messages[0].AccountID, func(conn *imap.Client) error {
 		if _, err := conn.SelectMailbox(a.ctx, folderObj.Path); err != nil {
 			return fmt.Errorf("failed to select mailbox: %w", err)
@@ -1187,6 +1197,10 @@ func (a *App) deleteMessagesFromIMAP(messages []*message.Message, folderID strin
 	if len(uids) == 0 {
 		return nil
 	}
+
+	// See ownExpungeEchoSuppress — defer the IDLE echo of our own delete.
+	a.noteOwnExpunge(accountID)
+	defer a.noteOwnExpunge(accountID)
 
 	return a.withIMAPRetry(accountID, func(conn *imap.Client) error {
 		if _, err := conn.SelectMailbox(a.ctx, folderObj.Path); err != nil {

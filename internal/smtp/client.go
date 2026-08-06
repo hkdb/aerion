@@ -63,6 +63,11 @@ type ClientConfig struct {
 	AuthType    AuthType // "password" or "oauth2" (defaults to "password")
 	AccessToken string   // OAuth2 access token (when AuthType is "oauth2")
 
+	// AuthMechanism selects the password SASL mechanism: "plain", "login", or
+	// ""/"auto" (pick from the server's EHLO AUTH advertisement). Ignored for
+	// OAuth2.
+	AuthMechanism string
+
 	// Timeouts
 	ConnectTimeout time.Duration
 	ReadTimeout    time.Duration
@@ -226,19 +231,61 @@ func (c *Client) Login() error {
 	return nil
 }
 
-// loginPassword authenticates using password (PLAIN or LOGIN mechanism)
+// loginPassword authenticates using password (PLAIN or LOGIN mechanism). A
+// configured AuthMechanism forces that mechanism; otherwise the choice honors
+// the server's EHLO AUTH advertisement. Some servers (e.g. advertising only
+// "GSSAPI NTLM LOGIN") drop the connection on a rejected AUTH PLAIN, which
+// would make a post-failure LOGIN fallback hit a closed socket (#355).
 func (c *Client) loginPassword() error {
-	// Try PLAIN first, then LOGIN
-	auth := smtp.PlainAuth("", c.config.Username, c.config.Password, c.config.Host)
-	if err := c.client.Auth(auth); err != nil {
-		// Try LOGIN auth as fallback
+	switch strings.ToLower(c.config.AuthMechanism) {
+	case "plain":
+		return c.authPlain()
+	case "login":
+		return c.authLogin()
+	}
+
+	_, mechanisms := c.client.Extension("AUTH")
+	if !mechanismAdvertised(mechanisms, "PLAIN") && mechanismAdvertised(mechanisms, "LOGIN") {
+		c.log.Debug().Msg("PLAIN not advertised, using LOGIN")
+		return c.authLogin()
+	}
+
+	// PLAIN advertised — or neither PLAIN nor LOGIN advertised (best-effort for
+	// servers with broken advertisements): try PLAIN first, fall back to LOGIN.
+	if err := c.authPlain(); err != nil {
 		c.log.Debug().Msg("PLAIN auth failed, trying LOGIN")
-		auth := LoginAuth(c.config.Username, c.config.Password)
-		if err := c.client.Auth(auth); err != nil {
-			return fmt.Errorf("authentication failed: %w", err)
-		}
+		return c.authLogin()
 	}
 	return nil
+}
+
+// authPlain authenticates with the PLAIN mechanism.
+func (c *Client) authPlain() error {
+	auth := smtp.PlainAuth("", c.config.Username, c.config.Password, c.config.Host)
+	if err := c.client.Auth(auth); err != nil {
+		return fmt.Errorf("authentication failed: %w", err)
+	}
+	return nil
+}
+
+// authLogin authenticates with the LOGIN mechanism.
+func (c *Client) authLogin() error {
+	auth := LoginAuth(c.config.Username, c.config.Password)
+	if err := c.client.Auth(auth); err != nil {
+		return fmt.Errorf("authentication failed: %w", err)
+	}
+	return nil
+}
+
+// mechanismAdvertised reports whether name appears in the space-separated EHLO
+// AUTH parameter list (case-insensitive).
+func mechanismAdvertised(mechanisms, name string) bool {
+	for _, m := range strings.Fields(mechanisms) {
+		if strings.EqualFold(m, name) {
+			return true
+		}
+	}
+	return false
 }
 
 // loginOAuth2 authenticates using OAuth2 XOAUTH2 mechanism

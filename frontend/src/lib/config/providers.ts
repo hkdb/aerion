@@ -244,6 +244,17 @@ export const securityOptions = [
 ] as const
 
 /**
+ * Password auth mechanism options (incoming and outgoing). "auto" negotiates
+ * from server capabilities; the explicit values force a mechanism for servers
+ * with broken advertisements (#355).
+ */
+export const authMechanismOptions = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'plain', label: 'PLAIN' },
+  { value: 'login', label: 'LOGIN' },
+] as const
+
+/**
  * Common sync period options (in days)
  */
 export const syncPeriodOptions = [

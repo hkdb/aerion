@@ -1,6 +1,29 @@
 # CHANGELOG
 
 
+**v0.3.3 - 08-06-2026**
+---
+
+- Message list redesign - [#70](https://github.com/hkdb/aerion/issues/70) + [#340](https://github.com/hkdb/aerion/issues/340)
+- Added swipe gestures - right select and left delete - [#68](https://github.com/hkdb/aerion/issues/68)
+- Added manual config of IMAP/SMTP auth mech
+- Added digest auth for contacts and calendars - [#313](https://github.com/hkdb/aerion/issues/313)
+- Added Polish translation - PR [#374](https://github.com/hkdb/aerion/pull/374)
+- Fixed IMAP/SMTP auto auth mech - [#365](https://github.com/hkdb/aerion/issues/355)
+- Fixed glitch when rapid deleting messages
+- Refactored to engine-level serialization
+- Improved toast notification logic - [#115](https://github.com/hkdb/aerion/issues/115)
+- Added states to fix unwanted message list reset - [#348](https://github.com/hkdb/aerion/issues/348)
+- Improved CalDAV discovery - [#363](https://github.com/hkdb/aerion/issues/363)
+- Basic CarDAV (Mailfence) support - [#366](https://github.com/hkdb/aerion/issues/366)
+- Fixed typo in autostart code - [#33](https://github.com/hkdb/aerion/issues/33)
+- Updated nb translations - [PR #371](https://github.com/hkdb/aerion/pull/371)
+- Added g, G, alt+g, alt+G, alt+c, alt+m shortcuts - [#351](https://github.com/hkdb/aerion/issues/351)
+- Backfilled v to contact list
+- Fixed .desktop - [#356](https://github.com/hkdb/aerion/issues/356) - [#367](https://github.com/hkdb/aerion/issues/367)
+- Fixed attachment leak on reply - [#381](https://github.com/hkdb/aerion/issues/381)
+
+
 **v0.3.2 - 07-16-2026**
 ---
 

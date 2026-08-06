@@ -434,6 +434,7 @@ func (a *App) TestConnection(config account.AccountConfig) ConnectionTestResult 
 	clientConfig.Host = config.IMAPHost
 	clientConfig.Port = config.IMAPPort
 	clientConfig.Security = imap.SecurityType(config.IMAPSecurity)
+	clientConfig.AuthMechanism = string(config.IMAPAuthMechanism)
 	clientConfig.Username = config.Username
 	clientConfig.Password = config.Password
 	clientConfig.AuthType = imap.AuthTypePassword

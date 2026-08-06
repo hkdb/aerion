@@ -22,6 +22,20 @@ const (
 	AuthOAuth2   AuthType = "oauth2"
 )
 
+// AuthMechanism selects the password auth mechanism for a server connection.
+// Auto negotiates from the server's capabilities (EHLO AUTH advertisement for
+// SMTP, LOGINDISABLED capability for IMAP); the explicit values force a
+// mechanism for servers with broken advertisements (#355). For IMAP, "login"
+// is the LOGIN command and "plain" is AUTHENTICATE PLAIN; for SMTP they are
+// the LOGIN and PLAIN SASL mechanisms.
+type AuthMechanism string
+
+const (
+	AuthMechAuto  AuthMechanism = "auto"
+	AuthMechPlain AuthMechanism = "plain"
+	AuthMechLogin AuthMechanism = "login"
+)
+
 // Account represents an email account configuration
 type Account struct {
 	ID    string `json:"id"`
@@ -36,10 +50,22 @@ type Account struct {
 	IMAPPort     int          `json:"imapPort"`
 	IMAPSecurity SecurityType `json:"imapSecurity"`
 
+	// IMAPAuthMechanism forces the incoming password auth mechanism
+	// ("plain"/"login"); "auto" (default) negotiates from capabilities.
+	IMAPAuthMechanism AuthMechanism `json:"imapAuthMechanism"`
+
 	// SMTP settings
 	SMTPHost     string       `json:"smtpHost"`
 	SMTPPort     int          `json:"smtpPort"`
 	SMTPSecurity SecurityType `json:"smtpSecurity"`
+
+	// SMTPAuthMechanism forces the outgoing password SASL mechanism
+	// ("plain"/"login"); "auto" (default) picks from the EHLO AUTH
+	// advertisement. Only consulted when SMTP uses separate credentials
+	// (SMTPUsername non-empty); with "same as incoming" credentials the
+	// effective SMTP mechanism follows IMAPAuthMechanism — see
+	// EffectiveSMTPAuthMechanism.
+	SMTPAuthMechanism AuthMechanism `json:"smtpAuthMechanism"`
 
 	// NoOutgoingServer disables SMTP for this account. When true, the
 	// SMTP host/port/security fields are ignored, no SMTP client is
@@ -94,6 +120,17 @@ type Account struct {
 	// Timestamps
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// EffectiveSMTPAuthMechanism returns the auth mechanism SMTP should use. With
+// "same as incoming server" credentials (empty SMTPUsername) the whole auth
+// config follows the incoming side; with separate SMTP credentials the
+// account's own SMTP mechanism applies.
+func (a *Account) EffectiveSMTPAuthMechanism() AuthMechanism {
+	if a.SMTPUsername == "" {
+		return a.IMAPAuthMechanism
+	}
+	return a.SMTPAuthMechanism
 }
 
 // GetFolderMapping returns the mapped folder path for a folder type, or empty string if not mapped
@@ -184,9 +221,15 @@ type AccountConfig struct {
 	IMAPPort     int          `json:"imapPort"`
 	IMAPSecurity SecurityType `json:"imapSecurity"`
 
+	// IMAPAuthMechanism — see Account.IMAPAuthMechanism.
+	IMAPAuthMechanism AuthMechanism `json:"imapAuthMechanism"`
+
 	SMTPHost     string       `json:"smtpHost"`
 	SMTPPort     int          `json:"smtpPort"`
 	SMTPSecurity SecurityType `json:"smtpSecurity"`
+
+	// SMTPAuthMechanism — see Account.SMTPAuthMechanism.
+	SMTPAuthMechanism AuthMechanism `json:"smtpAuthMechanism"`
 
 	// NoOutgoingServer marks this account as receive-only. SMTP fields
 	// are ignored when true. See Account.NoOutgoingServer.
@@ -258,6 +301,12 @@ func (c *AccountConfig) Validate() error {
 	}
 	if c.SMTPSecurity == "" {
 		c.SMTPSecurity = SecurityStartTLS
+	}
+	if c.IMAPAuthMechanism == "" {
+		c.IMAPAuthMechanism = AuthMechAuto
+	}
+	if c.SMTPAuthMechanism == "" {
+		c.SMTPAuthMechanism = AuthMechAuto
 	}
 	if c.AuthType == "" {
 		c.AuthType = AuthPassword

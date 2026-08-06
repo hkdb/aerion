@@ -89,9 +89,11 @@ func (s *Store) Create(config *AccountConfig) (*Account, error) {
 		IMAPHost:                 config.IMAPHost,
 		IMAPPort:                 config.IMAPPort,
 		IMAPSecurity:             config.IMAPSecurity,
+		IMAPAuthMechanism:        config.IMAPAuthMechanism,
 		SMTPHost:                 config.SMTPHost,
 		SMTPPort:                 config.SMTPPort,
 		SMTPSecurity:             config.SMTPSecurity,
+		SMTPAuthMechanism:        config.SMTPAuthMechanism,
 		NoOutgoingServer:         config.NoOutgoingServer,
 		SMTPUsername:             config.SMTPUsername,
 		ReplyForwardIdentityID:   config.ReplyForwardIdentityID,
@@ -120,8 +122,8 @@ func (s *Store) Create(config *AccountConfig) (*Account, error) {
 	_, err = s.db.Exec(`
 		INSERT INTO accounts (
 			id, name, email, shared_mailbox_parent_id,
-			imap_host, imap_port, imap_security,
-			smtp_host, smtp_port, smtp_security,
+			imap_host, imap_port, imap_security, imap_auth_mechanism,
+			smtp_host, smtp_port, smtp_security, smtp_auth_mechanism,
 			no_outgoing_server, smtp_username, reply_forward_identity_id,
 			auth_type, username,
 			enabled, order_index, color, sync_period_days, sync_interval, sync_all_folders, sync_folders_enabled,
@@ -130,11 +132,11 @@ func (s *Store) Create(config *AccountConfig) (*Account, error) {
 			spam_folder_path, archive_folder_path, all_mail_folder_path,
 			starred_folder_path,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		account.ID, account.Name, account.Email, nullableString(account.SharedMailboxParentID),
-		account.IMAPHost, account.IMAPPort, account.IMAPSecurity,
-		account.SMTPHost, account.SMTPPort, account.SMTPSecurity,
+		account.IMAPHost, account.IMAPPort, account.IMAPSecurity, account.IMAPAuthMechanism,
+		account.SMTPHost, account.SMTPPort, account.SMTPSecurity, account.SMTPAuthMechanism,
 		boolToInt(account.NoOutgoingServer), account.SMTPUsername, account.ReplyForwardIdentityID,
 		account.AuthType, account.Username,
 		account.Enabled, account.OrderIndex, account.Color, account.SyncPeriodDays, account.SyncInterval, boolToInt(account.SyncAllFolders), boolToInt(account.SyncFoldersEnabled),
@@ -177,8 +179,8 @@ func (s *Store) Get(id string) (*Account, error) {
 	var syncAllFolders, syncFoldersEnabled, noOutgoingServer int
 	err := s.db.QueryRow(`
 		SELECT id, name, email, shared_mailbox_parent_id,
-			imap_host, imap_port, imap_security,
-			smtp_host, smtp_port, smtp_security,
+			imap_host, imap_port, imap_security, imap_auth_mechanism,
+			smtp_host, smtp_port, smtp_security, smtp_auth_mechanism,
 			no_outgoing_server, smtp_username, reply_forward_identity_id,
 			auth_type, username,
 			enabled, order_index, color, sync_period_days, sync_interval, sync_all_folders, sync_folders_enabled,
@@ -190,8 +192,8 @@ func (s *Store) Get(id string) (*Account, error) {
 		FROM accounts WHERE id = ?
 	`, id).Scan(
 		&account.ID, &account.Name, &account.Email, &sharedMailboxParentID,
-		&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity,
-		&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity,
+		&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity, &account.IMAPAuthMechanism,
+		&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity, &account.SMTPAuthMechanism,
 		&noOutgoingServer, &account.SMTPUsername, &account.ReplyForwardIdentityID,
 		&account.AuthType, &account.Username,
 		&account.Enabled, &account.OrderIndex, &account.Color, &account.SyncPeriodDays, &account.SyncInterval, &syncAllFolders, &syncFoldersEnabled,
@@ -226,8 +228,8 @@ func (s *Store) Get(id string) (*Account, error) {
 func (s *Store) List() ([]*Account, error) {
 	rows, err := s.db.Query(`
 		SELECT id, name, email, shared_mailbox_parent_id,
-			imap_host, imap_port, imap_security,
-			smtp_host, smtp_port, smtp_security,
+			imap_host, imap_port, imap_security, imap_auth_mechanism,
+			smtp_host, smtp_port, smtp_security, smtp_auth_mechanism,
 			no_outgoing_server, smtp_username, reply_forward_identity_id,
 			auth_type, username,
 			enabled, order_index, color, sync_period_days, sync_interval, sync_all_folders, sync_folders_enabled,
@@ -250,8 +252,8 @@ func (s *Store) List() ([]*Account, error) {
 		var syncAllFolders, syncFoldersEnabled, noOutgoingServer int
 		err := rows.Scan(
 			&account.ID, &account.Name, &account.Email, &sharedMailboxParentID,
-			&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity,
-			&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity,
+			&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity, &account.IMAPAuthMechanism,
+			&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity, &account.SMTPAuthMechanism,
 			&noOutgoingServer, &account.SMTPUsername, &account.ReplyForwardIdentityID,
 			&account.AuthType, &account.Username,
 			&account.Enabled, &account.OrderIndex, &account.Color, &account.SyncPeriodDays, &account.SyncInterval, &syncAllFolders, &syncFoldersEnabled,
@@ -286,8 +288,8 @@ func (s *Store) List() ([]*Account, error) {
 func (s *Store) ListBySharedMailboxParent(parentID string) ([]*Account, error) {
 	rows, err := s.db.Query(`
 		SELECT id, name, email, shared_mailbox_parent_id,
-			imap_host, imap_port, imap_security,
-			smtp_host, smtp_port, smtp_security,
+			imap_host, imap_port, imap_security, imap_auth_mechanism,
+			smtp_host, smtp_port, smtp_security, smtp_auth_mechanism,
 			no_outgoing_server, smtp_username, reply_forward_identity_id,
 			auth_type, username,
 			enabled, order_index, color, sync_period_days, sync_interval, sync_all_folders, sync_folders_enabled,
@@ -310,8 +312,8 @@ func (s *Store) ListBySharedMailboxParent(parentID string) ([]*Account, error) {
 		var syncAllFolders, syncFoldersEnabled, noOutgoingServer int
 		err := rows.Scan(
 			&account.ID, &account.Name, &account.Email, &sharedMailboxParentID,
-			&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity,
-			&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity,
+			&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity, &account.IMAPAuthMechanism,
+			&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity, &account.SMTPAuthMechanism,
 			&noOutgoingServer, &account.SMTPUsername, &account.ReplyForwardIdentityID,
 			&account.AuthType, &account.Username,
 			&account.Enabled, &account.OrderIndex, &account.Color, &account.SyncPeriodDays, &account.SyncInterval, &syncAllFolders, &syncFoldersEnabled,
@@ -356,8 +358,8 @@ func (s *Store) Update(id string, config *AccountConfig) (*Account, error) {
 	_, err = s.db.Exec(`
 		UPDATE accounts SET
 			name = ?, email = ?,
-			imap_host = ?, imap_port = ?, imap_security = ?,
-			smtp_host = ?, smtp_port = ?, smtp_security = ?,
+			imap_host = ?, imap_port = ?, imap_security = ?, imap_auth_mechanism = ?,
+			smtp_host = ?, smtp_port = ?, smtp_security = ?, smtp_auth_mechanism = ?,
 			no_outgoing_server = ?, smtp_username = ?, reply_forward_identity_id = ?,
 			auth_type = ?, username = ?,
 			color = ?, sync_period_days = ?, sync_interval = ?, sync_all_folders = ?, sync_folders_enabled = ?,
@@ -369,8 +371,8 @@ func (s *Store) Update(id string, config *AccountConfig) (*Account, error) {
 		WHERE id = ?
 	`,
 		config.Name, config.Email,
-		config.IMAPHost, config.IMAPPort, config.IMAPSecurity,
-		config.SMTPHost, config.SMTPPort, config.SMTPSecurity,
+		config.IMAPHost, config.IMAPPort, config.IMAPSecurity, config.IMAPAuthMechanism,
+		config.SMTPHost, config.SMTPPort, config.SMTPSecurity, config.SMTPAuthMechanism,
 		boolToInt(config.NoOutgoingServer), config.SMTPUsername, config.ReplyForwardIdentityID,
 		config.AuthType, config.Username,
 		config.Color, config.SyncPeriodDays, config.SyncInterval, boolToInt(config.SyncAllFolders), boolToInt(config.SyncFoldersEnabled),
@@ -397,9 +399,11 @@ func (s *Store) Update(id string, config *AccountConfig) (*Account, error) {
 	existing.IMAPHost = config.IMAPHost
 	existing.IMAPPort = config.IMAPPort
 	existing.IMAPSecurity = config.IMAPSecurity
+	existing.IMAPAuthMechanism = config.IMAPAuthMechanism
 	existing.SMTPHost = config.SMTPHost
 	existing.SMTPPort = config.SMTPPort
 	existing.SMTPSecurity = config.SMTPSecurity
+	existing.SMTPAuthMechanism = config.SMTPAuthMechanism
 	existing.NoOutgoingServer = config.NoOutgoingServer
 	existing.SMTPUsername = config.SMTPUsername
 	existing.ReplyForwardIdentityID = config.ReplyForwardIdentityID

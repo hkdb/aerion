@@ -46,7 +46,7 @@ github.com/aymerick/douceur/parser
 # github.com/bep/debounce v1.2.1
 ## explicit
 github.com/bep/debounce
-# github.com/cloudflare/circl v1.6.2
+# github.com/cloudflare/circl v1.6.3
 ## explicit; go 1.22.0
 github.com/cloudflare/circl/dh/x25519
 github.com/cloudflare/circl/dh/x448
@@ -110,6 +110,10 @@ github.com/gorilla/css/scanner
 # github.com/gorilla/websocket v1.5.3
 ## explicit; go 1.12
 github.com/gorilla/websocket
+# github.com/icholy/digest v1.2.0
+## explicit; go 1.22
+github.com/icholy/digest
+github.com/icholy/digest/internal/param
 # github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e
 ## explicit; go 1.14
 github.com/jchv/go-winloader
@@ -205,8 +209,8 @@ github.com/wailsapp/mimetype
 github.com/wailsapp/mimetype/internal/charset
 github.com/wailsapp/mimetype/internal/json
 github.com/wailsapp/mimetype/internal/magic
-# github.com/wailsapp/wails/v2 v2.12.0
-## explicit; go 1.22.0
+# github.com/wailsapp/wails/v2 v2.13.0
+## explicit; go 1.25.0
 github.com/wailsapp/wails/v2
 github.com/wailsapp/wails/v2/internal/app
 github.com/wailsapp/wails/v2/internal/binding
@@ -256,8 +260,8 @@ github.com/zalando/go-keyring/secret_service
 # go.mozilla.org/pkcs7 v0.9.0
 ## explicit; go 1.11
 go.mozilla.org/pkcs7
-# golang.org/x/crypto v0.46.0
-## explicit; go 1.24.0
+# golang.org/x/crypto v0.51.0
+## explicit; go 1.25.0
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
 golang.org/x/crypto/argon2
@@ -279,8 +283,8 @@ golang.org/x/image/riff
 golang.org/x/image/vp8
 golang.org/x/image/vp8l
 golang.org/x/image/webp
-# golang.org/x/net v0.48.0
-## explicit; go 1.24.0
+# golang.org/x/net v0.54.0
+## explicit; go 1.25.0
 golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/html/charset
@@ -290,8 +294,9 @@ golang.org/x/net/http2/h2c
 golang.org/x/net/http2/hpack
 golang.org/x/net/idna
 golang.org/x/net/internal/httpcommon
-# golang.org/x/sys v0.39.0
-## explicit; go 1.24.0
+golang.org/x/net/internal/httpsfv
+# golang.org/x/sys v0.44.0
+## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
 golang.org/x/sys/windows

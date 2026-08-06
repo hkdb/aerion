@@ -393,6 +393,8 @@
     "darkMailContentHelp": "Použít tmavý filtr na obsah e-mailových zpráv, když je Aerion v tmavém režimu.",
     "darkComposerBody": "Tmavé pozadí editoru",
     "darkComposerBodyHelp": "Použít tmavé pozadí u editoru pro psaní zprávy, když je Aerion v tmavém režimu.",
+    "alwaysShowCheckbox": "Vždy zobrazit zaškrtávací políčko u zprávy",
+    "alwaysShowCheckboxHelp": "Vyhradit v seznamu zpráv stálý sloupec se zaškrtávacím políčkem místo jeho odkrývání při najetí myší nebo přejetí.",
     "selectDensity": "Vybrat hustotu",
     "readReceipts": "Potvrzení o přečtení",
     "readReceiptPolicy": "Když někdo požaduje potvrzení o přečtení",
@@ -595,6 +597,7 @@
     "replyForwardWithHelp": "Identita, která bude v editoru předvybrána při odpovídání na zprávy přijaté tímto účtem nebo při jejich přeposílání.",
     "replyForwardWithDefault": "Výchozí účet pro odesílání",
     "smtpAuthentication": "Ověření SMTP",
+    "authMechanism": "Metoda ověření",
     "smtpUseSameAsIncoming": "Stejné jako pro příchozí server",
     "smtpUsernamePlaceholder": "uzivatel-smtp@example.com",
     "smtpPasswordPlaceholder": "Heslo SMTP",
@@ -924,7 +927,9 @@
     "selectPresetColor": "Vybrat {color}",
     "backToList": "Zpět na seznam zpráv",
     "toggleSidebar": "Přepnout postranní panel",
-    "closeSidebar": "Zavřít postranní panel"
+    "closeSidebar": "Zavřít postranní panel",
+    "showAllToasts": "Zobrazit všechna oznámení",
+    "collapseToasts": "Sbalit oznámení"
   },
   "window": {
     "minimize": "Minimalizovat",

@@ -145,6 +145,9 @@ export function createKeyboardState() {
 export interface PaneNavTarget {
   navigateNext?: () => void
   navigatePrev?: () => void
+  /** Jump to the first / last item (Alt+G / Alt+Shift+G). */
+  navigateFirst?: () => void
+  navigateLast?: () => void
   activate?: () => void
   /** Move keyboard focus to this pane's search input (Ctrl+S). */
   focusSearch?: () => void

@@ -48,14 +48,16 @@
       </div>
 
       <div class="space-y-4 max-h-[60vh] overflow-y-auto text-sm">
-        <p>🚀 Welcome to Aerion v0.3.2!</p>
+        <p>🚀 Welcome to Aerion v0.3.3!</p>
 
         <p>Here are the highlights of this release:</p>
 
         <ul class="list-disc pl-6 space-y-1">
-          <li>✏️ Spellcheck functionality in the composer has been added</li>
-          <li>📩 Improved sync and pushed changes (IDLE)</li>
-          <li>📑 Improved profile pic support - Requires force re-sync of contacts</li>
+          <li>⚗️ The message list has been redesigned to have messages cover the checkboxes on the left and will shift to the right to show the checkboxes on mouseover individually. This can be turned off by toggling, "Always show checkbox next to message" to revert to the original design.</li>
+          <li>🐁 Added left and right swipe gestures. Swipe right to select and swipe left to delete.</li>
+          <li>✏️ Added manual config of auth mechanism</li>
+          <li>🚀 Added g, G, alt+g, alt+G, alt+c, alt+m shortcuts</li>
+          <li>📩 Improved sync guards to improve stability</li>
           <li>🐛 Bug fixes and improvements</li>
         </ul>
 

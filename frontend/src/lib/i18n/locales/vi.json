@@ -393,6 +393,8 @@
     "darkMailContentHelp": "Áp dụng bộ lọc tối cho nội dung thư khi Aerion ở chế độ tối.",
     "darkComposerBody": "Nền tối cho trình soạn thảo",
     "darkComposerBodyHelp": "Dùng nền tối cho nội dung soạn thư khi Aerion ở chế độ tối.",
+    "alwaysShowCheckbox": "Luôn hiện ô chọn cạnh thư",
+    "alwaysShowCheckboxHelp": "Giữ một cột ô chọn cố định trong danh sách thư thay vì chỉ hiện khi di chuột hoặc vuốt.",
     "selectDensity": "Chọn mật độ",
     "readReceipts": "Xác nhận đã đọc",
     "readReceiptPolicy": "Khi ai đó yêu cầu xác nhận đã đọc",
@@ -595,6 +597,7 @@
     "replyForwardWithHelp": "Tài khoản được chọn sẵn trong cửa sổ soạn thư khi trả lời hoặc chuyển tiếp thư nhận ở đây.",
     "replyForwardWithDefault": "Tài khoản gửi mặc định",
     "smtpAuthentication": "Xác thực SMTP",
+    "authMechanism": "Phương thức xác thực",
     "smtpUseSameAsIncoming": "Giống máy chủ nhận thư",
     "smtpUsernamePlaceholder": "nguoi-dung-smtp@example.com",
     "smtpPasswordPlaceholder": "Mật khẩu SMTP",
@@ -924,7 +927,9 @@
     "selectPresetColor": "Chọn {color}",
     "backToList": "Quay lại danh sách thư",
     "toggleSidebar": "Bật/tắt thanh bên",
-    "closeSidebar": "Đóng thanh bên"
+    "closeSidebar": "Đóng thanh bên",
+    "showAllToasts": "Hiển thị tất cả thông báo",
+    "collapseToasts": "Thu gọn thông báo"
   },
   "window": {
     "minimize": "Thu nhỏ",

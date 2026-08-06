@@ -247,6 +247,27 @@
     showFolderPicker = true
   }
 
+  // Exported for keyboard access (Alt+M / Alt+C): toggles the picker without
+  // opening the context menu. Same-mode press closes; other-mode press
+  // switches the dialog in place (title is reactive to folderPickerMode).
+  export function isFolderPickerOpen(): boolean {
+    return showFolderPicker
+  }
+
+  export function toggleFolderPicker(mode: 'move' | 'copy') {
+    if (showFolderPicker && folderPickerMode === mode) {
+      showFolderPicker = false
+      return
+    }
+    if (showFolderPicker) {
+      folderPickerMode = mode
+      return
+    }
+    loadAccounts() // normally triggered by menu open; needed when bypassing the menu
+    folderPickerMode = mode
+    showFolderPicker = true
+  }
+
   function handleFolderSelected(folderId: string, folderName: string, _destAccountId: string) {
     showFolderPicker = false
     switch (folderPickerMode) {

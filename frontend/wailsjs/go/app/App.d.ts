@@ -213,6 +213,8 @@ export function GetAllAccountIdentities():Promise<Array<app.AccountIdentityGroup
 
 export function GetAlwaysLoadImages():Promise<boolean>;
 
+export function GetAlwaysShowMessageCheckbox():Promise<boolean>;
+
 export function GetAppInfo():Promise<app.AppInfo>;
 
 export function GetAttachment(arg1:string):Promise<message.Attachment>;
@@ -549,6 +551,8 @@ export function SetAddressbookEnabled(arg1:string,arg2:boolean):Promise<void>;
 
 export function SetAlwaysLoadImages(arg1:boolean):Promise<void>;
 
+export function SetAlwaysShowMessageCheckbox(arg1:boolean):Promise<void>;
+
 export function SetAutostart(arg1:boolean):Promise<void>;
 
 export function SetComposerFormat(arg1:string):Promise<void>;
@@ -653,7 +657,7 @@ export function TestConnection(arg1:account.AccountConfig):Promise<app.Connectio
 
 export function TestOAuthConnection(arg1:string):Promise<void>;
 
-export function TestSMTPConnection(arg1:string,arg2:number,arg3:string,arg4:string,arg5:string):Promise<void>;
+export function TestSMTPConnection(arg1:string,arg2:number,arg3:string,arg4:string,arg5:string,arg6:string):Promise<void>;
 
 export function Trash(arg1:Array<string>):Promise<boolean>;
 

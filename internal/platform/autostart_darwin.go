@@ -9,13 +9,13 @@ import (
 )
 
 const (
-	launchAgentLabel = "io.github.hkdb.aerion"
+	launchAgentLabel = "io.github.hkdb.Aerion"
 	launchAgentPlist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>io.github.hkdb.aerion</string>
+	<string>io.github.hkdb.Aerion</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>%s</string>

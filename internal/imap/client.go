@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/emersion/go-imap/v2"
@@ -65,6 +66,11 @@ type ClientConfig struct {
 	// OAuth2 authentication
 	AuthType    AuthType // "password" or "oauth2" (defaults to "password")
 	AccessToken string   // OAuth2 access token (when AuthType is "oauth2")
+
+	// AuthMechanism selects the password auth mechanism: "plain"
+	// (AUTHENTICATE PLAIN), "login" (LOGIN command), or ""/"auto"
+	// (negotiate from capabilities). Ignored for OAuth2.
+	AuthMechanism string
 
 	// Timeouts
 	ConnectTimeout time.Duration
@@ -254,22 +260,43 @@ func (c *Client) Login() error {
 	return nil
 }
 
-// loginPassword authenticates using password (LOGIN or SASL PLAIN)
+// loginPassword authenticates using password (LOGIN or SASL PLAIN). A
+// configured AuthMechanism forces that mechanism; otherwise the choice is
+// negotiated from capabilities.
 func (c *Client) loginPassword() error {
-	// Use LOGIN by default — it's simpler and more compatible.
+	switch strings.ToLower(c.config.AuthMechanism) {
+	case "plain":
+		c.log.Debug().Msg("Using AUTHENTICATE PLAIN (configured)")
+		return c.authenticatePlain()
+	case "login":
+		c.log.Debug().Msg("Using LOGIN command (configured)")
+		return c.loginCommand()
+	}
+
+	// Auto: use LOGIN by default — it's simpler and more compatible.
 	// Only use AUTHENTICATE PLAIN if the server advertises LOGINDISABLED,
 	// since a failed AUTHENTICATE can corrupt the IMAP wire state and
 	// prevent a fallback LOGIN from working (seen with Proton Bridge).
 	if c.caps.Has(imap.CapLoginDisabled) {
 		c.log.Debug().Msg("LOGIN disabled, using AUTHENTICATE PLAIN")
-		saslClient := sasl.NewPlainClient("", c.config.Username, c.config.Password)
-		if err := c.client.Authenticate(saslClient); err != nil {
-			return fmt.Errorf("authentication failed: %w", err)
-		}
-		return nil
+		return c.authenticatePlain()
 	}
 
 	c.log.Debug().Msg("Using LOGIN command")
+	return c.loginCommand()
+}
+
+// authenticatePlain authenticates with SASL AUTHENTICATE PLAIN.
+func (c *Client) authenticatePlain() error {
+	saslClient := sasl.NewPlainClient("", c.config.Username, c.config.Password)
+	if err := c.client.Authenticate(saslClient); err != nil {
+		return fmt.Errorf("authentication failed: %w", err)
+	}
+	return nil
+}
+
+// loginCommand authenticates with the IMAP LOGIN command.
+func (c *Client) loginCommand() error {
 	if err := c.client.Login(c.config.Username, c.config.Password).Wait(); err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}

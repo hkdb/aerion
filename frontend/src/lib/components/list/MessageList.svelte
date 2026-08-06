@@ -1,3 +1,15 @@
+<script lang="ts" module>
+  // Session-only memory of how far the user paginated ("Load more"), where
+  // they scrolled, and which thread was selected (the keyboard-nav anchor),
+  // per folder view. Module scope so it survives folder switches and
+  // component remounts for the life of the app session; gone on quit.
+  // Keyed "accountId:folderId" ("unified:inbox" for the unified view).
+  const sessionListState = new Map<
+    string,
+    { loadedCount: number; scrollTop: number; selectedThreadId: string | null }
+  >()
+</script>
+
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
   import Icon from '@iconify/svelte'
@@ -163,8 +175,20 @@
         pendingReload = true
         return
       }
+      // Preserve the loaded window + scroll position across the sync reload
+      // (#348) — same pattern as handleActionComplete. Without this, a sync
+      // collapses "Load more" pagination back to the first page and jumps
+      // the view to the top.
+      const scrollTop = listContainerRef?.scrollTop ?? 0
+      const totalLoaded = Math.max(conversations.length, PAGE_SIZE)
       offset = 0
-      loadConversations()
+      loadConversations(totalLoaded).then(() => {
+        if (listContainerRef) {
+          requestAnimationFrame(() => {
+            listContainerRef!.scrollTop = scrollTop
+          })
+        }
+      })
     }, 300)
   }
 
@@ -288,12 +312,24 @@
   let prevAccountId: string | null = null
   let prevFolderId: string | null = null
 
+  // Remember the departing folder's pagination + scroll for the session so
+  // returning to it restores the view (follow-up to #348).
+  function rememberListState() {
+    if (prevAccountId === null || prevFolderId === null) return
+    sessionListState.set(`${prevAccountId}:${prevFolderId}`, {
+      loadedCount: conversations.length,
+      scrollTop: listContainerRef?.scrollTop ?? 0,
+      selectedThreadId,
+    })
+  }
+
   // Clear selection and search when folder changes
   $effect(() => {
     const currentAccount = isUnifiedView ? 'unified' : accountId
     const currentFolder = isUnifiedView ? 'inbox' : folderId
 
     if (!isUnifiedView && (!accountId || !folderId)) {
+      rememberListState()
       prevAccountId = null
       prevFolderId = null
       conversations = []
@@ -305,6 +341,7 @@
     // Only reset and reload if folder actually changed
     if (currentAccount === prevAccountId && currentFolder === prevFolderId) return
 
+    rememberListState()
     prevAccountId = currentAccount
     prevFolderId = currentFolder
     loadGeneration++ // Invalidate any in-flight loads from the previous folder (#200)
@@ -322,7 +359,31 @@
     serverSearchCount = 0
     serverSearchTotalCount = 0
     lastServerQuery = ''
-    loadConversations()
+    // Restore this folder's session state: reload the previously-paginated
+    // window and put the scroll back where the user left it.
+    const remembered = sessionListState.get(`${currentAccount}:${currentFolder}`)
+    const restoreCount = remembered && remembered.loadedCount > PAGE_SIZE ? remembered.loadedCount : undefined
+    loadConversations(restoreCount).then(() => {
+      // Guard against rapid folder switches: only restore if we're still on
+      // the folder this load was for.
+      if (!remembered || prevAccountId !== currentAccount || prevFolderId !== currentFolder) {
+        return
+      }
+      // Restore the selection (keyboard-nav anchor) so j/k continue from
+      // where the user left off instead of the auto-selected first row —
+      // only if the thread still exists in the reloaded window.
+      if (
+        remembered.selectedThreadId &&
+        conversations.some((c) => c.threadId === remembered.selectedThreadId)
+      ) {
+        selectedThreadId = remembered.selectedThreadId
+      }
+      if (remembered.scrollTop > 0 && listContainerRef) {
+        requestAnimationFrame(() => {
+          listContainerRef!.scrollTop = remembered.scrollTop
+        })
+      }
+    })
     checkFTSIndexStatus()
   })
 
@@ -457,9 +518,18 @@
     try {
       // SyncFolder returns after headers sync, but body fetch continues in background
       // The account store tracks sync:progress and folder:synced events to manage syncing state
+      // Preserve the loaded window + scroll position (#348) — manual sync must
+      // not collapse "Load more" pagination.
+      const scrollTop = listContainerRef?.scrollTop ?? 0
+      const totalLoaded = Math.max(conversations.length, PAGE_SIZE)
       await SyncFolder(accountId, folderId)
       offset = 0
-      await loadConversations()
+      await loadConversations(totalLoaded)
+      if (listContainerRef) {
+        requestAnimationFrame(() => {
+          listContainerRef!.scrollTop = scrollTop
+        })
+      }
     } catch (err) {
       console.error('Failed to sync folder:', err)
       error = $_('viewer.failedToLoadMessages')
@@ -1008,6 +1078,26 @@
     }
   }
 
+  // Select + scroll to the first message (g)
+  export function selectFirst() {
+    if (activeList.length === 0) return
+    selectedThreadId = activeList[0].threadId
+    scrollToIndex(0)
+    // Blur any focused element so Enter key triggers openSelected() instead of the button
+    ;(document.activeElement as HTMLElement)?.blur?.()
+  }
+
+  // Select + scroll to the last LOADED message (G) — does not paginate,
+  // consistent with j/k stopping at the loaded window
+  export function selectLast() {
+    if (activeList.length === 0) return
+    const last = activeList.length - 1
+    selectedThreadId = activeList[last].threadId
+    scrollToIndex(last)
+    // Blur any focused element so Enter key triggers openSelected() instead of the button
+    ;(document.activeElement as HTMLElement)?.blur?.()
+  }
+
   // Open the currently selected conversation (exposed for keyboard navigation)
   export function openSelected() {
     if (!selectedThreadId) return
@@ -1189,6 +1279,27 @@
       clientX: rect.right,
       clientY: rect.top + rect.height / 2,
     }))
+  }
+
+  // Row component refs keyed by threadId — lets keyboard shortcuts reach the
+  // focused row's context-menu folder picker (Alt+M / Alt+C)
+  let rowRefs: Record<string, ConversationRow | null> = {}
+
+  function getFocusedRowRef(): ConversationRow | null {
+    if (!selectedThreadId) return null
+    return rowRefs[selectedThreadId] ?? null
+  }
+
+  export function isFolderPickerOpen(): boolean {
+    return getFocusedRowRef()?.isFolderPickerOpen() ?? false
+  }
+
+  export function toggleMoveToDialog() {
+    getFocusedRowRef()?.toggleFolderPicker('move')
+  }
+
+  export function toggleCopyToDialog() {
+    getFocusedRowRef()?.toggleFolderPicker('copy')
   }
 
   // Permanent delete confirmation state
@@ -1546,6 +1657,7 @@
             {@const resultAccountId = result.accountId || accountId}
             {@const resultFolderId = result.folderId || folderId}
             <ConversationRow
+              bind:this={rowRefs[result.threadId]}
               conversation={result}
               density={getMessageListDensity()}
               selected={selectedThreadId === result.threadId}
@@ -1562,6 +1674,7 @@
               onClearSelection={clearSelection}
               onActionComplete={handleActionComplete}
               {onReply}
+              onDelete={(ids) => requestDelete(ids)}
             />
           {/each}
 
@@ -1614,6 +1727,7 @@
           {@const resultAccountColor = result.accountColor || ''}
           {@const resultAccountName = result.accountName || ''}
           <ConversationRow
+            bind:this={rowRefs[result.threadId]}
             conversation={result}
             density={getMessageListDensity()}
             selected={selectedThreadId === result.threadId}
@@ -1637,6 +1751,7 @@
             onClearSelection={clearSelection}
             onActionComplete={handleActionComplete}
             {onReply}
+            onDelete={(ids) => requestDelete(ids)}
           />
         {/each}
 
@@ -1684,6 +1799,7 @@
         {@const convAccountColor = (conv as any).accountColor || ''}
         {@const convAccountName = (conv as any).accountName || ''}
         <ConversationRow
+          bind:this={rowRefs[conv.threadId]}
           conversation={conv}
           density={getMessageListDensity()}
           selected={selectedThreadId === conv.threadId}
@@ -1702,6 +1818,7 @@
           onClearSelection={clearSelection}
           onActionComplete={handleActionComplete}
           {onReply}
+          onDelete={(ids) => requestDelete(ids)}
         />
       {/each}
 
@@ -1712,7 +1829,11 @@
             bind:this={loadMoreButtonRef}
             class="text-sm text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded px-2 py-1"
             onclick={() => {
-              offset += PAGE_SIZE
+              // Continue from the true end of the loaded window, not a
+              // page-size increment — after a preserved reload (sync or
+              // action) offset is 0 while conversations holds several pages,
+              // and += PAGE_SIZE would re-fetch and append duplicate rows.
+              offset = conversations.length
               loadConversations()
             }}
             disabled={loading}

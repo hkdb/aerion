@@ -42,6 +42,21 @@
   let needsOrganizerEmail = $state(false)
   let submitting = $state(false)
   let lastError = $state('')
+  // 'connection' = a real server/connection failure — rendered with the
+  // "Couldn't connect" title and check-your-credentials footer. 'prompt' =
+  // guidance (organizer email needed/invalid, missing fields) where the
+  // connection did NOT fail — same alert box, but message only (#363).
+  let lastErrorKind = $state<'connection' | 'prompt'>('connection')
+
+  function setPromptError(msg: string) {
+    lastError = msg
+    lastErrorKind = 'prompt'
+  }
+
+  function setConnectionError(msg: string) {
+    lastError = msg
+    lastErrorKind = 'connection'
+  }
 
   // Authentication method. CalDAV can authenticate with username/password
   // (Basic) or by reusing a custom-OAuth mail account's Bearer token — the
@@ -142,26 +157,26 @@
   function validate(): boolean {
     lastError = ''
     if (nameInput.trim() === '') {
-      lastError = $_('calendar.add.fieldRequired', { values: { field: $_('calendar.add.nameLabel') } })
+      setPromptError($_('calendar.add.fieldRequired', { values: { field: $_('calendar.add.nameLabel') } }))
       return false
     }
     if (urlInput.trim() === '') {
-      lastError = $_('calendar.add.fieldRequired', { values: { field: $_('calendar.add.urlLabel') } })
+      setPromptError($_('calendar.add.fieldRequired', { values: { field: $_('calendar.add.urlLabel') } }))
       return false
     }
     if (isOAuth) {
       if (selectedAccountId === '') {
-        lastError = $_('calendar.add.oauthAccountRequired')
+        setPromptError($_('calendar.add.oauthAccountRequired'))
         return false
       }
       return true
     }
     if (usernameInput.trim() === '') {
-      lastError = $_('calendar.add.fieldRequired', { values: { field: $_('calendar.add.usernameLabel') } })
+      setPromptError($_('calendar.add.fieldRequired', { values: { field: $_('calendar.add.usernameLabel') } }))
       return false
     }
     if (passwordInput === '') {
-      lastError = $_('calendar.add.fieldRequired', { values: { field: $_('calendar.add.passwordLabel') } })
+      setPromptError($_('calendar.add.fieldRequired', { values: { field: $_('calendar.add.passwordLabel') } }))
       return false
     }
     return true
@@ -170,7 +185,7 @@
   async function submit() {
     if (!validate()) return
     if (needsOrganizerEmail && !emailLooksValid) {
-      lastError = $_('calendar.add.organizerEmailInvalid')
+      setPromptError($_('calendar.add.organizerEmailInvalid'))
       return
     }
     submitting = true
@@ -201,10 +216,10 @@
       // bouncing the user out with a generic error.
       if (isOrganizerEmailRequired(msg)) {
         needsOrganizerEmail = true
-        lastError = $_('calendar.add.organizerEmailPrompt')
+        setPromptError($_('calendar.add.organizerEmailPrompt'))
         return
       }
-      lastError = msg
+      setConnectionError(msg)
     } finally {
       submitting = false
     }
@@ -361,9 +376,16 @@
           <div class="flex items-start gap-2 p-2 bg-destructive/10 rounded text-sm min-w-0">
             <Icon icon="mdi:alert-circle" class="w-4 h-4 text-destructive shrink-0 mt-0.5" />
             <div class="flex-1 min-w-0">
-              <div class="text-destructive font-medium">{$_('calendar.add.errorTitle')}</div>
+              <!-- Guidance messages (organizer email needed/invalid, missing
+                   fields) skip the "Couldn't connect" title + credentials
+                   footer — the connection didn't fail (#363). -->
+              {#if lastErrorKind === 'connection'}
+                <div class="text-destructive font-medium">{$_('calendar.add.errorTitle')}</div>
+              {/if}
               <div class="text-xs text-muted-foreground break-all max-h-24 overflow-y-auto">{lastError}</div>
-              <div class="text-xs text-muted-foreground mt-1">{$_('calendar.add.errorHelp')}</div>
+              {#if lastErrorKind === 'connection'}
+                <div class="text-xs text-muted-foreground mt-1">{$_('calendar.add.errorHelp')}</div>
+              {/if}
             </div>
           </div>
         {/if}

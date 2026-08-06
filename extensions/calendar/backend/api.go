@@ -245,7 +245,7 @@ func (a *API) davHTTPClient(accountID, username, password string, timeout time.D
 		}
 		return davutil.NewWebDAVClient(hc.Transport, timeout), nil
 	}
-	return webdav.HTTPClientWithBasicAuth(newCalDAVHTTPClient(timeout), username, password), nil
+	return davutil.NewBasicDigestHTTPClient(username, password, timeout), nil
 }
 
 // SetOrganizerIdentity replaces the stored organizer identity list for

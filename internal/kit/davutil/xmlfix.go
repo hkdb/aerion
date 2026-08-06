@@ -82,16 +82,23 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 	return NewWebDAVClient(defaultBaseTransport(), timeout)
 }
 
-// NewWebDAVClient wraps base in XMLFixTransport and returns an *http.Client
-// (which satisfies go-webdav's HTTPClient interface). base is the inner
-// transport — http.DefaultTransport for unauthenticated/Basic use, or an
-// auth-injecting transport (e.g. bearerTransport, or the auth broker's
+// NewWebDAVClient wraps base in the shared transport chain and returns an
+// *http.Client (which satisfies go-webdav's HTTPClient interface). base is
+// the inner transport — http.DefaultTransport for unauthenticated/Basic use,
+// or an auth-injecting transport (e.g. bearerTransport, or the auth broker's
 // refreshing transport) when the caller supplies one. If base is nil,
 // http.DefaultTransport is used.
+//
+// Chain (outer→inner): XMLFix → method-preserving redirect → auth/base. The
+// redirect transport sits outside auth so a replayed hop re-enters
+// Basic/Digest/Bearer injection.
 func NewWebDAVClient(base http.RoundTripper, timeout time.Duration) *http.Client {
+	if base == nil {
+		base = defaultBaseTransport()
+	}
 	return &http.Client{
 		Timeout:   timeout,
-		Transport: NewXMLFixTransport(base),
+		Transport: NewXMLFixTransport(&redirectTransport{base: base}),
 	}
 }
 

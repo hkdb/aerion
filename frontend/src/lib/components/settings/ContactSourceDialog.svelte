@@ -366,6 +366,13 @@
           writable: true,
           sync_interval: syncInterval,
           enabled_addressbooks: Array.from(selectedAddressbooks),
+          // Pass the discovered display names along so the stored rows keep
+          // the server's names instead of the path's last segment (#366).
+          addressbook_names: Object.fromEntries(
+            discoveredAddressbooks
+              .filter((ab) => selectedAddressbooks.has(ab.path) && ab.name)
+              .map((ab) => [ab.path, ab.name])
+          ),
         }
 
         if (editSource) {

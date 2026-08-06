@@ -152,6 +152,7 @@ func (ops *composeOps) getIMAPCredentials(ctx context.Context, accountID string)
 	config.Host = acc.IMAPHost
 	config.Port = acc.IMAPPort
 	config.Security = imap.SecurityType(acc.IMAPSecurity)
+	config.AuthMechanism = string(acc.IMAPAuthMechanism)
 	config.Username = acc.Username
 	config.TLSConfig = certificate.BuildTLSConfig(acc.IMAPHost, ops.certStore)
 
@@ -385,6 +386,7 @@ func (ops *composeOps) sendMessage(ctx context.Context, accountID string, msg sm
 	smtpConfig.Host = acc.SMTPHost
 	smtpConfig.Port = acc.SMTPPort
 	smtpConfig.Security = smtp.SecurityType(acc.SMTPSecurity)
+	smtpConfig.AuthMechanism = string(acc.EffectiveSMTPAuthMechanism())
 	smtpConfig.Username = acc.Username
 	// Shared mailboxes authenticate SMTP with the parent account's username
 	if acc.SharedMailboxParentID != "" {
@@ -801,6 +803,14 @@ func (a *App) PrepareReply(messageID, mode string) (*smtp.ComposeMessage, error)
 		log.Warn().Err(inlineErr).Msg("Failed to get inline attachments for reply/forward")
 	}
 	for cid, dataURL := range inlineMap {
+		// Replies include an "inline" attachment only when the quoted HTML
+		// actually embeds it — mailers stamp Content-IDs on ordinary document
+		// attachments, and re-attaching those sends phantom copies with the
+		// cid as filename (#381). Forwards keep every part (the forwarder
+		// wants the documents).
+		if mode != "forward" && !quotedHTMLReferencesCID(quotedHTML, cid) {
+			continue
+		}
 		ct, b64 := parseDataURL(dataURL)
 		if b64 == "" {
 			continue
@@ -830,6 +840,15 @@ func (a *App) PrepareReply(messageID, mode string) (*smtp.ComposeMessage, error)
 		References:  refs,
 		Attachments: attachments,
 	}, nil
+}
+
+// quotedHTMLReferencesCID reports whether the quoted HTML actually references
+// the given (bracket-stripped) Content-ID. Guards against re-attaching
+// misclassified "inline" documents that the reply body never embeds (#381).
+// Plain substring match errs toward keeping an attachment when the cid
+// appears anywhere in the body, regardless of quote style.
+func quotedHTMLReferencesCID(html, cid string) bool {
+	return strings.Contains(html, "cid:"+cid)
 }
 
 // fetchForwardAttachments fetches regular (non-inline) attachment content from IMAP
@@ -889,7 +908,7 @@ func parseDataURL(dataURL string) (contentType, base64Data string) {
 }
 
 // TestSMTPConnection tests SMTP connection settings
-func (a *App) TestSMTPConnection(host string, port int, security, username, password string) error {
+func (a *App) TestSMTPConnection(host string, port int, security, username, password, authMechanism string) error {
 	log := logging.WithComponent("app")
 
 	// Map security string to type
@@ -913,6 +932,7 @@ func (a *App) TestSMTPConnection(host string, port int, security, username, pass
 	config.Username = username
 	config.Password = password
 	config.AuthType = smtp.AuthTypePassword
+	config.AuthMechanism = authMechanism
 	config.TLSConfig = certificate.BuildTLSConfig(host, a.certStore)
 
 	client := smtp.NewClient(config)

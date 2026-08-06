@@ -36,6 +36,7 @@ const (
 	KeyAccentBarUnread            = "accent_bar_unread"
 	KeyShowMessageListCircles     = "show_message_list_circles"
 	KeyShowMessageListProfilePics = "show_message_list_profile_pics" // render contact photos in the message-list avatar slot (default off)
+	KeyAlwaysShowMessageCheckbox  = "always_show_message_checkbox"   // reserve a fixed checkbox column instead of the hover/swipe slide-reveal (default off)
 	KeyShowViewerCircles          = "show_viewer_circles"
 	KeyLastSeenVersion            = "last_seen_version"       // for "What's new in this version" launch dialog
 	KeyOAuthWarningDisabled       = "oauth_warning_disabled"  // user toggled "Don't show again" on the missing-OAuth-creds launch warning
@@ -340,6 +341,26 @@ func (s *Store) SetShowMessageListProfilePics(enabled bool) error {
 		v = "true"
 	}
 	return s.Set(KeyShowMessageListProfilePics, v)
+}
+
+// GetAlwaysShowMessageCheckbox returns whether the message list reserves a
+// fixed checkbox column (legacy layout) instead of the hover/swipe
+// slide-reveal. Default: false.
+func (s *Store) GetAlwaysShowMessageCheckbox() (bool, error) {
+	value, err := s.Get(KeyAlwaysShowMessageCheckbox)
+	if err != nil {
+		return false, err
+	}
+	return value == "true", nil
+}
+
+// SetAlwaysShowMessageCheckbox enables or disables the always-reserved checkbox column
+func (s *Store) SetAlwaysShowMessageCheckbox(enabled bool) error {
+	v := "false"
+	if enabled {
+		v = "true"
+	}
+	return s.Set(KeyAlwaysShowMessageCheckbox, v)
 }
 
 // GetShowViewerCircles returns whether colored sender circles

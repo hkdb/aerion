@@ -1315,4 +1315,26 @@ var migrations = []Migration{
 			ALTER TABLE accounts ADD COLUMN oauth_stable_id TEXT NOT NULL DEFAULT '';
 		`,
 	},
+	{
+		Version: 41,
+		SQL: `
+			-- SMTP password SASL mechanism: 'auto' (pick from the server's EHLO
+			-- AUTH advertisement), 'plain', or 'login'. The explicit values let
+			-- users force a mechanism on servers with broken advertisements (#355).
+
+			ALTER TABLE accounts ADD COLUMN smtp_auth_mechanism TEXT NOT NULL DEFAULT 'auto';
+		`,
+	},
+	{
+		Version: 42,
+		SQL: `
+			-- IMAP counterpart of v41: incoming password auth mechanism ('auto' =
+			-- negotiate via LOGINDISABLED capability, 'plain', 'login'). Separate
+			-- migration because v41 had already been applied to dev databases when
+			-- the incoming setting was added. SMTP with "same as incoming"
+			-- credentials (empty smtp_username) follows imap_auth_mechanism.
+
+			ALTER TABLE accounts ADD COLUMN imap_auth_mechanism TEXT NOT NULL DEFAULT 'auto';
+		`,
+	},
 }

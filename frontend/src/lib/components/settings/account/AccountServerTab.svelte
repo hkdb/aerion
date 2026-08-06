@@ -6,6 +6,7 @@
   import Switch from '$lib/components/ui/switch/Switch.svelte'
   import {
     securityOptions,
+    authMechanismOptions,
     syncIntervalOptions,
   } from '$lib/config/providers'
   // @ts-ignore - wailsjs path
@@ -25,6 +26,9 @@
     imapHost: string
     imapPort: number
     imapSecurity: string
+    /** Incoming password auth mechanism: 'auto' | 'plain' | 'login'.
+     *  Generic provider only. */
+    imapAuthMechanism: string
     smtpHost: string
     smtpPort: number
     smtpSecurity: string
@@ -36,6 +40,10 @@
     /** SMTP-specific password (write-only; blank on edit means "keep
      *  existing keyring entry"). */
     smtpPassword: string
+    /** Outgoing password auth mechanism: 'auto' | 'plain' | 'login'. Only
+     *  meaningful with separate SMTP credentials — with "same as incoming"
+     *  the backend follows imapAuthMechanism. Generic provider only. */
+    smtpAuthMechanism: string
     /** True when the editing account uses the generic provider, so the
      *  separate-SMTP-credentials UI is allowed to render. */
     isGenericProvider: boolean
@@ -64,12 +72,14 @@
     onImapHostChange: (value: string) => void
     onImapPortChange: (value: number) => void
     onImapSecurityChange: (value: string) => void
+    onImapAuthMechanismChange: (value: string) => void
     onSmtpHostChange: (value: string) => void
     onSmtpPortChange: (value: number) => void
     onSmtpSecurityChange: (value: string) => void
     onNoOutgoingServerChange: (value: boolean) => void
     onSmtpUsernameChange: (value: string) => void
     onSmtpPasswordChange: (value: string) => void
+    onSmtpAuthMechanismChange: (value: string) => void
     onReplyForwardIdentityIDChange: (value: string) => void
     onSyncIntervalChange: (value: string) => void
     onReadReceiptPolicyChange: (value: string) => void
@@ -85,12 +95,14 @@
     imapHost = $bindable(),
     imapPort = $bindable(),
     imapSecurity = $bindable(),
+    imapAuthMechanism = $bindable('auto'),
     smtpHost = $bindable(),
     smtpPort = $bindable(),
     smtpSecurity = $bindable(),
     noOutgoingServer = $bindable(false),
     smtpUsername = $bindable(''),
     smtpPassword = $bindable(''),
+    smtpAuthMechanism = $bindable('auto'),
     isGenericProvider,
     replyForwardIdentityID = $bindable(''),
     availableIdentityGroups,
@@ -107,12 +119,14 @@
     onImapHostChange,
     onImapPortChange,
     onImapSecurityChange,
+    onImapAuthMechanismChange,
     onSmtpHostChange,
     onSmtpPortChange,
     onSmtpSecurityChange,
     onNoOutgoingServerChange,
     onSmtpUsernameChange,
     onSmtpPasswordChange,
+    onSmtpAuthMechanismChange,
     onReplyForwardIdentityIDChange,
     onSyncIntervalChange,
     onReadReceiptPolicyChange,
@@ -229,6 +243,10 @@
   // Helper functions
   function getSecurityLabel(value: string): string {
     return securityOptions.find(opt => opt.value === value)?.label || value
+  }
+
+  function getAuthMechanismLabel(value: string): string {
+    return authMechanismOptions.find(opt => opt.value === value)?.label || value
   }
 
   function getSyncIntervalLabel(value: string): string {
@@ -391,6 +409,29 @@
         </div>
       </div>
     </div>
+
+    {#if isGenericProvider}
+      <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-2">
+          <Label>{$_('account.authMechanism')}</Label>
+          <Select.Root
+            value={imapAuthMechanism}
+            onValueChange={(v) => { imapAuthMechanism = v; onImapAuthMechanismChange(v) }}
+          >
+            <Select.Trigger class="h-10">
+              <Select.Value placeholder="Select">
+                {getAuthMechanismLabel(imapAuthMechanism)}
+              </Select.Value>
+            </Select.Trigger>
+            <Select.Content>
+              {#each authMechanismOptions as opt (opt.value)}
+                <Select.Item value={opt.value} label={opt.label} />
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
+      </div>
+    {/if}
   </div>
 
   <!-- Divider -->
@@ -557,6 +598,24 @@
               {#if errors.smtpPassword}
                 <p class="text-sm text-destructive">{errors.smtpPassword}</p>
               {/if}
+            </div>
+            <div class="space-y-2">
+              <Label>{$_('account.authMechanism')}</Label>
+              <Select.Root
+                value={smtpAuthMechanism}
+                onValueChange={(v) => { smtpAuthMechanism = v; onSmtpAuthMechanismChange(v) }}
+              >
+                <Select.Trigger class="h-10">
+                  <Select.Value placeholder="Select">
+                    {getAuthMechanismLabel(smtpAuthMechanism)}
+                  </Select.Value>
+                </Select.Trigger>
+                <Select.Content>
+                  {#each authMechanismOptions as opt (opt.value)}
+                    <Select.Item value={opt.value} label={opt.label} />
+                  {/each}
+                </Select.Content>
+              </Select.Root>
             </div>
           </div>
         {/if}

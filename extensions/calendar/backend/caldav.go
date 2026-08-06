@@ -50,10 +50,7 @@ type DiscoveredCalendar struct {
 // hit the affected XML elements — 1C will factor / inline the fix when
 // ETag-based sync needs it.
 func DiscoverCalendars(ctx context.Context, baseURL, username, password string) (string, []DiscoveredCalendar, error) {
-	httpClient := webdav.HTTPClientWithBasicAuth(
-		newCalDAVHTTPClient(30*time.Second),
-		username, password,
-	)
+	httpClient := davutil.NewBasicDigestHTTPClient(username, password, 30*time.Second)
 	return discoverCalendars(ctx, baseURL, username, httpClient)
 }
 
@@ -78,6 +75,10 @@ func discoverCalendars(ctx context.Context, baseURL, username string, httpClient
 	}
 
 	var lastErr error
+	// The direct-URL attempt's error is the most user-relevant one — later
+	// fallback rungs can fail for unrelated reasons (e.g. an SSO proxy
+	// answering common paths with a login page, #363) and would mask it.
+	var directErr error
 
 	// Attempt 1: URL as-is.
 	homePath, calendars, err := tryDiscoverCalDAVFromURL(ctx, httpClient, parsedURL.String())
@@ -86,6 +87,7 @@ func discoverCalendars(ctx context.Context, baseURL, username string, httpClient
 	}
 	if err != nil {
 		lastErr = err
+		directErr = err
 	}
 
 	// Attempt 2: .well-known/caldav.
@@ -118,6 +120,9 @@ func discoverCalendars(ctx context.Context, baseURL, username string, httpClient
 		}
 	}
 
+	if directErr != nil {
+		return "", nil, fmt.Errorf("no calendars found at %s: %w", baseURL, directErr)
+	}
 	if lastErr != nil {
 		return "", nil, fmt.Errorf("no calendars found at %s: %w", baseURL, lastErr)
 	}
@@ -136,14 +141,24 @@ func tryDiscoverCalDAVFromURL(ctx context.Context, httpClient webdav.HTTPClient,
 
 	principal, err := client.FindCurrentUserPrincipal(ctx)
 	if err != nil {
-		// Principal lookup unsupported / unauthorized — try the URL itself as
-		// the calendar home set. Some servers (or pre-supplied home-set URLs)
-		// work that way.
-		cals, lerr := tryListCalendarsAt(ctx, httpClient, urlStr)
-		if lerr != nil {
-			return "", nil, fmt.Errorf("find principal: %w", err)
+		// go-webdav's probe path.Join-strips a trailing slash from the request
+		// path, 404ing servers that serve the collection only at "/x/"
+		// (SabreDAV/Davis, #363). Retry with a raw PROPFIND that keeps the URL
+		// exactly as given (and once with "/" appended).
+		rawPrincipal, rawErr := davutil.FindCurrentUserPrincipalRaw(ctx, httpClient, urlStr)
+		if rawErr == nil {
+			principal = rawPrincipal
 		}
-		return urlStr, cals, nil
+		if rawErr != nil {
+			// Principal lookup unsupported / unauthorized — try the URL itself
+			// as the calendar home set. Some servers (or pre-supplied home-set
+			// URLs) work that way.
+			cals, lerr := tryListCalendarsAt(ctx, httpClient, urlStr)
+			if lerr != nil {
+				return "", nil, fmt.Errorf("find principal: %w", err)
+			}
+			return urlStr, cals, nil
+		}
 	}
 
 	homeSet, err := client.FindCalendarHomeSet(ctx, principal)
@@ -411,19 +426,3 @@ func resolveCalDAVURL(baseURL, href string) string {
 	return base.ResolveReference(ref).String()
 }
 
-// newCalDAVHTTPClient returns the plain *http.Client used for discovery.
-// Mirrors `internal/carddav/client.go::newHTTPClient` MINUS the
-// xmlFixTransport. The XML-fix is needed for the ETag / lastmodified parsing
-// quirks in some servers; discovery PROPFIND doesn't touch those fields.
-// If 1C's sync layer hits the same compat issues, the transport gets factored
-// at that point (likely as a shared internal/davutil package the host
-// exposes, since calendar can't import internal/carddav).
-func newCalDAVHTTPClient(timeout time.Duration) *http.Client {
-	// Route through davutil so the client uses the host-installed cert-aware
-	// (TOFU) base transport — same trusted-cert store as IMAP/SMTP — instead of
-	// the implicit http.DefaultTransport.
-	return &http.Client{
-		Timeout:   timeout,
-		Transport: davutil.NewXMLFixTransport(nil),
-	}
-}

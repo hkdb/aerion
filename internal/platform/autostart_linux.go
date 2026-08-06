@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	autostartFilename = "io.github.hkdb.aerion.desktop"
+	autostartFilename = "io.github.hkdb.Aerion.desktop"
 	desktopEntryTmpl  = `[Desktop Entry]
 Type=Application
 Name=Aerion

@@ -393,6 +393,8 @@
     "darkMailContentHelp": "Applica un filtro scuro ai contenuti dei messaggi di posta elettronica quando Aerion è in modalità scura.",
     "darkComposerBody": "Corpo dell'editor in modalità scura",
     "darkComposerBodyHelp": "Usa uno sfondo scuro per il corpo del messaggio nell'editor quando Aerion è in modalità scura.",
+    "alwaysShowCheckbox": "Mostra sempre la casella di selezione accanto al messaggio",
+    "alwaysShowCheckboxHelp": "Riserva una colonna fissa per le caselle di selezione nell'elenco dei messaggi invece di rivelarle al passaggio del mouse o con lo scorrimento.",
     "selectDensity": "Seleziona dimensione",
     "readReceipts": "Conferme di lettura",
     "readReceiptPolicy": "Quando qualcuno richiede una conferma di lettura",
@@ -595,6 +597,7 @@
     "replyForwardWithHelp": "Identità da preselezionare nell'editor quando si risponde o si inoltrano i messaggi ricevuti qui.",
     "replyForwardWithDefault": "Account di invio predefinito",
     "smtpAuthentication": "Autenticazione SMTP",
+    "authMechanism": "Metodo di autenticazione",
     "smtpUseSameAsIncoming": "Come per il server in entrata",
     "smtpUsernamePlaceholder": "utente-smtp@esempio.com",
     "smtpPasswordPlaceholder": "Password SMTP",
@@ -924,7 +927,9 @@
     "selectPresetColor": "Seleziona {color}",
     "backToList": "Torna all'elenco messaggi",
     "toggleSidebar": "Attiva/disattiva la barra laterale",
-    "closeSidebar": "Chiudi barra laterale"
+    "closeSidebar": "Chiudi barra laterale",
+    "showAllToasts": "Mostra tutte le notifiche",
+    "collapseToasts": "Comprimi le notifiche"
   },
   "window": {
     "minimize": "Riduci",

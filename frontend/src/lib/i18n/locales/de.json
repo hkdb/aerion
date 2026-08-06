@@ -393,6 +393,8 @@
     "darkMailContentHelp": "Einen Dunkelfilter auf den E-Mail-Inhalt anwenden, wenn Aerion im Dunkelmodus ist.",
     "darkComposerBody": "Dunkler Editor-Hintergrund",
     "darkComposerBodyHelp": "Einen dunklen Hintergrund für den Editor-Bereich verwenden, wenn Aerion im Dunkelmodus ist.",
+    "alwaysShowCheckbox": "Kontrollkästchen neben Nachrichten immer anzeigen",
+    "alwaysShowCheckboxHelp": "Eine feste Spalte für Kontrollkästchen in der Nachrichtenliste reservieren, statt sie erst beim Überfahren oder Wischen einzublenden.",
     "selectDensity": "Dichte auswählen",
     "readReceipts": "Lesebestätigungen",
     "readReceiptPolicy": "Wenn jemand eine Lesebestätigung anfordert",
@@ -595,6 +597,7 @@
     "replyForwardWithHelp": "Identität, die im Editor vorausgewählt wird, wenn auf Nachrichten geantwortet oder diese weitergeleitet werden, die hier empfangen wurden.",
     "replyForwardWithDefault": "Standard-Sendekonto",
     "smtpAuthentication": "SMTP-Authentifizierung",
+    "authMechanism": "Authentifizierungsmethode",
     "smtpUseSameAsIncoming": "Gleich wie beim Posteingangsserver",
     "smtpUsernamePlaceholder": "smtp-user@beispiel.de",
     "smtpPasswordPlaceholder": "SMTP-Passwort",
@@ -924,7 +927,9 @@
     "selectPresetColor": "{color} auswählen",
     "backToList": "Zurück zur Nachrichtenliste",
     "toggleSidebar": "Seitenleiste ein-/ausblenden",
-    "closeSidebar": "Seitenleiste schließen"
+    "closeSidebar": "Seitenleiste schließen",
+    "showAllToasts": "Alle Benachrichtigungen anzeigen",
+    "collapseToasts": "Benachrichtigungen einklappen"
   },
   "window": {
     "minimize": "Minimieren",

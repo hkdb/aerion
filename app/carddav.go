@@ -83,13 +83,7 @@ func (a *App) AddContactSource(config carddav.SourceConfig) (*carddav.Source, er
 
 	// Create addressbooks based on enabled paths
 	for _, path := range config.EnabledAddressbooks {
-		// Try to get the name from discovery
-		name := path
-		if parts := strings.Split(strings.Trim(path, "/"), "/"); len(parts) > 0 {
-			name = parts[len(parts)-1]
-		}
-
-		_, err := a.carddavStore.CreateAddressbook(source.ID, path, name, true)
+		_, err := a.carddavStore.CreateAddressbook(source.ID, path, addressbookDisplayName(config.AddressbookNames, path), true)
 		if err != nil {
 			log.Warn().Err(err).Str("path", path).Msg("Failed to create addressbook")
 		}
@@ -163,11 +157,7 @@ func (a *App) UpdateContactSource(id string, config carddav.SourceConfig) error 
 			if _, exists := existingByPath[path]; exists {
 				continue
 			}
-			name := path
-			if parts := strings.Split(strings.Trim(path, "/"), "/"); len(parts) > 0 {
-				name = parts[len(parts)-1]
-			}
-			if _, err := a.carddavStore.CreateAddressbook(id, path, name, true); err != nil {
+			if _, err := a.carddavStore.CreateAddressbook(id, path, addressbookDisplayName(config.AddressbookNames, path), true); err != nil {
 				log.Warn().Err(err).Str("path", path).Msg("Failed to create new addressbook")
 			}
 		}
@@ -643,4 +633,17 @@ func (a *App) CancelContactSourceOAuthFlow() {
 	a.pendingContactSourceOAuthProvider = ""
 
 	wailsRuntime.EventsEmit(a.ctx, "contact-source-oauth:cancelled", nil)
+}
+
+// addressbookDisplayName resolves the stored name for an addressbook path:
+// the display name discovery found (passed through SourceConfig, #366),
+// falling back to the path's last segment.
+func addressbookDisplayName(names map[string]string, path string) string {
+	if name := names[path]; name != "" {
+		return name
+	}
+	if parts := strings.Split(strings.Trim(path, "/"), "/"); len(parts) > 0 && parts[len(parts)-1] != "" {
+		return parts[len(parts)-1]
+	}
+	return path
 }

@@ -428,6 +428,16 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 		return ctx.Err()
 	}
 
+	// Serialize with other body fetches on this folder: two concurrent runs
+	// can both see body_fetched=0 and double-insert attachment rows (plain
+	// INSERT, no unique constraint). Separate key namespace from the header
+	// lock so header reconciles never queue behind body downloads.
+	unlock, err := e.folderLocks.lock(ctx, "body:"+folderID)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	// Get folder to get path
 	f, err := e.folderStore.Get(folderID)
 	if err != nil {

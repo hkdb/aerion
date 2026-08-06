@@ -410,10 +410,7 @@ func (p caldavProvider) PushInstance(ctx context.Context, src Source, cal Calend
 	// xmlfix-wrapped client — PUT responses may carry unquoted ETags on
 	// some servers; without the fix the new ETag fails to parse and the
 	// next conditional update breaks. Same builder as sync.
-	httpClient := webdav.HTTPClientWithBasicAuth(
-		davutil.NewHTTPClient(30*time.Second),
-		src.Username, password,
-	)
+	httpClient := davutil.NewBasicDigestHTTPClient(src.Username, password, 30*time.Second)
 
 	// PUT the new master blob to master.Href.
 	masterHref, err := absoluteHref(src.URL, payload.Master.Href)

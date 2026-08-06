@@ -533,6 +533,12 @@ func (s *Syncer) syncAddressbookLegacy(client *Client, ab *Addressbook) error {
 
 	parsedContacts, err := client.FetchContacts(ab.Path)
 	if err != nil {
+		// Minimal servers (Mailfence, #366) reject addressbook-query REPORTs
+		// too — fall back to plain PROPFIND enumeration + multiget/GET.
+		s.log.Debug().Err(err).Msg("Addressbook-query not supported, using PROPFIND enumeration")
+		parsedContacts, err = client.FetchContactsEnumerate(ab.Path)
+	}
+	if err != nil {
 		return fmt.Errorf("failed to fetch contacts: %w", err)
 	}
 

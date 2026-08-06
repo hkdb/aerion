@@ -36,6 +36,14 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		return ctx.Err()
 	}
 
+	// Serialize with any other header/flag reconcile on this folder — the
+	// caller-side tracking maps don't see each other (see folderlock.go).
+	unlock, err := e.folderLocks.lock(ctx, folderID)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	// Get folder from store
 	f, err := e.folderStore.Get(folderID)
 	if err != nil {
@@ -415,6 +423,14 @@ func (e *Engine) SyncFolderFlags(ctx context.Context, accountID, folderID string
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+
+	// Serialize with SyncMessages / other flag reconciles on this folder —
+	// this path writes folder state too (see folderlock.go).
+	unlock, err := e.folderLocks.lock(ctx, folderID)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 
 	f, err := e.folderStore.Get(folderID)
 	if err != nil {

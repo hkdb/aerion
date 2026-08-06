@@ -46,6 +46,12 @@ type SourceConfig struct {
 
 	// Addressbooks to enable (paths) - only used for CardDAV sources
 	EnabledAddressbooks []string `json:"enabled_addressbooks,omitempty"`
+
+	// AddressbookNames maps enabled addressbook paths to the display names
+	// found during discovery, so the stored rows keep the server's names
+	// ("Mike's Contacts") instead of the path's last segment ("contacts",
+	// #366). Optional — missing entries fall back to the path segment.
+	AddressbookNames map[string]string `json:"addressbook_names,omitempty"`
 }
 
 // Addressbook represents a single addressbook within a CardDAV source

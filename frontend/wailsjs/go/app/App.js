@@ -390,6 +390,10 @@ export function GetAlwaysLoadImages() {
   return window['go']['app']['App']['GetAlwaysLoadImages']();
 }
 
+export function GetAlwaysShowMessageCheckbox() {
+  return window['go']['app']['App']['GetAlwaysShowMessageCheckbox']();
+}
+
 export function GetAppInfo() {
   return window['go']['app']['App']['GetAppInfo']();
 }
@@ -1062,6 +1066,10 @@ export function SetAlwaysLoadImages(arg1) {
   return window['go']['app']['App']['SetAlwaysLoadImages'](arg1);
 }
 
+export function SetAlwaysShowMessageCheckbox(arg1) {
+  return window['go']['app']['App']['SetAlwaysShowMessageCheckbox'](arg1);
+}
+
 export function SetAutostart(arg1) {
   return window['go']['app']['App']['SetAutostart'](arg1);
 }
@@ -1270,8 +1278,8 @@ export function TestOAuthConnection(arg1) {
   return window['go']['app']['App']['TestOAuthConnection'](arg1);
 }
 
-export function TestSMTPConnection(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['app']['App']['TestSMTPConnection'](arg1, arg2, arg3, arg4, arg5);
+export function TestSMTPConnection(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['app']['App']['TestSMTPConnection'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 export function Trash(arg1) {

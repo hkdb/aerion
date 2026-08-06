@@ -320,6 +320,7 @@ type App struct {
 	// same change doesn't trigger a re-sync (only other clients' changes do).
 	ownFlagMu       goSync.Mutex
 	ownFlagChangeAt map[string]time.Time // accountID -> last own flag STORE time
+	ownExpungeAt    map[string]time.Time // accountID -> last own move/delete IMAP op time
 
 	// Draft IMAP sync goroutine tracking — cancel in-flight syncDraftToIMAP
 	draftSyncContexts map[string]context.CancelFunc // keyed by draft ID
@@ -754,6 +755,7 @@ func (a *App) Startup(ctx context.Context) {
 	a.syncContexts = make(map[string]context.CancelFunc)
 	a.syncLastRequest = make(map[string]time.Time)
 	a.ownFlagChangeAt = make(map[string]time.Time)
+	a.ownExpungeAt = make(map[string]time.Time)
 	a.draftSyncContexts = make(map[string]context.CancelFunc)
 	a.draftSyncDone = make(map[string]chan struct{})
 
