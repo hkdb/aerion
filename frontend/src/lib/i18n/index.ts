@@ -2,12 +2,14 @@ import { register, init, waitLocale, locale, _ } from 'svelte-i18n'
 
 // Register CORE locale files with lazy loading. Extensions register their own
 // locales via Vite glob auto-discovery in initI18n() — see below.
+// en must be first — it's the fallback/default.
 register('en', () => import('./locales/en.json'))
 register('cs', () => import('./locales/cs.json'))
 register('de', () => import('./locales/de.json'))
 register('fr', () => import('./locales/fr.json'))
 register('it', () => import('./locales/it.json'))
 register('nb', () => import('./locales/nb.json'))
+register('pl', () => import('./locales/pl.json'))
 register('vi', () => import('./locales/vi.json'))
 register('zh-CN', () => import('./locales/zh-CN.json'))
 register('zh-HK', () => import('./locales/zh-HK.json'))
@@ -23,6 +25,7 @@ const extensionI18nModules = import.meta.glob<{
 }>('../../../../extensions/*/frontend/i18n/index.ts', { eager: true })
 
 // Supported locales for the language picker
+// en must be first — it's the fallback/default.
 export const supportedLocales = [
   { code: 'en', name: 'English' },
   { code: 'cs', name: 'Čeština' },
@@ -30,6 +33,7 @@ export const supportedLocales = [
   { code: 'fr', name: 'Français' },
   { code: 'it', name: 'Italiano' },
   { code: 'nb', name: 'Norsk Bokmål' },
+  { code: 'pl', name: 'Polski' },
   { code: 'vi', name: 'Tiếng Việt' },
   { code: 'zh-CN', name: '简体中文 (中国)' },
   { code: 'zh-HK', name: '繁體中文 (香港)' },
