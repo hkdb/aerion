@@ -316,7 +316,8 @@
           <li>Added swipe gestures - right select and left delete - #68</li>
           <li>Added manual config of IMAP/SMTP auth mech</li>
           <li>Added digest auth for contacts and calendars - #313</li>
-          <li>Fixed IMAP/SMTP auto auth mech - [#365](https://github.com/hkdb/aerion/issues/355)</li>
+          <li>Added Polish translation - PR #374</li>
+          <li>Fixed IMAP/SMTP auto auth mech - #365</li>
           <li>Fixed glitch when rapid deleting messages</li>
           <li>Refactored to engine-level serialization</li>
           <li>Improved toast notification logic - #115</li>
