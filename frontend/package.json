@@ -1,7 +1,7 @@
 {
   "name": "aerion",
   "private": true,
-  "version": "0.3.3",
+  "version": "0.3.4-dev",
   "type": "module",
   "scripts": {
     "predev": "node scripts/copy-dictionaries.mjs",

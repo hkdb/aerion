@@ -309,6 +309,13 @@
   </provides>
 
   <releases>
+    <release version="0.3.4" date="2026-08-16">
+      <description>
+        <ul>
+          <li></li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.3" date="2026-08-06">
       <description>
         <ul>
@@ -317,7 +324,7 @@
           <li>Added manual config of IMAP/SMTP auth mech</li>
           <li>Added digest auth for contacts and calendars - #313</li>
           <li>Added Polish translation - PR #374</li>
-          <li>Fixed IMAP/SMTP auto auth mech - #365</li>
+          <li>Fixed IMAP/SMTP auto auth mech - #355</li>
           <li>Fixed glitch when rapid deleting messages</li>
           <li>Refactored to engine-level serialization</li>
           <li>Improved toast notification logic - #115</li>
