@@ -1,7 +1,7 @@
 # CHANGELOG
 
 
-**v0.3.3 - 07-30-2026**
+**v0.3.3 - 08-06-2026**
 ---
 
 - Message list redesign - [#70](https://github.com/hkdb/aerion/issues/70) + [#340](https://github.com/hkdb/aerion/issues/340)

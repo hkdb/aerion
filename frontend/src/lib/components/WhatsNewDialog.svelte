@@ -48,7 +48,7 @@
       </div>
 
       <div class="space-y-4 max-h-[60vh] overflow-y-auto text-sm">
-        <p>🚀 Welcome to Aerion v0.3.3-dev!</p>
+        <p>🚀 Welcome to Aerion v0.3.3!</p>
 
         <p>Here are the highlights of this release:</p>
 

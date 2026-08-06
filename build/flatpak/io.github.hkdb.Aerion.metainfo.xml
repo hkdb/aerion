@@ -309,7 +309,7 @@
   </provides>
 
   <releases>
-    <release version="0.3.3" date="2026-07-30">
+    <release version="0.3.3" date="2026-08-06">
       <description>
         <ul>
           <li>Message list redesign - #70 - #340</li>
