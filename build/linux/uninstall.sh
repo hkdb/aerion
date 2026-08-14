@@ -57,7 +57,7 @@ while true; do
             INSTALL_TYPE="system"
             BIN_DIR="/usr/local/bin"
             APPS_DIR="/usr/share/applications"
-            ICONS_DIR="/usr/share/icons/hicolor/256x256/apps"
+            HICOLOR_DIR="/usr/share/icons/hicolor"
             NEEDS_SUDO=true
             break
             ;;
@@ -65,7 +65,7 @@ while true; do
             INSTALL_TYPE="user"
             BIN_DIR="$HOME/.local/bin"
             APPS_DIR="$HOME/.local/share/applications"
-            ICONS_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
+            HICOLOR_DIR="$HOME/.local/share/icons/hicolor"
             NEEDS_SUDO=false
             break
             ;;
@@ -136,13 +136,14 @@ if remove_file "$APPS_DIR/aerion.desktop.backup" "backup desktop file"; then
     REMOVED_COUNT=$((REMOVED_COUNT + 1))
 fi
 
-# Remove icon
-if remove_file "$ICONS_DIR/io.github.hkdb.Aerion.png" "icon"; then
-    REMOVED_COUNT=$((REMOVED_COUNT + 1))
-fi
-
-# Remove old icon name if it exists
-if remove_file "$ICONS_DIR/aerion.png" "old icon"; then
+# Remove themed icons (all shipped sizes + leftover 256-only / old name)
+ICON_SIZES=(32 48 64 128 256)
+for sz in "${ICON_SIZES[@]}"; do
+    if remove_file "$HICOLOR_DIR/${sz}x${sz}/apps/io.github.hkdb.Aerion.png" "icon (${sz}x${sz})"; then
+        REMOVED_COUNT=$((REMOVED_COUNT + 1))
+    fi
+done
+if remove_file "$HICOLOR_DIR/256x256/apps/aerion.png" "old icon"; then
     REMOVED_COUNT=$((REMOVED_COUNT + 1))
 fi
 
@@ -153,11 +154,7 @@ if [[ $REMOVED_COUNT -gt 0 ]]; then
     print_info "Updating system caches..."
 
     # Update icon cache
-    if [[ "$INSTALL_TYPE" == "system" ]]; then
-        run_cmd gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
-    else
-        gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
-    fi
+    run_cmd gtk-update-icon-cache -f -t "$HICOLOR_DIR" 2>/dev/null || true
 
     # Update desktop database
     if [[ "$INSTALL_TYPE" == "system" ]]; then

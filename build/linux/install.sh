@@ -54,10 +54,36 @@ if [[ ! -f "io.github.hkdb.Aerion.desktop" ]]; then
     exit 1
 fi
 
-# Check if icon exists
-if [[ ! -f "io.github.hkdb.Aerion.png" ]]; then
-    print_error "io.github.hkdb.Aerion.png icon not found in current directory"
-    echo "Please ensure the icon file is in the same directory as this script"
+# hicolor sizes launchers actually request. 256-only is skipped by
+# [256x256/apps] MinSize=64 when the lookup asks for ~48px (see #395).
+ICON_SIZES=(32 48 64 128 256)
+
+icon_source_for_size() {
+    local sz="$1"
+    local sized="icons/${sz}x${sz}/io.github.hkdb.Aerion.png"
+    if [[ -f "$sized" ]]; then
+        printf '%s\n' "$sized"
+        return 0
+    fi
+    if [[ "$sz" == "256" && -f "io.github.hkdb.Aerion.png" ]]; then
+        printf '%s\n' "io.github.hkdb.Aerion.png"
+        return 0
+    fi
+    return 1
+}
+
+if [[ -d icons ]]; then
+    for sz in "${ICON_SIZES[@]}"; do
+        if [[ ! -f "icons/${sz}x${sz}/io.github.hkdb.Aerion.png" ]]; then
+            print_error "missing icons/${sz}x${sz}/io.github.hkdb.Aerion.png"
+            exit 1
+        fi
+    done
+fi
+
+if ! icon_source_for_size 256 >/dev/null; then
+    print_error "Aerion icon not found (io.github.hkdb.Aerion.png or icons/256x256/)"
+    echo "Please run this script from the directory containing the release files"
     exit 1
 fi
 
@@ -78,7 +104,7 @@ while true; do
             INSTALL_TYPE="system"
             BIN_DIR="/usr/local/bin"
             APPS_DIR="/usr/share/applications"
-            ICONS_DIR="/usr/share/icons/hicolor/256x256/apps"
+            HICOLOR_DIR="/usr/share/icons/hicolor"
             NEEDS_SUDO=true
             break
             ;;
@@ -86,7 +112,7 @@ while true; do
             INSTALL_TYPE="user"
             BIN_DIR="$HOME/.local/bin"
             APPS_DIR="$HOME/.local/share/applications"
-            ICONS_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
+            HICOLOR_DIR="$HOME/.local/share/icons/hicolor"
             NEEDS_SUDO=false
             break
             ;;
@@ -121,7 +147,6 @@ fi
 print_info "Creating directories..."
 run_cmd mkdir -p "$BIN_DIR"
 run_cmd mkdir -p "$APPS_DIR"
-run_cmd mkdir -p "$ICONS_DIR"
 
 # Install binary
 print_info "Installing binary to $BIN_DIR..."
@@ -131,17 +156,18 @@ run_cmd install -Dm755 aerion "$BIN_DIR/aerion"
 print_info "Installing desktop file to $APPS_DIR..."
 run_cmd install -Dm644 io.github.hkdb.Aerion.desktop "$APPS_DIR/io.github.hkdb.Aerion.desktop"
 
-# Install icon
-print_info "Installing icon to $ICONS_DIR..."
-run_cmd install -Dm644 io.github.hkdb.Aerion.png "$ICONS_DIR/io.github.hkdb.Aerion.png"
+# Install themed icons (sized PNGs + 256 fallback for older tarballs).
+# install -D creates the hicolor/<size>/apps directory.
+print_info "Installing icons to $HICOLOR_DIR..."
+for sz in "${ICON_SIZES[@]}"; do
+    if src=$(icon_source_for_size "$sz"); then
+        run_cmd install -Dm644 "$src" "$HICOLOR_DIR/${sz}x${sz}/apps/io.github.hkdb.Aerion.png"
+    fi
+done
 
 # Update icon cache
 print_info "Updating icon cache..."
-if [[ "$INSTALL_TYPE" == "system" ]]; then
-    run_cmd gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
-else
-    gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
-fi
+run_cmd gtk-update-icon-cache -f -t "$HICOLOR_DIR" 2>/dev/null || true
 
 # Update desktop database
 print_info "Updating desktop database..."
