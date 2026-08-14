@@ -29,8 +29,12 @@ modules:
       - desktop-file-edit --set-key=Icon --set-value=io.github.hkdb.Aerion /app/share/applications/io.github.hkdb.Aerion.desktop
       - desktop-file-edit --set-key=Exec --set-value='aerion %U' /app/share/applications/io.github.hkdb.Aerion.desktop
 
-      # Install icon
-      - install -Dm644 build/appicon.png /app/share/icons/hicolor/256x256/apps/io.github.hkdb.Aerion.png
+      # Install themed icons (32–256). 256-only is skipped by hicolor MinSize=64 (#395).
+      - |
+        for sz in 32 48 64 128 256; do
+          install -Dm644 "build/linux/icons/${sz}x${sz}/io.github.hkdb.Aerion.png" \
+            "/app/share/icons/hicolor/${sz}x${sz}/apps/io.github.hkdb.Aerion.png"
+        done
 
       # Install metainfo (AppStream metadata)
       - install -Dm644 build/flatpak/io.github.hkdb.Aerion.metainfo.xml /app/share/metainfo/io.github.hkdb.Aerion.metainfo.xml

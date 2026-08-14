@@ -58,6 +58,9 @@ BUILD_TAGS := webkit2_41
 # Installation directories (can be overridden)
 PREFIX ?= /usr/local
 DESTDIR ?=
+# hicolor PNG sizes shipped on Linux (#395). Keep in sync with
+# build/linux/install.sh ICON_SIZES and .github/workflows/release.yml.
+ICON_SIZES ?= 32 48 64 128 256
 
 # Platform detection
 UNAME_S := $(shell uname -s)
@@ -193,7 +196,7 @@ endif
 install-linux: build
 	@echo "Installing Aerion to $(DESTDIR)$(PREFIX)..."
 	install -Dm755 build/bin/aerion "$(DESTDIR)$(PREFIX)/bin/aerion"
-	@for sz in 32 48 64 128 256; do \
+	@for sz in $(ICON_SIZES); do \
 		install -Dm644 "build/linux/icons/$${sz}x$${sz}/io.github.hkdb.Aerion.png" \
 			"$(DESTDIR)$(PREFIX)/share/icons/hicolor/$${sz}x$${sz}/apps/io.github.hkdb.Aerion.png"; \
 	done
@@ -211,7 +214,7 @@ install-linux: build
 uninstall-linux:
 	@echo "Uninstalling Aerion from $(DESTDIR)$(PREFIX)..."
 	rm -f "$(DESTDIR)$(PREFIX)/bin/aerion"
-	@for sz in 32 48 64 128 256; do \
+	@for sz in $(ICON_SIZES); do \
 		rm -f "$(DESTDIR)$(PREFIX)/share/icons/hicolor/$${sz}x$${sz}/apps/io.github.hkdb.Aerion.png"; \
 	done
 	rm -f "$(DESTDIR)$(PREFIX)/share/icons/hicolor/256x256/apps/aerion.png"  # Remove old name if it exists
