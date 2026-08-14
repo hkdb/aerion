@@ -54,10 +54,14 @@ if [[ ! -f "io.github.hkdb.Aerion.desktop" ]]; then
     exit 1
 fi
 
-# Check if icon exists
-if [[ ! -f "io.github.hkdb.Aerion.png" ]]; then
-    print_error "io.github.hkdb.Aerion.png icon not found in current directory"
-    echo "Please ensure the icon file is in the same directory as this script"
+# hicolor sizes launchers actually request. 256-only is skipped by
+# [256x256/apps] MinSize=64 when the lookup asks for ~48px (see #395).
+ICON_SIZES=(32 48 64 128 256)
+
+# Check if at least the 256 icon exists (tarball root or icons/256x256/)
+if [[ ! -f "io.github.hkdb.Aerion.png" && ! -f "icons/256x256/io.github.hkdb.Aerion.png" ]]; then
+    print_error "Aerion icon not found (io.github.hkdb.Aerion.png or icons/256x256/)"
+    echo "Please run this script from the directory containing the release files"
     exit 1
 fi
 
@@ -78,7 +82,7 @@ while true; do
             INSTALL_TYPE="system"
             BIN_DIR="/usr/local/bin"
             APPS_DIR="/usr/share/applications"
-            ICONS_DIR="/usr/share/icons/hicolor/256x256/apps"
+            HICOLOR_DIR="/usr/share/icons/hicolor"
             NEEDS_SUDO=true
             break
             ;;
@@ -86,7 +90,7 @@ while true; do
             INSTALL_TYPE="user"
             BIN_DIR="$HOME/.local/bin"
             APPS_DIR="$HOME/.local/share/applications"
-            ICONS_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
+            HICOLOR_DIR="$HOME/.local/share/icons/hicolor"
             NEEDS_SUDO=false
             break
             ;;
@@ -121,7 +125,9 @@ fi
 print_info "Creating directories..."
 run_cmd mkdir -p "$BIN_DIR"
 run_cmd mkdir -p "$APPS_DIR"
-run_cmd mkdir -p "$ICONS_DIR"
+for sz in "${ICON_SIZES[@]}"; do
+    run_cmd mkdir -p "$HICOLOR_DIR/${sz}x${sz}/apps"
+done
 
 # Install binary
 print_info "Installing binary to $BIN_DIR..."
@@ -131,9 +137,19 @@ run_cmd install -Dm755 aerion "$BIN_DIR/aerion"
 print_info "Installing desktop file to $APPS_DIR..."
 run_cmd install -Dm644 io.github.hkdb.Aerion.desktop "$APPS_DIR/io.github.hkdb.Aerion.desktop"
 
-# Install icon
-print_info "Installing icon to $ICONS_DIR..."
-run_cmd install -Dm644 io.github.hkdb.Aerion.png "$ICONS_DIR/io.github.hkdb.Aerion.png"
+# Install themed icons (sized PNGs + 256 fallback for older tarballs)
+print_info "Installing icons to $HICOLOR_DIR..."
+for sz in "${ICON_SIZES[@]}"; do
+    src=""
+    if [[ -f "icons/${sz}x${sz}/io.github.hkdb.Aerion.png" ]]; then
+        src="icons/${sz}x${sz}/io.github.hkdb.Aerion.png"
+    elif [[ "$sz" == "256" && -f "io.github.hkdb.Aerion.png" ]]; then
+        src="io.github.hkdb.Aerion.png"
+    fi
+    if [[ -n "$src" ]]; then
+        run_cmd install -Dm644 "$src" "$HICOLOR_DIR/${sz}x${sz}/apps/io.github.hkdb.Aerion.png"
+    fi
+done
 
 # Update icon cache
 print_info "Updating icon cache..."
