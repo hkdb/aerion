@@ -1,10 +1,10 @@
 # CHANGELOG
 
 
-**v0.3.4 - 08-16-2026**
+**v0.3.4 - 08-28-2026**
 ---
 
--
+- Fix post delete ghost messages on message list
 
 
 **v0.3.3 - 08-06-2026**

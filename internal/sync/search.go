@@ -399,6 +399,12 @@ func (e *Engine) FetchServerMessage(ctx context.Context, accountID, folderID str
 		return nil, fmt.Errorf("received message without UID")
 	}
 
+	// A UID with no envelope means the message was expunged mid-fetch —
+	// never persist a blank row for it (same guard as the header sync loop)
+	if envelope == nil {
+		return nil, fmt.Errorf("message expunged during fetch (no envelope)")
+	}
+
 	// Build and save message
 	m := e.buildMessageFromStreamedData(accountID, folderID, fetchedUID, envelope, flags, rfc822Size, rawBytes)
 	m.BodyFetched = true

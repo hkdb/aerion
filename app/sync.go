@@ -67,6 +67,24 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 		syncPeriodDays = acc.SyncPeriodDays
 	}
 
+	// If one of our own delete/move EXPUNGEs is still in flight, wait it out
+	// before reconciling (racing it resurrects the just-deleted messages).
+	// Emit the engine's initial progress event first so the sidebar spinner
+	// appears immediately — otherwise the wait looks like a dead sync button.
+	if a.recentOwnExpunge(accountID) {
+		wailsRuntime.EventsEmit(a.ctx, "sync:progress", map[string]interface{}{
+			"accountId": accountID,
+			"folderId":  folderID,
+			"fetched":   0,
+			"total":     0,
+			"phase":     "messages",
+		})
+		a.waitForExpungeQuiet(ctx, accountID)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+	}
+
 	// Use ctx (not a.ctx) for sync operations so they can be cancelled
 	err = a.syncEngine.SyncMessages(ctx, accountID, folderID, syncPeriodDays, false)
 	if err != nil {

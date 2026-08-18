@@ -38,7 +38,8 @@ type Scheduler struct {
 	// Callbacks
 	newMailCallback       NewMailCallback
 	syncCompletedCallback SyncCompletedCallback
-	isConnected           func() bool // optional: skip sync when offline
+	isConnected           func() bool                 // optional: skip sync when offline
+	suppressSync          func(accountID string) bool // optional: skip scheduled ticks during an own-delete burst
 
 	// Control
 	ctx           context.Context
@@ -85,6 +86,15 @@ func (s *Scheduler) SetSyncCompletedCallback(callback SyncCompletedCallback) {
 // connection attempts and unnecessary error logging.
 func (s *Scheduler) SetConnectivityCheck(check func() bool) {
 	s.isConnected = check
+}
+
+// SetSyncSuppressionCheck sets a per-account check consulted before scheduled
+// sync ticks. When it returns true (an own delete/move's EXPUNGE is still in
+// flight), the tick is skipped so the reconcile can't race the expunge and
+// resurrect just-deleted messages; the next tick retries. Applies only to
+// interval ticks — user-triggered syncs are never dropped by this.
+func (s *Scheduler) SetSyncSuppressionCheck(check func(accountID string) bool) {
+	s.suppressSync = check
 }
 
 // Start starts the background sync scheduler
@@ -174,6 +184,14 @@ func (s *Scheduler) syncDueAccounts() {
 
 		// Check if sync is due for INBOX
 		if !s.isSyncDue(acc) {
+			continue
+		}
+
+		// Skip the tick while one of our own delete/move EXPUNGEs is in
+		// flight — the reconcile would race it (ghost resurrection); the
+		// next tick retries once the window is quiet
+		if s.suppressSync != nil && s.suppressSync(acc.ID) {
+			s.log.Debug().Str("account", acc.Name).Msg("Skipping scheduled sync during own-expunge window")
 			continue
 		}
 

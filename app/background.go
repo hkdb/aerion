@@ -61,6 +61,10 @@ func (a *App) initBackgroundSync(ctx context.Context) {
 		a.syncScheduler.SetConnectivityCheck(a.networkMonitor.IsConnected)
 	}
 
+	// Skip scheduled ticks while one of our own delete/move EXPUNGEs is in
+	// flight — same window the IDLE handlers already defer on
+	a.syncScheduler.SetSyncSuppressionCheck(a.recentOwnExpunge)
+
 	// Start the polling scheduler
 	a.syncScheduler.Start(ctx)
 	log.Info().Msg("Email sync scheduler started")
@@ -410,6 +414,24 @@ func (a *App) recentOwnExpunge(accountID string) bool {
 	defer a.ownFlagMu.Unlock()
 	t, ok := a.ownExpungeAt[accountID]
 	return ok && time.Since(t) < ownExpungeEchoSuppress
+}
+
+// waitForExpungeQuiet blocks until the account's own-expunge window has been
+// quiet, the context is cancelled, or a 15s cap elapses. Used by manual sync
+// entry points: unlike scheduled ticks (which skip and retry next tick), a
+// user-requested sync must still run — just not while our own delete burst's
+// EXPUNGEs are in flight, where the reconcile would resurrect the deleted
+// messages. Typical waits are ≤5s (the sliding suppression window); the cap
+// bounds a continuous burst.
+func (a *App) waitForExpungeQuiet(ctx context.Context, accountID string) {
+	deadline := time.Now().Add(15 * time.Second)
+	for a.recentOwnExpunge(accountID) && time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(250 * time.Millisecond):
+		}
+	}
 }
 
 // handleIdleFlagsChanged reconciles the inbox after a flag change on the server

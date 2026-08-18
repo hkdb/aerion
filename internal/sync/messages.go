@@ -799,6 +799,16 @@ func (e *Engine) fetchMessageHeaders(ctx context.Context, client *imapclient.Cli
 			continue
 		}
 
+		// A UID with no envelope means the message was expunged between the
+		// UID snapshot and this FETCH (e.g. racing our own delete) — never
+		// persist it; the next reconcile drops the UID entirely. Persisting
+		// would insert a blank "no subject" ghost row, or worse, blank an
+		// existing good row via the Upsert's ON CONFLICT update.
+		if envelope == nil {
+			e.log.Debug().Uint32("uid", uint32(fetchedUID)).Msg("Skipping header fetch result with nil envelope (expunged mid-fetch)")
+			continue
+		}
+
 		// Build message from streamed data
 		m := &message.Message{
 			AccountID:   accountID,
