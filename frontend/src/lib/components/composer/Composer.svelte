@@ -55,6 +55,7 @@
   import { addToast } from '$lib/stores/toast'
   import { getComposerFormat, getDarkComposerBody } from '$lib/stores/settings.svelte'
   import { getIsDarkActive } from '$lib/stores/theme.svelte'
+  import { isDialogGuardActive } from '$lib/stores/dialogGuard'
   import { _ } from '$lib/i18n'
 
   // Keep the composer message body white in dark mode unless the user opted into
@@ -1448,6 +1449,23 @@
       }
     }
     if (e.key === 'Escape') {
+      // Anything modal stacked on top owns Escape — don't also close the
+      // composer underneath it (which would pop the save-draft prompt, or
+      // re-open the one the user just dismissed).
+      //
+      // bits-ui's escape layer listens on `document` and calls
+      // preventDefault() without stopping propagation, so the event still
+      // reaches this window-level handler afterwards. defaultPrevented is the
+      // reliable signal: it persists across listeners in the same dispatch.
+      // A DOM check for [role=dialog] does NOT work here — a microtask
+      // checkpoint runs between listener callbacks, so Svelte has already
+      // flushed the dialog out of the DOM by the time this runs.
+      //
+      // This also covers layers that deliberately ignore Escape: bits-ui
+      // preventDefaults those too, and the composer shouldn't close under a
+      // modal that is refusing to.
+      if (e.defaultPrevented) return
+      if (isDialogGuardActive()) return
       handleClose()
     }
   }
