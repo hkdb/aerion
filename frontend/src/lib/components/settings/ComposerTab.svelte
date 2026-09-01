@@ -43,7 +43,7 @@
   // Dictionaries Aerion ships, with their native display names.
   const dictLanguages = SPELLCHECK_DICTS.map((code) => ({
     code,
-    name: supportedLocales.find((l) => l.code === code)?.name ?? code,
+    name: supportedLocales.find((l) => l.code === code)?.name ?? (code === 'nl' ? 'Nederlands' : code),
   }))
 
   // Added-words list — read straight from the store (persists immediately on

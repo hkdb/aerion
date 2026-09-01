@@ -10,10 +10,11 @@ const APP_TO_DICT: Record<string, string> = {
   fr: 'fr',
   it: 'it',
   nb: 'nb',
+  nl: 'nl',
 }
 
 // Dictionaries bundled as static assets under /spellcheck/<key>.{aff,dic}.
-export const SPELLCHECK_DICTS = ['en', 'cs', 'de', 'fr', 'it', 'nb'] as const
+export const SPELLCHECK_DICTS = ['en', 'cs', 'de', 'fr', 'it', 'nb', 'nl'] as const
 
 export function appLocaleToDict(locale: string | null | undefined): string | null {
   if (!locale) return null
