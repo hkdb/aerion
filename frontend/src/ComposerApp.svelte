@@ -12,8 +12,9 @@
   import { createComposerWindowApi } from '$lib/composerApi'
   import { getShowTitleBar, getNativeTitleBar, setShowTitleBar, setNativeTitleBar, setDarkComposerBody } from '$lib/stores/settings.svelte'
   import { initTheme, handleThemeChanged, type ThemeMode } from '$lib/stores/theme.svelte'
+  import { initCustomCSS } from '$lib/customCss'
   // @ts-ignore - wailsjs imports
-  import { GetComposeMode, PrepareReply, GetDraft, CloseWindow, GetThemeMode, GetSystemTheme, GetShowTitleBar, GetNativeTitleBar, GetDarkComposerBody, RefreshWindowConstraints, NotifyStartupComplete } from '../wailsjs/go/app/ComposerApp.js'
+  import { GetComposeMode, PrepareReply, GetDraft, CloseWindow, GetThemeMode, GetSystemTheme, GetCustomCSS, GetShowTitleBar, GetNativeTitleBar, GetDarkComposerBody, RefreshWindowConstraints, NotifyStartupComplete } from '../wailsjs/go/app/ComposerApp.js'
   // @ts-ignore - wailsjs imports
   import { smtp, app } from '../wailsjs/go/models'
   // @ts-ignore - wailsjs runtime
@@ -24,6 +25,7 @@
   let initialMessage = $state<smtp.ComposeMessage | null>(null)
   let loading = $state(true)
   let error = $state<string | null>(null)
+  let unsubscribeCustomCSS: (() => void) | null = null
 
   // Window state
   let isMaximized = $state(false)
@@ -69,6 +71,9 @@
     } catch (err) {
       console.error('Failed to load title bar settings:', err)
     }
+
+    // Load custom CSS before applying the selected theme and showing the window.
+    unsubscribeCustomCSS = await initCustomCSS(GetCustomCSS)
 
     // Load saved theme mode from backend and apply (probes XDG portal)
     try {
@@ -140,6 +145,7 @@
   })
 
   onDestroy(() => {
+    unsubscribeCustomCSS?.()
     EventsOff('theme:changed')
     EventsOff('app:shutdown')
   })

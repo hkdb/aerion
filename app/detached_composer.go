@@ -13,6 +13,7 @@ import (
 	"github.com/hkdb/aerion/internal/certificate"
 	"github.com/hkdb/aerion/internal/contact"
 	"github.com/hkdb/aerion/internal/credentials"
+	"github.com/hkdb/aerion/internal/customcss"
 	"github.com/hkdb/aerion/internal/database"
 	"github.com/hkdb/aerion/internal/draft"
 	"github.com/hkdb/aerion/internal/email"
@@ -22,9 +23,9 @@ import (
 	"github.com/hkdb/aerion/internal/logging"
 	"github.com/hkdb/aerion/internal/message"
 	"github.com/hkdb/aerion/internal/oauth2"
+	"github.com/hkdb/aerion/internal/pgp"
 	"github.com/hkdb/aerion/internal/platform"
 	"github.com/hkdb/aerion/internal/settings"
-	"github.com/hkdb/aerion/internal/pgp"
 	"github.com/hkdb/aerion/internal/smime"
 	"github.com/hkdb/aerion/internal/smtp"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -317,6 +318,12 @@ func (c *ComposerApp) handleIPCMessage(msg ipc.Message) {
 			wailsRuntime.EventsEmit(c.ctx, "theme:changed", payload.Theme)
 		}
 
+	case ipc.TypeCustomCSSChanged:
+		var payload ipc.CustomCSSChangedPayload
+		if err := msg.ParsePayload(&payload); err == nil {
+			wailsRuntime.EventsEmit(c.ctx, "theme:custom-css-changed", payload.CSS)
+		}
+
 	case ipc.TypeShutdown:
 		var payload ipc.ShutdownPayload
 		_ = msg.ParsePayload(&payload)
@@ -522,6 +529,11 @@ func (c *ComposerApp) GetNativeTitleBar() (bool, error) {
 // GetThemeMode returns the current theme mode setting.
 func (c *ComposerApp) GetThemeMode() (string, error) {
 	return c.settingsStore.GetThemeMode()
+}
+
+// GetCustomCSS returns the optional user stylesheet from Aerion's configuration directory.
+func (c *ComposerApp) GetCustomCSS() (string, error) {
+	return customcss.Load(customcss.Path(c.paths.Config))
 }
 
 // GetDarkComposerBody returns whether the composer message body should use a

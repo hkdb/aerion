@@ -257,6 +257,8 @@ export function GetConversationCount(arg1:string,arg2:string,arg3:string):Promis
 
 export function GetConversations(arg1:string,arg2:string,arg3:number,arg4:number,arg5:string,arg6:string):Promise<Array<message.Conversation>>;
 
+export function GetCustomCSS():Promise<string>;
+
 export function GetCustomOAuthAccounts():Promise<Array<app.LinkedAccountInfo>>;
 
 export function GetDarkComposerBody():Promise<boolean>;

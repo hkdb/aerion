@@ -21,6 +21,14 @@ export function getIsDarkActive(): boolean {
   return isDarkActive
 }
 
+/** Synchronize reactive theme state with the document's effective color scheme. */
+export function refreshThemeClassification() {
+  const scheme = getComputedStyle(document.documentElement).colorScheme.trim()
+  const dark = scheme === 'dark'
+  document.documentElement.classList.toggle('dark', dark)
+  isDarkActive = dark
+}
+
 /** Apply a resolved theme to the document element. The dark/light classification
  *  is read from the CSS-declared `color-scheme` property on the matching
  *  [data-theme="..."] block, so each theme owns its own scheme — no JS list to
@@ -28,10 +36,7 @@ export function getIsDarkActive(): boolean {
  *  any `.dark mark`-style selectors keep working. */
 export function applyTheme(themeName: ThemeMode) {
   document.documentElement.setAttribute('data-theme', themeName)
-  const scheme = getComputedStyle(document.documentElement).colorScheme.trim()
-  const dark = scheme === 'dark'
-  document.documentElement.classList.toggle('dark', dark)
-  isDarkActive = dark
+  refreshThemeClassification()
 }
 
 /** Resolve a ThemeMode (which may be 'system') to a concrete theme and apply it. */

@@ -285,6 +285,22 @@ func (a *App) BroadcastThemeChange(theme string) {
 	_ = a.ipcServer.Broadcast(msg)
 }
 
+// broadcastCustomCSSChange notifies all composer windows that the user stylesheet changed.
+func (a *App) broadcastCustomCSSChange(css string) error {
+	if a.ipcServer == nil {
+		return nil
+	}
+
+	msg, err := ipc.NewMessage(ipc.TypeCustomCSSChanged, ipc.CustomCSSChangedPayload{
+		CSS: css,
+	})
+	if err != nil {
+		return err
+	}
+
+	return a.ipcServer.Broadcast(msg)
+}
+
 // GetIPCAddress returns the IPC server address (for testing/debugging).
 func (a *App) GetIPCAddress() string {
 	if a.ipcServer == nil {
