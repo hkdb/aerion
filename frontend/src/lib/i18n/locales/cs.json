@@ -392,6 +392,8 @@
     "messageListDensityHelp": "Upravte rozestupy a velikost textu v seznamu zpráv",
     "showMessageListCircles": "Zobrazit barevné kroužky v seznamu zpráv",
     "showMessageListCirclesHelp": "Zobrazit barevné kroužky s iniciálami odesílatele v seznamu zpráv",
+    "showMessageListProfilePics": "Zobrazit fotografie kontaktů v seznamu zpráv",
+    "showMessageListProfilePicsHelp": "Zobrazit profilovou fotografii kontaktu (případně barevný kroužek) v seznamu zpráv. Vyžaduje „Zobrazit barevné kroužky v seznamu zpráv“.",
     "showViewerCircles": "Zobrazit barevné kroužky v náhledu konverzace",
     "showViewerCirclesHelp": "Zobrazit barevné kroužky s iniciálami odesílatele v náhledu konverzace",
     "accentBarUnread": "Zvýraznění nepřečtených zpráv",

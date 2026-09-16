@@ -392,6 +392,8 @@
     "messageListDensityHelp": "Abstände und Textgröße in der Nachrichtenliste anpassen",
     "showMessageListCircles": "Farbige Kreise in der Nachrichtenliste anzeigen",
     "showMessageListCirclesHelp": "Farbige Kreise mit Absender-Initialen in der Nachrichtenliste anzeigen",
+    "showMessageListProfilePics": "Kontaktfotos in der Nachrichtenliste anzeigen",
+    "showMessageListProfilePicsHelp": "Zeigt das Profilbild des Kontakts (ersatzweise einen farbigen Kreis) in der Nachrichtenliste. Erfordert \"Farbige Kreise in der Nachrichtenliste anzeigen\".",
     "showViewerCircles": "Farbige Kreise im Unterhaltungs-Viewer anzeigen",
     "showViewerCirclesHelp": "Farbige Kreise mit Absender-Initialen im Unterhaltungs-Viewer anzeigen",
     "accentBarUnread": "Akzent für ungelesene Nachrichten",

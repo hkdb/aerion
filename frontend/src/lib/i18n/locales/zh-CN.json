@@ -392,6 +392,8 @@
     "messageListDensityHelp": "调整邮件列表中的间距和字号",
     "showMessageListCircles": "在邮件列表显示彩色圆圈",
     "showMessageListCirclesHelp": "在邮件列表中显示带有寄件人姓名缩写的彩色圆圈",
+    "showMessageListProfilePics": "在邮件列表显示联系人照片",
+    "showMessageListProfilePicsHelp": "在邮件列表中显示联系人的头像（无头像时显示彩色圆圈）。需要开启「在邮件列表显示彩色圆圈」。",
     "showViewerCircles": "在对话视图显示彩色圆圈",
     "showViewerCirclesHelp": "在对话视图中显示带有寄件人姓名缩写的彩色圆圈",
     "accentBarUnread": "未读邮件标记",

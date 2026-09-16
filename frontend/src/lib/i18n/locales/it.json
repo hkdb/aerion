@@ -392,6 +392,8 @@
     "messageListDensityHelp": "Regola la spaziatura e la dimensione del testo nell'elenco dei messaggi",
     "showMessageListCircles": "Mostra cerchi colorati nell'elenco dei messaggi",
     "showMessageListCirclesHelp": "Mostra cerchi colorati con le iniziali del mittente nell'elenco dei messaggi",
+    "showMessageListProfilePics": "Mostra le foto dei contatti nell'elenco dei messaggi",
+    "showMessageListProfilePicsHelp": "Mostra l'immagine del profilo del contatto (o in alternativa un cerchio colorato) nell'elenco dei messaggi. Richiede \"Mostra cerchi colorati nell'elenco dei messaggi\".",
     "showViewerCircles": "Mostra cerchi colorati nel visualizzatore di conversazioni",
     "showViewerCirclesHelp": "Mostra cerchi colorati con le iniziali del mittente nel visualizzatore di conversazioni",
     "accentBarUnread": "Evidenziazione per i messaggi non letti",

@@ -392,6 +392,8 @@
     "messageListDensityHelp": "Điều chỉnh khoảng cách và cỡ chữ trong danh sách thư",
     "showMessageListCircles": "Hiện vòng tròn màu trong danh sách thư",
     "showMessageListCirclesHelp": "Hiện vòng tròn màu có chữ cái đầu của người gửi trong danh sách thư",
+    "showMessageListProfilePics": "Hiện ảnh liên hệ trong danh sách thư",
+    "showMessageListProfilePicsHelp": "Hiện ảnh đại diện của liên hệ (nếu không có thì dùng vòng tròn màu) trong danh sách thư. Yêu cầu bật \"Hiện vòng tròn màu trong danh sách thư\".",
     "showViewerCircles": "Hiện vòng tròn màu trong trình xem hội thoại",
     "showViewerCirclesHelp": "Hiện vòng tròn màu có chữ cái đầu của người gửi trong trình xem hội thoại",
     "accentBarUnread": "Nhấn mạnh cho thư chưa đọc",

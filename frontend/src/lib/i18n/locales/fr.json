@@ -392,6 +392,8 @@
     "messageListDensityHelp": "Ajuster l'espacement et la taille du texte dans la liste des messages",
     "showMessageListCircles": "Pastilles colorées dans la liste",
     "showMessageListCirclesHelp": "Pastille colorée avec les initiales de l'expéditeur",
+    "showMessageListProfilePics": "Photos des contacts dans la liste",
+    "showMessageListProfilePicsHelp": "Affiche la photo de profil du contact (ou une pastille colorée à défaut). Nécessite \"Pastilles colorées dans la liste\".",
     "showViewerCircles": "Pastilles colorées dans la conversation",
     "showViewerCirclesHelp": "Pastille colorée avec les initiales de l'expéditeur",
     "accentBarUnread": "Accentuation (non lus)",

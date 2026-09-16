@@ -392,6 +392,8 @@
     "messageListDensityHelp": "調整郵件清單中的間距和文字大小",
     "showMessageListCircles": "在郵件列表顯示彩色圓圈",
     "showMessageListCirclesHelp": "在郵件列表中顯示帶有寄件者姓名縮寫的彩色圓圈",
+    "showMessageListProfilePics": "在郵件列表顯示聯絡人相片",
+    "showMessageListProfilePicsHelp": "在郵件列表中顯示聯絡人的頭像（無頭像時顯示彩色圓圈）。需要開啟「在郵件列表顯示彩色圓圈」。",
     "showViewerCircles": "在對話檢視顯示彩色圓圈",
     "showViewerCirclesHelp": "在對話檢視中顯示帶有寄件者姓名縮寫的彩色圓圈",
     "accentBarUnread": "未讀郵件標記",
