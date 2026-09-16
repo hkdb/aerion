@@ -367,10 +367,10 @@
     "composerFormatRich": "Formátovaný text",
     "composerFormatPlain": "Prostý text",
     "composerFormatDescription": "Nové zprávy budou ve výchozím nastavení používat tento formát. Stále jej však lze změnit pro každou zprávu zvlášť.",
-    "defaultCc": "Výchozí kopie",
-    "defaultCcHelp": "Automaticky se přidá do pole kopie při psaní zprávy z povoleného účtu.",
-    "defaultBcc": "Výchozí skrytá kopie",
-    "defaultBccHelp": "Automaticky se přidá do pole skryté kopie při psaní zprávy z povoleného účtu.",
+    "defaultCc": "Výchozí adresa pro kopie",
+    "defaultCcHelp": "Automaticky se přidá do pole Kopie při psaní zprávy z povoleného účtu.",
+    "defaultBcc": "Výchozí adresa pro skryté kopie",
+    "defaultBccHelp": "Automaticky se přidá do pole Skrytá kopie při psaní zprávy z povoleného účtu.",
     "defaultReplyTo": "Výchozí adresa pro odpovědi",
     "defaultReplyToHelp": "Nastaví adresu pro odpovědi u zpráv psaných z povoleného účtu."
   },
@@ -395,7 +395,7 @@
     "showViewerCircles": "Zobrazit barevné kroužky v náhledu konverzace",
     "showViewerCirclesHelp": "Zobrazit barevné kroužky s iniciálami odesílatele v náhledu konverzace",
     "accentBarUnread": "Zvýraznění nepřečtených zpráv",
-    "accentBarUnreadHelp": "Zobrazuje zvýraznění vlevo u nepřečtených zpráv pro snadnější rozpoznání.",
+    "accentBarUnreadHelp": "Zobrazuje zvýraznění na levé straně nepřečtených zpráv pro snadnější rozpoznání.",
     "accentStyle": "Styl zvýraznění",
     "accentStyleDot": "Tečka",
     "accentStyleGlowDot": "Zářící tečka",
@@ -918,9 +918,9 @@
     "flatpakOpenTitle": "Omezený přístup k souborům",
     "flatpakOpenDescription": "Otevření souboru z tohoto toast oznámení ve verzi Flatpak nefunguje správně. Aby tato funkce fungovala správně, udělte aplikaci Aerion přístup k vašemu domovskému adresáři spuštěním následujícího příkazu v terminálu:",
     "flatpakOpenSecurityWarning": "Udělení takového oprávnění má bezpečnostní důsledky. Neudělujte jej, pokud plně nerozumíte tomu, co umožňuje.",
-    "flatpakOpenAlternative": "Případně můžete bez další konfigurace kliknout na „Zobrazit ve složce“, čímž otevřete složku obsahující daný soubor a můžete jej otevřít odtud.",
-    "flatpakSaveAllDescription": "Uložení všech příloh najednou ve verzi Flatpak nefunguje správně bez přístupu k domovskému adresáři. Aby tato funkce fungovala, udělte aplikaci Aerion přístup k vašemu domovskému adresáři spuštěním následujícího příkazu v terminálu a poté aplikaci Aerion restartujte:",
-    "flatpakSaveAllAlternative": "Případně můžete bez další konfigurace ukládat přílohy jednotlivě — uložení jedné přílohy funguje bez dalších oprávnění."
+    "flatpakOpenAlternative": "Případně můžete bez další konfigurace kliknout na „Zobrazit ve složce“, čímž zobrazíte složku obsahující daný soubor a můžete jej otevřít odtud.",
+    "flatpakSaveAllDescription": "Uložení všech příloh najednou bez přístupu k domovskému adresáři ve verzi Flatpak nefunguje správně. Aby tato funkce fungovala, udělte aplikaci Aerion přístup k vašemu domovskému adresáři spuštěním následujícího příkazu v terminálu a poté aplikaci Aerion restartujte:",
+    "flatpakSaveAllAlternative": "Případně můžete bez další konfigurace ukládat přílohy jednotlivě — uložení jedné přílohy funguje bez potřeby dalších oprávnění."
   },
   "aria": {
     "windowControls": "Ovládání okna",
