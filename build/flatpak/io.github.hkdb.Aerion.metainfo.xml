@@ -317,7 +317,8 @@
           <li>Added default reply-to - #404</li>
           <li>Added merge identical messages in thread - #222</li>
           <li>Relabeled spellcheck dictionary English to English (US)</li>
-          <li>Added spellcheck dictionary English (UK) - #417</li>
+          <li>Added spellcheck dictionary: English (UK) - #417</li>
+          <li>Added spellcheck dictionary: Dutch</li>
           <li>Added dot and glow dot optional accents for unread messages</li>
           <li>Fixed post delete ghost messages on message list</li>
           <li>New app icon with full hicolor size set and scalable SVG - #395 - #99</li>

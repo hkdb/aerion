@@ -15,7 +15,7 @@ const outDir = join(frontend, 'public', 'spellcheck')
 
 // Latin-script locales Aerion ships translations for. zh-* excluded (CJK has no
 // Latin-style per-word spelling); vi omitted until a usable dictionary exists.
-const LOCALES = ['en', 'en-gb', 'cs', 'de', 'fr', 'it', 'nb']
+const LOCALES = ['en', 'en-gb', 'cs', 'de', 'fr', 'it', 'nb', 'nl']
 
 await rm(outDir, { recursive: true, force: true })
 await mkdir(outDir, { recursive: true })
