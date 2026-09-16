@@ -394,6 +394,8 @@
     "showMessageListCirclesHelp": "Pastille colorée avec les initiales de l'expéditeur",
     "showViewerCircles": "Pastilles colorées dans la conversation",
     "showViewerCirclesHelp": "Pastille colorée avec les initiales de l'expéditeur",
+    "showMessageListProfilePics": "Afficher les photos des contacts dans la liste des messages",
+    "showMessageListProfilePicsHelp": "Affiche la photo de profil du contact (ou une pastille colorée à défaut) dans la liste des messages. Nécessite « Pastilles colorées dans la liste ».",
     "accentBarUnread": "Accentuation (non lus)",
     "accentBarUnreadHelp": "Affiche une accentuation à gauche des messages non lus pour une identification facile.",
     "accentStyle": "Style d'accentuation",
