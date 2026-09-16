@@ -919,8 +919,8 @@
     "flatpakOpenDescription": "L'apertura di un file da questa notifica a comparsa non funziona correttamente in Flatpak. Affinché questa funzionalità funzioni correttamente, concedi ad Aerion l'accesso alla tua directory home eseguendo il seguente comando nel terminale:",
     "flatpakOpenSecurityWarning": "Concedere tale autorizzazione comporta delle implicazioni in termini di sicurezza. Non concedere tale autorizzazione senza averne compreso appieno le conseguenze.",
     "flatpakOpenAlternative": "In alternativa, senza ulteriori configurazioni, puoi cliccare su \"Mostra nella cartella\" per visualizzare la cartella in cui si trova il file, in modo da poterlo aprire da lì.",
-    "flatpakSaveAllDescription": "Il salvataggio di tutti gli allegati in una volta non funziona correttamente in Flatpak senza l'accesso alla directory home. Affinché questa funzionalità funzioni, concedi ad Aerion l'accesso alla tua directory home eseguendo il seguente comando nel terminale, poi riavvia Aerion:",
-    "flatpakSaveAllAlternative": "In alternativa, senza ulteriori configurazioni, puoi salvare gli allegati uno alla volta — il salvataggio di un singolo allegato funziona senza permessi aggiuntivi."
+    "flatpakSaveAllDescription": "Il salvataggio simultaneo di tutti gli allegati non funziona correttamente in Flatpak senza l'accesso alla directory home. Affinché questa funzione sia disponibile, concedi ad Aerion l'accesso alla tua directory home eseguendo il seguente comando nel terminale, quindi riavvia Aerion:",
+    "flatpakSaveAllAlternative": "In alternativa, senza ulteriori configurazioni, puoi salvare gli allegati uno alla volta — il salvataggio di un singolo allegato non richiede permessi aggiuntivi."
   },
   "aria": {
     "windowControls": "Controlli delle finestre",
