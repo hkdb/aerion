@@ -12,6 +12,7 @@ import (
 
 	"github.com/hkdb/aerion/app"
 	"github.com/hkdb/aerion/internal/platform"
+	"github.com/hkdb/aerion/internal/appstate"
 	"github.com/hkdb/aerion/internal/settings"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -97,8 +98,20 @@ func runMainMode(mailtoData *app.MailtoData, rawMailtoArg string) {
 
 	// Read native title bar setting before Wails init (Frameless is init-time only)
 	nativeTitleBar := false
+	// Restore the last window size/maximized state (Width/Height and
+	// WindowStartState are init-time options). Defaults stand on first run.
+	windowWidth, windowHeight := 1280, 800
+	windowStartState := options.Normal
 	if paths, err := platform.GetPaths(); err == nil {
 		nativeTitleBar = settings.ReadNativeTitleBar(paths.DatabasePath())
+		if geo, ok := appstate.ReadWindowGeometry(paths.DatabasePath()); ok {
+			if geo.Width >= 360 && geo.Width <= 10000 && geo.Height >= 400 && geo.Height <= 10000 {
+				windowWidth, windowHeight = geo.Width, geo.Height
+			}
+			if geo.Maximized {
+				windowStartState = options.Maximised
+			}
+		}
 	}
 
 	// Create an instance of the app structure
@@ -126,10 +139,11 @@ func runMainMode(mailtoData *app.MailtoData, rawMailtoArg string) {
 	// Create application with options
 	err = wails.Run(&options.App{
 		Title:                    "Aerion",
-		Width:                    1280,
-		Height:                   800,
+		Width:                    windowWidth,
+		Height:                   windowHeight,
 		MinWidth:                 360,
 		MinHeight:                400,
+		WindowStartState:         windowStartState,
 		Frameless:                !nativeTitleBar,
 		StartHidden:              true, // Hide until frontend is ready to prevent white flash
 		EnableDefaultContextMenu: true,

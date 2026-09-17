@@ -543,6 +543,11 @@ func (a *App) Startup(ctx context.Context) {
 	a.appStateStore = appstate.NewStore(db.DB)
 	a.imageAllowlistStore = settings.NewImageAllowlistStore(db)
 
+	// Restore the persisted window position (size/maximized are applied via
+	// wails.Run options in main.go; position can only be set post-creation).
+	// The window is still hidden at this point, so no visible jump.
+	a.restoreWindowPosition()
+
 	// Scale database connection pool based on number of accounts
 	a.updateDBConnectionPool()
 
@@ -852,6 +857,10 @@ func (a *App) BeforeClose(ctx context.Context) bool {
 		return false
 	}
 
+	// Capture geometry while the window is still live so the next launch
+	// restores the last size/position
+	a.saveWindowGeometry()
+
 	// Background mode: hide window instead of quitting
 	runBg, _ := a.settingsStore.GetRunBackground()
 	if runBg {
@@ -907,6 +916,7 @@ func (a *App) ShowWindow() {
 // If background mode is enabled, hides the window instead of quitting.
 // Called by the frontend title bar close button.
 func (a *App) CloseWindow() {
+	a.saveWindowGeometry()
 	runBg, _ := a.settingsStore.GetRunBackground()
 	if runBg {
 		log := logging.WithComponent("app")
@@ -939,6 +949,7 @@ func (a *App) QuitApp() {
 		return
 	}
 	shuttingDown = true
+	a.saveWindowGeometry()
 
 	log := logging.WithComponent("app")
 	log.Info().Msg("Quit requested")
@@ -967,6 +978,7 @@ func (a *App) InitiateShutdown() {
 		return
 	}
 	shuttingDown = true
+	a.saveWindowGeometry()
 
 	log := logging.WithComponent("app")
 	log.Info().Msg("Initiating shutdown")
