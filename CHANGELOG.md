@@ -20,6 +20,7 @@
 - Fixed comma display name - [#398](https://github.com/hkdb/aerion/issues/398)
 - Fixed composer draft format detection - [#420](https://github.com/hkdb/aerion/issues/420)
 - Block save all attachments if flatpak - [#384](https://github.com/hkdb/aerion/issues/384)
+- Calendar color render adjustments to alleviate [#406](https://github.com/hkdb/aerion/issues/406)
 
 
 **v0.3.3 - 08-06-2026**

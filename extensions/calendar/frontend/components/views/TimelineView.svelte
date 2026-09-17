@@ -19,6 +19,8 @@
   import EventCard from '$extensions/calendar/frontend/components/EventCard.svelte'
   import { events } from '$extensions/calendar/frontend/stores/events.svelte'
   import { calendarSources } from '$extensions/calendar/frontend/stores/calendarSources.svelte'
+  import { eventChipFill } from '$extensions/calendar/frontend/lib/eventColor'
+  import { getIsDarkActive } from '$lib/stores/theme.svelte'
   import { calendarView } from '$extensions/calendar/frontend/stores/calendarView.svelte'
   import { calendarSettings } from '$extensions/calendar/frontend/stores/calendarSettings.svelte'
   import { toTzDate, fromTzDate } from '$extensions/calendar/frontend/lib/tzMath'
@@ -865,7 +867,7 @@
               style:height={dragOff ? `${dragOff.height}px` : `${block.heightPct}%`}
               style:left={`calc(${block.leftPct}% + 2px)`}
               style:width={`calc(${block.widthPct}% - 4px)`}
-              style:background-color={`color-mix(in srgb, ${block.color} 25%, transparent)`}
+              style:background-color={eventChipFill(block.color, getIsDarkActive())}
               style:border-left={`3px solid ${block.color}`}
               style:transform={dragOff ? `translateX(${dragOff.xPx}px)` : undefined}
               style:opacity={dragOff ? 0.85 : undefined}

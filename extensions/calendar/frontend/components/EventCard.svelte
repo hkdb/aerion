@@ -5,6 +5,8 @@
   // parent via the onclick prop — no internal state.
 
   import { calendarSettings } from '$extensions/calendar/frontend/stores/calendarSettings.svelte'
+  import { eventChipFill } from '$extensions/calendar/frontend/lib/eventColor'
+  import { getIsDarkActive } from '$lib/stores/theme.svelte'
   // @ts-ignore - wailsjs bindings
   import type { backend } from '$wailsjs/go/models'
 
@@ -56,7 +58,7 @@
   tabindex="0"
   class="flex items-center gap-1 px-1.5 py-0.5 text-xs text-foreground rounded cursor-pointer
          hover:brightness-110 transition-[filter] truncate"
-  style:background-color={`color-mix(in srgb, ${color} 25%, transparent)`}
+  style:background-color={eventChipFill(color, getIsDarkActive())}
   style:border-left={`3px solid ${color}`}
   title={instance.summary}
   onclick={handleClick}
