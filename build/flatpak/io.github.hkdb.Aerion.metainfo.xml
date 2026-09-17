@@ -321,6 +321,7 @@
           <li>Added spellcheck dictionary: Dutch</li>
           <li>Added dot and glow dot optional accents for unread messages</li>
           <li>Added window size persistence - #217</li>
+          <li>Added mini calendar for easier navigation - #368</li>
           <li>Fixed post delete ghost messages on message list</li>
           <li>New app icon with full hicolor size set and scalable SVG - #395 - #99</li>
           <li>Fixed thread sender and preview in message list - #169</li>

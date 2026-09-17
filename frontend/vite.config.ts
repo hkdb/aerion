@@ -46,6 +46,9 @@ export default defineConfig({
       // ── PER-EXTENSION (move to per-ext deps when the SDK supports it) ───
       // extension: calendar — tz-aware date math (toZonedTime / fromZonedTime)
       'date-fns-tz':     path.resolve(NODE_MODULES_DIR, 'date-fns-tz'),
+      // extension: calendar — Popover primitive for the MiniCalendar
+      // (already a host dep via ui/ components; aliased for extension reach)
+      'bits-ui':         path.resolve(NODE_MODULES_DIR, 'bits-ui'),
     },
   },
   optimizeDeps: {

@@ -15,7 +15,8 @@
       "@iconify/*": ["node_modules/@iconify/*"],
       "svelte": ["node_modules/svelte/src/runtime/index"],
       "svelte/*": ["node_modules/svelte/*"],
-      "svelte-i18n": ["node_modules/svelte-i18n"]
+      "svelte-i18n": ["node_modules/svelte-i18n"],
+      "bits-ui": ["node_modules/bits-ui"]
     },
     "allowJs": true,
     "checkJs": true,

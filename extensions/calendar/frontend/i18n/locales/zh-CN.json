@@ -56,6 +56,7 @@
       "today": "今天",
       "prev": "上一个",
       "next": "下一个",
+      "pickDate": "选择日期",
       "sync": "同步",
       "tzLabel": "时区：{tz}",
       "newEvent": "活动"

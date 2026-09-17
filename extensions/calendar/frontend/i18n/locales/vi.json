@@ -56,6 +56,7 @@
       "today": "Hôm nay",
       "prev": "Trước",
       "next": "Tiếp",
+      "pickDate": "Chọn ngày",
       "sync": "Đồng bộ",
       "tzLabel": "múi giờ: {tz}",
       "newEvent": "Sự kiện"

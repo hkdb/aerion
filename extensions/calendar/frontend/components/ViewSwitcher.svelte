@@ -10,6 +10,7 @@
   import { Button } from '$lib/components/ui/button'
   import ResponsiveSidebarToggle from '$lib/components/kit/ResponsiveSidebarToggle.svelte'
   import TimezonePicker from './TimezonePicker.svelte'
+  import MiniCalendar from './MiniCalendar.svelte'
   import { calendarView, type ViewKind } from '$extensions/calendar/frontend/stores/calendarView.svelte'
   import { calendarSources } from '$extensions/calendar/frontend/stores/calendarSources.svelte'
   import { calendarSettings } from '$extensions/calendar/frontend/stores/calendarSettings.svelte'
@@ -114,7 +115,7 @@
       </button>
     </div>
 
-    <h2 class="text-sm font-semibold text-foreground ml-2 truncate">{title}</h2>
+    <MiniCalendar {title} />
   </div>
 
   <!-- Right: tz picker + new event + sync. -->

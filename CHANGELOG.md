@@ -13,6 +13,7 @@
 - Added spellcheck dictionary: Dutch
 - Added dot and glow dot optional accents for unread messages
 - Added window size persistence - [#217](https://github.com/hkdb/aerion/issues/217)
+- Added mini calendar for easier navigation - [#368](https://github.com/hkdb/aerion/issues/368)
 - Fixed post delete ghost messages on message list
 - New app icon with full hicolor size set + scalable SVG - [#395](https://github.com/hkdb/aerion/issues/395) (Special thanks to @gianlucamazza) - [#99](https://github.com/hkdb/aerion/issues/99) 
 - Fixed thread sender and preview in message list - [#169](https://github.com/hkdb/aerion/issues/169)
