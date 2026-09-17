@@ -48,17 +48,18 @@
       </div>
 
       <div class="space-y-4 max-h-[60vh] overflow-y-auto text-sm">
-        <p>🚀 Welcome to Aerion v0.3.3!</p>
+        <p>🚀 Welcome to Aerion v0.3.4!</p>
 
         <p>Here are the highlights of this release:</p>
 
         <ul class="list-disc pl-6 space-y-1">
-          <li>⚗️ The message list has been redesigned to have messages cover the checkboxes on the left and will shift to the right to show the checkboxes on mouseover individually. This can be turned off by toggling, "Always show checkbox next to message" to revert to the original design.</li>
-          <li>🐁 Added left and right swipe gestures. Swipe right to select and swipe left to delete.</li>
-          <li>✏️ Added manual config of auth mechanism</li>
-          <li>🚀 Added g, G, alt+g, alt+G, alt+c, alt+m shortcuts</li>
-          <li>📩 Improved sync guards to improve stability</li>
-          <li>🐛 Bug fixes and improvements</li>
+          <li>⚗️ The message list's optional unread accent now has two new options: dot and glowing dot</li>
+          <li>✏️ Added Reply-To field to composer</li>
+          <li>✏️ Default CC, BCC, and Reply-To can now be set in Settings --> Composer</li>
+          <li>📖 Added English (UK) and Dutch spellcheck</li>
+          <li>🪟 Aerion now remembers your last window size which survives quit and relaunch</li>
+          <li>📩 Improved handling of rapid individual message deletes</li>
+          <li>🐛 Bug fixes and other improvements</li>
         </ul>
 
         <p>🏷 See the full change log here:</p>
