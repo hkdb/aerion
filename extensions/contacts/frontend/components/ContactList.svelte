@@ -19,7 +19,7 @@
   import ListRow from '$lib/components/kit/ListRow.svelte'
   import Avatar from '$lib/components/kit/Avatar.svelte'
   import ConfirmDialog from '$lib/components/kit/ConfirmDialog.svelte'
-  import { contactsView, reloadContacts, focusContact, activateContact, setSearchQuery, deleteLocalContact } from '$extensions/contacts/frontend/stores/contactsView.svelte'
+  import { contactsView, reloadContacts, loadMoreContacts, focusContact, activateContact, setSearchQuery, deleteLocalContact } from '$extensions/contacts/frontend/stores/contactsView.svelte'
   import { contactSourcesStore } from '$extensions/contacts/frontend/stores/contactSources.svelte'
   import { toasts } from '$lib/stores/toast'
   import WriteAccessBanner from './WriteAccessBanner.svelte'
@@ -271,6 +271,19 @@
       <p class="m-4 text-sm text-muted-foreground">
         {searchInput ? $_('contacts.list.emptySearch') : $_('contacts.list.empty')}
       </p>
+    {/snippet}
+
+    {#snippet footer()}
+      {#if contactsView.hasMore}
+        <button
+          type="button"
+          class="w-full py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors disabled:opacity-50"
+          disabled={contactsView.loadingMore}
+          onclick={() => loadMoreContacts()}
+        >
+          {$_('contacts.list.loadMore')}
+        </button>
+      {/if}
     {/snippet}
   </ListPane>
 </div>

@@ -32,7 +32,8 @@
       "sortDesc": "Sortierung: Z → A",
       "addTooltip": "Kontakt hinzufügen",
       "emptySearch": "Keine Kontakte entsprechen deiner Suche.",
-      "empty": "Keine Kontakte vorhanden."
+      "empty": "Keine Kontakte vorhanden.",
+      "loadMore": "Mehr laden"
     },
     "writeAccessBanner": {
       "title": "Schreibgeschützte Quellen — Schreibzugriff nicht aktiviert",

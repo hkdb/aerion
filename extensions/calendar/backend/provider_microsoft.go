@@ -211,6 +211,8 @@ func (p microsoftProvider) SyncCalendar(ctx context.Context, src Source, cal Cal
 		pageURL = page.NextLink
 	}
 
+	synthesizeICalUIDs(rows)
+
 	localETags, err := p.store.ListEventETags(cal.ID)
 	if err != nil {
 		return fmt.Errorf("list local etags: %w", err)
@@ -242,6 +244,14 @@ func (p microsoftProvider) SyncCalendar(ctx context.Context, src Source, cal Cal
 	}
 	p.debugf("ms-sync calendar=%q fetched=%d changed=%d upserts=%d deletes=%d translateFail=%d",
 		cal.DisplayName, len(rows), len(plan.process), len(out), len(plan.deletes), translateFail)
+
+	// Every queued event failing to translate means the user would see an
+	// empty calendar with a "successful" sync — surface it as a real error
+	// instead of the silent zero reported in #278. Partial failures stay
+	// non-fatal (the successes still land).
+	if translateFail > 0 && len(out) == 0 && len(plan.process) > 0 {
+		return fmt.Errorf("microsoft calendar sync: all %d changed events failed to translate", translateFail)
+	}
 
 	return p.store.WithTx(func(tx *sql.Tx) error {
 		for _, pe := range out {
@@ -418,6 +428,20 @@ type eventSyncPlan struct {
 // stay fast. EVERY master/single present is recorded as "seen" so a present-but-
 // unchanged event is never deleted. seenAny gates the delete pass so an
 // empty/failed listing can't wipe the calendar.
+// synthesizeICalUIDs fills empty iCalUId fields with a stable UID derived
+// from the immutable Graph event id. Some tenants return events without
+// iCalUId, and planEventSync skips UID-less rows — which made a fully
+// authorized calendar sync "successfully" to zero events (#278). The
+// msgraph- prefix keeps synthesized UIDs from colliding with real ones and
+// stays stable across syncs so re-syncs upsert instead of duplicating.
+func synthesizeICalUIDs(rows []graphEvent) {
+	for i := range rows {
+		if rows[i].ICalUID == "" && rows[i].ID != "" {
+			rows[i].ICalUID = "msgraph-" + rows[i].ID
+		}
+	}
+}
+
 func planEventSync(rows []graphEvent, localETags map[string]string) eventSyncPlan {
 	seen := make(map[string]struct{}, len(rows))
 	var plan eventSyncPlan

@@ -32,7 +32,8 @@
       "sortDesc": "Sắp xếp từ Z → A",
       "addTooltip": "Thêm liên hệ",
       "emptySearch": "Không tìm thấy liên hệ nào phù hợp.",
-      "empty": "Không có liên hệ nào."
+      "empty": "Không có liên hệ nào.",
+      "loadMore": "Tải thêm"
     },
     "writeAccessBanner": {
       "title": "Nguồn chỉ đọc, chưa bật quyền ghi",

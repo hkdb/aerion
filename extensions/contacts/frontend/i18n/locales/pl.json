@@ -32,7 +32,8 @@
       "sortDesc": "Sortuj: Z → A",
       "addTooltip": "Dodaj kontakt",
       "emptySearch": "Brak kontaktów pasujących do wyszukiwania.",
-      "empty": "Brak kontaktów."
+      "empty": "Brak kontaktów.",
+      "loadMore": "Załaduj więcej"
     },
     "writeAccessBanner": {
       "title": "Źródła tylko do odczytu — dostęp do zapisu jest wyłączony",

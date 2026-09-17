@@ -32,7 +32,8 @@
       "sortDesc": "Ordina: Z → A",
       "addTooltip": "Aggiungi contatto",
       "emptySearch": "Nessun contatto corrispondente per la tua ricerca.",
-      "empty": "Nessun contatto."
+      "empty": "Nessun contatto.",
+      "loadMore": "Carica altri"
     },
     "writeAccessBanner": {
       "title": "Fonte di sola lettura — accesso in scrittura non abilitato",

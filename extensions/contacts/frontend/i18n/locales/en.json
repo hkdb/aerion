@@ -32,7 +32,8 @@
       "sortDesc": "Sort: Z → A",
       "addTooltip": "Add contact",
       "emptySearch": "No contacts match your search.",
-      "empty": "No contacts."
+      "empty": "No contacts.",
+      "loadMore": "Load more"
     },
     "writeAccessBanner": {
       "title": "Read-only sources — write access not enabled",

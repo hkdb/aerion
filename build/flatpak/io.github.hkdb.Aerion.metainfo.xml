@@ -330,6 +330,9 @@
           <li>Block save all attachments if flatpak - #384</li>
           <li>Calendar color render adjustments to alleviate #406</li>
           <li>Fixed Microsoft calendar attachments handling - #370</li>
+          <li>Fixed Contacts pagination - #278</li>
+          <li>Fixed M365 contacts - sync all folders - #278</li>
+          <li>Fixed M365 calendar - kill the silent-zero paths - #278</li>
         </ul>
       </description>
     </release>

@@ -691,3 +691,39 @@ func TestPlanEventSync_EmptyListSuppressesDeletes(t *testing.T) {
 		t.Errorf("got %d process, want 0", len(plan.process))
 	}
 }
+
+// Tenants that omit iCalUId must not sync to zero events (#278): a stable
+// UID is synthesized from the Graph event id, identical across re-syncs so
+// upserts don't duplicate. Rows with a real UID are untouched; rows with
+// neither id nor UID stay empty (and are skipped by planEventSync).
+func TestSynthesizeICalUIDs(t *testing.T) {
+	rows := []graphEvent{
+		{ID: "gid1"},                       // synthesized
+		{ID: "gid2", ICalUID: "real-uid"},  // untouched
+		{},                                 // neither — stays empty
+	}
+	synthesizeICalUIDs(rows)
+
+	if rows[0].ICalUID != "msgraph-gid1" {
+		t.Errorf("rows[0] = %q, want msgraph-gid1", rows[0].ICalUID)
+	}
+	if rows[1].ICalUID != "real-uid" {
+		t.Errorf("rows[1] = %q, want real-uid (untouched)", rows[1].ICalUID)
+	}
+	if rows[2].ICalUID != "" {
+		t.Errorf("rows[2] = %q, want empty", rows[2].ICalUID)
+	}
+
+	// Stability: running again changes nothing
+	again := []graphEvent{{ID: "gid1"}}
+	synthesizeICalUIDs(again)
+	if again[0].ICalUID != rows[0].ICalUID {
+		t.Error("synthesized UID must be stable across syncs")
+	}
+
+	// And the plan now processes a synthesized-UID row instead of skipping it
+	plan := planEventSync(rows, map[string]string{})
+	if len(plan.process) != 2 {
+		t.Errorf("plan.process = %d, want 2 (synthesized + real)", len(plan.process))
+	}
+}

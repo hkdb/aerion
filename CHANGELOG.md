@@ -22,6 +22,9 @@
 - Block save all attachments if flatpak - [#384](https://github.com/hkdb/aerion/issues/384)
 - Calendar color render adjustments to alleviate [#406](https://github.com/hkdb/aerion/issues/406)
 - Fixed Microsoft calendar attachments handling - [#370](https://github.com/hkdb/aerion/issues/370)
+- Fixed Contacts pagination - [#278](https://github.com/hkdb/aerion/issues/278)
+- Fixed M365 contacts - sync all folders - [#278](https://github.com/hkdb/aerion/issues/278)
+- Fixed M365 calendar - kill the silent-zero paths - [#278](https://github.com/hkdb/aerion/issues/278)
 
 
 **v0.3.3 - 08-06-2026**

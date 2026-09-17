@@ -34,6 +34,10 @@
     row: Snippet<[T, { selected: boolean }]>
     /** Empty-state snippet shown when items.length === 0. */
     empty?: Snippet
+
+    /** Optional footer rendered after the rows, inside the scroll region —
+     *  e.g. a "load more" control for paginated lists. */
+    footer?: Snippet
     /** Loading snippet shown when `loading` is true. */
     loading?: boolean
     loadingSnippet?: Snippet
@@ -92,6 +96,7 @@
     label,
     row,
     empty,
+    footer,
     loading = false,
     loadingSnippet,
     onSelect,
@@ -307,6 +312,9 @@
       {#each items as item (item.id)}
         {@render row(item, { selected: item.id === selectedId })}
       {/each}
+      {#if footer}
+        {@render footer()}
+      {/if}
     {/if}
   </div>
 </div>

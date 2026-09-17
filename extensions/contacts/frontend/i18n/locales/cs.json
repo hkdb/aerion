@@ -32,7 +32,8 @@
       "sortDesc": "Řazení: Z → A",
       "addTooltip": "Přidat kontakt",
       "emptySearch": "Žádné kontakty neodpovídají vyhledávání.",
-      "empty": "Žádné kontakty."
+      "empty": "Žádné kontakty.",
+      "loadMore": "Načíst další"
     },
     "writeAccessBanner": {
       "title": "Zdroje pouze pro čtení — zápis není povolen",

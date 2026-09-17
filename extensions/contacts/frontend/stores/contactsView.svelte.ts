@@ -34,6 +34,8 @@ let selectedContactId = $state<string | null>(null)
 let contacts = $state<v1.Contact[]>([])
 let detail = $state<v1.Contact | null>(null)
 let loading = $state<boolean>(false)
+let hasMore = $state<boolean>(false)
+let loadingMore = $state<boolean>(false)
 
 export const contactsView = {
   get selectedSourceId(): string {
@@ -54,6 +56,12 @@ export const contactsView = {
   get loading(): boolean {
     return loading
   },
+  get hasMore(): boolean {
+    return hasMore
+  },
+  get loadingMore(): boolean {
+    return loadingMore
+  },
 }
 
 export function selectSource(sourceId: string): void {
@@ -70,15 +78,38 @@ export function setSearchQuery(q: string): void {
   searchQuery = q
 }
 
-export async function reloadContacts(limit = 200, offset = 0): Promise<void> {
+// Browse page size. Pages are appended via loadMoreContacts() — a fixed
+// 200-row single fetch silently truncated large addressbooks (#278).
+const BROWSE_PAGE_SIZE = 200
+
+export async function reloadContacts(): Promise<void> {
   loading = true
   try {
-    contacts = await ListContactsForBrowse(searchQuery, selectedSourceId, limit, offset) || []
+    const page = await ListContactsForBrowse(searchQuery, selectedSourceId, BROWSE_PAGE_SIZE, 0) || []
+    contacts = page
+    hasMore = page.length === BROWSE_PAGE_SIZE
   } catch (err) {
     console.error('Failed to list contacts for browse:', err)
     contacts = []
+    hasMore = false
   } finally {
     loading = false
+  }
+}
+
+// Fetch the next page and append. No-op while a page is in flight or when
+// the last fetch came back short (nothing more to load).
+export async function loadMoreContacts(): Promise<void> {
+  if (loadingMore || !hasMore) return
+  loadingMore = true
+  try {
+    const page = await ListContactsForBrowse(searchQuery, selectedSourceId, BROWSE_PAGE_SIZE, contacts.length) || []
+    contacts = [...contacts, ...page]
+    hasMore = page.length === BROWSE_PAGE_SIZE
+  } catch (err) {
+    console.error('Failed to load more contacts:', err)
+  } finally {
+    loadingMore = false
   }
 }
 

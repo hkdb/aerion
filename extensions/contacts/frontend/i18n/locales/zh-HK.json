@@ -32,7 +32,8 @@
       "sortDesc": "排序：Z → A",
       "addTooltip": "新增聯絡人",
       "emptySearch": "沒有符合搜尋條件的聯絡人。",
-      "empty": "沒有聯絡人。"
+      "empty": "沒有聯絡人。",
+      "loadMore": "載入更多"
     },
     "writeAccessBanner": {
       "title": "唯讀來源 — 未啟用寫入權限",

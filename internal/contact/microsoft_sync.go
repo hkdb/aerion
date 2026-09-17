@@ -28,29 +28,108 @@ func NewMicrosoftContactsSyncer() *MicrosoftContactsSyncer {
 	}
 }
 
-// SyncContactsDelta performs an incremental sync using Microsoft Graph delta queries.
-// If deltaLink is empty, performs a full sync and returns a deltaLink for future incremental syncs.
-// If the deltaLink is expired, automatically falls back to full sync.
-func (s *MicrosoftContactsSyncer) SyncContactsDelta(accessToken, deltaLink string) (*SyncResult, error) {
-	var allRecords []SyncedRecord
-	var deletedIDs []string
-	isFullSync := deltaLink == ""
+// msFolderDefault is the token-map key for the default Contacts folder.
+// Graph's /me/contactFolders does NOT list the default folder (documented
+// Graph known issue), so full coverage is /me/contacts + each contactFolder.
+const msFolderDefault = "default"
 
-	// Determine starting URL
-	// Note: The delta endpoint doesn't support $select, $top, $orderby, $filter, $expand, $search
-	var nextLink string
+// errMSDeltaExpired signals a per-folder deltaLink rejected by Graph
+// (410/404). The orchestrator restarts the WHOLE sync as full — the store's
+// full-sync path clears-and-replaces the addressbook, so folders must never
+// mix full and incremental results in one SyncResult.
+var errMSDeltaExpired = fmt.Errorf("microsoft delta link expired")
+
+// SyncContactsDelta syncs the default Contacts folder plus every user
+// contactFolder (#278 — the previous /me/contacts-only sync missed all
+// non-default folders). syncToken is a JSON map of folder key -> deltaLink;
+// empty, legacy plain-string, or incomplete (a folder appeared) tokens
+// trigger a full sync of everything.
+func (s *MicrosoftContactsSyncer) SyncContactsDelta(accessToken, syncToken string) (*SyncResult, error) {
+	folderIDs, err := s.listContactFolderIDs(accessToken)
+	if err != nil {
+		return nil, err
+	}
+	keys := append([]string{msFolderDefault}, folderIDs...)
+
+	tokens := parseMSFolderTokens(syncToken)
+	isFullSync := false
+	for _, k := range keys {
+		if tokens[k] == "" {
+			isFullSync = true
+			break
+		}
+	}
 	if isFullSync {
-		// Full sync: use delta endpoint without token
-		nextLink = "https://graph.microsoft.com/v1.0/me/contacts/delta"
-		s.log.Info().Msg("Starting Microsoft contacts full sync")
-	} else {
-		// Incremental sync: use stored deltaLink
-		nextLink = deltaLink
-		s.log.Info().Msg("Starting Microsoft contacts incremental sync")
+		tokens = map[string]string{}
+		s.log.Info().Int("folders", len(keys)).Msg("Starting Microsoft contacts full sync")
+	}
+	if !isFullSync {
+		s.log.Info().Int("folders", len(keys)).Msg("Starting Microsoft contacts incremental sync")
 	}
 
-	var finalDeltaLink string
+	var allRecords []SyncedRecord
+	var deletedIDs []string
+	newTokens := make(map[string]string, len(keys))
+	for _, k := range keys {
+		recs, dels, dl, folderErr := s.syncFolderDelta(accessToken, k, tokens[k])
+		if folderErr == errMSDeltaExpired {
+			s.log.Warn().Str("folder", k).Msg("Microsoft delta link expired, restarting as full sync")
+			return s.SyncContactsDelta(accessToken, "")
+		}
+		if folderErr != nil {
+			return nil, folderErr
+		}
+		allRecords = append(allRecords, recs...)
+		deletedIDs = append(deletedIDs, dels...)
+		if dl != "" {
+			newTokens[k] = dl
+		}
+	}
 
+	// Download photo bytes per contact (Graph doesn't return them inline).
+	s.enrichPhotos(accessToken, allRecords)
+
+	tokenJSON, _ := json.Marshal(newTokens)
+	syncResult := &SyncResult{
+		Records:       allRecords,
+		DeletedIDs:    deletedIDs,
+		NextSyncToken: string(tokenJSON),
+		IsFullSync:    isFullSync,
+	}
+
+	if isFullSync {
+		s.log.Info().
+			Int("total_records", len(allRecords)).
+			Int("folders", len(keys)).
+			Msg("Microsoft contacts full sync completed")
+		return syncResult, nil
+	}
+	s.log.Info().
+		Int("updated_records", len(allRecords)).
+		Int("deleted_contacts", len(deletedIDs)).
+		Msg("Microsoft contacts incremental sync completed")
+	return syncResult, nil
+}
+
+// parseMSFolderTokens decodes the per-folder token map. Legacy plain
+// deltaLink strings (pre-folder-sync) and malformed values yield an empty
+// map, forcing one clean full resync.
+func parseMSFolderTokens(syncToken string) map[string]string {
+	tokens := map[string]string{}
+	if syncToken == "" {
+		return tokens
+	}
+	if err := json.Unmarshal([]byte(syncToken), &tokens); err != nil {
+		return map[string]string{}
+	}
+	return tokens
+}
+
+// listContactFolderIDs enumerates the user's non-default contact folders
+// (paginated). The default folder is intentionally absent from this endpoint.
+func (s *MicrosoftContactsSyncer) listContactFolderIDs(accessToken string) ([]string, error) {
+	var ids []string
+	nextLink := "https://graph.microsoft.com/v1.0/me/contactFolders?$select=id&$top=100"
 	for nextLink != "" {
 		req, err := http.NewRequest("GET", nextLink, nil)
 		if err != nil {
@@ -60,15 +139,73 @@ func (s *MicrosoftContactsSyncer) SyncContactsDelta(accessToken, deltaLink strin
 
 		resp, err := s.httpClient.Do(req)
 		if err != nil {
-			s.log.Error().Err(err).Msg("Microsoft Graph API request failed")
 			return nil, fmt.Errorf("Microsoft Graph API request failed: %w", err)
 		}
+		if resp.StatusCode != http.StatusOK {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("Microsoft Graph contactFolders error %d: %s", resp.StatusCode, string(bodyBytes))
+		}
+		var result struct {
+			Value []struct {
+				ID string `json:"id"`
+			} `json:"value"`
+			NextLink string `json:"@odata.nextLink"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			resp.Body.Close()
+			return nil, fmt.Errorf("failed to parse contactFolders response: %w", err)
+		}
+		resp.Body.Close()
+		for _, f := range result.Value {
+			ids = append(ids, f.ID)
+		}
+		nextLink = result.NextLink
+	}
+	return ids, nil
+}
 
-		// Handle 410 Gone or 404 - delta token expired, need full sync
+// syncFolderDelta runs the Graph delta loop for one folder (key
+// msFolderDefault = /me/contacts, otherwise /me/contactFolders/{id}).
+// Returns the folder's records, deleted ids, and its next deltaLink;
+// errMSDeltaExpired when an incremental deltaLink is rejected.
+func (s *MicrosoftContactsSyncer) syncFolderDelta(accessToken, folderKey, deltaLink string) ([]SyncedRecord, []string, string, error) {
+	var allRecords []SyncedRecord
+	var deletedIDs []string
+	isFullSync := deltaLink == ""
+
+	// Determine starting URL
+	// Note: The delta endpoint doesn't support $select, $top, $orderby, $filter, $expand, $search
+	nextLink := deltaLink
+	switch {
+	case nextLink != "":
+		// Incremental: continue from the stored deltaLink
+	case folderKey == msFolderDefault:
+		nextLink = "https://graph.microsoft.com/v1.0/me/contacts/delta"
+	default:
+		nextLink = "https://graph.microsoft.com/v1.0/me/contactFolders/" + url.PathEscape(folderKey) + "/contacts/delta"
+	}
+
+	var finalDeltaLink string
+
+	for nextLink != "" {
+		req, err := http.NewRequest("GET", nextLink, nil)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+
+		resp, err := s.httpClient.Do(req)
+		if err != nil {
+			s.log.Error().Err(err).Msg("Microsoft Graph API request failed")
+			return nil, nil, "", fmt.Errorf("Microsoft Graph API request failed: %w", err)
+		}
+
+		// Handle 410 Gone or 404 - delta token expired; the orchestrator
+		// restarts the whole sync as full
 		if resp.StatusCode == http.StatusGone || (resp.StatusCode == http.StatusNotFound && !isFullSync) {
 			resp.Body.Close()
-			s.log.Warn().Msg("Microsoft delta link expired, falling back to full sync")
-			return s.SyncContactsDelta(accessToken, "")
+			return nil, nil, "", errMSDeltaExpired
 		}
 
 		if resp.StatusCode != http.StatusOK {
@@ -81,13 +218,13 @@ func (s *MicrosoftContactsSyncer) SyncContactsDelta(accessToken, deltaLink strin
 
 			switch resp.StatusCode {
 			case http.StatusUnauthorized:
-				return nil, fmt.Errorf("Microsoft API authentication failed: %s", string(bodyBytes))
+				return nil, nil, "", fmt.Errorf("Microsoft API authentication failed: %s", string(bodyBytes))
 			case http.StatusForbidden:
-				return nil, fmt.Errorf("Microsoft API access denied: %s", string(bodyBytes))
+				return nil, nil, "", fmt.Errorf("Microsoft API access denied: %s", string(bodyBytes))
 			case http.StatusTooManyRequests:
-				return nil, fmt.Errorf("Microsoft API rate limit exceeded")
+				return nil, nil, "", fmt.Errorf("Microsoft API rate limit exceeded")
 			default:
-				return nil, fmt.Errorf("Microsoft Graph API error %d: %s", resp.StatusCode, string(bodyBytes))
+				return nil, nil, "", fmt.Errorf("Microsoft Graph API error %d: %s", resp.StatusCode, string(bodyBytes))
 			}
 		}
 
@@ -95,7 +232,7 @@ func (s *MicrosoftContactsSyncer) SyncContactsDelta(accessToken, deltaLink strin
 		var result msGraphDeltaResponse
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 			resp.Body.Close()
-			return nil, fmt.Errorf("failed to parse Microsoft API response: %w", err)
+			return nil, nil, "", fmt.Errorf("failed to parse Microsoft API response: %w", err)
 		}
 		resp.Body.Close()
 
@@ -119,42 +256,20 @@ func (s *MicrosoftContactsSyncer) SyncContactsDelta(accessToken, deltaLink strin
 		}
 
 		s.log.Debug().
+			Str("folder", folderKey).
 			Int("page_count", len(result.Value)).
 			Int("records_so_far", len(allRecords)).
 			Int("deleted_so_far", len(deletedIDs)).
 			Msg("Fetched Microsoft contacts page")
 
 		// Check for more pages or final delta link
-		if result.NextLink != "" {
-			nextLink = result.NextLink
-		} else {
+		nextLink = result.NextLink
+		if nextLink == "" {
 			finalDeltaLink = result.DeltaLink
-			nextLink = ""
 		}
 	}
 
-	// Download photo bytes per contact (Graph doesn't return them inline).
-	s.enrichPhotos(accessToken, allRecords)
-
-	syncResult := &SyncResult{
-		Records:       allRecords,
-		DeletedIDs:    deletedIDs,
-		NextSyncToken: finalDeltaLink, // Store deltaLink as sync token
-		IsFullSync:    isFullSync,
-	}
-
-	if isFullSync {
-		s.log.Info().
-			Int("total_records", len(allRecords)).
-			Bool("has_delta_link", finalDeltaLink != "").
-			Msg("Microsoft contacts full sync completed")
-		return syncResult, nil
-	}
-	s.log.Info().
-		Int("updated_records", len(allRecords)).
-		Int("deleted_contacts", len(deletedIDs)).
-		Msg("Microsoft contacts incremental sync completed")
-	return syncResult, nil
+	return allRecords, deletedIDs, finalDeltaLink, nil
 }
 
 // enrichPhotos downloads each contact's photo from Graph and stores it inline.

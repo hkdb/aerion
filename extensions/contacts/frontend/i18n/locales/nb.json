@@ -32,7 +32,8 @@
       "sortDesc": "Sorter: Å → A",
       "addTooltip": "Legg til kontakt",
       "emptySearch": "Ingen kontakter samsvarer med søket ditt.",
-      "empty": "Ingen kontakter."
+      "empty": "Ingen kontakter.",
+      "loadMore": "Last inn mer"
     },
     "writeAccessBanner": {
       "title": "Skrivebeskyttede kilder – skrivetilgang ikke aktivert",
