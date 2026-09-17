@@ -329,6 +329,7 @@
           <li>Fixed composer draft format detection - #420</li>
           <li>Block save all attachments if flatpak - #384</li>
           <li>Calendar color render adjustments to alleviate #406</li>
+          <li>Fixed Microsoft calendar attachments handling - #370</li>
         </ul>
       </description>
     </release>

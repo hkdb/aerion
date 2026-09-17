@@ -1,6 +1,33 @@
 package app
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestSanitizeAttachmentFilename(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"clean name passes", "image001.png", "image001.png"},
+		{"path separators stripped", "../..\\evil.png", "....evil.png"},
+		{"control chars stripped", "inv\r\nite.ics", "invite.ics"},
+		{"empty becomes generic", "", "attachment.bin"},
+		{"whitespace-only becomes generic", "  \t ", "attachment.bin"},
+	}
+	for _, c := range cases {
+		if got := sanitizeAttachmentFilename(c.in); got != c.want {
+			t.Errorf("%s: sanitizeAttachmentFilename(%q) = %q, want %q", c.name, c.in, got, c.want)
+		}
+	}
+
+	long := strings.Repeat("a", 300) + ".pdf"
+	if got := sanitizeAttachmentFilename(long); len([]rune(got)) != 180 {
+		t.Errorf("length cap: got %d runes, want 180", len([]rune(got)))
+	}
+}
 
 func TestQuotedHTMLReferencesCID(t *testing.T) {
 	tests := []struct {

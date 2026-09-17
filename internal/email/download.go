@@ -247,14 +247,7 @@ func getFilename(part *gomessage.Entity) string {
 		}
 	}
 
-	ext := ".bin"
-	if strings.HasPrefix(contentType, "image/") {
-		parts := strings.SplitN(contentType, "/", 2)
-		if len(parts) == 2 {
-			ext = "." + parts[1]
-		}
-	}
-	return "attachment" + ext
+	return FallbackFilename(contentType)
 }
 
 // SaveAttachment saves attachment content to disk

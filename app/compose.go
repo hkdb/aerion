@@ -802,6 +802,18 @@ func (a *App) PrepareReply(messageID, mode string) (*smtp.ComposeMessage, error)
 	if inlineErr != nil {
 		log.Warn().Err(inlineErr).Msg("Failed to get inline attachments for reply/forward")
 	}
+	// Map cid -> the stored row's real filename. Re-attached parts used to
+	// carry the raw Content-ID as filename, and Outlook-style ids
+	// (…@…prod.outlook.com) look like forbidden ".com" files to receiving
+	// servers, bouncing the whole reply (#370).
+	inlineNames := map[string]string{}
+	if rows, rowsErr := a.attachmentStore.GetByMessage(messageID); rowsErr == nil {
+		for _, row := range rows {
+			if row.ContentID != "" && row.Filename != "" {
+				inlineNames[row.ContentID] = row.Filename
+			}
+		}
+	}
 	for cid, dataURL := range inlineMap {
 		// Replies include an "inline" attachment only when the quoted HTML
 		// actually embeds it — mailers stamp Content-IDs on ordinary document
@@ -815,12 +827,16 @@ func (a *App) PrepareReply(messageID, mode string) (*smtp.ComposeMessage, error)
 		if b64 == "" {
 			continue
 		}
+		filename := inlineNames[cid]
+		if filename == "" {
+			filename = email.FallbackFilename(ct)
+		}
 		attachments = append(attachments, smtp.Attachment{
 			ContentBase64: b64,
 			ContentType:   ct,
 			ContentID:     cid,
 			Inline:        true,
-			Filename:      cid,
+			Filename:      sanitizeAttachmentFilename(filename),
 		})
 	}
 
@@ -1118,6 +1134,28 @@ func addressListToJSON(addrs []smtp.Address) string {
 	}
 	data, _ := json.Marshal(addrs)
 	return string(data)
+}
+
+// sanitizeAttachmentFilename strips path separators and control characters
+// from a sender-supplied filename before it's emitted in outgoing MIME
+// headers, and caps its length. Defense-in-depth — ToRFC822 already quotes
+// the value (filename=%q), so this guards odd receivers, not our emission.
+func sanitizeAttachmentFilename(name string) string {
+	var b strings.Builder
+	for _, r := range name {
+		if r < 0x20 || r == 0x7f || r == '/' || r == '\\' {
+			continue
+		}
+		b.WriteRune(r)
+	}
+	out := strings.TrimSpace(b.String())
+	if runes := []rune(out); len(runes) > 180 {
+		out = string(runes[:180])
+	}
+	if out == "" {
+		return "attachment.bin"
+	}
+	return out
 }
 
 // replyToToJSON converts a draft's single Reply-To address to its stored

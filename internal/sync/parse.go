@@ -714,15 +714,9 @@ func (e *Engine) extractAttachmentMetadata(part *gomessage.Entity, messageID, co
 	// Decode RFC 2047 encoded filenames (e.g., =?UTF-8?B?5Lit5paH?= for Chinese)
 	filename = decodeMIMEWord(filename)
 	if filename == "" {
-		// Generate a filename based on content type
-		ext := ".bin"
-		if strings.HasPrefix(contentType, "image/") {
-			parts := strings.Split(contentType, "/")
-			if len(parts) == 2 {
-				ext = "." + parts[1]
-			}
-		}
-		filename = "attachment" + ext
+		// Shared synthesis — the downloader later re-locates the part by
+		// this exact name, so all fallback sites must agree (#370)
+		filename = email.FallbackFilename(contentType)
 	}
 
 	att := &message.Attachment{

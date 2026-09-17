@@ -25,6 +25,33 @@ func NewAttachmentExtractor() *AttachmentExtractor {
 	return &AttachmentExtractor{}
 }
 
+// FallbackFilename generates a filename for a MIME part that declared none,
+// derived from its content type. Every site that names or re-locates
+// nameless parts (sync-time extraction in sync/parse.go, this extractor,
+// and the downloader's part matching in download.go) MUST use this one
+// function — the downloader finds parts by comparing the STORED filename
+// against the same synthesis, so divergent fallbacks break Save/Open of
+// nameless attachments (#370).
+func FallbackFilename(contentType string) string {
+	// Outlook/Teams meeting invites: a recognizable, openable name
+	// instead of attachment.bin (#370)
+	if contentType == "text/calendar" {
+		return "invite.ics"
+	}
+	// Keep the historical image/<subtype> naming exactly (ExtensionsByType
+	// could pick a different-but-valid extension per platform)
+	if strings.HasPrefix(contentType, "image/") {
+		parts := strings.SplitN(contentType, "/", 2)
+		if len(parts) == 2 && parts[1] != "" {
+			return "attachment." + parts[1]
+		}
+	}
+	if exts, err := mime.ExtensionsByType(contentType); err == nil && len(exts) > 0 {
+		return "attachment" + exts[0]
+	}
+	return "attachment.bin"
+}
+
 // AttachmentData holds both metadata and content for an attachment
 type AttachmentData struct {
 	Attachment *message.Attachment
@@ -101,14 +128,7 @@ func (e *AttachmentExtractor) extractFromMultipart(messageID string, mr gomessag
 				filename = params["name"]
 			}
 			if filename == "" {
-				ext := ".bin"
-				if strings.HasPrefix(contentType, "image/") {
-					parts := strings.SplitN(contentType, "/", 2)
-					if len(parts) == 2 {
-						ext = "." + parts[1]
-					}
-				}
-				filename = "attachment" + ext
+				filename = FallbackFilename(contentType)
 			}
 
 			// Decode filename if encoded
