@@ -74,8 +74,10 @@ func (a *App) restoreWindowPosition() {
 	if screens, err := wailsRuntime.ScreenGetAll(a.ctx); err == nil && len(screens) > 0 {
 		totalW, totalH := 0, 0
 		for _, s := range screens {
-			totalW += s.Width
-			totalH += s.Height
+			// Size is the logical-pixel space — same space WindowGetPosition
+			// coordinates live in (Width/Height are deprecated)
+			totalW += s.Size.Width
+			totalH += s.Size.Height
 		}
 		if geo.X < -totalW || geo.X >= totalW || geo.Y < -totalH || geo.Y >= totalH {
 			return

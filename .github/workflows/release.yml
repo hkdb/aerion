@@ -278,7 +278,7 @@ jobs:
 
   commit-manifest:
     needs: build-flatpak
-    if: ${{ !contains(github.ref_name, '-build') && !contains(github.ref_name, '-test') }}
+    if: ${{ !contains(github.ref_name, '-build') && !contains(github.ref_name, '-test') && !contains(github.ref_name, '-rc') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
