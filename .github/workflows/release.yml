@@ -231,17 +231,20 @@ jobs:
           sudo apt-get update
           # Primary: normal install (phased-updates opt-in is CI hygiene —
           # runners aren't a user population).
-          # Fallback: the noble RELEASE pocket (-t noble). A pocket is
-          # internally consistent by definition, so release flatpak +
-          # bubblewrap always co-install. Needed because Ubuntu can leave
-          # -updates/-security with an unsatisfiable dependency after
-          # pulling a bad update (2026-09-17: bubblewrap 0.9.0-1ubuntu0.2
-          # was published and deleted the same day WITHOUT restoring
-          # ubuntu0.1, while flatpak still depends on >= ubuntu0.1 —
-          # breaking apt-install of flatpak on every arch). Self-healing:
-          # once the archive is fixed, the primary succeeds again.
+          # Fallback: EXACT noble release-pocket versions. Ubuntu can leave
+          # -updates/-security unsatisfiable after pulling a bad update
+          # (2026-09-17: bubblewrap 0.9.0-1ubuntu0.2 published + deleted
+          # same day WITHOUT restoring ubuntu0.1, while updates-flatpak
+          # depends on >= ubuntu0.1 — broke apt-install of flatpak on all
+          # arches until mirrors carried the redone 0.9.0-1ubuntu0.3).
+          # The release pocket is frozen and never deleted, and its
+          # versions interlock by definition, so this set always installs
+          # (verified co-installable). NOT -t noble: Default-Release
+          # matches by codename too, so all noble-* pockets get pinned and
+          # the broken updates candidate still wins. Versions are
+          # noble-specific — refresh if the runner image moves off 24.04.
           sudo apt-get install -y -o APT::Get::Always-Include-Phased-Updates=true flatpak flatpak-builder \
-            || sudo apt-get install -y -t noble flatpak flatpak-builder
+            || sudo apt-get install -y flatpak=1.14.6-1 libflatpak0=1.14.6-1 bubblewrap=0.9.0-1build1 flatpak-builder=1.4.2-1build2
 
       - name: Add Flathub repository
         run: flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
