@@ -333,6 +333,7 @@
           <li>Fixed Contacts pagination - #278</li>
           <li>Fixed M365 contacts - sync all folders - #278</li>
           <li>Fixed M365 calendar - kill the silent-zero paths - #278</li>
+          <li>Fixed draft edit logic - #392</li>
         </ul>
       </description>
     </release>

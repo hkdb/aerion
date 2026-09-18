@@ -25,6 +25,7 @@
 - Fixed Contacts pagination - [#278](https://github.com/hkdb/aerion/issues/278)
 - Fixed M365 contacts - sync all folders - [#278](https://github.com/hkdb/aerion/issues/278)
 - Fixed M365 calendar - kill the silent-zero paths - [#278](https://github.com/hkdb/aerion/issues/278)
+- Fixed draft edit logic - [#392](https://github.com/hkdb/aerion/issues/392)
 
 
 **v0.3.3 - 08-06-2026**

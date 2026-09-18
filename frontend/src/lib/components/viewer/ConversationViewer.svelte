@@ -1587,7 +1587,11 @@
                       <span class="text-sm text-muted-foreground">
                         {formatDate(msg.date)}
                       </span>
-                      {#if isDraftsFolder}
+                      {#if isDraftsFolder && (msg.isDraft || msg.folderId === folderId)}
+                        <!-- Per-message gate (#392): Drafts-folder threads include
+                             Sent siblings for context, which must not get the edit
+                             pencil. isDraft = \Draft flag; the folderId fallback
+                             covers servers that don't stamp it. -->
                         <button
                           class="p-1 rounded hover:bg-muted transition-colors"
                           title={$_('viewer.editDraft')}
