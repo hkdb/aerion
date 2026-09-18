@@ -229,13 +229,19 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          # Always-Include-Phased-Updates: security updates roll out to a
-          # random percentage of machines (phasing); a fresh runner can land
-          # outside the phase window while a dependency (e.g. flatpak ->
-          # bubblewrap 0.9.0-1ubuntu0.x) already requires the phased version,
-          # failing with "is not going to be installed". CI isn't a user
-          # population — opt into all updates unconditionally.
-          sudo apt-get install -y -o APT::Get::Always-Include-Phased-Updates=true flatpak flatpak-builder
+          # Primary: normal install (phased-updates opt-in is CI hygiene —
+          # runners aren't a user population).
+          # Fallback: the noble RELEASE pocket (-t noble). A pocket is
+          # internally consistent by definition, so release flatpak +
+          # bubblewrap always co-install. Needed because Ubuntu can leave
+          # -updates/-security with an unsatisfiable dependency after
+          # pulling a bad update (2026-09-17: bubblewrap 0.9.0-1ubuntu0.2
+          # was published and deleted the same day WITHOUT restoring
+          # ubuntu0.1, while flatpak still depends on >= ubuntu0.1 —
+          # breaking apt-install of flatpak on every arch). Self-healing:
+          # once the archive is fixed, the primary succeeds again.
+          sudo apt-get install -y -o APT::Get::Always-Include-Phased-Updates=true flatpak flatpak-builder \
+            || sudo apt-get install -y -t noble flatpak flatpak-builder
 
       - name: Add Flathub repository
         run: flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo

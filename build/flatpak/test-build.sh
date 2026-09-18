@@ -33,10 +33,11 @@ VERSION="$1"
 
 echo "Installing dependencies..."
 apt-get update
-# Include phased updates so a fresh container can't land outside a security
-# rollout's phase window while a dependency already requires the phased
-# version (same guard as the release workflow)
-apt-get install -y -o APT::Get::Always-Include-Phased-Updates=true flatpak flatpak-builder wget git
+# Normal install first; fall back to the internally-consistent noble
+# release pocket when -updates/-security carry an unsatisfiable dependency
+# (e.g. the 2026-09-17 bubblewrap pull) — same guard as the release workflow
+apt-get install -y -o APT::Get::Always-Include-Phased-Updates=true flatpak flatpak-builder wget git \
+  || apt-get install -y -t noble flatpak flatpak-builder wget git
 
 echo ""
 echo "Adding Flathub repository..."
