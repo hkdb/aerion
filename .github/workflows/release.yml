@@ -229,7 +229,13 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
+          # Always-Include-Phased-Updates: security updates roll out to a
+          # random percentage of machines (phasing); a fresh runner can land
+          # outside the phase window while a dependency (e.g. flatpak ->
+          # bubblewrap 0.9.0-1ubuntu0.x) already requires the phased version,
+          # failing with "is not going to be installed". CI isn't a user
+          # population — opt into all updates unconditionally.
+          sudo apt-get install -y -o APT::Get::Always-Include-Phased-Updates=true flatpak flatpak-builder
 
       - name: Add Flathub repository
         run: flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo

@@ -65,6 +65,7 @@
     "noMessages": "No messages in this folder",
     "selectFolder": "Select a folder to view messages",
     "emptyTrash": "Empty Trash",
+    "emptySpam": "Empty Spam",
     "ftsBuilding": "Building search index... ({percentage}%)",
     "syncFolder": "Sync Folder",
     "forceResync": "Force Re-sync",
@@ -274,6 +275,7 @@
     "deletedFromFolder": "Deleted from folder",
     "permanentlyDeleted": "Permanently deleted",
     "trashEmptied": "Trash emptied",
+    "spamEmptied": "Spam emptied",
     "markedAsRead": "Marked as read",
     "markedAsUnread": "Marked as unread",
     "markedAsSpam": "Marked as spam",
@@ -296,6 +298,7 @@
     "failedToArchive": "Failed to archive.",
     "failedToDelete": "Failed to delete.",
     "failedToEmptyTrash": "Failed to empty trash.",
+    "failedToEmptySpam": "Failed to empty spam.",
     "failedToMarkAsRead": "Failed to mark as read.",
     "failedToMarkAsUnread": "Failed to mark as unread.",
     "failedToMarkAsSpam": "Failed to mark as spam.",
@@ -868,9 +871,12 @@
     "deletePermanently": "Delete Permanently?",
     "deleteDescription": "This will permanently delete the selected message(s). This action cannot be undone.",
     "emptyTrash": "Empty Trash?",
+    "emptySpam": "Empty Spam?",
     "emptyTrashDescription": "This will permanently delete all messages in the Trash folder. This action cannot be undone.",
+    "emptySpamDescription": "This will permanently delete all messages in the Spam folder. This action cannot be undone.",
     "confirmDeletePermanently": "Delete Permanently",
-    "confirmEmptyTrash": "Empty Trash"
+    "confirmEmptyTrash": "Empty Trash",
+    "confirmEmptySpam": "Empty Spam"
   },
   "date": {
     "justNow": "just now",

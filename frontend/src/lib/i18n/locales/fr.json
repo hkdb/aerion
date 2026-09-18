@@ -65,6 +65,7 @@
     "noMessages": "Aucun message dans ce dossier",
     "selectFolder": "Sélectionnez un dossier pour voir les messages",
     "emptyTrash": "Vider la corbeille",
+    "emptySpam": "Vider le spam",
     "ftsBuilding": "Construction de l'index de recherche... ({percentage}%)",
     "syncFolder": "Synchroniser le dossier",
     "forceResync": "Forcer la synchronisation",
@@ -274,6 +275,7 @@
     "deletedFromFolder": "Supprimé du dossier",
     "permanentlyDeleted": "Supprimé définitivement",
     "trashEmptied": "Corbeille vidée",
+    "spamEmptied": "Spam vidé",
     "markedAsRead": "Marqué comme lu",
     "markedAsUnread": "Marqué comme non lu",
     "markedAsSpam": "Marqué comme spam",
@@ -296,6 +298,7 @@
     "failedToArchive": "Échec de l'archivage.",
     "failedToDelete": "Échec de la suppression.",
     "failedToEmptyTrash": "Échec de la vidange de la corbeille.",
+    "failedToEmptySpam": "Échec de la vidange du spam.",
     "failedToMarkAsRead": "Échec du marquage comme lu.",
     "failedToMarkAsUnread": "Échec du marquage comme non lu.",
     "failedToMarkAsSpam": "Échec du marquage comme spam.",
@@ -861,9 +864,12 @@
     "deletePermanently": "Supprimer définitivement ?",
     "deleteDescription": "Ceci supprimera définitivement les messages sélectionnés. Cette action est irréversible.",
     "emptyTrash": "Vider la corbeille ?",
+    "emptySpam": "Vider le spam ?",
     "emptyTrashDescription": "Ceci supprimera définitivement tous les messages de la Corbeille. Cette action est irréversible.",
+    "emptySpamDescription": "Ceci supprimera définitivement tous les messages du dossier Spam. Cette action est irréversible.",
     "confirmDeletePermanently": "Supprimer définitivement",
-    "confirmEmptyTrash": "Vider la corbeille"
+    "confirmEmptyTrash": "Vider la corbeille",
+    "confirmEmptySpam": "Vider le spam"
   },
   "date": {
     "justNow": "à l'instant",

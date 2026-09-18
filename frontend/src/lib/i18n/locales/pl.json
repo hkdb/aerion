@@ -65,6 +65,7 @@
     "noMessages": "Brak wiadomości w tym folderze",
     "selectFolder": "Wybierz folder aby zobaczyć wiadomości",
     "emptyTrash": "Opróżnij kosz",
+    "emptySpam": "Opróżnij spam",
     "ftsBuilding": "Budowanie indeksu wyszukiwania... ({percentage}%)",
     "syncFolder": "Synchronizuj folder",
     "forceResync": "Wymuś ponowną synchronizację",
@@ -274,6 +275,7 @@
     "deletedFromFolder": "Usunięto z folderu",
     "permanentlyDeleted": "Permanentnie usunięto",
     "trashEmptied": "Kosz opróżniony",
+    "spamEmptied": "Spam opróżniony",
     "markedAsRead": "Oznaczono jako przeczytane",
     "markedAsUnread": "Oznaczono jako nieprzeczytane",
     "markedAsSpam": "Oznaczono jako spam",
@@ -296,6 +298,7 @@
     "failedToArchive": "Nie udało się zarchiwizować.",
     "failedToDelete": "Nie udało się usunąć.",
     "failedToEmptyTrash": "Nie udało się opróżnić kosza.",
+    "failedToEmptySpam": "Nie udało się opróżnić spamu.",
     "failedToMarkAsRead": "Nie udało się oznaczyć jako przeczytane.",
     "failedToMarkAsUnread": "Nie udało się oznaczyć jako nieprzeczytane.",
     "failedToMarkAsSpam": "Nie udało się oznaczyć jako spam.",
@@ -868,9 +871,12 @@
     "deletePermanently": "Usunąć permanentnie?",
     "deleteDescription": "Spowoduje to trwałe usunięcie wybranych wiadomości. Tej czynności nie można cofnąć.",
     "emptyTrash": "Opróżnić kosz?",
+    "emptySpam": "Opróżnić spam?",
     "emptyTrashDescription": "Spowoduje to permanentne usunięcie wszystkich wiadomości w folderze Kosz. Tej czynności nie można cofnąć.",
+    "emptySpamDescription": "Spowoduje to permanentne usunięcie wszystkich wiadomości w folderze Spam. Tej czynności nie można cofnąć.",
     "confirmDeletePermanently": "Usuń permanentnie",
-    "confirmEmptyTrash": "Opróżnij kosz"
+    "confirmEmptyTrash": "Opróżnij kosz",
+    "confirmEmptySpam": "Opróżnij spam"
   },
   "date": {
     "justNow": "właśnie teraz",

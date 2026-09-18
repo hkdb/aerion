@@ -65,6 +65,7 @@
     "noMessages": "V této složce nejsou žádné zprávy",
     "selectFolder": "Vyberte složku pro zobrazení zpráv",
     "emptyTrash": "Vyprázdnit koš",
+    "emptySpam": "Vyprázdnit spam",
     "ftsBuilding": "Vytváření indexu vyhledávání... ({percentage}%)",
     "syncFolder": "Synchronizovat složku",
     "forceResync": "Vynutit opětovnou synchronizaci",
@@ -274,6 +275,7 @@
     "deletedFromFolder": "Smazáno ze složky",
     "permanentlyDeleted": "Trvale smazáno",
     "trashEmptied": "Koš vyprázdněn",
+    "spamEmptied": "Spam vyprázdněn",
     "markedAsRead": "Označeno jako přečtené",
     "markedAsUnread": "Označeno jako nepřečtené",
     "markedAsSpam": "Označeno jako spam",
@@ -296,6 +298,7 @@
     "failedToArchive": "Archivace se nezdařila.",
     "failedToDelete": "Smazání se nezdařilo.",
     "failedToEmptyTrash": "Vyprázdnění koše se nezdařilo.",
+    "failedToEmptySpam": "Vyprázdnění spamu se nezdařilo.",
     "failedToMarkAsRead": "Označení jako přečtené se nezdařilo.",
     "failedToMarkAsUnread": "Označení jako nepřečtené se nezdařilo.",
     "failedToMarkAsSpam": "Označení jako spam se nezdařilo.",
@@ -868,9 +871,12 @@
     "deletePermanently": "Trvale smazat?",
     "deleteDescription": "Tímto trvale smažete vybrané zprávy. Tuto akci nelze vrátit zpět.",
     "emptyTrash": "Vyprázdnit koš?",
+    "emptySpam": "Vyprázdnit spam?",
     "emptyTrashDescription": "Tímto trvale smažete všechny zprávy v koši. Tuto akci nelze vrátit zpět.",
+    "emptySpamDescription": "Tímto trvale smažete všechny zprávy ve složce spam. Tuto akci nelze vrátit zpět.",
     "confirmDeletePermanently": "Trvale smazat",
-    "confirmEmptyTrash": "Vyprázdnit koš"
+    "confirmEmptyTrash": "Vyprázdnit koš",
+    "confirmEmptySpam": "Vyprázdnit spam"
   },
   "date": {
     "justNow": "právě teď",

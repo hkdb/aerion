@@ -65,6 +65,7 @@
     "noMessages": "此文件夹中没有邮件",
     "selectFolder": "选择文件夹以查看邮件",
     "emptyTrash": "清空回收站",
+    "emptySpam": "清空垃圾邮件",
     "ftsBuilding": "正在构建搜索索引... ({percentage}%)",
     "syncFolder": "同步文件夹",
     "forceResync": "强制重新同步",
@@ -274,6 +275,7 @@
     "deletedFromFolder": "已从文件夹中删除",
     "permanentlyDeleted": "已永久删除",
     "trashEmptied": "回收站已清空",
+    "spamEmptied": "垃圾邮件已清空",
     "markedAsRead": "已标记为已读",
     "markedAsUnread": "已标记为未读",
     "markedAsSpam": "已标记为垃圾邮件",
@@ -296,6 +298,7 @@
     "failedToArchive": "归档失败。",
     "failedToDelete": "删除失败。",
     "failedToEmptyTrash": "清空回收站失败。",
+    "failedToEmptySpam": "清空垃圾邮件失败。",
     "failedToMarkAsRead": "标记为已读失败。",
     "failedToMarkAsUnread": "标记为未读失败。",
     "failedToMarkAsSpam": "标记为垃圾邮件失败。",
@@ -868,9 +871,12 @@
     "deletePermanently": "永久删除？",
     "deleteDescription": "这将永久删除所选邮件。此操作无法撤销。",
     "emptyTrash": "清空回收站？",
+    "emptySpam": "清空垃圾邮件？",
     "emptyTrashDescription": "这将永久删除回收站中的所有邮件。此操作无法撤销。",
+    "emptySpamDescription": "这将永久删除垃圾邮件文件夹中的所有邮件。此操作无法撤销。",
     "confirmDeletePermanently": "永久删除",
-    "confirmEmptyTrash": "清空回收站"
+    "confirmEmptyTrash": "清空回收站",
+    "confirmEmptySpam": "清空垃圾邮件"
   },
   "date": {
     "justNow": "刚才",

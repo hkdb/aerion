@@ -65,6 +65,7 @@
     "noMessages": "Keine Nachrichten in diesem Ordner",
     "selectFolder": "Ordner auswählen, um Nachrichten anzuzeigen",
     "emptyTrash": "Papierkorb leeren",
+    "emptySpam": "Spam leeren",
     "ftsBuilding": "Suchindex wird erstellt... ({percentage}%)",
     "syncFolder": "Ordner synchronisieren",
     "forceResync": "Neu-Synchronisierung erzwingen",
@@ -274,6 +275,7 @@
     "deletedFromFolder": "Aus dem Ordner gelöscht",
     "permanentlyDeleted": "Endgültig gelöscht",
     "trashEmptied": "Papierkorb geleert",
+    "spamEmptied": "Spam geleert",
     "markedAsRead": "Als gelesen markiert",
     "markedAsUnread": "Als ungelesen markiert",
     "markedAsSpam": "Als Spam markiert",
@@ -296,6 +298,7 @@
     "failedToArchive": "Archivieren fehlgeschlagen.",
     "failedToDelete": "Löschen fehlgeschlagen.",
     "failedToEmptyTrash": "Papierkorb leeren fehlgeschlagen.",
+    "failedToEmptySpam": "Spam leeren fehlgeschlagen.",
     "failedToMarkAsRead": "Als gelesen markieren fehlgeschlagen.",
     "failedToMarkAsUnread": "Als ungelesen markieren fehlgeschlagen.",
     "failedToMarkAsSpam": "Als Spam markieren fehlgeschlagen.",
@@ -868,9 +871,12 @@
     "deletePermanently": "Endgültig löschen?",
     "deleteDescription": "Die ausgewählte(n) Nachricht(en) wird/werden endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
     "emptyTrash": "Papierkorb leeren?",
+    "emptySpam": "Spam leeren?",
     "emptyTrashDescription": "Alle Nachrichten im Papierkorb werden endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "emptySpamDescription": "Alle Nachrichten im Spam-Ordner werden endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
     "confirmDeletePermanently": "Endgültig löschen",
-    "confirmEmptyTrash": "Papierkorb leeren"
+    "confirmEmptyTrash": "Papierkorb leeren",
+    "confirmEmptySpam": "Spam leeren"
   },
   "date": {
     "justNow": "gerade eben",

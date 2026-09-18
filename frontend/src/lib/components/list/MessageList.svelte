@@ -18,7 +18,7 @@
   import { cn } from '$lib/utils'
   import { Button } from '$lib/components/ui/button'
   // @ts-ignore - wailsjs bindings
-  import { GetConversations, GetConversationCount, SyncFolder, ForceSyncFolder, CancelFolderSync, SetMessageListSortOrder, GetUnifiedInboxConversations, GetUnifiedInboxCount, SearchConversations, SearchUnifiedInbox, GetSearchCount, GetSearchCountUnifiedInbox, GetFTSIndexStatus, IsFTSIndexing, Trash, DeletePermanently, EmptyTrash, Undo, IMAPSearchFolder, FetchServerMessage } from '../../../../wailsjs/go/app/App'
+  import { GetConversations, GetConversationCount, SyncFolder, ForceSyncFolder, CancelFolderSync, SetMessageListSortOrder, GetUnifiedInboxConversations, GetUnifiedInboxCount, SearchConversations, SearchUnifiedInbox, GetSearchCount, GetSearchCountUnifiedInbox, GetFTSIndexStatus, IsFTSIndexing, Trash, DeletePermanently, EmptyTrash, EmptySpam, Undo, IMAPSearchFolder, FetchServerMessage } from '../../../../wailsjs/go/app/App'
   import { toasts } from '$lib/stores/toast'
   import { _ } from '$lib/i18n'
   import { ConfirmDialog } from '$lib/components/ui/confirm-dialog'
@@ -1308,6 +1308,7 @@
 
   // Empty trash confirmation state
   let showEmptyTrashConfirm = $state(false)
+  let showEmptySpamConfirm = $state(false)
 
   async function handleUndo() {
     try {
@@ -1345,6 +1346,29 @@
       toasts.error($_('toast.failedToEmptyTrash'))
     }
     showEmptyTrashConfirm = false
+  }
+
+  // Opens the confirm dialog matching the viewed folder (trash or spam bar)
+  function requestEmptyFolder() {
+    if (folderType === 'trash') {
+      showEmptyTrashConfirm = true
+      return
+    }
+    showEmptySpamConfirm = true
+  }
+
+  async function handleEmptySpam() {
+    if (!accountId || !folderId) return
+    try {
+      await EmptySpam(accountId, folderId)
+      toasts.success($_('toast.spamEmptied'))
+      handleActionComplete(true)
+      clearChecked()
+    } catch (err) {
+      console.error('Empty spam failed:', err)
+      toasts.error($_('toast.failedToEmptySpam'))
+    }
+    showEmptySpamConfirm = false
   }
 
   // Shared delete handler — same flow as context menu "Delete" action
@@ -1567,17 +1591,17 @@
     </div>
   {/if}
 
-  <!-- Empty Trash bar (only shown when viewing trash folder with messages, not in search mode) -->
-  {#if folderType === 'trash' && totalCount > 0 && !isSearchMode}
+  <!-- Empty Trash/Spam bar (only shown when viewing trash or spam folder with messages, not in search mode) -->
+  {#if (folderType === 'trash' || folderType === 'spam') && totalCount > 0 && !isSearchMode}
     <div class="flex items-center justify-end px-4 py-2 bg-muted/50 border-b border-border">
       <Button
         size="sm"
         variant="outline"
         class="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/50 bg-muted/50"
-        onclick={() => { showEmptyTrashConfirm = true }}
+        onclick={requestEmptyFolder}
       >
         <Icon icon="mdi:delete-sweep-outline" class="w-4 h-4 mr-1.5" />
-        {$_('messageList.emptyTrash')}
+        {folderType === 'trash' ? $_('messageList.emptyTrash') : $_('messageList.emptySpam')}
       </Button>
     </div>
   {/if}
@@ -1866,4 +1890,15 @@
   variant="destructive"
   onConfirm={handleEmptyTrash}
   onCancel={() => { showEmptyTrashConfirm = false }}
+/>
+
+<!-- Empty Spam Confirmation Dialog -->
+<ConfirmDialog
+  bind:open={showEmptySpamConfirm}
+  title={$_('dialog.emptySpam')}
+  description={$_('dialog.emptySpamDescription')}
+  confirmLabel={$_('dialog.confirmEmptySpam')}
+  variant="destructive"
+  onConfirm={handleEmptySpam}
+  onCancel={() => { showEmptySpamConfirm = false }}
 />

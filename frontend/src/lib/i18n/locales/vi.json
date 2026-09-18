@@ -65,6 +65,7 @@
     "noMessages": "Không có thư trong thư mục này",
     "selectFolder": "Chọn thư mục để xem thư",
     "emptyTrash": "Xóa sạch thùng rác",
+    "emptySpam": "Xóa sạch thư rác",
     "ftsBuilding": "Đang xây dựng danh mục tìm kiếm... ({percentage}%)",
     "syncFolder": "Đồng bộ thư mục",
     "forceResync": "Buộc đồng bộ lại",
@@ -274,6 +275,7 @@
     "deletedFromFolder": "Đã xóa khỏi thư mục",
     "permanentlyDeleted": "Đã xóa vĩnh viễn",
     "trashEmptied": "Đã xóa sạch thùng rác",
+    "spamEmptied": "Đã xóa sạch thư rác",
     "markedAsRead": "Đã đánh dấu đã đọc",
     "markedAsUnread": "Đã đánh dấu chưa đọc",
     "markedAsSpam": "Đã đánh dấu là thư rác",
@@ -296,6 +298,7 @@
     "failedToArchive": "Lưu trữ thất bại.",
     "failedToDelete": "Xóa thất bại.",
     "failedToEmptyTrash": "Xóa thùng rác thất bại.",
+    "failedToEmptySpam": "Xóa thư rác thất bại.",
     "failedToMarkAsRead": "Đánh dấu đã đọc thất bại.",
     "failedToMarkAsUnread": "Đánh dấu chưa đọc thất bại.",
     "failedToMarkAsSpam": "Đánh dấu thư rác thất bại.",
@@ -868,9 +871,12 @@
     "deletePermanently": "Xóa vĩnh viễn?",
     "deleteDescription": "Thao tác này sẽ xóa vĩnh viễn (các) thư đã chọn. Hành động này không thể hoàn tác.",
     "emptyTrash": "Xóa thùng rác?",
+    "emptySpam": "Xóa sạch thư rác?",
     "emptyTrashDescription": "Thao tác này sẽ xóa vĩnh viễn tất cả thư trong thùng rác. Hành động này không thể hoàn tác.",
+    "emptySpamDescription": "Thao tác này sẽ xóa vĩnh viễn tất cả thư trong thư mục thư rác. Hành động này không thể hoàn tác.",
     "confirmDeletePermanently": "Xóa vĩnh viễn",
-    "confirmEmptyTrash": "Xóa thùng rác"
+    "confirmEmptyTrash": "Xóa thùng rác",
+    "confirmEmptySpam": "Xóa thư rác"
   },
   "date": {
     "justNow": "vừa xong",

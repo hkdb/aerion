@@ -1090,6 +1090,12 @@ func (a *App) EmptyTrash(accountID, folderID string) error {
 	return a.DeletePermanently(ids)
 }
 
+// EmptySpam permanently deletes all messages in a spam folder. Same
+// folder-generic mechanics as EmptyTrash.
+func (a *App) EmptySpam(accountID, folderID string) error {
+	return a.EmptyTrash(accountID, folderID)
+}
+
 // DeletePermanently permanently deletes messages
 func (a *App) DeletePermanently(messageIDs []string) error {
 	log := logging.WithComponent("app")

@@ -65,6 +65,7 @@
     "noMessages": "Nessun messaggio in questa cartella",
     "selectFolder": "Seleziona una cartella per visualizzare i messaggi",
     "emptyTrash": "Svuota cestino",
+    "emptySpam": "Svuota spam",
     "ftsBuilding": "Costruzione indice di ricerca... ({percentage}%)",
     "syncFolder": "Sincronizza cartella",
     "forceResync": "Forza ri-sincronizzazione",
@@ -274,6 +275,7 @@
     "deletedFromFolder": "Eliminata dalla cartella",
     "permanentlyDeleted": "Eliminata permanentemente",
     "trashEmptied": "Cestino svuotato",
+    "spamEmptied": "Spam svuotato",
     "markedAsRead": "Segnata come letta",
     "markedAsUnread": "Segnata come NON letta",
     "markedAsSpam": "Segnata come spam",
@@ -296,6 +298,7 @@
     "failedToArchive": "Impossibile archiviare.",
     "failedToDelete": "Impossibile eliminare.",
     "failedToEmptyTrash": "Impossibile svuotare il cestino.",
+    "failedToEmptySpam": "Impossibile svuotare lo spam.",
     "failedToMarkAsRead": "Impossibile segnare come letta.",
     "failedToMarkAsUnread": "Impossibile segnare come NON letta.",
     "failedToMarkAsSpam": "Impossibile segnare come spam.",
@@ -868,9 +871,12 @@
     "deletePermanently": "Elimina definitivamente?",
     "deleteDescription": "Questa operazione eliminerà definitivamente i messaggi selezionati. Non è possibile annullare questa azione.",
     "emptyTrash": "Vuoi svuotare il cestino?",
+    "emptySpam": "Vuoi svuotare lo spam?",
     "emptyTrashDescription": "Questo eliminerà permanentemente tutti i messaggi nella cartella Cestino. Questa azione non può essere annullata.",
+    "emptySpamDescription": "Questo eliminerà permanentemente tutti i messaggi nella cartella Spam. Questa azione non può essere annullata.",
     "confirmDeletePermanently": "Elimina definitivamente",
-    "confirmEmptyTrash": "Svuota cestino"
+    "confirmEmptyTrash": "Svuota cestino",
+    "confirmEmptySpam": "Svuota spam"
   },
   "date": {
     "justNow": "ora",

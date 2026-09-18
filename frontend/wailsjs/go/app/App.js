@@ -342,6 +342,10 @@ export function DownloadEncryptedAttachment(arg1, arg2, arg3) {
   return window['go']['app']['App']['DownloadEncryptedAttachment'](arg1, arg2, arg3);
 }
 
+export function EmptySpam(arg1, arg2) {
+  return window['go']['app']['App']['EmptySpam'](arg1, arg2);
+}
+
 export function EmptyTrash(arg1, arg2) {
   return window['go']['app']['App']['EmptyTrash'](arg1, arg2);
 }

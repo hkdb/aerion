@@ -33,7 +33,10 @@ VERSION="$1"
 
 echo "Installing dependencies..."
 apt-get update
-apt-get install -y flatpak flatpak-builder wget git
+# Include phased updates so a fresh container can't land outside a security
+# rollout's phase window while a dependency already requires the phased
+# version (same guard as the release workflow)
+apt-get install -y -o APT::Get::Always-Include-Phased-Updates=true flatpak flatpak-builder wget git
 
 echo ""
 echo "Adding Flathub repository..."

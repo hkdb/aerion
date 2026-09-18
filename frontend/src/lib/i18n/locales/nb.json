@@ -65,6 +65,7 @@
     "noMessages": "Ingen meldinger i denne mappen",
     "selectFolder": "Velg en mappe for å se meldinger",
     "emptyTrash": "Tøm papirkurven",
+    "emptySpam": "Tøm søppelpost",
     "ftsBuilding": "Bygger søkeindeks… ({percentage}%)",
     "syncFolder": "Synkroniser mappe",
     "forceResync": "Tving synkronisering",
@@ -274,6 +275,7 @@
     "deletedFromFolder": "Slettet fra mappe",
     "permanentlyDeleted": "Slettet for alltid",
     "trashEmptied": "Papirkurv tømt",
+    "spamEmptied": "Søppelpost tømt",
     "markedAsRead": "Markert som lest",
     "markedAsUnread": "Markert som ulest",
     "markedAsSpam": "Markert som søppelpost",
@@ -296,6 +298,7 @@
     "failedToArchive": "Klarte ikke å arkivére.",
     "failedToDelete": "Klarte ikke å slette.",
     "failedToEmptyTrash": "Klarte ikke å tømme papirkurven.",
+    "failedToEmptySpam": "Klarte ikke å tømme søppelposten.",
     "failedToMarkAsRead": "Klarte ikke å markere som lest.",
     "failedToMarkAsUnread": "Klarte ikke å markere som ulest.",
     "failedToMarkAsSpam": "Klarte ikke å markere som søppelpost.",
@@ -868,9 +871,12 @@
     "deletePermanently": "Slett permanent?",
     "deleteDescription": "Dette vil slette de valgte meldingene for alltid. Dette kan ikke angres.",
     "emptyTrash": "Tøm papirkurven?",
+    "emptySpam": "Tøm søppelposten?",
     "emptyTrashDescription": "Dette vil slette alle meldingene i papirkurven for alltid. Dette kan ikke angres.",
+    "emptySpamDescription": "Dette vil slette alle meldingene i søppelpostmappen for alltid. Dette kan ikke angres.",
     "confirmDeletePermanently": "Slett permanent",
-    "confirmEmptyTrash": "Tøm papirkurven"
+    "confirmEmptyTrash": "Tøm papirkurven",
+    "confirmEmptySpam": "Tøm søppelpost"
   },
   "date": {
     "justNow": "Akkurat nå",

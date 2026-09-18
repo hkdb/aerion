@@ -322,8 +322,9 @@
           <li>Added dot and glow dot optional accents for unread messages</li>
           <li>Added window size persistence - #217</li>
           <li>Added mini calendar for easier navigation - #368</li>
-          <li>Fixed post delete ghost messages on message list</li>
+          <li>Added Empty Spam button for spam folder - #239</li>
           <li>New app icon with full hicolor size set and scalable SVG - #395 - #99</li>
+          <li>Fixed post delete ghost messages on message list</li>
           <li>Fixed thread sender and preview in message list - #169</li>
           <li>Fixed comma display name - #398</li>
           <li>Fixed composer draft format detection - #420</li>
