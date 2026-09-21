@@ -3,6 +3,7 @@
 **v0.3.5 - 09-21-2026**
 ---
 
+- Temp fix for launch crash caused by WebKitGTK 2.54.0 in latest runtime - [#431](https://github.com/hkdb/aerion/issues/431)
 - Bumped wails to 2.16.0
 - Bumped golang.org/x/image v0.41.0
 - Bumped golang.org/x/net v0.56.0

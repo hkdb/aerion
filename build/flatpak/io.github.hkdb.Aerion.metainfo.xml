@@ -312,6 +312,7 @@
     <release version="0.3.5" date="2026-09-21">
       <description>
         <ul>
+          <li>Temp fix for launch crash caused by WebKitGTK 2.54.0 in latest runtime - #431</li>
           <li>Bumped wails to 2.16.0</li>
           <li>Bumped golang.org/x/image v0.41.0</li>
           <li>Bumped golang.org/x/net v0.56.0</li>
