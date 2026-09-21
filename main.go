@@ -96,6 +96,10 @@ func runMainMode(mailtoData *app.MailtoData, rawMailtoArg string) {
 	}
 	defer lock.Unlock()
 
+	// Initialize WebKit on the main thread before anything spawns GLib worker
+	// threads — see webkit_preinit_linux.go (#431).
+	preinitWebKit()
+
 	// Read native title bar setting before Wails init (Frameless is init-time only)
 	nativeTitleBar := false
 	// Restore the last window size/maximized state (Width/Height and
@@ -189,6 +193,10 @@ func runComposerMode() {
 		println("Error: --mode must be one of: new, reply, reply-all, forward")
 		os.Exit(1)
 	}
+
+	// Initialize WebKit on the main thread before anything spawns GLib worker
+	// threads — see webkit_preinit_linux.go (#431).
+	preinitWebKit()
 
 	// Create composer configuration
 	config := app.ComposerConfig{

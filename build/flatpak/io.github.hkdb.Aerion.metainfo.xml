@@ -312,7 +312,11 @@
     <release version="0.3.5" date="2026-09-21">
       <description>
         <ul>
-          <li></li>
+          <li>Bumped wails to 2.16.0</li>
+          <li>Bumped golang.org/x/image v0.41.0</li>
+          <li>Bumped golang.org/x/net v0.56.0</li>
+          <li>Bumped golang.org/x/sys v0.46.0</li>
+          <li>Bumped golang.org/x/text v0.39.0</li>
         </ul>
       </description>
     </release>
