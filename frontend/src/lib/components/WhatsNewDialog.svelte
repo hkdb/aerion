@@ -48,9 +48,9 @@
       </div>
 
       <div class="space-y-4 max-h-[60vh] overflow-y-auto text-sm">
-        <p>🚀 Welcome to Aerion v0.3.4!</p>
+        <p>🚀 Welcome to Aerion v0.3.5!</p>
 
-        <p>Here are the highlights of this release:</p>
+        <p>v0.3.5 is a temp hotfix for a launch crash caused by WebKitGTK v2.54 recently rolled out in various runtimes. For those of you who didn't get a chance to see what's new in v0.3.4, here are the highlights of the release:</p>
 
         <ul class="list-disc pl-6 space-y-1">
           <li>⚗️ The message list's optional unread accent now has two new options: dot and glowing dot</li>
