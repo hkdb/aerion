@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import Icon from '@iconify/svelte'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
@@ -126,6 +127,7 @@
   let color = $state('')
   let email = $state('')
   let prevEmail = $state('')
+  let prevAutoName = ''
   let username = $state('')
   let password = $state('')
   let imapHost = $state('')
@@ -482,8 +484,10 @@
   $effect(() => {
     if (!email) return
 
-    // Auto-fill username with full email
-    if (!username || username === prevEmail) {
+    // Auto-fill username with full email. Read the fields untracked so that
+    // clearing one does not re-run this effect and fill it straight back in.
+    const previous = untrack(() => prevEmail)
+    if (untrack(() => !username || username === previous)) {
       username = email
     }
     prevEmail = email
@@ -494,12 +498,11 @@
       selectProvider(detected)
     }
 
-    // Auto-fill name from email if empty
-    if (!name) {
-      const localPart = email.split('@')[0]
-      if (localPart) {
-        name = localPart.charAt(0).toUpperCase() + localPart.slice(1)
-      }
+    // Auto-fill name from email, unless the user has typed their own
+    const localPart = email.split('@')[0]
+    if (localPart && untrack(() => !name || name === prevAutoName)) {
+      name = localPart.charAt(0).toUpperCase() + localPart.slice(1)
+      prevAutoName = name
     }
   })
 
