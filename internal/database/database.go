@@ -120,10 +120,23 @@ func (db *DB) Close() error {
 // the main database file. This prevents the WAL file from growing too large.
 // Uses PASSIVE mode which checkpoints as much as possible without blocking.
 func (db *DB) Checkpoint() error {
-	_, err := db.Exec("PRAGMA wal_checkpoint(PASSIVE)")
-	if err != nil {
+	start := time.Now()
+	// PRAGMA wal_checkpoint returns one row: busy (1 = a reader blocked
+	// completion), total WAL frames, and frames checkpointed. Logging them
+	// makes "the WAL never resets" observable instead of theoretical.
+	var busy, walFrames, checkpointed int
+	if err := db.QueryRow("PRAGMA wal_checkpoint(PASSIVE)").Scan(&busy, &walFrames, &checkpointed); err != nil {
 		return fmt.Errorf("failed to checkpoint WAL: %w", err)
 	}
+	ev := db.log.Debug()
+	if busy == 1 {
+		ev = db.log.Warn()
+	}
+	ev.Dur("elapsed", time.Since(start)).
+		Int("busy", busy).
+		Int("walFrames", walFrames).
+		Int("checkpointed", checkpointed).
+		Msg("WAL checkpoint")
 	return nil
 }
 

@@ -36,6 +36,8 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		return ctx.Err()
 	}
 
+	syncStart := time.Now()
+
 	// Serialize with any other header/flag reconcile on this folder — the
 	// caller-side tracking maps don't see each other (see folderlock.go).
 	unlock, err := e.folderLocks.lock(ctx, folderID)
@@ -43,6 +45,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		return err
 	}
 	defer unlock()
+	lockWait := time.Since(syncStart)
 
 	// Get folder from store
 	f, err := e.folderStore.Get(folderID)
@@ -150,6 +153,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 	e.emitProgress(accountID, folderID, 0, 0, "messages")
 
 	// Fetch UIDs from server (filtered by date if syncPeriodDays > 0)
+	remoteFetchStart := time.Now()
 	var remoteUIDs []uint32
 	if syncPeriodDays > 0 {
 		remoteUIDs, err = e.fetchUIDsSince(ctx, conn.Client().RawClient(), sinceDate)
@@ -165,6 +169,8 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		Str("folder", f.Path).
 		Int("localCount", len(localUIDs)).
 		Int("remoteCount", len(remoteUIDs)).
+		Dur("remoteUIDFetch", time.Since(remoteFetchStart)).
+		Dur("lockWait", lockWait).
 		Msg("UID comparison")
 
 	// SAFEGUARD: If remote returns empty but we have local messages, something is wrong
@@ -258,6 +264,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 	// advance below. Stays true on success; flipped to false if the only
 	// available flag-sync path failed. See nextModSeq in condstore.go.
 	flagSyncOK := true
+	flagSyncStart := time.Now()
 	if len(existingUIDs) > 0 {
 		flagSyncOK = e.runFlagSync(
 			ctx,
@@ -399,10 +406,19 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		e.log.Warn().Err(err).Msg("Failed to update folder sync state")
 	}
 
+	// Per-sync cost profile. Trash reconciles that climb across a session are
+	// the per-delete amplification signature; lockWait growing means syncs
+	// are queueing behind each other on the folder lock.
 	e.log.Info().
 		Str("folder", f.Path).
 		Int("new", len(newUIDs)).
 		Int("deleted", len(deletedUIDs)).
+		Int("local", len(localUIDs)).
+		Int("remote", len(remoteUIDs)).
+		Bool("preferIncremental", preferIncremental).
+		Dur("lockWait", lockWait).
+		Dur("flagSync", time.Since(flagSyncStart)).
+		Dur("elapsed", time.Since(syncStart)).
 		Msg("Message sync complete (headers)")
 
 	return nil

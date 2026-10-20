@@ -56,6 +56,24 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 
 	// NOTE: Don't cleanup syncContexts here - body sync runs in goroutine
 	// and needs the context to remain cancellable. Cleanup happens in the goroutine.
+	//
+	// ...except on the early returns below (account lookup failure, cancelled
+	// expunge wait, sync errors), which never reach that goroutine. Without this
+	// the entry leaks and every IDLE handler sees "sync already in progress" for
+	// the folder until restart. Identity-checked like the goroutine's cleanup so
+	// a newer sync's entry is never removed.
+	handedOff := false
+	defer func() {
+		if handedOff {
+			return
+		}
+		cancel()
+		a.syncMu.Lock()
+		if cur, exists := a.syncContexts[syncKey]; exists && fmt.Sprintf("%p", cur) == fmt.Sprintf("%p", cancel) {
+			delete(a.syncContexts, syncKey)
+		}
+		a.syncMu.Unlock()
+	}()
 
 	// Get account to determine sync period
 	acc, err := a.accountStore.Get(accountID)
@@ -119,6 +137,15 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 		log.Warn().Err(checkpointErr).Msg("WAL checkpoint after SyncFolder failed")
 	}
 
+	// Registry size trend: a key that never disappears is a leaked entry.
+	a.syncMu.Lock()
+	activeKeys := make([]string, 0, len(a.syncContexts))
+	for key := range a.syncContexts {
+		activeKeys = append(activeKeys, key)
+	}
+	a.syncMu.Unlock()
+	log.Debug().Int("activeSyncContexts", len(activeKeys)).Strs("keys", activeKeys).Msg("Sync context registry")
+
 	// Emit folder count change event so frontend updates sidebar
 	if folderObj, folderErr := a.folderStore.Get(folderID); folderErr == nil && folderObj != nil {
 		log.Debug().
@@ -132,6 +159,7 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 
 	// Start background body fetching (emits progress events for "bodies" phase)
 	// Pass ctx so body fetch can also be cancelled
+	handedOff = true
 	go func(syncCtx context.Context, syncDays int, cancelFn context.CancelFunc, key string) {
 		// Cleanup sync context when goroutine completes
 		defer func() {

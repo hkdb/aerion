@@ -119,24 +119,44 @@ func NewPool(config PoolConfig, getCredentials func(accountID string) (*ClientCo
 
 // GetConnection gets or creates a connection for an account
 func (p *Pool) GetConnection(ctx context.Context, accountID string) (*PooledConnection, error) {
+	acquireStart := time.Now()
 	p.mu.Lock()
 
 	// Try to find an available connection
 	if conns, ok := p.connections[accountID]; ok {
 		for _, conn := range conns {
 			conn.mu.Lock()
-			if !conn.inUse && conn.isHealthyLocked() {
-				conn.inUse = true
-				conn.lastUsed = time.Now()
+			if conn.inUse {
 				conn.mu.Unlock()
-				p.mu.Unlock()
-
-				p.log.Debug().
-					Str("account", accountID).
-					Msg("Reusing existing connection")
-				return conn, nil
+				continue
 			}
+			// The NOOP health probe runs while p.mu is held — a half-dead socket
+			// stalls every acquisition in the app until its read deadline. Time
+			// it so that stall is visible in the log instead of inferred.
+			healthStart := time.Now()
+			healthy := conn.isHealthyLocked()
+			if d := time.Since(healthStart); d > 2*time.Second {
+				p.log.Warn().
+					Str("account", accountID).
+					Dur("healthCheck", d).
+					Msg("Slow NOOP health check while holding pool lock")
+			}
+			if !healthy {
+				conn.mu.Unlock()
+				continue
+			}
+			conn.inUse = true
+			conn.lastUsed = time.Now()
 			conn.mu.Unlock()
+			poolSize := len(conns)
+			p.mu.Unlock()
+
+			p.log.Debug().
+				Str("account", accountID).
+				Dur("acquire", time.Since(acquireStart)).
+				Int("poolSize", poolSize).
+				Msg("Reusing existing connection")
+			return conn, nil
 		}
 	}
 
@@ -146,7 +166,16 @@ func (p *Pool) GetConnection(ctx context.Context, accountID string) (*PooledConn
 	// Can we create a new one?
 	if currentCount < p.config.MaxConnections {
 		p.mu.Unlock()
-		return p.createConnection(ctx, accountID)
+		conn, err := p.createConnection(ctx, accountID)
+		if err != nil {
+			return nil, err
+		}
+		p.log.Debug().
+			Str("account", accountID).
+			Dur("acquire", time.Since(acquireStart)).
+			Int("poolSize", currentCount+1).
+			Msg("Created new connection")
+		return conn, nil
 	}
 
 	// At limit - must wait
@@ -167,6 +196,10 @@ func (p *Pool) GetConnection(ctx context.Context, accountID string) (*PooledConn
 			// Channel was closed by CloseAccount/CloseAll — pool is being cleared
 			return nil, fmt.Errorf("connection pool closed")
 		}
+		p.log.Debug().
+			Str("account", accountID).
+			Dur("acquire", time.Since(acquireStart)).
+			Msg("Acquired connection from waiter queue")
 		return conn, nil
 	case <-ctx.Done():
 		// Remove ourselves from waiters

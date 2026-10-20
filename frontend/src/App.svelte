@@ -49,6 +49,7 @@
   // @ts-ignore - wailsjs runtime
   import { WindowShow, WindowHide, EventsOn } from '../wailsjs/runtime/runtime'
   import { _ } from '$lib/i18n'
+  import { logger } from '$lib/logger' // TEMP: keypress-gate audit — remove in the fix commit
 
   // Component refs for keyboard navigation. Plain `let` (not $state) is
   // intentional: svelte-check warns "Changing its value will not correctly
@@ -864,6 +865,18 @@
     const inInput = isInputElement(e.target)
     const focusedPane = getFocusedPane()
     const hasConversation = selectedThreadId !== null
+
+    // TEMP: keypress-gate audit — remove in the fix commit. Names which gate
+    // swallowed a silent first `d`/`j`/`k` after a long session.
+    if (e.key === 'j' || e.key === 'k' || e.key === 'd' || e.key === 'Delete' || e.key === 'Backspace') {
+      const checkedCount = messageListRef?.getSelectedMessageIds().length ?? -1
+      logger.debug(
+        `keygate key=${e.key} pane=${focusedPane} inInput=${inInput} target=${(e.target as HTMLElement)?.tagName ?? 'none'}` +
+        ` menu=${!!document.querySelector('[role="menu"]')} guard=${isDialogGuardActive()} composer=${showComposer}` +
+        ` ext=${getActiveExtension() ?? 'mail'} appThread=${selectedThreadId ?? 'null'} listThread=${messageListRef?.getSelectedThreadId() ?? 'null'}` +
+        ` focusedIds=${checkedCount} viewerFocus=${viewerRef?.hasFocusedMessage() ?? 'n/a'}`
+      )
+    }
 
     // Don't intercept keyboard events when a context menu or dropdown is open
     // (bits-ui portals mount [role="menu"] only while open)

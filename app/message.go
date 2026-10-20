@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hkdb/aerion/internal/logging"
 	"github.com/hkdb/aerion/internal/message"
@@ -88,7 +89,19 @@ func (a *App) FetchMessageBody(messageID string) (*message.Message, error) {
 // sortOrder can be "newest" (default) or "oldest"
 // filter can be "" (all), "unread", "starred", or "attachments"
 func (a *App) GetConversations(accountID, folderID string, offset, limit int, sortOrder, filter string) ([]*message.Conversation, error) {
-	return a.messageStore.ListConversationsByFolder(folderID, offset, limit, sortOrder, filter)
+	start := time.Now()
+	convs, err := a.messageStore.ListConversationsByFolder(folderID, offset, limit, sortOrder, filter)
+	// List-query latency early vs. late in a session is the "it gets slow"
+	// signal; limit growth here is the reload-size ratchet.
+	log := logging.WithComponent("app")
+	log.Debug().
+		Str("folder", folderID).
+		Int("offset", offset).
+		Int("limit", limit).
+		Int("returned", len(convs)).
+		Dur("elapsed", time.Since(start)).
+		Msg("GetConversations")
+	return convs, err
 }
 
 // GetConversationCount returns the total conversation count for a folder
@@ -98,7 +111,16 @@ func (a *App) GetConversationCount(accountID, folderID, filter string) (int, err
 
 // GetUnifiedInboxConversations returns conversations from all inbox folders across all accounts
 func (a *App) GetUnifiedInboxConversations(offset, limit int, sortOrder, filter string) ([]*message.Conversation, error) {
-	return a.messageStore.ListConversationsUnifiedInbox(offset, limit, sortOrder, filter)
+	start := time.Now()
+	convs, err := a.messageStore.ListConversationsUnifiedInbox(offset, limit, sortOrder, filter)
+	log := logging.WithComponent("app")
+	log.Debug().
+		Int("offset", offset).
+		Int("limit", limit).
+		Int("returned", len(convs)).
+		Dur("elapsed", time.Since(start)).
+		Msg("GetUnifiedInboxConversations")
+	return convs, err
 }
 
 // GetUnifiedInboxCount returns the total conversation count across all inbox folders
