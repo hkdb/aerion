@@ -43,6 +43,7 @@ func ExpandInRange(ev Event, overrides []EventOverride, from, to time.Time) ([]E
 	if err != nil {
 		return nil, fmt.Errorf("rrule_expand: decode master ICS: %w", err)
 	}
+	normalizeTZIDs(cal.Component)
 	events := cal.Events()
 	if len(events) == 0 {
 		return nil, fmt.Errorf("rrule_expand: master ICS has no VEVENT")
@@ -198,6 +199,7 @@ func applyOverride(master Event, ov EventOverride) (EventInstance, error) {
 	if err != nil {
 		return EventInstance{}, err
 	}
+	normalizeTZIDs(cal.Component)
 	events := cal.Events()
 	if len(events) == 0 {
 		return EventInstance{}, fmt.Errorf("override ICS has no VEVENT")
