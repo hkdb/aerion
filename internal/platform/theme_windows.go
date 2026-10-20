@@ -26,7 +26,7 @@ func NewThemeMonitor() ThemeMonitor {
 // Start is not implemented on Windows; the frontend falls back to matchMedia
 func (m *WindowsThemeMonitor) Start(ctx context.Context) error {
 	log := logging.WithComponent("theme-monitor")
-	log.Debug().Msg("Theme monitor not available on Windows (using frontend matchMedia)")
+	log.Info().Msg("Theme monitor not available on Windows (using frontend matchMedia)")
 	return fmt.Errorf("theme monitor not available on Windows")
 }
 

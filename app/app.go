@@ -338,9 +338,6 @@ type App struct {
 	// Desktop notifications with click handling
 	notifier notification.Notifier
 
-	// DebugMode function reference (injected from main)
-	debugMode func() bool
-
 	// UseDirectDBus forces direct D-Bus notifications instead of portal (Linux only)
 	useDirectDBus bool
 
@@ -355,9 +352,8 @@ type App struct {
 }
 
 // NewApp creates a new App application struct
-func NewApp(debugModeFn func() bool, useDirectDBus bool) *App {
+func NewApp(useDirectDBus bool) *App {
 	return &App{
-		debugMode:     debugModeFn,
 		useDirectDBus: useDirectDBus,
 	}
 }
@@ -410,9 +406,10 @@ func StartupDialogInfoFor(err error) StartupDialogInfo {
 }
 
 // Preflight performs the early-startup steps that must succeed BEFORE the
-// Wails window is shown: logging init, platform paths, directory creation,
-// database open + migration, credential store init, and OAuth override
-// wiring. Returns an error on any failure; main.go is responsible for
+// Wails window is shown: platform paths, directory creation, database open
+// + migration, credential store init, and OAuth override wiring. Logging is
+// already initialised by main.go (from --log-level / --log-file) by the
+// time this runs. Returns an error on any failure; main.go is responsible for
 // surfacing the failure to the user (via StartupDialogInfoFor + a native
 // dialog) and exiting before wails.Run is called.
 //
@@ -422,14 +419,6 @@ func StartupDialogInfoFor(err error) StartupDialogInfo {
 // appears. Preflight runs in main.go before wails.Run so the user only
 // ever sees the error dialog.
 func (a *App) Preflight() error {
-	logLevel := "fatal"
-	if a.debugMode != nil && a.debugMode() {
-		logLevel = "debug"
-	}
-	_ = logging.Init(logging.Config{
-		Level:   logLevel,
-		Console: true,
-	})
 	log := logging.WithComponent("app")
 
 	paths, err := platform.GetPaths()
@@ -1103,7 +1092,7 @@ func (a *App) getValidContactSourceOAuthToken(sourceID string) (string, error) {
 
 	// Check if token expires within 5 minutes
 	if tokens.IsExpiringSoon(5 * time.Minute) {
-		log.Debug().
+		log.Info().
 			Str("source_id", sourceID).
 			Time("expires_at", tokens.ExpiresAt).
 			Msg("Contact source OAuth token expiring soon, refreshing")

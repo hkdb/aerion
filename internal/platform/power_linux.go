@@ -113,7 +113,7 @@ func (m *LinuxPowerMonitor) Subscribe(callback func(PowerInfo)) error {
 
 	// TODO: Implement DBus subscription to UPower for real-time updates
 	// For now, we'll rely on polling from the scheduler
-	log.Debug().Msg("Power monitor subscribed (polling mode)")
+	log.Info().Msg("Power monitor subscribed (polling mode)")
 
 	return nil
 }

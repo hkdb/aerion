@@ -34,7 +34,7 @@ func (m *WindowsPowerMonitor) GetPowerInfo() (*PowerInfo, error) {
 func (m *WindowsPowerMonitor) Subscribe(callback func(PowerInfo)) error {
 	log := logging.WithComponent("power")
 	m.callback = callback
-	log.Debug().Msg("Power monitor subscribed (polling mode)")
+	log.Info().Msg("Power monitor subscribed (polling mode)")
 	return nil
 }
 

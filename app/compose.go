@@ -70,7 +70,7 @@ func (ops *composeOps) getValidOAuthToken(ctx context.Context, accountID string)
 		return tokens, nil
 	}
 
-	log.Debug().
+	log.Info().
 		Str("account_id", accountID).
 		Time("expires_at", tokens.ExpiresAt).
 		Msg("OAuth token expiring soon, refreshing")
@@ -205,7 +205,7 @@ func (ops *composeOps) saveToSentFolder(ctx context.Context, accountID string, a
 	}
 	sentPath := sentFolder.Path
 
-	log.Debug().
+	log.Info().
 		Str("account_id", accountID).
 		Str("sent_path", sentPath).
 		Msg("Saving sent message to folder via IMAP APPEND")
@@ -452,7 +452,7 @@ func (ops *composeOps) sendMessage(ctx context.Context, accountID string, msg sm
 
 	// Save to Sent folder (using IMAP APPEND) if provider doesn't auto-save
 	if !providerAutoSavesSentMail(acc.IMAPHost) {
-		log.Debug().Str("host", acc.IMAPHost).Msg("Provider doesn't auto-save, using IMAP APPEND")
+		log.Info().Str("host", acc.IMAPHost).Msg("Provider doesn't auto-save, using IMAP APPEND")
 		if err := ops.saveToSentFolder(ctx, accountID, acc, rawMsg); err != nil {
 			log.Warn().Err(err).Msg("Failed to save message to Sent folder")
 			// Don't fail the send operation if saving fails

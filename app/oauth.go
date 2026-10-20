@@ -233,7 +233,7 @@ func (a *App) CompleteOAuthAccountSetup(provider, email, accountName, displayNam
 		return nil, fmt.Errorf("failed to save OAuth tokens: %w", err)
 	}
 
-	log.Debug().Str("accountID", acc.ID).Msg("OAuth tokens saved successfully")
+	log.Info().Str("accountID", acc.ID).Msg("OAuth tokens saved successfully")
 
 	// Capture the stable account identity (oid+tid) for incremental-consent validation.
 	a.persistOAuthStableID(acc.ID, a.pendingOAuthTokens)

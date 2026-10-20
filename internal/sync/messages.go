@@ -145,7 +145,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 
 	// Check context before fetching UIDs
 	if ctx.Err() != nil {
-		e.log.Debug().Msg("Header sync cancelled before fetching UIDs")
+		e.log.Info().Msg("Header sync cancelled before fetching UIDs")
 		return ctx.Err()
 	}
 
@@ -297,7 +297,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		for i := 0; i < len(newUIDs); i += headerBatchSize {
 			// Check context at start of each batch
 			if ctx.Err() != nil {
-				e.log.Debug().Msg("Header sync cancelled")
+				e.log.Info().Msg("Header sync cancelled")
 				return ctx.Err()
 			}
 
@@ -320,7 +320,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 
 				// Check if this was a cancellation
 				if ctx.Err() != nil {
-					e.log.Debug().Msg("Header sync cancelled during batch fetch")
+					e.log.Info().Msg("Header sync cancelled during batch fetch")
 					return ctx.Err()
 				}
 
@@ -337,7 +337,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 						return fmt.Errorf("header sync connection recovery failed after %d attempts", headerConnectionFailures)
 					}
 
-					e.log.Debug().
+					e.log.Info().
 						Err(err).
 						Int("attempt", headerConnectionFailures).
 						Int("batchRetry", batchRetries).
@@ -358,7 +358,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 						return fmt.Errorf("failed to select mailbox on new connection: %w", err)
 					}
 
-					e.log.Debug().Msg("Connection recovered for header sync")
+					e.log.Info().Msg("Connection recovered for header sync")
 					// Retry this batch with the new connection
 					continue
 				}

@@ -867,10 +867,12 @@
     const hasConversation = selectedThreadId !== null
 
     // TEMP: keypress-gate audit — remove in the fix commit. Names which gate
-    // swallowed a silent first `d`/`j`/`k` after a long session.
+    // swallowed a silent first `d`/`j`/`k` after a long session. Logged at
+    // error so `--log-level error --log-file <path>` captures only these
+    // lines plus genuine failures over a multi-day session.
     if (e.key === 'j' || e.key === 'k' || e.key === 'd' || e.key === 'Delete' || e.key === 'Backspace') {
       const checkedCount = messageListRef?.getSelectedMessageIds().length ?? -1
-      logger.debug(
+      logger.error(
         `keygate key=${e.key} pane=${focusedPane} inInput=${inInput} target=${(e.target as HTMLElement)?.tagName ?? 'none'}` +
         ` menu=${!!document.querySelector('[role="menu"]')} guard=${isDialogGuardActive()} composer=${showComposer}` +
         ` ext=${getActiveExtension() ?? 'mail'} appThread=${selectedThreadId ?? 'null'} listThread=${messageListRef?.getSelectedThreadId() ?? 'null'}` +

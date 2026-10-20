@@ -41,7 +41,7 @@ func (e *Engine) SyncFolders(ctx context.Context, accountID string) error {
 	// Fetch subscribed mailbox set (for caching subscription state locally)
 	subscribedSet, subErr := conn.Client().ListSubscribedMailboxes()
 	if subErr != nil {
-		e.log.Debug().Err(subErr).Str("account", accountID).Msg("Failed to list subscribed mailboxes, subscription state will not be cached")
+		e.log.Info().Err(subErr).Str("account", accountID).Msg("Failed to list subscribed mailboxes, subscription state will not be cached")
 	}
 
 	totalFolders := len(mailboxes)
@@ -279,7 +279,7 @@ func (e *Engine) persistAutoDetectedMappings(accountID string) {
 		return
 	}
 
-	e.log.Debug().Str("account", accountID).Msg("Auto-detected folder mappings persisted")
+	e.log.Info().Str("account", accountID).Msg("Auto-detected folder mappings persisted")
 }
 
 // fetchFolderStatusParallel fetches STATUS for multiple folders concurrently

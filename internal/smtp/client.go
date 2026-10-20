@@ -246,14 +246,14 @@ func (c *Client) loginPassword() error {
 
 	_, mechanisms := c.client.Extension("AUTH")
 	if !mechanismAdvertised(mechanisms, "PLAIN") && mechanismAdvertised(mechanisms, "LOGIN") {
-		c.log.Debug().Msg("PLAIN not advertised, using LOGIN")
+		c.log.Info().Msg("PLAIN not advertised, using LOGIN")
 		return c.authLogin()
 	}
 
 	// PLAIN advertised — or neither PLAIN nor LOGIN advertised (best-effort for
 	// servers with broken advertisements): try PLAIN first, fall back to LOGIN.
 	if err := c.authPlain(); err != nil {
-		c.log.Debug().Msg("PLAIN auth failed, trying LOGIN")
+		c.log.Info().Msg("PLAIN auth failed, trying LOGIN")
 		return c.authLogin()
 	}
 	return nil
@@ -327,7 +327,7 @@ func (c *Client) SendMail(from string, to []string, msg []byte) error {
 		return fmt.Errorf("not connected")
 	}
 
-	c.log.Debug().
+	c.log.Info().
 		Str("from", from).
 		Strs("to", to).
 		Int("size", len(msg)).

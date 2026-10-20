@@ -128,7 +128,7 @@ func (db *DB) Checkpoint() error {
 	if err := db.QueryRow("PRAGMA wal_checkpoint(PASSIVE)").Scan(&busy, &walFrames, &checkpointed); err != nil {
 		return fmt.Errorf("failed to checkpoint WAL: %w", err)
 	}
-	ev := db.log.Debug()
+	ev := db.log.Info()
 	if busy == 1 {
 		ev = db.log.Warn()
 	}
@@ -147,18 +147,16 @@ func (db *DB) StartCheckpointRoutine(ctx context.Context) {
 	ticker := time.NewTicker(CheckpointInterval)
 	defer ticker.Stop()
 
-	db.log.Debug().Dur("interval", CheckpointInterval).Msg("WAL checkpoint routine started")
+	db.log.Info().Dur("interval", CheckpointInterval).Msg("WAL checkpoint routine started")
 
 	for {
 		select {
 		case <-ticker.C:
 			if err := db.Checkpoint(); err != nil {
 				db.log.Error().Err(err).Msg("Periodic WAL checkpoint failed")
-				continue
 			}
-			db.log.Debug().Msg("Periodic WAL checkpoint completed")
 		case <-ctx.Done():
-			db.log.Debug().Msg("WAL checkpoint routine stopped")
+			db.log.Info().Msg("WAL checkpoint routine stopped")
 			return
 		}
 	}

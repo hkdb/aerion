@@ -266,7 +266,7 @@ func (m *Manager) RefreshTokenWithProvider(provider ProviderConfig, refreshToken
 		tokens.RefreshToken = refreshToken
 	}
 
-	m.log.Debug().
+	m.log.Info().
 		Str("provider", provider.Name).
 		Int("expires_in", tokens.ExpiresIn).
 		Msg("Token refreshed successfully")

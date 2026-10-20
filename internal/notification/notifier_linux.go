@@ -78,7 +78,7 @@ func (n *linuxNotifier) Start(ctx context.Context) error {
 
 	// Try portal first
 	if err := n.tryPortalBackend(ctx); err != nil {
-		n.log.Debug().Err(err).Msg("Portal backend not available, falling back to direct D-Bus")
+		n.log.Info().Err(err).Msg("Portal backend not available, falling back to direct D-Bus")
 		return n.tryDirectBackend(ctx)
 	}
 
@@ -175,7 +175,7 @@ func (n *linuxNotifier) Show(notif Notification) (uint32, error) {
 	if !n.backendTested {
 		id, err := n.showPortal(notif)
 		if err != nil {
-			n.log.Debug().Err(err).Msg("Portal notification failed, falling back to direct D-Bus")
+			n.log.Info().Err(err).Msg("Portal notification failed, falling back to direct D-Bus")
 			n.backend = backendDirect
 			n.backendTested = true
 			return n.showDirect(notif)
@@ -189,7 +189,7 @@ func (n *linuxNotifier) Show(notif Notification) (uint32, error) {
 		id, err := n.showPortal(notif)
 		if err != nil {
 			// Portal failed, try direct as fallback
-			n.log.Debug().Err(err).Msg("Portal notification failed, falling back to direct D-Bus")
+			n.log.Info().Err(err).Msg("Portal notification failed, falling back to direct D-Bus")
 			n.backend = backendDirect
 			return n.showDirect(notif)
 		}

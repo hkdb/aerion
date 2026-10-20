@@ -32,7 +32,7 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 	if lastReq, exists := a.syncLastRequest[syncKey]; exists {
 		if time.Since(lastReq) < time.Duration(debounceMs)*time.Millisecond {
 			a.syncMu.Unlock()
-			log.Debug().Str("account", accountID).Str("folder", folderID).Msg("SyncFolder debounced, skipping")
+			log.Info().Str("account", accountID).Str("folder", folderID).Msg("SyncFolder debounced, skipping")
 			return nil // Silently ignore
 		}
 	}
@@ -40,7 +40,7 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 
 	// Cancel existing sync for this specific folder if any
 	if cancel, exists := a.syncContexts[syncKey]; exists {
-		log.Debug().Str("account", accountID).Str("folder", folderID).Msg("Cancelling existing sync for restart")
+		log.Info().Str("account", accountID).Str("folder", folderID).Msg("Cancelling existing sync for restart")
 		cancel()
 		// Small delay to let goroutines clean up
 		a.syncMu.Unlock()
@@ -108,7 +108,7 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 	if err != nil {
 		// Check if this was a cancellation
 		if ctx.Err() != nil {
-			log.Debug().Str("account", accountID).Str("folder", folderID).Msg("Sync cancelled")
+			log.Info().Str("account", accountID).Str("folder", folderID).Msg("Sync cancelled")
 			return ctx.Err()
 		}
 		// Check for certificate error - emit special event for TOFU dialog
@@ -144,7 +144,7 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 		activeKeys = append(activeKeys, key)
 	}
 	a.syncMu.Unlock()
-	log.Debug().Int("activeSyncContexts", len(activeKeys)).Strs("keys", activeKeys).Msg("Sync context registry")
+	log.Info().Int("activeSyncContexts", len(activeKeys)).Strs("keys", activeKeys).Msg("Sync context registry")
 
 	// Emit folder count change event so frontend updates sidebar
 	if folderObj, folderErr := a.folderStore.Get(folderID); folderErr == nil && folderObj != nil {
@@ -188,7 +188,7 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 		if bodyErr != nil {
 			if syncCtx.Err() != nil {
 				// Cancelled - not an error, still emit synced so spinner stops
-				log.Debug().Str("folder", folderID).Msg("Background body fetch cancelled")
+				log.Info().Str("folder", folderID).Msg("Background body fetch cancelled")
 				wailsRuntime.EventsEmit(a.ctx, "folder:synced", map[string]interface{}{
 					"accountId": accountID,
 					"folderId":  folderID,

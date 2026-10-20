@@ -4,6 +4,7 @@
 ---
 
 - Added Japanse translation - @theluckystrike
+- Improved debug/logging
 
 
 **v0.3.5 - 09-21-2026**

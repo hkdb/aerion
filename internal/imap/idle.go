@@ -131,7 +131,7 @@ func (ic *IdleConnection) Stop() {
 	if doneCh != nil {
 		select {
 		case <-doneCh:
-			ic.log.Debug().Msg("IDLE connection stopped gracefully")
+			ic.log.Info().Msg("IDLE connection stopped gracefully")
 		case <-time.After(timeout):
 			ic.log.Warn().Msg("IDLE connection shutdown timed out, forcing close")
 			ic.mu.Lock()
@@ -176,7 +176,7 @@ func (ic *IdleConnection) run(ctx context.Context) {
 		// Stop if offline — processNetworkEvents will restart IDLE
 		// when connectivity is restored, avoiding wasteful retries
 		if ic.isConnected != nil && !ic.isConnected() {
-			ic.log.Debug().Msg("Offline, stopping IDLE (will restart when online)")
+			ic.log.Info().Msg("Offline, stopping IDLE (will restart when online)")
 			return
 		}
 
@@ -520,7 +520,7 @@ func (m *IdleManager) Stop() {
 
 	m.mu.Lock()
 	for accountID, conn := range m.connections {
-		m.log.Debug().Str("account", accountID).Msg("Stopping IDLE connection")
+		m.log.Info().Str("account", accountID).Msg("Stopping IDLE connection")
 		conn.Stop()
 	}
 	m.connections = make(map[string]*IdleConnection)
@@ -546,11 +546,11 @@ func (m *IdleManager) StartAccount(accountID, accountName string) {
 		running := conn.running
 		conn.mu.Unlock()
 		if running {
-			m.log.Debug().Str("account", accountName).Msg("IDLE already running for account")
+			m.log.Info().Str("account", accountName).Msg("IDLE already running for account")
 			return
 		}
 		// Goroutine exited (e.g., max reconnect attempts reached) — remove stale entry
-		m.log.Debug().Str("account", accountName).Msg("Replacing dead IDLE connection")
+		m.log.Info().Str("account", accountName).Msg("Replacing dead IDLE connection")
 		delete(m.connections, accountID)
 	}
 

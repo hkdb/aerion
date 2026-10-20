@@ -94,7 +94,7 @@ func (a *App) GetConversations(accountID, folderID string, offset, limit int, so
 	// List-query latency early vs. late in a session is the "it gets slow"
 	// signal; limit growth here is the reload-size ratchet.
 	log := logging.WithComponent("app")
-	log.Debug().
+	log.Info().
 		Str("folder", folderID).
 		Int("offset", offset).
 		Int("limit", limit).
@@ -114,7 +114,7 @@ func (a *App) GetUnifiedInboxConversations(offset, limit int, sortOrder, filter 
 	start := time.Now()
 	convs, err := a.messageStore.ListConversationsUnifiedInbox(offset, limit, sortOrder, filter)
 	log := logging.WithComponent("app")
-	log.Debug().
+	log.Info().
 		Int("offset", offset).
 		Int("limit", limit).
 		Int("returned", len(convs)).

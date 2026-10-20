@@ -416,7 +416,7 @@ func (p *Pool) Discard(conn *PooledConnection) {
 		}
 	}
 
-	p.log.Debug().
+	p.log.Info().
 		Str("account", conn.accountID).
 		Msg("Discarded dead connection from pool")
 }
@@ -509,7 +509,7 @@ func (p *Pool) CleanupIdle() {
 	}
 
 	if cleaned > 0 {
-		p.log.Debug().
+		p.log.Info().
 			Int("cleaned", cleaned).
 			Msg("Cleaned up idle connections")
 	}

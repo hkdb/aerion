@@ -76,7 +76,7 @@ func (s *VCardScanner) CacheSize() int {
 // Scan scans all known paths for vCard files and updates the cache
 // Returns the list of contacts found
 func (s *VCardScanner) Scan() ([]*Contact, error) {
-	s.log.Debug().Strs("paths", s.knownPaths).Msg("Scanning for vCard files")
+	s.log.Info().Strs("paths", s.knownPaths).Msg("Scanning for vCard files")
 
 	var allContacts []*Contact
 	seenEmails := make(map[string]bool)

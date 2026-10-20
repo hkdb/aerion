@@ -191,11 +191,11 @@ func (s *Scheduler) syncDueAccounts() {
 		// flight — the reconcile would race it (ghost resurrection); the
 		// next tick retries once the window is quiet
 		if s.suppressSync != nil && s.suppressSync(acc.ID) {
-			s.log.Debug().Str("account", acc.Name).Msg("Skipping scheduled sync during own-expunge window")
+			s.log.Info().Str("account", acc.Name).Msg("Skipping scheduled sync during own-expunge window")
 			continue
 		}
 
-		s.log.Debug().Str("account", acc.Name).Msg("Account is due for sync")
+		s.log.Info().Str("account", acc.Name).Msg("Account is due for sync")
 
 		// Sync in background (don't block the scheduler)
 		go s.syncAccountInbox(acc)
@@ -232,7 +232,7 @@ func (s *Scheduler) syncAccountInbox(acc *account.Account) {
 	s.syncingMu.Lock()
 	if s.syncing[acc.ID] {
 		s.syncingMu.Unlock()
-		s.log.Debug().Str("account", acc.Name).Msg("Sync already in progress, skipping")
+		s.log.Info().Str("account", acc.Name).Msg("Sync already in progress, skipping")
 		return
 	}
 	s.syncing[acc.ID] = true
@@ -339,7 +339,7 @@ func (s *Scheduler) syncAccountInbox(acc *account.Account) {
 	// Sync additional subscribed/all folders (beyond Inbox)
 	s.syncAdditionalFolders(ctx, acc, inbox)
 
-	s.log.Debug().Str("account", acc.Name).Msg("Scheduled sync completed")
+	s.log.Info().Str("account", acc.Name).Msg("Scheduled sync completed")
 }
 
 // syncAdditionalFolders syncs subscribed or all folders beyond Inbox,
@@ -457,7 +457,7 @@ func (s *Scheduler) SyncAccountInboxBlocking(accountID string) (*NewMailInfo, er
 	s.syncingMu.Lock()
 	if s.syncing[acc.ID] {
 		s.syncingMu.Unlock()
-		s.log.Debug().Str("account", acc.Name).Msg("Sync already in progress, skipping")
+		s.log.Info().Str("account", acc.Name).Msg("Sync already in progress, skipping")
 		return nil, nil
 	}
 	s.syncing[acc.ID] = true

@@ -348,7 +348,7 @@ func (c *Client) ForceClose() error {
 		return nil
 	}
 
-	c.log.Debug().Msg("Force-closing IMAP connection")
+	c.log.Info().Msg("Force-closing IMAP connection")
 
 	// Send LOGOUT without waiting for the BYE response.
 	// On live connections the server receives it and frees the slot.

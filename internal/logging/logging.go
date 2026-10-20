@@ -2,9 +2,11 @@
 package logging
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -13,6 +15,15 @@ import (
 var (
 	// Logger is the global logger instance
 	Logger zerolog.Logger
+
+	// current records the config the logger was last initialised with so
+	// the main process can forward the same options to child processes
+	// (the detached composer) without threading them through App.
+	current Config
+
+	// maxLogFileBytes is the rollover threshold for the log file. A package
+	// var (not a const) so tests can lower it.
+	maxLogFileBytes int64 = 10 << 20
 )
 
 func init() {
@@ -23,10 +34,9 @@ func init() {
 
 // Config holds logging configuration
 type Config struct {
-	Level      string // debug, info, warn, error
-	Console    bool   // Enable console output
-	File       string // Log file path (empty to disable)
-	TimeFormat string // Time format (empty for Unix timestamp)
+	Level   string // fatal, error, warn, info, debug
+	Console bool   // Enable console output (stderr)
+	File    string // Also write to this file (empty to disable); 10 MB rollover to <File>.1
 }
 
 // Init initializes the global logger
@@ -48,28 +58,28 @@ func Init(cfg Config) error {
 		writers = append(writers, consoleWriter)
 	}
 
-	// File output
+	// File output — same human-readable format as the terminal, minus
+	// colour, so a captured file reads and greps like the dev console.
 	if cfg.File != "" {
-		// Ensure directory exists
-		dir := filepath.Dir(cfg.File)
-		if err := os.MkdirAll(dir, 0700); err != nil {
-			return err
-		}
-
-		file, err := os.OpenFile(cfg.File, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+		rf, err := openRotatingFile(cfg.File)
 		if err != nil {
 			return err
 		}
-		writers = append(writers, file)
+		writers = append(writers, zerolog.ConsoleWriter{
+			Out:        rf,
+			NoColor:    true,
+			TimeFormat: time.RFC3339,
+		})
 	}
 
 	// Combine writers
 	var output io.Writer
-	if len(writers) == 0 {
+	switch len(writers) {
+	case 0:
 		output = os.Stderr
-	} else if len(writers) == 1 {
+	case 1:
 		output = writers[0]
-	} else {
+	default:
 		output = zerolog.MultiLevelWriter(writers...)
 	}
 
@@ -81,7 +91,85 @@ func Init(cfg Config) error {
 		Caller().
 		Logger()
 
+	current = cfg
 	return nil
+}
+
+// LevelName returns the level name Init was last called with ("" before Init).
+func LevelName() string {
+	return current.Level
+}
+
+// FilePath returns the log file path Init was last called with ("" if none).
+func FilePath() string {
+	return current.File
+}
+
+// rotatingFile is an append-only log file that rolls over to <path>.1 once
+// it exceeds maxLogFileBytes. One previous generation is kept; older ones
+// are discarded. It is safe for concurrent writers.
+type rotatingFile struct {
+	mu   sync.Mutex
+	path string
+	file *os.File
+	size int64
+}
+
+func openRotatingFile(path string) (*rotatingFile, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, err
+	}
+	rf := &rotatingFile{path: path}
+	if err := rf.open(); err != nil {
+		return nil, err
+	}
+	return rf, nil
+}
+
+// open (re)opens the file for appending and seeds size from disk so the
+// cap counts bytes written by previous runs too. Caller holds mu (or is
+// the constructor).
+func (rf *rotatingFile) open() error {
+	f, err := os.OpenFile(rf.path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		return err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return err
+	}
+	rf.file = f
+	rf.size = info.Size()
+	return nil
+}
+
+func (rf *rotatingFile) Write(p []byte) (int, error) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	if rf.size+int64(len(p)) > maxLogFileBytes {
+		if err := rf.rotate(); err != nil {
+			return 0, fmt.Errorf("log rotate: %w", err)
+		}
+	}
+	n, err := rf.file.Write(p)
+	rf.size += int64(n)
+	return n, err
+}
+
+// rotate closes the current file, moves it to <path>.1 (replacing any
+// previous .1) and opens a fresh file. Caller holds mu.
+func (rf *rotatingFile) rotate() error {
+	if err := rf.file.Close(); err != nil {
+		return err
+	}
+	backup := rf.path + ".1"
+	_ = os.Remove(backup)
+	if err := os.Rename(rf.path, backup); err != nil {
+		return err
+	}
+	return rf.open()
 }
 
 // WithComponent returns a logger with a component field

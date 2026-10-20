@@ -72,7 +72,7 @@ func (s *CallbackServer) Start(ctx context.Context) (int, error) {
 
 	// Start server in background
 	go func() {
-		s.log.Debug().Int("port", port).Msg("Starting OAuth callback server")
+		s.log.Info().Int("port", port).Msg("Starting OAuth callback server")
 		if err := s.server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			s.log.Error().Err(err).Msg("Callback server error")
 		}
@@ -117,7 +117,7 @@ func (s *CallbackServer) Stop() {
 		return
 	}
 
-	s.log.Debug().Msg("Stopping OAuth callback server")
+	s.log.Info().Msg("Stopping OAuth callback server")
 
 	// Signal done
 	select {
@@ -174,7 +174,7 @@ func (s *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	s.log.Debug().Msg("OAuth callback received authorization code")
+	s.log.Info().Msg("OAuth callback received authorization code")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, successPageHTML)
 }

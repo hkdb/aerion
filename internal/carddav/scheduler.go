@@ -134,7 +134,7 @@ func (s *Scheduler) syncDueSources() {
 			continue
 		}
 
-		s.log.Debug().Str("source", source.Name).Msg("Source is due for sync")
+		s.log.Info().Str("source", source.Name).Msg("Source is due for sync")
 
 		// Sync in background (don't block the scheduler)
 		go func(sourceID string) {

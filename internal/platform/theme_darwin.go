@@ -26,7 +26,7 @@ func NewThemeMonitor() ThemeMonitor {
 // Start is not implemented on macOS; the frontend falls back to matchMedia
 func (m *DarwinThemeMonitor) Start(ctx context.Context) error {
 	log := logging.WithComponent("theme-monitor")
-	log.Debug().Msg("Theme monitor not available on macOS (using frontend matchMedia)")
+	log.Info().Msg("Theme monitor not available on macOS (using frontend matchMedia)")
 	return fmt.Errorf("theme monitor not available on macOS")
 }
 

@@ -134,11 +134,11 @@ func (m *LinuxThemeMonitor) listenForSignals(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Debug().Msg("Context cancelled, stopping theme monitor listener")
+			log.Info().Msg("Context cancelled, stopping theme monitor listener")
 			return
 
 		case <-m.stopChan:
-			log.Debug().Msg("Stop requested, stopping theme monitor listener")
+			log.Info().Msg("Stop requested, stopping theme monitor listener")
 			return
 
 		case signal := <-signals:
