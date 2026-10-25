@@ -1,4 +1,5 @@
 import { register, init, waitLocale, locale, _ } from 'svelte-i18n'
+import { loadDateFnsLocale } from './dateFnsLocale'
 
 // Register CORE locale files with lazy loading. Extensions register their own
 // locales via Vite glob auto-discovery in initI18n() — see below.
@@ -12,6 +13,7 @@ register('ja', () => import('./locales/ja.json'))
 register('nb', () => import('./locales/nb.json'))
 register('pl', () => import('./locales/pl.json'))
 register('pt-BR', () => import('./locales/pt-BR.json'))
+register('tr', () => import('./locales/tr.json'))
 register('vi', () => import('./locales/vi.json'))
 register('zh-CN', () => import('./locales/zh-CN.json'))
 register('zh-HK', () => import('./locales/zh-HK.json'))
@@ -38,6 +40,7 @@ export const supportedLocales = [
   { code: 'nb', name: 'Norsk Bokmål' },
   { code: 'pl', name: 'Polski' },
   { code: 'pt-BR', name: 'Português (Brasil)' },
+  { code: 'tr', name: 'Türkçe' },
   { code: 'vi', name: 'Tiếng Việt' },
   { code: 'zh-CN', name: '简体中文 (中国)' },
   { code: 'zh-HK', name: '繁體中文 (香港)' },
@@ -86,6 +89,7 @@ export async function initI18n(savedLocale?: string): Promise<void> {
   })
 
   await waitLocale()
+  await loadDateFnsLocale(initialLocale)
 }
 
 /**
@@ -93,6 +97,7 @@ export async function initI18n(savedLocale?: string): Promise<void> {
  */
 export function setLocale(code: string) {
   locale.set(code)
+  void loadDateFnsLocale(code)
 }
 
 export { _, locale }

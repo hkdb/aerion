@@ -20,6 +20,7 @@ export function registerExtensionI18n(): void {
   register('nb', () => import('./locales/nb.json'))
   register('pl', () => import('./locales/pl.json'))
   register('pt-BR', () => import('./locales/pt-BR.json'))
+  register('tr', () => import('./locales/tr.json'))
   register('vi', () => import('./locales/vi.json'))
   register('zh-CN', () => import('./locales/zh-CN.json'))
   register('zh-HK', () => import('./locales/zh-HK.json'))
