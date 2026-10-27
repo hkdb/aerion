@@ -130,7 +130,7 @@
       "googleLabel": "Contatos do Google",
       "microsoftLabel": "Contatos da Microsoft",
       "writeAccessHeading": "Acesso de escrita",
-      "writeAccessDescription": "Ative ou desative a permissão de escrita em uma fonte de contatos. Fontes CardDAV precisam apenas da chave. Google e Microsoft também exigem um consentimento OAuth único para ativar.",
+      "writeAccessDescription": "Ative ou desative a permissão de escrita em uma fonte de contatos. Para fontes CardDAV, basta ativar a opção. Google e Microsoft também exigem um consentimento OAuth único.",
       "writeAccessRowSubtitle": "Somente leitura — acesso de escrita não ativado",
       "writeAccessRowSubtitleEnabled": "Acesso de escrita ativado",
       "enableWriteAccess": "Ativar acesso de escrita",
@@ -145,7 +145,7 @@
     "hook": {
       "skip": "Pular",
       "setUp": "Configurar",
-      "done": "Concluído",
+      "done": "Pronto",
       "successMessage": "Sincronização de contatos configurada para {name}",
       "completeMessage": "A sincronização de contatos está configurada."
     },

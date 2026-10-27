@@ -30,7 +30,7 @@
       "readOnlyBadge": "somente leitura",
       "skip": "Pular",
       "setup": "Configurar",
-      "done": "Concluído",
+      "done": "Pronto",
       "completeMessage": "Fonte de agenda adicionada — sincronizando agora.",
       "successToast": "Agendas adicionadas para {name}.",
       "errorPick": "Escolha pelo menos uma agenda.",
@@ -99,7 +99,7 @@
       "colorPickStage": {
         "title": "Escolha as cores das suas agendas",
         "help": "Você pode alterá-las depois nas configurações da agenda.",
-        "done": "Concluído"
+        "done": "Pronto"
       },
       "defaultColumnHeader": "Padrão",
       "globalDefaultLabel": "Padrão global",
@@ -266,8 +266,8 @@
       "markRequired": "Marcar como obrigatório",
       "markOptional": "Marcar como opcional",
       "partStatNeedsAction": "Pendente",
-      "partStatAccepted": "Aceito",
-      "partStatDeclined": "Recusado",
+      "partStatAccepted": "Aceitou",
+      "partStatDeclined": "Recusou",
       "partStatTentative": "Talvez",
       "youSuffix": "(você)",
       "yourResponse": "Sua resposta",
