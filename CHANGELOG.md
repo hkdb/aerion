@@ -5,6 +5,7 @@
 
 - Added Japanse translation - @theluckystrike
 - Improved debug/logging
+- Fixed mouse-dead UI after the first-run dialogs - [#448](https://github.com/hkdb/aerion/issues/448)
 
 
 **v0.3.5 - 09-21-2026**

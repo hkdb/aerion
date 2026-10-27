@@ -11,6 +11,7 @@
   // @ts-ignore - wailsjs path
   import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
   import { _ } from '$lib/i18n'
+  import { dialogGuardOpen, dialogGuardClose } from '$lib/stores/dialogGuard'
 
   interface OAuthStatus {
     google: boolean
@@ -23,6 +24,15 @@
     oauthStatus: OAuthStatus
     onDismiss: (dontShowAgain: boolean) => void
   }
+  // Hold the dialog guard while open so global shortcuts (Ctrl+, etc.) don't
+  // fire behind this modal. Effect cleanup releases it on close and on
+  // unmount-while-open (same pattern as ConfirmDialog).
+  $effect(() => {
+    if (!open) return
+    dialogGuardOpen()
+    return () => dialogGuardClose()
+  })
+
 
   let { open = $bindable(false), oauthStatus, onDismiss }: Props = $props()
 
