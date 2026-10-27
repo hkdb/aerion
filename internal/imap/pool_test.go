@@ -89,9 +89,16 @@ func TestReserveSlot_NeverExceedsMax(t *testing.T) {
 	}
 }
 
-// One login in flight per account: a second creator for the same account
-// waits for the gate; another account is not held up.
-func TestCreateGate_SerializesPerAccount(t *testing.T) {
+// The chosen gate width — documents the trade-off (see createConcurrency).
+func TestCreateConcurrency(t *testing.T) {
+	if createConcurrency != 3 {
+		t.Fatalf("createConcurrency = %d, want 3", createConcurrency)
+	}
+}
+
+// At most createConcurrency logins in flight per account: the next creator
+// for the same account waits for the gate; another account is not held up.
+func TestCreateGate_BoundsPerAccount(t *testing.T) {
 	p := NewPool(DefaultPoolConfig(), nil)
 
 	p.mu.Lock()
@@ -99,17 +106,19 @@ func TestCreateGate_SerializesPerAccount(t *testing.T) {
 	gateB := p.gateForLocked("b")
 	p.mu.Unlock()
 
-	gateA <- struct{}{} // first creator for "a" holds the gate
+	for i := 0; i < createConcurrency; i++ {
+		gateA <- struct{}{} // createConcurrency creators for "a" hold the gate
+	}
 
 	entered := make(chan struct{})
 	go func() {
-		gateA <- struct{}{} // second creator for "a" must block here
+		gateA <- struct{}{} // one more creator for "a" must block here
 		close(entered)
 	}()
 
 	select {
 	case <-entered:
-		t.Fatal("second creator for the same account entered while the first held the gate")
+		t.Fatal("extra creator for the same account entered while the gate was full")
 	case <-time.After(100 * time.Millisecond):
 	}
 
@@ -120,10 +129,10 @@ func TestCreateGate_SerializesPerAccount(t *testing.T) {
 		t.Fatal("gate for another account should be free")
 	}
 
-	<-gateA // first creator finishes
+	<-gateA // one creator finishes
 	select {
 	case <-entered:
 	case <-time.After(time.Second):
-		t.Fatal("second creator did not proceed after the gate was released")
+		t.Fatal("waiting creator did not proceed after a gate slot was released")
 	}
 }

@@ -54,7 +54,7 @@ type PoolConfig struct {
 // DefaultPoolConfig returns sensible defaults for the pool
 func DefaultPoolConfig() PoolConfig {
 	return PoolConfig{
-		MaxConnections: 4, // folder STATUS fan-out is bound by this on large Gmail accounts; logins stay serialized
+		MaxConnections: 4,                // folder STATUS fan-out is bound by this on large Gmail accounts; logins bounded by createConcurrency
 		IdleTimeout:    15 * time.Minute, // longer than a typical scheduler interval so passes reuse logins
 		ConnectTimeout: 30 * time.Second,
 		WaiterTimeout:  2 * time.Minute, // Don't wait forever for a connection
@@ -103,10 +103,11 @@ type Pool struct {
 	// mu BEFORE the (unlocked) connect so concurrent acquisitions can't all
 	// pass the size check and overshoot MaxConnections.
 	pending map[string]int
-	// createGate serializes connection creation per account (one login in
-	// flight at a time). Gmail rate-shapes a burst of simultaneous logins
-	// from one client: four at once cost the last one a 25 s login and a
-	// 19 s first command; back-to-back they cost ~1 s each.
+	// createGate bounds connection creation per account to createConcurrency
+	// logins in flight. Gmail rate-shapes a burst of simultaneous logins from
+	// one client: five inside ~2 s cost the last one a 25 s login and a 19 s
+	// first command, while the first four answered in ~1 s. Generic providers
+	// never objected, so the gate is wide enough not to serialize them.
 	createGate map[string]chan struct{}
 	mu         sync.Mutex
 	log        zerolog.Logger
@@ -188,14 +189,20 @@ func (p *Pool) unreserveSlot(accountID string) {
 	p.pending[accountID]--
 }
 
-// gateFor returns the account's creation gate (buffered 1), creating it on
-// first use. Caller holds p.mu.
+// createConcurrency is how many logins may be in flight per account at once.
+// Observed Gmail behaviour (2026-10-27): four logins within ~2 s were fine,
+// the fifth was slow-walked. With MaxConnections 4 this allows the LIST
+// login plus three STATUS-worker logins to overlap at most three-wide.
+const createConcurrency = 3
+
+// gateForLocked returns the account's creation gate (buffered
+// createConcurrency), creating it on first use. Caller holds p.mu.
 func (p *Pool) gateForLocked(accountID string) chan struct{} {
 	gate, ok := p.createGate[accountID]
 	if ok {
 		return gate
 	}
-	gate = make(chan struct{}, 1)
+	gate = make(chan struct{}, createConcurrency)
 	p.createGate[accountID] = gate
 	return gate
 }
@@ -240,8 +247,8 @@ func (p *Pool) GetConnection(ctx context.Context, accountID string) (*PooledConn
 	currentCount := len(p.connections[accountID]) + p.pending[accountID]
 
 	// Can we create a new one? The slot is reserved under the lock so the
-	// pool never overshoots MaxConnections, then the login itself is
-	// serialized per account through the gate.
+	// pool never overshoots MaxConnections, then the login itself is bounded
+	// per account by the creation gate.
 	if p.reserveSlotLocked(accountID) {
 		gate := p.gateForLocked(accountID)
 		p.mu.Unlock()
