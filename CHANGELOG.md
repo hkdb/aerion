@@ -9,7 +9,9 @@
 - Fixed sync stalling on an empty-subject message from servers that send a malformed ENVELOPE - [#463](https://github.com/hkdb/aerion/issues/463)
 - Fixed merged duplicate messages staying unread and leaving copies behind on delete/move (actions now apply to every copy in the folder)
 - Release connection before the per-folder STATUS pass
-- NOOP health probe is skipped for connections used within the last 30 seconds
+- NOOP health probe is skipped for connections used within the last 10 seconds
+- Dead IMAP connections are dropped from the pool on release
+- Sync error badge clears after a successful account sync
 
 
 **v0.3.5 - 09-21-2026**

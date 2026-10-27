@@ -117,17 +117,26 @@ func NewPool(config PoolConfig, getCredentials func(accountID string) (*ClientCo
 	}
 }
 
-// healthProbeFreshWindow: a connection released this recently just completed a
-// command successfully, so the NOOP health probe adds nothing but a server
-// round trip taken under the global pool lock (Gmail: 0.5–2.5 s each, which
-// serialized a 44-folder STATUS pass into ~66 s). Older idle connections are
-// still probed under the lock so a stuck one blocks the rest, as intended.
-const healthProbeFreshWindow = 30 * time.Second
+// healthProbeFreshWindow: a connection released this recently just passed the
+// release-time NOOP probe, so probing it again adds nothing but a server round
+// trip taken under the global pool lock (Gmail: 0.5–2.5 s each, which
+// serialized a 44-folder STATUS pass into ~66 s). Kept short so a localhost
+// bridge that drops idle connections quickly (Proton) can't hand us a dead one
+// for long; the burst cases this exists for reuse connections within
+// milliseconds. Older idle connections are still probed under the lock so a
+// stuck one blocks the rest, as intended. This only holds because Release
+// DISCARDS unhealthy connections — a dead one must never sit in the pool with
+// a fresh lastUsed.
+const healthProbeFreshWindow = 10 * time.Second
 
 // probeIfStaleLocked reports whether an idle connection is usable. Connections
 // released within healthProbeFreshWindow are trusted without a NOOP; anything
 // older is probed. Caller holds p.mu and conn.mu.
 func (p *Pool) probeIfStaleLocked(conn *PooledConnection, accountID string) bool {
+	// A connection with no client is dead regardless of how fresh it looks.
+	if conn.client == nil || conn.client.client == nil {
+		return false
+	}
 	if time.Since(conn.lastUsed) < healthProbeFreshWindow {
 		return true
 	}
@@ -350,23 +359,32 @@ func (p *Pool) Release(conn *PooledConnection) {
 
 	conn.mu.Lock()
 	conn.inUse = false
-	conn.lastUsed = time.Now()
 	healthy := conn.isHealthyLocked()
+	if healthy {
+		conn.lastUsed = time.Now()
+	}
 	conn.mu.Unlock()
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	// Verify the connection is still tracked by the pool and healthy before
-	// handing it to a waiter. After CloseAll (sleep), dead connections from
-	// deferred Release calls must not be given to waiters.
+	// An unhealthy connection must LEAVE the pool, not merely be withheld from
+	// waiters: GetConnection trusts recently-used connections without a probe,
+	// so a dead one left in the list with a fresh lastUsed would be handed out
+	// again on the next acquisition (the Proton Bridge zombie loop — one closed
+	// socket failing every STATUS/SELECT for an account). Discard force-closes
+	// and removes it.
 	if !healthy {
 		p.log.Debug().
 			Str("account", conn.accountID).
 			Msg("Released connection is unhealthy, discarding")
+		p.Discard(conn)
 		return
 	}
 
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Verify the connection is still tracked by the pool before handing it to
+	// a waiter. After CloseAll (sleep), connections from deferred Release
+	// calls must not be given to waiters.
 	inPool := false
 	if conns, ok := p.connections[conn.accountID]; ok {
 		for _, c := range conns {

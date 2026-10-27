@@ -295,6 +295,10 @@ class AccountStore {
       // Use SyncAccountComplete to sync folders + core folder messages (Inbox, Drafts, Sent)
       await SyncAccountComplete(accountId)
       acc.lastSync = new Date()
+      // A complete account sync succeeded: the per-folder error badge is
+      // stale now, even if the folder that failed is not the selected one
+      // (folder:synced only clears it for a matching folderId).
+      this.clearSyncError(accountId)
       // Reload folders after sync
       await this.loadFolders(accountId)
     } catch (err) {
@@ -325,6 +329,7 @@ class AccountStore {
       const now = new Date()
       for (const acc of this.accounts) {
         acc.lastSync = now
+        this.clearSyncError(acc.account.id)
       }
       // Reload folders for all accounts
       for (const acc of this.accounts) {
