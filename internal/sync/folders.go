@@ -2,10 +2,12 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	gosync "sync"
+	"time"
 
 	"github.com/hkdb/aerion/internal/folder"
 	imapPkg "github.com/hkdb/aerion/internal/imap"
@@ -23,14 +25,17 @@ const folderStatusWorkers = 5
 
 // SyncFolders synchronizes the folder list for an account
 func (e *Engine) SyncFolders(ctx context.Context, accountID string) error {
+	start := time.Now()
 	e.log.Debug().Str("account", accountID).Msg("Syncing folders")
 
-	// Get a connection from the pool for LIST
+	// Get a connection from the pool for LIST. Released explicitly below once
+	// LIST/LSUB are done; the closure form keeps the early-error returns safe
+	// (Release(nil) is a no-op after the explicit release).
 	conn, err := e.pool.GetConnection(ctx, accountID)
 	if err != nil {
 		return fmt.Errorf("failed to get connection: %w", err)
 	}
-	defer e.pool.Release(conn)
+	defer func() { e.pool.Release(conn) }()
 
 	// List mailboxes from server
 	mailboxes, err := conn.Client().ListMailboxes()
@@ -43,6 +48,13 @@ func (e *Engine) SyncFolders(ctx context.Context, accountID string) error {
 	if subErr != nil {
 		e.log.Info().Err(subErr).Str("account", accountID).Msg("Failed to list subscribed mailboxes, subscription state will not be cached")
 	}
+
+	// LIST/LSUB are done; hand the connection back before the STATUS fan-out so
+	// the workers below can use every pool slot instead of fighting over the
+	// ones this function was pinning (Gmail: ~40 STATUS through 1 free slot,
+	// each acquisition paying the pool's NOOP health probe).
+	e.pool.Release(conn)
+	conn = nil
 
 	totalFolders := len(mailboxes)
 	if totalFolders == 0 {
@@ -124,7 +136,11 @@ func (e *Engine) SyncFolders(ctx context.Context, accountID string) error {
 			folderType = override
 		}
 
-		// Skip folders where STATUS failed entirely
+		// Skip folders where STATUS failed entirely (or was never attempted)
+		if errors.Is(result.err, errNoSelectMailbox) {
+			e.log.Debug().Str("mailbox", mb.Name).Msg("Skipping non-selectable mailbox (\\Noselect)")
+			continue
+		}
 		if result.err != nil && result.status == nil {
 			e.log.Debug().Err(result.err).Str("mailbox", mb.Name).Msg("Failed to get mailbox status, skipping folder")
 			continue
@@ -217,7 +233,7 @@ func (e *Engine) SyncFolders(ctx context.Context, accountID string) error {
 		}
 	}
 
-	e.log.Info().Str("account", accountID).Int("folders", len(mailboxes)).Msg("Folder sync complete")
+	e.log.Info().Str("account", accountID).Int("folders", len(mailboxes)).Dur("elapsed", time.Since(start)).Msg("Folder sync complete")
 
 	// Persist auto-detected folder mappings if not already set.
 	// This ensures getSpecialFolder always finds the correct folder via the
@@ -282,6 +298,22 @@ func (e *Engine) persistAutoDetectedMappings(accountID string) {
 	e.log.Info().Str("account", accountID).Msg("Auto-detected folder mappings persisted")
 }
 
+// errNoSelectMailbox marks a LIST entry that carries \Noselect — a hierarchy
+// node that can hold child mailboxes but no messages (Gmail's "[Gmail]",
+// client-created "[Mailspring]"). STATUS on it is a guaranteed NO, so skip
+// the round trip; the caller drops it the same way it drops a failed STATUS.
+var errNoSelectMailbox = errors.New("mailbox is not selectable")
+
+// hasNoSelectAttr reports whether a LIST attribute set contains \Noselect.
+func hasNoSelectAttr(attrs []string) bool {
+	for _, a := range attrs {
+		if strings.EqualFold(a, `\Noselect`) {
+			return true
+		}
+	}
+	return false
+}
+
 // fetchFolderStatusParallel fetches STATUS for multiple folders concurrently
 func (e *Engine) fetchFolderStatusParallel(ctx context.Context, accountID string, mailboxes []*imapPkg.Mailbox) []folderStatusResult {
 	results := make([]folderStatusResult, len(mailboxes))
@@ -301,6 +333,11 @@ func (e *Engine) fetchFolderStatusParallel(ctx context.Context, accountID string
 				defer func() { <-sem }()
 			case <-ctx.Done():
 				results[idx] = folderStatusResult{mailbox: mailbox, err: ctx.Err()}
+				return
+			}
+
+			if hasNoSelectAttr(mailbox.Attributes) {
+				results[idx] = folderStatusResult{mailbox: mailbox, err: errNoSelectMailbox}
 				return
 			}
 

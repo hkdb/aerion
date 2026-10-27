@@ -8,6 +8,8 @@
 - Fixed mouse-dead UI after the first-run dialogs - [#448](https://github.com/hkdb/aerion/issues/448)
 - Fixed sync stalling on an empty-subject message from servers that send a malformed ENVELOPE - [#463](https://github.com/hkdb/aerion/issues/463)
 - Fixed merged duplicate messages staying unread and leaving copies behind on delete/move (actions now apply to every copy in the folder)
+- Release connection before the per-folder STATUS pass
+- NOOP health probe is skipped for connections used within the last 30 seconds
 
 
 **v0.3.5 - 09-21-2026**

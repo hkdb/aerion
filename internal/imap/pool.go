@@ -117,6 +117,31 @@ func NewPool(config PoolConfig, getCredentials func(accountID string) (*ClientCo
 	}
 }
 
+// healthProbeFreshWindow: a connection released this recently just completed a
+// command successfully, so the NOOP health probe adds nothing but a server
+// round trip taken under the global pool lock (Gmail: 0.5–2.5 s each, which
+// serialized a 44-folder STATUS pass into ~66 s). Older idle connections are
+// still probed under the lock so a stuck one blocks the rest, as intended.
+const healthProbeFreshWindow = 30 * time.Second
+
+// probeIfStaleLocked reports whether an idle connection is usable. Connections
+// released within healthProbeFreshWindow are trusted without a NOOP; anything
+// older is probed. Caller holds p.mu and conn.mu.
+func (p *Pool) probeIfStaleLocked(conn *PooledConnection, accountID string) bool {
+	if time.Since(conn.lastUsed) < healthProbeFreshWindow {
+		return true
+	}
+	healthStart := time.Now()
+	healthy := conn.isHealthyLocked()
+	if d := time.Since(healthStart); d > 2*time.Second {
+		p.log.Warn().
+			Str("account", accountID).
+			Dur("healthCheck", d).
+			Msg("Slow NOOP health check while holding pool lock")
+	}
+	return healthy
+}
+
 // GetConnection gets or creates a connection for an account
 func (p *Pool) GetConnection(ctx context.Context, accountID string) (*PooledConnection, error) {
 	acquireStart := time.Now()
@@ -133,14 +158,7 @@ func (p *Pool) GetConnection(ctx context.Context, accountID string) (*PooledConn
 			// The NOOP health probe runs while p.mu is held — a half-dead socket
 			// stalls every acquisition in the app until its read deadline. Time
 			// it so that stall is visible in the log instead of inferred.
-			healthStart := time.Now()
-			healthy := conn.isHealthyLocked()
-			if d := time.Since(healthStart); d > 2*time.Second {
-				p.log.Warn().
-					Str("account", accountID).
-					Dur("healthCheck", d).
-					Msg("Slow NOOP health check while holding pool lock")
-			}
+			healthy := p.probeIfStaleLocked(conn, accountID)
 			if !healthy {
 				conn.mu.Unlock()
 				continue
