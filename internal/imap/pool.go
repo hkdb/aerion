@@ -71,13 +71,6 @@ type PooledConnection struct {
 	mu        sync.Mutex
 }
 
-// IsHealthy checks if the connection is still usable (acquires lock)
-func (pc *PooledConnection) IsHealthy() bool {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-	return pc.isHealthyLocked()
-}
-
 // isHealthyLocked checks health without acquiring lock (caller must hold lock).
 // Sends a NOOP to verify the connection is alive — catches closed sockets
 // that still have non-nil client references (e.g., after server-side disconnect).
@@ -637,39 +630,6 @@ func (p *Pool) StartCleanupRoutine(ctx context.Context) {
 			}
 		}
 	}()
-}
-
-// Stats returns pool statistics
-type PoolStats struct {
-	TotalConnections  int
-	ActiveConnections int
-	IdleConnections   int
-	AccountCount      int
-}
-
-// GetStats returns current pool statistics
-func (p *Pool) GetStats() PoolStats {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	stats := PoolStats{
-		AccountCount: len(p.connections),
-	}
-
-	for _, conns := range p.connections {
-		for _, conn := range conns {
-			stats.TotalConnections++
-			conn.mu.Lock()
-			if conn.inUse {
-				stats.ActiveConnections++
-			} else {
-				stats.IdleConnections++
-			}
-			conn.mu.Unlock()
-		}
-	}
-
-	return stats
 }
 
 // Client returns the underlying IMAP client from a pooled connection
