@@ -54,6 +54,20 @@ func (a *App) withIMAPRetry(accountID string, op func(conn *imap.Client) error) 
 // ============================================================================
 
 // MarkAsRead marks messages as read
+// expandToFolderCopies widens an action's target ids to every same-folder row
+// sharing a Message-ID with them (server duplicate deliveries). The viewer shows
+// those copies as one merged message, so the user's action must cover all of
+// them. On lookup failure the action proceeds on the original ids.
+func (a *App) expandToFolderCopies(messageIDs []string) []string {
+	expanded, err := a.messageStore.ExpandToFolderCopies(messageIDs)
+	if err != nil {
+		log := logging.WithComponent("app")
+		log.Warn().Err(err).Msg("Failed to expand action to duplicate copies")
+		return messageIDs
+	}
+	return expanded
+}
+
 func (a *App) MarkAsRead(messageIDs []string) error {
 	return a.setReadStatus(messageIDs, true)
 }
@@ -93,6 +107,7 @@ func (a *App) setReadStatus(messageIDs []string, isRead bool) error {
 	if len(messageIDs) == 0 {
 		return nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	// Get messages to find their UIDs and folders
 	messages, err := a.messageStore.GetByIDs(messageIDs)
@@ -292,6 +307,7 @@ func (a *App) MoveToFolder(messageIDs []string, destFolderID string) error {
 	if len(messageIDs) == 0 {
 		return nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	// Cross-account selections (Unified Inbox or any mixed-account multi-
 	// select) route to a partition helper that recurses through this
@@ -773,6 +789,7 @@ func (a *App) Archive(messageIDs []string) error {
 	if len(messageIDs) == 0 {
 		return nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	// Cross-account selections (Unified Inbox) route to a partition
 	// helper that recurses through this same function with uniform
@@ -806,6 +823,7 @@ func (a *App) Trash(messageIDs []string) (bool, error) {
 	if len(messageIDs) == 0 {
 		return false, nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	// Cross-account selections (Unified Inbox) route to a partition
 	// helper that recurses through this same function with uniform
@@ -1017,6 +1035,7 @@ func (a *App) MarkAsSpam(messageIDs []string) (bool, error) {
 	if len(messageIDs) == 0 {
 		return false, nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	// Cross-account selections (Unified Inbox) route to a partition
 	// helper that recurses through this same function with uniform
@@ -1054,6 +1073,7 @@ func (a *App) MarkAsNotSpam(messageIDs []string) error {
 	if len(messageIDs) == 0 {
 		return nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	// Cross-account selections (Unified Inbox) route to a partition
 	// helper that recurses through this same function with uniform
@@ -1103,6 +1123,7 @@ func (a *App) DeletePermanently(messageIDs []string) error {
 	if len(messageIDs) == 0 {
 		return nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	messages, err := a.messageStore.GetByIDs(messageIDs)
 	if err != nil {

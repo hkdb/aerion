@@ -2075,6 +2075,57 @@ func (s *Store) DeleteTempUIDs(folderID string) error {
 	return nil
 }
 
+// ExpandToFolderCopies returns ids plus the ids of every other row in the same
+// account+folder that shares a non-empty Message-ID with one of them (real
+// server rows only, uid > 0). The viewer merges such copies into one message
+// (#222), so an action on the merged message must reach all copies or the
+// thread never clears (a server holding N delivery copies left N-1 unread and
+// N-1 copies behind on delete). Order: input ids first, then discovered copies.
+func (s *Store) ExpandToFolderCopies(ids []string) ([]string, error) {
+	if len(ids) == 0 {
+		return ids, nil
+	}
+
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, 0, len(ids)*2)
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args = append(args, id)
+	}
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	in := strings.Join(placeholders, ", ")
+
+	query := fmt.Sprintf(`
+		SELECT DISTINCT m2.id
+		FROM messages m1
+		JOIN messages m2
+		  ON m2.account_id = m1.account_id
+		 AND m2.folder_id = m1.folder_id
+		 AND m2.message_id = m1.message_id
+		WHERE m1.id IN (%s)
+		  AND m1.message_id <> ''
+		  AND m2.uid > 0
+		  AND m2.id NOT IN (%s)`, in, in)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query folder copies: %w", err)
+	}
+	defer rows.Close()
+
+	expanded := append([]string(nil), ids...)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("failed to scan folder copy ID: %w", err)
+		}
+		expanded = append(expanded, id)
+	}
+	return expanded, rows.Err()
+}
+
 // GetIDsByMessageIDs finds local DB message IDs by RFC822 Message-ID header and folder.
 // Only returns messages with positive UIDs (excludes temp rows from in-flight moves).
 func (s *Store) GetIDsByMessageIDs(accountID, folderID string, rfc822MessageIDs []string) ([]string, error) {
