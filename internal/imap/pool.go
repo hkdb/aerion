@@ -54,8 +54,8 @@ type PoolConfig struct {
 // DefaultPoolConfig returns sensible defaults for the pool
 func DefaultPoolConfig() PoolConfig {
 	return PoolConfig{
-		MaxConnections: 3,
-		IdleTimeout:    5 * time.Minute,
+		MaxConnections: 4, // folder STATUS fan-out is bound by this on large Gmail accounts; logins stay serialized
+		IdleTimeout:    15 * time.Minute, // longer than a typical scheduler interval so passes reuse logins
 		ConnectTimeout: 30 * time.Second,
 		WaiterTimeout:  2 * time.Minute, // Don't wait forever for a connection
 	}
@@ -99,8 +99,17 @@ type Pool struct {
 	config      PoolConfig
 	connections map[string][]*PooledConnection // accountID -> connections
 	waiters     map[string][]chan *PooledConnection
-	mu          sync.Mutex
-	log         zerolog.Logger
+	// pending counts connections being created per account. Reserved under
+	// mu BEFORE the (unlocked) connect so concurrent acquisitions can't all
+	// pass the size check and overshoot MaxConnections.
+	pending map[string]int
+	// createGate serializes connection creation per account (one login in
+	// flight at a time). Gmail rate-shapes a burst of simultaneous logins
+	// from one client: four at once cost the last one a 25 s login and a
+	// 19 s first command; back-to-back they cost ~1 s each.
+	createGate map[string]chan struct{}
+	mu         sync.Mutex
+	log        zerolog.Logger
 
 	// Credentials provider function
 	getCredentials func(accountID string) (*ClientConfig, error)
@@ -112,6 +121,8 @@ func NewPool(config PoolConfig, getCredentials func(accountID string) (*ClientCo
 		config:         config,
 		connections:    make(map[string][]*PooledConnection),
 		waiters:        make(map[string][]chan *PooledConnection),
+		pending:        make(map[string]int),
+		createGate:     make(map[string]chan struct{}),
 		log:            logging.WithComponent("imap-pool"),
 		getCredentials: getCredentials,
 	}
@@ -151,6 +162,44 @@ func (p *Pool) probeIfStaleLocked(conn *PooledConnection, accountID string) bool
 	return healthy
 }
 
+// MaxConnections returns the per-account connection cap.
+func (p *Pool) MaxConnections() int {
+	return p.config.MaxConnections
+}
+
+// reserveSlotLocked claims a creation slot for the account if live plus
+// in-flight connections are below the cap. Caller holds p.mu.
+func (p *Pool) reserveSlotLocked(accountID string) bool {
+	if len(p.connections[accountID])+p.pending[accountID] >= p.config.MaxConnections {
+		return false
+	}
+	p.pending[accountID]++
+	return true
+}
+
+// unreserveSlot releases a creation slot claimed by reserveSlotLocked.
+func (p *Pool) unreserveSlot(accountID string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.pending[accountID] <= 1 {
+		delete(p.pending, accountID)
+		return
+	}
+	p.pending[accountID]--
+}
+
+// gateFor returns the account's creation gate (buffered 1), creating it on
+// first use. Caller holds p.mu.
+func (p *Pool) gateForLocked(accountID string) chan struct{} {
+	gate, ok := p.createGate[accountID]
+	if ok {
+		return gate
+	}
+	gate = make(chan struct{}, 1)
+	p.createGate[accountID] = gate
+	return gate
+}
+
 // GetConnection gets or creates a connection for an account
 func (p *Pool) GetConnection(ctx context.Context, accountID string) (*PooledConnection, error) {
 	acquireStart := time.Now()
@@ -187,20 +236,35 @@ func (p *Pool) GetConnection(ctx context.Context, accountID string) (*PooledConn
 		}
 	}
 
-	// Count current connections for this account
-	currentCount := len(p.connections[accountID])
+	// Count current connections for this account (live + being created)
+	currentCount := len(p.connections[accountID]) + p.pending[accountID]
 
-	// Can we create a new one?
-	if currentCount < p.config.MaxConnections {
+	// Can we create a new one? The slot is reserved under the lock so the
+	// pool never overshoots MaxConnections, then the login itself is
+	// serialized per account through the gate.
+	if p.reserveSlotLocked(accountID) {
+		gate := p.gateForLocked(accountID)
 		p.mu.Unlock()
+		defer p.unreserveSlot(accountID)
+
+		select {
+		case gate <- struct{}{}:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 		conn, err := p.createConnection(ctx, accountID)
+		<-gate
 		if err != nil {
 			return nil, err
 		}
+
+		p.mu.Lock()
+		poolSize := len(p.connections[accountID])
+		p.mu.Unlock()
 		p.log.Debug().
 			Str("account", accountID).
 			Dur("acquire", time.Since(acquireStart)).
-			Int("poolSize", currentCount+1).
+			Int("poolSize", poolSize).
 			Msg("Created new connection")
 		return conn, nil
 	}

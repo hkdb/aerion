@@ -12,6 +12,7 @@
 - NOOP health probe is skipped for connections used within the last 10 seconds
 - Dead IMAP connections are dropped from the pool on release
 - Sync error badge clears after a successful account sync
+- IMAP pool no longer opens connections in bursts: hard cap of 4 per account, one login at a time, idle connections kept for 15 minutes (fixes slow folder sync on Gmail)
 
 
 **v0.3.5 - 09-21-2026**

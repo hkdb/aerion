@@ -318,8 +318,13 @@ func hasNoSelectAttr(attrs []string) bool {
 func (e *Engine) fetchFolderStatusParallel(ctx context.Context, accountID string, mailboxes []*imapPkg.Mailbox) []folderStatusResult {
 	results := make([]folderStatusResult, len(mailboxes))
 
-	// Use a semaphore to limit concurrency
-	sem := make(chan struct{}, folderStatusWorkers)
+	// Use a semaphore to limit concurrency. Never more workers than the pool
+	// can hold for one account — extra workers would only queue on the pool.
+	workers := folderStatusWorkers
+	if m := e.pool.MaxConnections(); m > 0 && m < workers {
+		workers = m
+	}
+	sem := make(chan struct{}, workers)
 	var wg gosync.WaitGroup
 
 	for i, mb := range mailboxes {

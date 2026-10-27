@@ -97,11 +97,11 @@ func TestDefaultConfig(t *testing.T) {
 func TestDefaultPoolConfig(t *testing.T) {
 	cfg := DefaultPoolConfig()
 
-	if cfg.MaxConnections != 3 {
-		t.Errorf("DefaultPoolConfig().MaxConnections = %d, want 3", cfg.MaxConnections)
+	if cfg.MaxConnections != 4 {
+		t.Errorf("DefaultPoolConfig().MaxConnections = %d, want 4", cfg.MaxConnections)
 	}
-	if cfg.IdleTimeout != 5*time.Minute {
-		t.Errorf("DefaultPoolConfig().IdleTimeout = %v, want %v", cfg.IdleTimeout, 5*time.Minute)
+	if cfg.IdleTimeout != 15*time.Minute {
+		t.Errorf("DefaultPoolConfig().IdleTimeout = %v, want %v", cfg.IdleTimeout, 15*time.Minute)
 	}
 	if cfg.ConnectTimeout != 30*time.Second {
 		t.Errorf("DefaultPoolConfig().ConnectTimeout = %v, want %v", cfg.ConnectTimeout, 30*time.Second)
