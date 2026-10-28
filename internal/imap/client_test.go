@@ -2,6 +2,7 @@ package imap
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -125,5 +126,41 @@ func TestDefaultIdleConfig(t *testing.T) {
 	}
 	if cfg.MaxReconnectAttempts != 10 {
 		t.Errorf("DefaultIdleConfig().MaxReconnectAttempts = %d, want 10", cfg.MaxReconnectAttempts)
+	}
+}
+
+func TestIsUnsafeLoginError(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil", nil, false},
+		{"coremail text", errors.New("authentication failed: Unsafe Login. Please contact kefu@188.com for help"), true},
+		{"lowercase", errors.New("NO unsafe login"), true},
+		{"wrapped", fmt.Errorf("login: %w", errors.New("Unsafe Login")), true},
+		{"other NO", errors.New("authentication failed: [AUTHENTICATIONFAILED] Invalid credentials"), false},
+	}
+	for _, tc := range cases {
+		if got := isUnsafeLoginError(tc.err); got != tc.want {
+			t.Errorf("%s: isUnsafeLoginError = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestSendID_RequiresConnection(t *testing.T) {
+	c := NewClient(ClientConfig{SendID: true, ClientName: "Aerion"})
+	if err := c.sendID(); err == nil {
+		t.Fatal("sendID on a disconnected client returned nil error")
+	}
+	if c.IDRequired() {
+		t.Fatal("IDRequired must be false before any login")
+	}
+}
+
+func TestDefaultConfig_NoIDByDefault(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.SendID || cfg.ClientName != "" || cfg.ClientVersion != "" || cfg.ClientVendor != "" {
+		t.Fatalf("DefaultConfig must not identify to servers: %+v", cfg)
 	}
 }

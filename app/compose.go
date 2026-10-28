@@ -155,6 +155,11 @@ func (ops *composeOps) getIMAPCredentials(ctx context.Context, accountID string)
 	config.AuthMechanism = string(acc.IMAPAuthMechanism)
 	config.Username = acc.Username
 	config.TLSConfig = certificate.BuildTLSConfig(acc.IMAPHost, ops.certStore)
+	// Identify only to servers that have demanded it (learned flag, #457).
+	config.SendID = acc.IMAPRequireID
+	config.ClientName = "Aerion"
+	config.ClientVersion = Version
+	config.ClientVendor = "github.com/hkdb/aerion"
 
 	switch acc.AuthType {
 	case account.AuthOAuth2:

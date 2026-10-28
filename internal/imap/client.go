@@ -79,6 +79,14 @@ type ClientConfig struct {
 
 	// TLS config (optional, used for certificate TOFU verification)
 	TLSConfig *tls.Config
+
+	// SendID makes Connect send an RFC 2971 ID command right after the
+	// greeting. Only set for accounts whose server has already rejected
+	// LOGIN with "Unsafe Login" (Coremail/NetEase, #457) — see sendID.
+	SendID        bool
+	ClientName    string
+	ClientVersion string
+	ClientVendor  string
 }
 
 // DefaultConfig returns a ClientConfig with sensible defaults
@@ -98,6 +106,10 @@ type Client struct {
 	client *imapclient.Client
 	caps   imap.CapSet
 	log    zerolog.Logger
+
+	// idRequired is set when Login only succeeded after sending an IMAP ID
+	// in response to an "Unsafe Login" rejection; the pool persists it.
+	idRequired bool
 }
 
 // NewClient creates a new IMAP client but does not connect
@@ -204,6 +216,13 @@ func (c *Client) Connect() error {
 		Strs("caps", capsToStrings(c.caps)).
 		Msg("Server capabilities")
 
+	// Identify only to servers already known to demand it (learned flag);
+	// a failure here must not abort the connection — Login reports the
+	// real outcome.
+	if c.config.SendID {
+		_ = c.sendID()
+	}
+
 	c.log.Info().
 		Str("host", c.config.Host).
 		Dur("readTimeout", c.config.ReadTimeout).
@@ -238,12 +257,23 @@ func (c *Client) Login() error {
 		Str("authType", string(authType)).
 		Msg("Logging in")
 
-	var err error
-	switch authType {
-	case AuthTypeOAuth2:
-		err = c.loginOAuth2()
-	default:
-		err = c.loginPassword()
+	err := c.authenticate(authType)
+
+	// Coremail-based servers (163.com, 126.com, …) reject LOGIN until the
+	// client has identified itself with an IMAP ID command. Privacy rule:
+	// Aerion never sends ID unprompted, so the first login on such a server
+	// fails once, we identify, retry, and remember (IDRequired → the pool
+	// persists the account flag so later connections send ID up front).
+	if err != nil && !c.config.SendID && isUnsafeLoginError(err) && c.caps.Has(imap.CapID) {
+		c.log.Info().
+			Str("host", c.config.Host).
+			Msg("Server requires IMAP ID before login (Unsafe Login); identifying and retrying once")
+		if idErr := c.sendID(); idErr == nil {
+			err = c.authenticate(authType)
+			if err == nil {
+				c.idRequired = true
+			}
+		}
 	}
 
 	if err != nil {
@@ -258,6 +288,55 @@ func (c *Client) Login() error {
 		Msg("Logged in successfully")
 
 	return nil
+}
+
+// authenticate runs the auth flow for the configured type.
+func (c *Client) authenticate(authType AuthType) error {
+	switch authType {
+	case AuthTypeOAuth2:
+		return c.loginOAuth2()
+	default:
+		return c.loginPassword()
+	}
+}
+
+// sendID sends an RFC 2971 ID command carrying only name, version and
+// vendor. No OS, hostname or support contact: the principle is to tell a
+// server only what it requires, and only servers that have proven they
+// require it get this at all (ClientConfig.SendID / the retry in Login).
+// Do not "improve" this into send-when-advertised.
+func (c *Client) sendID() error {
+	if c.client == nil {
+		return fmt.Errorf("not connected")
+	}
+	if !c.caps.Has(imap.CapID) {
+		return nil
+	}
+	if _, err := c.client.ID(&imap.IDData{
+		Name:    c.config.ClientName,
+		Version: c.config.ClientVersion,
+		Vendor:  c.config.ClientVendor,
+	}).Wait(); err != nil {
+		c.log.Warn().Err(err).Str("host", c.config.Host).Msg("IMAP ID command failed")
+		return err
+	}
+	c.log.Debug().Str("host", c.config.Host).Msg("Sent IMAP ID")
+	return nil
+}
+
+// isUnsafeLoginError reports the Coremail/NetEase rejection of a LOGIN that
+// was not preceded by an ID command ("Unsafe Login. Please contact …").
+func isUnsafeLoginError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "unsafe login")
+}
+
+// IDRequired reports whether this connection's login only succeeded after
+// identifying with an IMAP ID command (so the account should be flagged).
+func (c *Client) IDRequired() bool {
+	return c.idRequired
 }
 
 // loginPassword authenticates using password (LOGIN or SASL PLAIN). A

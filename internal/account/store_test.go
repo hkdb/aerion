@@ -361,3 +361,53 @@ func TestStoreDelete(t *testing.T) {
 		t.Errorf("Get() after Delete() error = %v, want ErrAccountNotFound", err)
 	}
 }
+
+func TestSetIMAPRequireID(t *testing.T) {
+	db := openTestDB(t)
+	store := NewStore(db)
+
+	acc, err := store.Create(validAccountConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if acc.IMAPRequireID {
+		t.Fatal("new account must not require IMAP ID")
+	}
+
+	if err := store.SetIMAPRequireID(acc.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.Get(acc.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.IMAPRequireID {
+		t.Fatal("Get: IMAPRequireID not persisted")
+	}
+	list, err := store.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, a := range list {
+		if a.ID == acc.ID {
+			found = a.IMAPRequireID
+		}
+	}
+	if !found {
+		t.Fatal("List: IMAPRequireID not persisted")
+	}
+
+	// A regular settings update must not clear the learned flag.
+	if _, err := store.Update(acc.ID, validAccountConfig()); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = store.Get(acc.ID)
+	if !got.IMAPRequireID {
+		t.Fatal("Update cleared IMAPRequireID")
+	}
+
+	if err := store.SetIMAPRequireID("missing", true); err == nil {
+		t.Fatal("SetIMAPRequireID on an unknown account returned nil error")
+	}
+}

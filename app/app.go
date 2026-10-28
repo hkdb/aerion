@@ -574,6 +574,17 @@ func (a *App) Startup(ctx context.Context) {
 	// Initialize IMAP connection pool
 	poolConfig := imap.DefaultPoolConfig()
 	a.imapPool = imap.NewPool(poolConfig, a.getIMAPCredentials)
+	// Learn-once: a server that rejected LOGIN until an IMAP ID was sent
+	// (Coremail/NetEase, #457) marks the account so later connections
+	// identify up front instead of failing once per login.
+	a.imapPool.SetIDRequiredCallback(func(accountID string) {
+		log := logging.WithComponent("app")
+		if err := a.accountStore.SetIMAPRequireID(accountID, true); err != nil {
+			log.Warn().Err(err).Str("accountID", accountID).Msg("Failed to record IMAP ID requirement")
+			return
+		}
+		log.Info().Str("accountID", accountID).Msg("Account marked as requiring IMAP ID before login")
+	})
 
 	// Initialize shared draft operations (used by both App and ComposerApp)
 	a.draftOps = draftOps{

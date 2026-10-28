@@ -107,6 +107,17 @@ type Pool struct {
 
 	// Credentials provider function
 	getCredentials func(accountID string) (*ClientConfig, error)
+
+	// idRequiredCallback is invoked once a login for the account only
+	// succeeded after an IMAP ID command (Client.IDRequired); the app
+	// persists the flag so later credentials carry SendID.
+	idRequiredCallback func(accountID string)
+}
+
+// SetIDRequiredCallback registers the function called when an account is
+// found to require an IMAP ID command before login (#457).
+func (p *Pool) SetIDRequiredCallback(cb func(accountID string)) {
+	p.idRequiredCallback = cb
 }
 
 // NewPool creates a new connection pool
@@ -369,6 +380,9 @@ func (p *Pool) createConnectionWithRetry(ctx context.Context, accountID string, 
 			return
 		}
 		p.log.Debug().Str("account", accountID).Msg("IMAP login successful")
+		if client.IDRequired() && p.idRequiredCallback != nil {
+			p.idRequiredCallback(accountID)
+		}
 		done <- nil
 	}()
 

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/emersion/go-sasl"
 	"github.com/hkdb/aerion/internal/logging"
@@ -365,6 +366,18 @@ func (ic *IdleConnection) ensureConnected(ctx context.Context) error {
 	if err := client.WaitGreeting(); err != nil {
 		client.Close()
 		return fmt.Errorf("failed to receive greeting: %w", err)
+	}
+
+	// Servers known to demand an IMAP ID before LOGIN (learned flag, #457).
+	// Same minimal payload as Client.sendID; never sent otherwise.
+	if creds.SendID && client.Caps().Has(imap.CapID) {
+		if _, err := client.ID(&imap.IDData{
+			Name:    creds.ClientName,
+			Version: creds.ClientVersion,
+			Vendor:  creds.ClientVendor,
+		}).Wait(); err != nil {
+			ic.log.Warn().Err(err).Msg("IDLE: IMAP ID command failed")
+		}
 	}
 
 	// Login

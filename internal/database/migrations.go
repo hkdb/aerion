@@ -1347,4 +1347,14 @@ var migrations = []Migration{
 			ALTER TABLE drafts ADD COLUMN reply_to TEXT;
 		`,
 	},
+	{
+		Version: 44,
+		SQL: `
+			-- Learned per account: the server rejected LOGIN with "Unsafe Login"
+			-- (Coremail/NetEase) until an RFC 2971 ID command was sent. Once set,
+			-- every new connection sends ID before authenticating. Never set for
+			-- servers that merely advertise ID (#457).
+			ALTER TABLE accounts ADD COLUMN imap_require_id INTEGER NOT NULL DEFAULT 0;
+		`,
+	},
 }
