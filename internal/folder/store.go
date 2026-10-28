@@ -277,16 +277,6 @@ func (s *Store) UpdateSyncState(id string, uidValidity, uidNext uint32, highestM
 	return nil
 }
 
-// UpdateCounts updates only the message counts
-func (s *Store) UpdateCounts(id string, totalCount, unreadCount int) error {
-	query := `UPDATE folders SET total_count = ?, unread_count = ? WHERE id = ?`
-	_, err := s.db.Exec(query, totalCount, unreadCount, id)
-	if err != nil {
-		return fmt.Errorf("failed to update counts: %w", err)
-	}
-	return nil
-}
-
 // AdjustCounts applies deltas to a folder's counts and returns the updated
 // folder. The stored counts are the server's whole-mailbox numbers (STATUS),
 // while local message rows only cover the sync window, so local actions must

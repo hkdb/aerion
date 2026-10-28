@@ -661,8 +661,6 @@ export function SyncContactSource(arg1:string):Promise<void>;
 
 export function SyncFolder(arg1:string,arg2:string):Promise<void>;
 
-export function SyncFolders(arg1:string):Promise<void>;
-
 export function SyncPendingDrafts(arg1:string):Promise<void>;
 
 export function TestCardDAVConnection(arg1:string,arg2:string,arg3:string):Promise<void>;

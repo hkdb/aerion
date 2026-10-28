@@ -35,13 +35,9 @@ func (a *App) GetFolderTree(accountID string) ([]*folder.FolderTree, error) {
 	return folder.BuildTree(folders), nil
 }
 
-// SyncFolders synchronizes the folder list with the IMAP server
-func (a *App) SyncFolders(accountID string) error {
-	return a.syncFoldersSkipStatus(accountID, nil)
-}
-
-// syncFoldersSkipStatus is SyncFolders with the STATUS round trip skipped for
-// the given mailbox paths (the folders the caller is about to message-sync).
+// syncFoldersSkipStatus synchronizes the folder list with the IMAP server,
+// skipping the STATUS round trip for the given mailbox paths (the folders the
+// caller is about to message-sync), then checkpoints the WAL.
 func (a *App) syncFoldersSkipStatus(accountID string, skipStatusPaths map[string]bool) error {
 	log := logging.WithComponent("app")
 	err := a.syncEngine.SyncFoldersSkipStatus(a.ctx, accountID, skipStatusPaths)

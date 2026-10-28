@@ -1286,10 +1286,6 @@ export function SyncFolder(arg1, arg2) {
   return window['go']['app']['App']['SyncFolder'](arg1, arg2);
 }
 
-export function SyncFolders(arg1) {
-  return window['go']['app']['App']['SyncFolders'](arg1);
-}
-
 export function SyncPendingDrafts(arg1) {
   return window['go']['app']['App']['SyncPendingDrafts'](arg1);
 }
