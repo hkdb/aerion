@@ -3,7 +3,8 @@
 **v0.3.6 - 10-02-2026**
 ---
 
-- Added Japanse translation - @theluckystrike
+- Added Japanse(ja) translation - @theluckystrike
+- Added Brazilian Portuguese (pt-BR) translation - @sasnascimento
 - Improved debug/logging
 - Fixed mouse-dead UI after the first-run dialogs - [#448](https://github.com/hkdb/aerion/issues/448)
 - Fixed sync stalling on an empty-subject message from servers that send a malformed ENVELOPE - [#463](https://github.com/hkdb/aerion/issues/463)
