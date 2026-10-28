@@ -108,6 +108,9 @@ type Engine struct {
 	// reconciles and body fetches lock under separate key namespaces so a
 	// header sync never queues behind a long body download.
 	folderLocks folderLocks
+
+	// Per-account bound on concurrent background body fetches (bodygate.go).
+	bodyGate accountGate
 }
 
 // NewEngine creates a new sync engine

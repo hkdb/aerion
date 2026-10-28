@@ -54,7 +54,7 @@ type PoolConfig struct {
 // DefaultPoolConfig returns sensible defaults for the pool
 func DefaultPoolConfig() PoolConfig {
 	return PoolConfig{
-		MaxConnections: 4,                // folder STATUS fan-out is bound by this on large Gmail accounts; logins bounded by createConcurrency
+		MaxConnections: 4,                // up to 3 body fetches + header/STATUS work; IDLE holds a 5th outside the pool. Provider limits (Gmail ~15, Dovecot default 10) are shared across every client on the account
 		IdleTimeout:    15 * time.Minute, // longer than a typical scheduler interval so passes reuse logins
 		ConnectTimeout: 30 * time.Second,
 		WaiterTimeout:  2 * time.Minute, // Don't wait forever for a connection
@@ -184,9 +184,10 @@ func (p *Pool) unreserveSlot(accountID string) {
 
 // createConcurrency is how many logins may be in flight per account at once.
 // Observed Gmail behaviour (2026-10-27): four logins within ~2 s were fine,
-// the fifth was slow-walked. With MaxConnections 4 this allows the LIST
-// login plus three STATUS-worker logins to overlap at most three-wide.
-const createConcurrency = 3
+// the fifth was slow-walked. The folder stage pipelines STATUS over two
+// connections (one of them the reused LIST connection), so a cold pass needs
+// at most two fresh logins at once; two keeps a clear margin under the limit.
+const createConcurrency = 2
 
 // gateForLocked returns the account's creation gate (buffered
 // createConcurrency), creating it on first use. Caller holds p.mu.

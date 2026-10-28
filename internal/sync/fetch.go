@@ -438,6 +438,19 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 	}
 	defer unlock()
 
+	// Bound concurrent body fetches per account so they can't hold every pool
+	// slot (see bodyFetchConcurrency). Taken after the folder lock so a fetch
+	// queued here already owns its folder.
+	gateWait := time.Now()
+	release, err := e.bodyGate.acquire(ctx, accountID)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if waited := time.Since(gateWait); waited > time.Second {
+		e.log.Debug().Str("account", accountID).Str("folderID", folderID).Dur("waited", waited).Msg("Body fetch waited for account slot")
+	}
+
 	// Get folder to get path
 	f, err := e.folderStore.Get(folderID)
 	if err != nil {
@@ -984,4 +997,3 @@ func (e *Engine) buildMessageFromStreamedData(accountID, folderID string, uid im
 
 	return m
 }
-

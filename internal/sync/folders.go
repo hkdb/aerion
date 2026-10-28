@@ -20,8 +20,11 @@ type folderStatusResult struct {
 	err     error
 }
 
-// Concurrency limit for parallel STATUS fetches
-const folderStatusWorkers = 5
+// folderStatusWorkers is how many connections the folder stage pipelines
+// STATUS over. Two chunks finish nearly as fast as four once each chunk is a
+// single round trip, and the stage must leave pool slots for body fetches,
+// IDLE follow-ups and user actions (pool cap is 4).
+const folderStatusWorkers = 2
 
 // SyncFolders synchronizes the folder list for an account
 func (e *Engine) SyncFolders(ctx context.Context, accountID string) error {

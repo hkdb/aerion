@@ -91,8 +91,8 @@ func TestReserveSlot_NeverExceedsMax(t *testing.T) {
 
 // The chosen gate width — documents the trade-off (see createConcurrency).
 func TestCreateConcurrency(t *testing.T) {
-	if createConcurrency != 3 {
-		t.Fatalf("createConcurrency = %d, want 3", createConcurrency)
+	if createConcurrency != 2 {
+		t.Fatalf("createConcurrency = %d, want 2", createConcurrency)
 	}
 }
 
