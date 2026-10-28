@@ -52,6 +52,13 @@ class AccountStore {
   // Sync errors keyed by accountId (shows "Sync error. Try again..." message)
   syncErrors = $state<Record<string, { folderId: string; error: string }>>({})
   private eventsInitialized = false
+  // Accounts with a user-initiated sync (sync-all / account sync) that has
+  // not yet reached its own folder phase. Sync-all runs accounts one after
+  // another, so a waiting account has no progress entries; without this,
+  // any unrelated folder:synced for it (scheduler, IDLE, an earlier body
+  // fetch) would clear its spinner until its turn came. Plain Set: it never
+  // drives rendering.
+  private pendingSync = new Set<string>()
 
   /**
    * Initialize event listeners (called once)
@@ -97,6 +104,12 @@ class AccountStore {
       // Trigger reactivity
       this.syncProgress = { ...this.syncProgress }
 
+      // The account's own turn has started: from here its progress entries
+      // keep the spinner alive, so stop shielding it.
+      if (data.phase === 'folders') {
+        this.pendingSync.delete(data.accountId)
+      }
+
       // Also set syncing flag on the account so progress bar shows
       const acc = this.accounts.find((a) => a.account.id === data.accountId)
       if (acc && !acc.syncing) {
@@ -131,11 +144,13 @@ class AccountStore {
       }
 
       // Always check if we should clear the syncing flag
-      // This handles cases where sync completes so fast no progress was recorded
+      // This handles cases where sync completes so fast no progress was recorded.
+      // An account still waiting its sync-all turn is exempt — this completion
+      // is not its own.
       const hasRemainingProgress = this.syncProgress[data.accountId] &&
         Object.keys(this.syncProgress[data.accountId]).length > 0
 
-      if (!hasRemainingProgress) {
+      if (!hasRemainingProgress && !this.pendingSync.has(data.accountId)) {
         const acc = this.accounts.find((a) => a.account.id === data.accountId)
         if (acc) {
           if (acc.syncing) {
@@ -168,9 +183,10 @@ class AccountStore {
       }
       this.syncErrors = { ...this.syncErrors }
 
-      // Clear syncing flag
+      // Clear syncing flag — unless the account is still waiting its
+      // sync-all turn (its own failure is reported by the sync-all result).
       const acc = this.accounts.find((a) => a.account.id === data.accountId)
-      if (acc && acc.syncing) {
+      if (acc && acc.syncing && !this.pendingSync.has(data.accountId)) {
         acc.syncing = false
         this.accounts = [...this.accounts]
       }
@@ -290,6 +306,7 @@ class AccountStore {
 
     acc.syncing = true
     acc.error = null
+    this.pendingSync.add(accountId)
 
     try {
       // Use SyncAccountComplete to sync folders + core folder messages (Inbox, Drafts, Sent)
@@ -307,9 +324,12 @@ class AccountStore {
       // Clear syncing on error (event handlers won't clear it)
       acc.syncing = false
       throw err
+    } finally {
+      this.pendingSync.delete(accountId)
     }
-    // NOTE: Don't set syncing=false here - body sync runs in background
-    // and will emit folder:synced when complete, which clears syncing flag
+    // Body fetches may still be running and will emit folder:synced, which
+    // clears the flag; an account that produced no progress at all is done now.
+    this.clearSyncingIfIdle(accountId)
   }
 
   /**
@@ -321,6 +341,7 @@ class AccountStore {
     for (const acc of this.accounts) {
       acc.syncing = true
       acc.error = null
+      this.pendingSync.add(acc.account.id)
     }
 
     try {
@@ -348,9 +369,28 @@ class AccountStore {
         }
       }
       throw err
+    } finally {
+      for (const acc of this.accounts) {
+        this.pendingSync.delete(acc.account.id)
+      }
     }
-    // NOTE: Don't set syncing=false here - body syncs run in background
-    // and will emit folder:synced when complete, which clears syncing flag
+    // Body fetches may still be running and will emit folder:synced, which
+    // clears the flag; accounts that produced no progress at all are done now.
+    for (const acc of this.accounts) {
+      this.clearSyncingIfIdle(acc.account.id)
+    }
+  }
+
+  /**
+   * Clear an account's syncing flag when nothing is in progress for it.
+   */
+  private clearSyncingIfIdle(accountId: string): void {
+    const remaining = this.syncProgress[accountId] && Object.keys(this.syncProgress[accountId]).length > 0
+    if (remaining) return
+    const acc = this.accounts.find((a) => a.account.id === accountId)
+    if (!acc || !acc.syncing) return
+    acc.syncing = false
+    this.accounts = [...this.accounts]
   }
 
   /**
@@ -358,6 +398,7 @@ class AccountStore {
    */
   async cancelAllSyncs(): Promise<void> {
     await CancelAllSyncs()
+    this.pendingSync.clear()
     // Mark all accounts as not syncing
     for (const acc of this.accounts) {
       acc.syncing = false
