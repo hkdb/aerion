@@ -608,6 +608,13 @@ func (a *App) Startup(ctx context.Context) {
 		})
 	})
 
+	// Folder-list sync pushes changed unread counts for folders that are not
+	// message-synced (those emit their own counts from SyncFolder); without
+	// this a scheduled pass never refreshes their sidebar badges.
+	a.syncEngine.SetFolderCountsCallback(func(_ string, counts map[string]int) {
+		wailsRuntime.EventsEmit(ctx, "folders:countsChanged", counts)
+	})
+
 	// Start connection pool cleanup routine
 	a.imapPool.StartCleanupRoutine(ctx)
 

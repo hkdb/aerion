@@ -150,6 +150,10 @@ func (e *Engine) SyncFoldersSkipStatus(ctx context.Context, accountID string, sk
 	// Track which paths we've seen and process results
 	seenPaths := make(map[string]bool)
 	processed := 0
+	// Unread counts that changed on this pass (folder ID → unread), pushed to
+	// the sidebar at the end: a scheduled pass has no tree reload, so without
+	// this a folder read on another machine keeps its stale badge here.
+	changedCounts := make(map[string]int)
 
 	for _, result := range results {
 		mb := result.mailbox
@@ -209,7 +213,9 @@ func (e *Engine) SyncFoldersSkipStatus(ctx context.Context, accountID string, sk
 				}
 			}
 
+			unreadChanged := false
 			if status != nil {
+				unreadChanged = existing.UnreadCount != int(status.Unseen)
 				existing.UIDValidity = status.UIDValidity
 				existing.UIDNext = status.UIDNext
 				existing.HighestModSeq = status.HighestModSeq
@@ -219,6 +225,8 @@ func (e *Engine) SyncFoldersSkipStatus(ctx context.Context, accountID string, sk
 
 			if err := e.folderStore.Update(existing); err != nil {
 				e.log.Warn().Err(err).Str("path", mb.Name).Msg("Failed to update folder")
+			} else if unreadChanged {
+				changedCounts[existing.ID] = existing.UnreadCount
 			}
 		} else {
 			// Create new folder
@@ -253,6 +261,9 @@ func (e *Engine) SyncFoldersSkipStatus(ctx context.Context, accountID string, sk
 			} else {
 				// Add to local map so child folders can find their parent
 				localByPath[f.Path] = f
+				if status != nil {
+					changedCounts[f.ID] = f.UnreadCount
+				}
 			}
 		}
 	}
@@ -267,7 +278,9 @@ func (e *Engine) SyncFoldersSkipStatus(ctx context.Context, accountID string, sk
 		}
 	}
 
-	e.log.Info().Str("account", accountID).Int("folders", len(mailboxes)).Int("statusSkipped", statusSkipped).Dur("elapsed", time.Since(start)).Msg("Folder sync complete")
+	e.emitFolderCounts(accountID, changedCounts)
+
+	e.log.Info().Str("account", accountID).Int("folders", len(mailboxes)).Int("statusSkipped", statusSkipped).Int("countsChanged", len(changedCounts)).Dur("elapsed", time.Since(start)).Msg("Folder sync complete")
 
 	// Persist auto-detected folder mappings if not already set.
 	// This ensures getSpecialFolder always finds the correct folder via the

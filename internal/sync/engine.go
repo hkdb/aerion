@@ -54,11 +54,11 @@ type ParsedBody struct {
 	HasAttachments bool
 	Attachments    []*message.Attachment  // Extracted attachment metadata (content only for inline)
 	SMIMEResult    *smime.SignatureResult // S/MIME verification result (nil if not S/MIME)
-	SMIMERawBody   []byte                // Raw S/MIME body for on-view processing
-	SMIMEEncrypted bool                  // Whether the message is encrypted
-	PGPRawBody     []byte                // Raw PGP body for on-view processing
-	PGPEncrypted   bool                  // Whether the message is PGP encrypted
-	UnsafeContent  bool                  // True if message has non-compliant encoding
+	SMIMERawBody   []byte                 // Raw S/MIME body for on-view processing
+	SMIMEEncrypted bool                   // Whether the message is encrypted
+	PGPRawBody     []byte                 // Raw PGP body for on-view processing
+	PGPEncrypted   bool                   // Whether the message is PGP encrypted
+	UnsafeContent  bool                   // True if message has non-compliant encoding
 }
 
 // Retry limits for error recovery
@@ -79,19 +79,25 @@ type SyncProgress struct {
 // ProgressCallback is called with sync progress updates
 type ProgressCallback func(progress SyncProgress)
 
+// FolderCountsCallback is called after a folder-list sync with the unread
+// counts that changed (folder ID → unread), so the sidebar can refresh badges
+// for folders that are not message-synced.
+type FolderCountsCallback func(accountID string, counts map[string]int)
+
 // Engine handles synchronization between IMAP server and local storage
 type Engine struct {
-	pool             *imapPkg.Pool
-	accountStore     *account.Store
-	folderStore      *folder.Store
-	messageStore     *message.Store
-	attachmentStore  *message.AttachmentStore
-	attachExtractor  *email.AttachmentExtractor
-	sanitizer        *email.Sanitizer
-	log              zerolog.Logger
-	progressCallback ProgressCallback
-	smimeVerifier    *smime.Verifier
-	pgpVerifier      *pgp.Verifier
+	pool                 *imapPkg.Pool
+	accountStore         *account.Store
+	folderStore          *folder.Store
+	messageStore         *message.Store
+	attachmentStore      *message.AttachmentStore
+	attachExtractor      *email.AttachmentExtractor
+	sanitizer            *email.Sanitizer
+	log                  zerolog.Logger
+	progressCallback     ProgressCallback
+	folderCountsCallback FolderCountsCallback
+	smimeVerifier        *smime.Verifier
+	pgpVerifier          *pgp.Verifier
 
 	// Per-folder counter driving the periodic full flag sweep for large
 	// mailboxes on the CONDSTORE fast-path (see runFlagSync / condstore.go).
@@ -107,11 +113,11 @@ type Engine struct {
 // NewEngine creates a new sync engine
 func NewEngine(pool *imapPkg.Pool, accountStore *account.Store, folderStore *folder.Store, messageStore *message.Store, attachmentStore *message.AttachmentStore) *Engine {
 	return &Engine{
-		pool:            pool,
-		accountStore:    accountStore,
-		folderStore:     folderStore,
-		messageStore:    messageStore,
-		attachmentStore: attachmentStore,
+		pool:             pool,
+		accountStore:     accountStore,
+		folderStore:      folderStore,
+		messageStore:     messageStore,
+		attachmentStore:  attachmentStore,
 		attachExtractor:  email.NewAttachmentExtractor(),
 		sanitizer:        email.NewSanitizer(),
 		log:              logging.WithComponent("sync"),
@@ -134,6 +140,11 @@ func (e *Engine) ReleasePoolConnection(conn *imapPkg.PooledConnection) {
 // SetProgressCallback sets the callback function for progress updates
 func (e *Engine) SetProgressCallback(callback ProgressCallback) {
 	e.progressCallback = callback
+}
+
+// SetFolderCountsCallback sets the callback for changed folder unread counts
+func (e *Engine) SetFolderCountsCallback(callback FolderCountsCallback) {
+	e.folderCountsCallback = callback
 }
 
 // SetSMIMEVerifier sets the S/MIME verifier for signature verification during body parsing
@@ -164,6 +175,14 @@ func (e *Engine) ParseDecryptedBody(raw []byte, messageID string) *ParsedBody {
 	}
 
 	return parsed
+}
+
+// emitFolderCounts delivers changed unread counts if a callback is set
+func (e *Engine) emitFolderCounts(accountID string, counts map[string]int) {
+	if e.folderCountsCallback == nil || len(counts) == 0 {
+		return
+	}
+	e.folderCountsCallback(accountID, counts)
 }
 
 // emitProgress sends progress updates if a callback is set
