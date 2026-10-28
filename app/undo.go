@@ -92,10 +92,14 @@ func (a *App) MoveLocalMessages(messageIDs []string, folderID string) error {
 		return fmt.Errorf("failed to get messages: %w", err)
 	}
 
-	// Group by source folder
-	sourceFolderIDs := make(map[string]bool)
+	// Per-source-folder deltas from the pre-move message objects
+	srcTotal := make(map[string]int)
+	srcUnread := make(map[string]int)
 	for _, msg := range messages {
-		sourceFolderIDs[msg.FolderID] = true
+		srcTotal[msg.FolderID]++
+		if !msg.IsRead {
+			srcUnread[msg.FolderID]++
+		}
 	}
 
 	// Move messages in database
@@ -110,38 +114,16 @@ func (a *App) MoveLocalMessages(messageIDs []string, folderID string) error {
 		"destFolderId": folderID,
 	})
 
-	// Update folder counts for all affected folders (source + destination)
+	// Update folder counts for all affected folders (source + destination).
+	// Deltas, not a recount — see folder_counts.go.
 	go func() {
 		defer recoverPanic("app.undo", "update folder counts")
 		folderCounts := make(map[string]int)
-
-		// Update source folders
-		for sourceFolderID := range sourceFolderIDs {
-			unreadCount, err := a.messageStore.CountUnreadByFolder(sourceFolderID)
-			if err == nil {
-				folderObj, err := a.folderStore.Get(sourceFolderID)
-				if err == nil && folderObj != nil {
-					totalCount, _ := a.messageStore.CountByFolder(sourceFolderID)
-					_ = a.folderStore.UpdateCounts(sourceFolderID, totalCount, unreadCount)
-					folderCounts[sourceFolderID] = unreadCount
-				}
-			}
+		for sourceFolderID, n := range srcTotal {
+			a.adjustFolderCounts(folderCounts, sourceFolderID, -n, -srcUnread[sourceFolderID])
 		}
-
-		// Update destination folder
-		unreadCount, err := a.messageStore.CountUnreadByFolder(folderID)
-		if err == nil {
-			folderObj, err := a.folderStore.Get(folderID)
-			if err == nil && folderObj != nil {
-				totalCount, _ := a.messageStore.CountByFolder(folderID)
-				_ = a.folderStore.UpdateCounts(folderID, totalCount, unreadCount)
-				folderCounts[folderID] = unreadCount
-			}
-		}
-
-		if len(folderCounts) > 0 {
-			wailsRuntime.EventsEmit(a.ctx, "folders:countsChanged", folderCounts)
-		}
+		a.adjustFolderCounts(folderCounts, folderID, len(messages), unreadIn(messages))
+		a.emitFolderCounts(folderCounts)
 	}()
 
 	return nil

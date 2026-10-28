@@ -259,8 +259,17 @@ func (s *Scheduler) syncAccountInbox(acc *account.Account) {
 
 	s.log.Info().Str("account", acc.Name).Msg("Starting scheduled sync for INBOX")
 
-	// First, ensure folders are synced
-	if err := s.engine.SyncFolders(ctx, acc.ID); err != nil {
+	// First, ensure folders are synced. The folders this pass is about to
+	// message-sync (INBOX plus syncAdditionalFolders' set) get their counts
+	// from that sync, so their STATUS round trip is skipped here. On a first
+	// run (no local INBOX yet) everything is fetched.
+	var skipStatus map[string]bool
+	if known, err := s.folderStore.GetByType(acc.ID, folder.TypeInbox); err == nil && known != nil {
+		if toSync, err := s.getAccountSyncFolders(acc); err == nil {
+			skipStatus = FolderPathSet(toSync)
+		}
+	}
+	if err := s.engine.SyncFoldersSkipStatus(ctx, acc.ID, skipStatus); err != nil {
 		if ctx.Err() != nil {
 			s.log.Info().Str("account", acc.Name).Msg("Sync cancelled during folder sync")
 			return

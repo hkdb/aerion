@@ -287,6 +287,30 @@ func (s *Store) UpdateCounts(id string, totalCount, unreadCount int) error {
 	return nil
 }
 
+// AdjustCounts applies deltas to a folder's counts and returns the updated
+// folder. The stored counts are the server's whole-mailbox numbers (STATUS),
+// while local message rows only cover the sync window, so local actions must
+// shift the stored value rather than recount it. Clamped at zero and applied
+// in one statement so a concurrent sync write is never clobbered by a stale
+// read-modify-write.
+func (s *Store) AdjustCounts(id string, totalDelta, unreadDelta int) (*Folder, error) {
+	query := `UPDATE folders
+	          SET total_count = MAX(0, total_count + ?),
+	              unread_count = MAX(0, unread_count + ?)
+	          WHERE id = ?`
+	if _, err := s.db.Exec(query, totalDelta, unreadDelta, id); err != nil {
+		return nil, fmt.Errorf("failed to adjust counts: %w", err)
+	}
+	f, err := s.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	if f == nil {
+		return nil, fmt.Errorf("folder not found: %s", id)
+	}
+	return f, nil
+}
+
 // Delete deletes a folder
 func (s *Store) Delete(id string) error {
 	_, err := s.db.Exec("DELETE FROM folders WHERE id = ?", id)

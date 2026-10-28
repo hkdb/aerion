@@ -685,68 +685,112 @@ func (c *Client) SelectMailbox(ctx context.Context, name string) (*Mailbox, erro
 	}
 }
 
-// GetMailboxStatus returns the status of a mailbox without selecting it.
-// Uses a goroutine to allow context cancellation since Wait() blocks indefinitely.
-func (c *Client) GetMailboxStatus(ctx context.Context, name string) (*Mailbox, error) {
-	if c.client == nil {
-		return nil, fmt.Errorf("not connected")
-	}
-
+// statusOptions is the STATUS item set every folder-stage and message-stage
+// STATUS asks for; HIGHESTMODSEQ only when the server advertises CONDSTORE.
+func (c *Client) statusOptions() *imap.StatusOptions {
 	options := &imap.StatusOptions{
 		NumMessages: true,
 		UIDNext:     true,
 		UIDValidity: true,
 		NumUnseen:   true,
 	}
-
-	// Add HIGHESTMODSEQ if server supports CONDSTORE
 	if c.SupportsCondStore() {
 		options.HighestModSeq = true
 	}
+	return options
+}
 
-	// Run Wait() in a goroutine to allow context cancellation
-	type statusResult struct {
-		data *imap.StatusData
-		err  error
+// mailboxFromStatus converts a STATUS reply into a Mailbox with the counts
+// populated. Optional items the server omitted stay zero.
+func mailboxFromStatus(name string, data *imap.StatusData) *Mailbox {
+	mb := &Mailbox{Name: name}
+	if data == nil {
+		return mb
 	}
-	resultCh := make(chan statusResult, 1)
+	if data.UIDValidity != 0 {
+		mb.UIDValidity = data.UIDValidity
+	}
+	if data.UIDNext != 0 {
+		mb.UIDNext = uint32(data.UIDNext)
+	}
+	if data.NumMessages != nil {
+		mb.Messages = *data.NumMessages
+	}
+	if data.NumUnseen != nil {
+		mb.Unseen = *data.NumUnseen
+	}
+	if data.HighestModSeq != 0 {
+		mb.HighestModSeq = data.HighestModSeq
+	}
+	return mb
+}
+
+// GetMailboxStatus fetches STATUS for one mailbox.
+func (c *Client) GetMailboxStatus(ctx context.Context, name string) (*Mailbox, error) {
+	statuses, errs := c.GetMailboxStatuses(ctx, []string{name})
+	if errs[0] != nil {
+		return nil, errs[0]
+	}
+	return statuses[0], nil
+}
+
+// GetMailboxStatuses pipelines STATUS for several mailboxes on this one
+// connection: every command is sent before the first reply is awaited, so a
+// batch costs one round trip plus the server's per-mailbox work instead of a
+// round trip each. go-imap routes untagged STATUS replies to the pending
+// command by mailbox name, so distinct names are unambiguous (RFC 9051 §5.5).
+// Results are positional; a nil error means the matching Mailbox is set. A
+// decode error on any reply closes the connection and fails every reply still
+// pending, so callers should retry failures on a fresh connection.
+func (c *Client) GetMailboxStatuses(ctx context.Context, names []string) ([]*Mailbox, []error) {
+	statuses := make([]*Mailbox, len(names))
+	errs := make([]error, len(names))
+	if len(names) == 0 {
+		return statuses, errs
+	}
+	if c.client == nil {
+		for i := range errs {
+			errs[i] = fmt.Errorf("not connected")
+		}
+		return statuses, errs
+	}
+
+	options := c.statusOptions()
+
+	type batchResult struct {
+		statuses []*Mailbox
+		errs     []error
+	}
+	resultCh := make(chan batchResult, 1)
 	go func() {
-		data, err := c.client.Status(name, options).Wait()
-		resultCh <- statusResult{data, err}
+		// Status returns once the command is on the wire; collect them all,
+		// then wait in order.
+		cmds := make([]*imapclient.StatusCommand, len(names))
+		for i, name := range names {
+			cmds[i] = c.client.Status(name, options)
+		}
+		st := make([]*Mailbox, len(names))
+		er := make([]error, len(names))
+		for i, cmd := range cmds {
+			data, err := cmd.Wait()
+			if err != nil {
+				er[i] = fmt.Errorf("failed to get mailbox status: %w", err)
+				continue
+			}
+			st[i] = mailboxFromStatus(names[i], data)
+		}
+		resultCh <- batchResult{st, er}
 	}()
 
-	// Wait for either result or context cancellation
 	select {
 	case <-ctx.Done():
-		c.log.Debug().Str("mailbox", name).Msg("Status cancelled by context")
-		return nil, ctx.Err()
+		c.log.Debug().Int("mailboxes", len(names)).Msg("Status cancelled by context")
+		for i := range errs {
+			errs[i] = ctx.Err()
+		}
+		return statuses, errs
 	case result := <-resultCh:
-		if result.err != nil {
-			return nil, fmt.Errorf("failed to get mailbox status: %w", result.err)
-		}
-
-		mb := &Mailbox{
-			Name: name,
-		}
-
-		// Handle pointer fields
-		if result.data.UIDValidity != 0 {
-			mb.UIDValidity = result.data.UIDValidity
-		}
-		if result.data.UIDNext != 0 {
-			mb.UIDNext = uint32(result.data.UIDNext)
-		}
-		if result.data.NumMessages != nil {
-			mb.Messages = *result.data.NumMessages
-		}
-		if result.data.NumUnseen != nil {
-			mb.Unseen = *result.data.NumUnseen
-		}
-		if result.data.HighestModSeq != 0 {
-			mb.HighestModSeq = result.data.HighestModSeq
-		}
-
-		return mb, nil
+		return result.statuses, result.errs
 	}
 }
 

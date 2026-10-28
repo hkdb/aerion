@@ -25,6 +25,31 @@ const folderStatusWorkers = 5
 
 // SyncFolders synchronizes the folder list for an account
 func (e *Engine) SyncFolders(ctx context.Context, accountID string) error {
+	return e.SyncFoldersSkipStatus(ctx, accountID, nil)
+}
+
+// FolderPathSet returns the mailbox paths of folders as a set, for
+// SyncFoldersSkipStatus.
+func FolderPathSet(folders []*folder.Folder) map[string]bool {
+	if len(folders) == 0 {
+		return nil
+	}
+	set := make(map[string]bool, len(folders))
+	for _, f := range folders {
+		if f != nil && f.Path != "" {
+			set[f.Path] = true
+		}
+	}
+	return set
+}
+
+// SyncFoldersSkipStatus is SyncFolders with a set of mailbox paths whose
+// STATUS round trip is skipped. Callers pass the folders the same pass is
+// about to message-sync: SyncMessages reads the same numbers from SELECT and
+// its own STATUS and overwrites them seconds later, so fetching them here is
+// pure duplication. Skipped folders keep their stored counts and sync state,
+// are still reconciled (name, type, subscription, parent) and never deleted.
+func (e *Engine) SyncFoldersSkipStatus(ctx context.Context, accountID string, skipStatusPaths map[string]bool) error {
 	start := time.Now()
 	e.log.Debug().Str("account", accountID).Msg("Syncing folders")
 
@@ -98,7 +123,13 @@ func (e *Engine) SyncFolders(ctx context.Context, accountID string) error {
 	}
 
 	// Fetch STATUS for all folders in parallel
-	results := e.fetchFolderStatusParallel(ctx, accountID, mailboxes)
+	results := e.fetchFolderStatusParallel(ctx, accountID, mailboxes, skipStatusPaths)
+	statusSkipped := 0
+	for _, mb := range mailboxes {
+		if skipStatusPaths[mb.Name] {
+			statusSkipped++
+		}
+	}
 
 	// Sort results by path depth so parents are processed before children.
 	// IMAP LIST does not guarantee ordering, so a child may appear before its parent.
@@ -136,7 +167,10 @@ func (e *Engine) SyncFolders(ctx context.Context, accountID string) error {
 			folderType = override
 		}
 
-		// Skip folders where STATUS failed entirely (or was never attempted)
+		// Skip folders where STATUS failed entirely (or was never attempted).
+		// A folder in skipStatusPaths arrives here with nil status AND nil err:
+		// it falls through, the `status != nil` guards below leave its stored
+		// counts alone, and seenPaths keeps it from being deleted.
 		if errors.Is(result.err, errNoSelectMailbox) {
 			e.log.Debug().Str("mailbox", mb.Name).Msg("Skipping non-selectable mailbox (\\Noselect)")
 			continue
@@ -233,7 +267,7 @@ func (e *Engine) SyncFolders(ctx context.Context, accountID string) error {
 		}
 	}
 
-	e.log.Info().Str("account", accountID).Int("folders", len(mailboxes)).Dur("elapsed", time.Since(start)).Msg("Folder sync complete")
+	e.log.Info().Str("account", accountID).Int("folders", len(mailboxes)).Int("statusSkipped", statusSkipped).Dur("elapsed", time.Since(start)).Msg("Folder sync complete")
 
 	// Persist auto-detected folder mappings if not already set.
 	// This ensures getSpecialFolder always finds the correct folder via the
@@ -254,8 +288,8 @@ func (e *Engine) persistAutoDetectedMappings(accountID string) {
 	}
 
 	type mapping struct {
-		current  string
-		fType    folder.Type
+		current string
+		fType   folder.Type
 	}
 
 	mappings := []mapping{
@@ -314,56 +348,126 @@ func hasNoSelectAttr(attrs []string) bool {
 	return false
 }
 
-// fetchFolderStatusParallel fetches STATUS for multiple folders concurrently
-func (e *Engine) fetchFolderStatusParallel(ctx context.Context, accountID string, mailboxes []*imapPkg.Mailbox) []folderStatusResult {
+// classifyStatusTargets pre-fills the results that need no server round
+// trip (\Noselect containers, folders the caller is about to message-sync)
+// and returns the indices that still need a STATUS.
+func classifyStatusTargets(mailboxes []*imapPkg.Mailbox, skip map[string]bool) ([]folderStatusResult, []int) {
 	results := make([]folderStatusResult, len(mailboxes))
+	var pending []int
+	for i, mb := range mailboxes {
+		results[i].mailbox = mb
+		switch {
+		case hasNoSelectAttr(mb.Attributes):
+			results[i].err = errNoSelectMailbox
+		case skip[mb.Name]:
+			// nil status, nil err: the reconcile loop keeps the stored counts.
+		default:
+			pending = append(pending, i)
+		}
+	}
+	return results, pending
+}
 
-	// Use a semaphore to limit concurrency. Never more workers than the pool
-	// can hold for one account — extra workers would only queue on the pool.
+// chunkIndices splits idx into at most n contiguous, near-equal chunks
+// (n < 1 is treated as 1 so no index is ever dropped).
+func chunkIndices(idx []int, n int) [][]int {
+	if len(idx) == 0 {
+		return nil
+	}
+	if n < 1 {
+		n = 1
+	}
+	if n > len(idx) {
+		n = len(idx)
+	}
+	chunks := make([][]int, 0, n)
+	size := (len(idx) + n - 1) / n
+	for start := 0; start < len(idx); start += size {
+		end := start + size
+		if end > len(idx) {
+			end = len(idx)
+		}
+		chunks = append(chunks, idx[start:end])
+	}
+	return chunks
+}
+
+// fetchFolderStatusParallel fetches STATUS for the mailboxes that need it.
+// The work is split into one chunk per pool worker; each chunk is pipelined
+// on a single connection (every STATUS sent before the first reply is read),
+// so a folder costs the server's work for it, not a full round trip plus a
+// pool acquisition. Any reply that failed is retried once on its own.
+func (e *Engine) fetchFolderStatusParallel(ctx context.Context, accountID string, mailboxes []*imapPkg.Mailbox, skip map[string]bool) []folderStatusResult {
+	results, pending := classifyStatusTargets(mailboxes, skip)
+	if len(pending) == 0 {
+		return results
+	}
+
+	// Never more workers than the pool can hold for one account — extra
+	// workers would only queue on the pool.
 	workers := folderStatusWorkers
 	if m := e.pool.MaxConnections(); m > 0 && m < workers {
 		workers = m
 	}
-	sem := make(chan struct{}, workers)
+
 	var wg gosync.WaitGroup
-
-	for i, mb := range mailboxes {
+	for _, chunk := range chunkIndices(pending, workers) {
 		wg.Add(1)
-		go func(idx int, mailbox *imapPkg.Mailbox) {
+		go func(idx []int) {
 			defer wg.Done()
-
-			// Acquire semaphore
-			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
-			case <-ctx.Done():
-				results[idx] = folderStatusResult{mailbox: mailbox, err: ctx.Err()}
-				return
-			}
-
-			if hasNoSelectAttr(mailbox.Attributes) {
-				results[idx] = folderStatusResult{mailbox: mailbox, err: errNoSelectMailbox}
-				return
-			}
-
-			// Get a connection for this STATUS request
-			conn, err := e.pool.GetConnection(ctx, accountID)
-			if err != nil {
-				results[idx] = folderStatusResult{mailbox: mailbox, err: err}
-				return
-			}
-			defer e.pool.Release(conn)
-
-			// Fetch STATUS
-			status, err := conn.Client().GetMailboxStatus(ctx, mailbox.Name)
-			results[idx] = folderStatusResult{
-				mailbox: mailbox,
-				status:  status,
-				err:     err,
-			}
-		}(i, mb)
+			e.fetchStatusChunk(ctx, accountID, mailboxes, idx, results)
+		}(chunk)
 	}
-
 	wg.Wait()
 	return results
+}
+
+// fetchStatusChunk pipelines STATUS for one chunk on one connection and
+// writes the positional results. Failures are retried individually on a
+// fresh connection: a decode error on one reply kills the connection and
+// fails every reply behind it (go-imap closes on any decode error), and that
+// must cost one reconnect, not the whole pass.
+func (e *Engine) fetchStatusChunk(ctx context.Context, accountID string, mailboxes []*imapPkg.Mailbox, idx []int, results []folderStatusResult) {
+	names := make([]string, len(idx))
+	for i, mi := range idx {
+		names[i] = mailboxes[mi].Name
+	}
+
+	statuses, errs := e.pipelineStatus(ctx, accountID, names)
+	for i, mi := range idx {
+		results[mi] = folderStatusResult{mailbox: mailboxes[mi], status: statuses[i], err: errs[i]}
+	}
+
+	for i, mi := range idx {
+		if errs[i] == nil || ctx.Err() != nil {
+			continue
+		}
+		e.log.Debug().Err(errs[i]).Str("mailbox", names[i]).Msg("Pipelined STATUS failed, retrying individually")
+		status, err := e.fetchStatusSingle(ctx, accountID, names[i])
+		results[mi] = folderStatusResult{mailbox: mailboxes[mi], status: status, err: err}
+	}
+}
+
+// pipelineStatus runs one pipelined STATUS batch on a pooled connection.
+func (e *Engine) pipelineStatus(ctx context.Context, accountID string, names []string) ([]*imapPkg.Mailbox, []error) {
+	conn, err := e.pool.GetConnection(ctx, accountID)
+	if err != nil {
+		errs := make([]error, len(names))
+		for i := range errs {
+			errs[i] = err
+		}
+		return make([]*imapPkg.Mailbox, len(names)), errs
+	}
+	defer e.pool.Release(conn)
+	return conn.Client().GetMailboxStatuses(ctx, names)
+}
+
+// fetchStatusSingle runs one STATUS on its own pooled connection.
+func (e *Engine) fetchStatusSingle(ctx context.Context, accountID string, name string) (*imapPkg.Mailbox, error) {
+	conn, err := e.pool.GetConnection(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer e.pool.Release(conn)
+	return conn.Client().GetMailboxStatus(ctx, name)
 }

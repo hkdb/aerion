@@ -11,6 +11,7 @@ import (
 	"github.com/hkdb/aerion/internal/certificate"
 	"github.com/hkdb/aerion/internal/folder"
 	"github.com/hkdb/aerion/internal/logging"
+	"github.com/hkdb/aerion/internal/sync"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -254,8 +255,16 @@ func (a *App) SyncAccountComplete(accountID string) error {
 		return fmt.Errorf("sync cancelled")
 	}
 
-	// 1. Sync folder list first (required for message sync)
-	if err := a.SyncFolders(accountID); err != nil {
+	// 1. Sync folder list first (required for message sync). Step 3 syncs
+	// messages for every folder in the account's sync set and writes their
+	// counts from SELECT/STATUS, so the folder stage skips STATUS for those.
+	// The set is re-read after the folder sync so server-new folders are
+	// included (they were STATUS'd here, not skipped).
+	var skipStatus map[string]bool
+	if preSync, err := a.getSyncFolders(accountID); err == nil {
+		skipStatus = sync.FolderPathSet(preSync)
+	}
+	if err := a.syncFoldersSkipStatus(accountID, skipStatus); err != nil {
 		return fmt.Errorf("folder sync failed: %w", err)
 	}
 
