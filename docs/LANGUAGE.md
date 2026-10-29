@@ -15,10 +15,12 @@ Use this checklist to ensure your submission is complete:
 - [ ] **Register extension locales** — for every extension you translated, added a `register()` line in that extension's own `extensions/<name>/frontend/i18n/index.ts`
 - [ ] **Supported locales** — added entry to `supportedLocales` array in `frontend/src/lib/i18n/index.ts`
 - [ ] **date-fns locale** — added `case` in `frontend/src/lib/i18n/dateFnsLocale.ts`
+- [ ] **Spellcheck dictionary (optional)** — if you bundle one, all five wiring steps in [§ Spellcheck dictionary](#spellcheck-dictionary-optional) are done, including the Flatpak sources regeneration
 - [ ] **AppStream metainfo** — added `xml:lang` entries in `build/flatpak/io.github.hkdb.Aerion.metainfo.xml`
 - [ ] **Desktop entry** — added `[locale]` suffixed keys in `build/linux/aerion.desktop`
 - [ ] **Checks pass** — `npm run check`, `npm run build`, and `go test ./...` all pass
 - [ ] **Live tested** — app launched with `make dev`, language switched, all strings verified (including any enabled extensions' UI)
+- [ ] **Tabs and buttons fit** — the tab labels in the Settings and Account dialogs (General, Accounts, Composer, Extensions, About; Identity, Server, Security, …) and the short button labels all fit; a label that is too long gets cut off or overlaps its neighbour rather than wrapping, so shorten the translation if that happens
 - [ ] **Detached composer** — composer window also displays the correct language
 
 ## Claim Your Language
@@ -32,6 +34,13 @@ Before starting any translation work, **file a [Translation issue](https://githu
 - **Fork from and submit PRs to the latest release branch** (e.g., `v0.2.1-dev`), never `main`.
 - The `main` branch tracks the current production release and is not the target for new contributions.
 - Check the repository for the latest release branch name before starting, then fork from that branch to ensure your PR has the correct base.
+
+## Scope of a Translation PR
+
+A translation PR touches **only** the files listed in the checklist and the [File Summary](#file-summary): the locale JSONs, the `register()` and `supportedLocales` lines, the date-fns `case`, the metainfo and desktop entries, and optionally the spellcheck dictionary files.
+
+- **Do not change core code** — components, stores, `en.json`, or anything in `frontend/src/lib/i18n/index.ts` beyond the two lines above. If you find a hardcoded English string, a bug, or a better way to wire locales, note it in the PR description or open an issue; the maintainer lands those changes separately so translation PRs stay easy to review and safe to merge.
+- **Do not edit `CHANGELOG.md` or `README.md`** — the maintainer adds the changelog line and your contributor credit on merge.
 
 ## Before Submitting
 
@@ -52,6 +61,7 @@ Thoroughly review and verify your work:
    - All UI strings display correctly
    - Dynamic strings with `{placeholders}` interpolate properly
    - Date/time formatting works
+   - The Settings and Account dialog tab labels, and short button labels, are fully visible — too-long labels get cut off or overlap their neighbours, so pick a shorter word where that happens
    - The detached composer also uses the correct language
 5. **Verify platform files** — confirm your metainfo.xml entries render correctly in GNOME Software or `appstreamcli validate`
 
@@ -239,6 +249,18 @@ Then run the app, open Settings > General, and select the new language from the 
 - Date formatting uses the correct locale
 - The detached composer window also picks up the language
 
+## Spellcheck dictionary (optional)
+
+You may bundle a spellcheck dictionary for your language in the same PR. Only do so if a `dictionary-<code>` package exists on npm from the same family as the ones already in `frontend/package.json` (the `wooorm/dictionaries` collection). Languages without Latin-style per-word spelling (zh, ja, …) do not apply.
+
+If you add one, all five steps are required — the Flatpak build fails if the last one is skipped:
+
+1. **Install the package** — `cd frontend && npm install dictionary-<code>` (updates `package.json` and `package-lock.json`).
+2. **Bundle it** — add `<code>` to the `LOCALES` array in `frontend/scripts/copy-dictionaries.mjs`.
+3. **Register it** — in `frontend/src/lib/spellcheck/locales.ts`, add `<code>` to `SPELLCHECK_DICTS` and, when the app locale code equals the dictionary code, to `APP_TO_DICT`. Add a `DICT_NAMES` entry only if the dictionary should be listed under a different name than the one in `supportedLocales`.
+4. **Regenerate the Flatpak sources** — run `python3 build/flatpak/flathub/gen-node-sources.py` from the repository root and commit the updated `build/flatpak/flathub/node-sources.json` together with the lockfile. Any `package-lock.json` change without this regeneration breaks the Flatpak CI.
+5. **Verify** — `npm run build` (runs the copy script), then in the app: Settings → Composer lists the new dictionary, and a misspelled word in the composer is underlined with it enabled.
+
 ## File Summary
 
 | File | Change |
@@ -250,6 +272,10 @@ Then run the app, open Settings > General, and select the new language from the 
 | `frontend/src/lib/i18n/dateFnsLocale.ts` | Add `case` for date-fns locale |
 | `build/flatpak/io.github.hkdb.Aerion.metainfo.xml` | Add `xml:lang` entries for app store listing |
 | `build/linux/aerion.desktop` | Add `[locale]` suffixed keys for desktop integration |
+| `frontend/package.json` + `package-lock.json` | *(optional, dictionary only)* `dictionary-<code>` dependency |
+| `frontend/scripts/copy-dictionaries.mjs` | *(optional, dictionary only)* Add `<code>` to `LOCALES` |
+| `frontend/src/lib/spellcheck/locales.ts` | *(optional, dictionary only)* Add `<code>` to `SPELLCHECK_DICTS` (+ `APP_TO_DICT`) |
+| `build/flatpak/flathub/node-sources.json` | *(optional, dictionary only)* Regenerated with `gen-node-sources.py` |
 
 No backend changes are needed. The language setting is stored via the existing `GetLanguage`/`SetLanguage` Wails bindings in `app/settings.go`.
 

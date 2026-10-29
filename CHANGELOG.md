@@ -3,8 +3,9 @@
 **v0.3.6 - 10-02-2026**
 ---
 
-- Added Japanse(ja) translation - @theluckystrike
 - Added Brazilian Portuguese (pt-BR) translation - @sasnascimento
+- Added Japanse(ja) translation - @theluckystrike
+- Added Turkish (tr) translation - @omertahaoztop
 - Improved debug/logging
 - Fixed login by sending IMAP ID to servers that require it - [#457](https://github.com/hkdb/aerion/issues/457)
 - "Mark all as read/unread" on a folder can now include mail older than the sync period on the server (asks when there is any) - [#458](https://github.com/hkdb/aerion/issues/458)

@@ -949,6 +949,19 @@ Special thanks to translation contributors for making Aerion more accessible:
 <table align="left">
   <tr>
     <td align="center" width="180">
+      <a href="https://github.com/omertahaoztop">
+        <img src="https://github.com/omertahaoztop.png" width="80"><br>
+        <sub><b>omertahaoztop</b></sub>
+      </a><br>
+      <sub>Türkçe (tr)</sub><br>
+      <sub>&nbsp;</sub>
+    </td>
+  </tr>
+</table>
+
+<table align="left">
+  <tr>
+    <td align="center" width="180">
       <a href="https://github.com/0jar">
         <img src="https://github.com/0jar.png" width="80"><br>
         <sub><b>0jar</b></sub>
