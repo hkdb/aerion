@@ -63,6 +63,7 @@
   "messageList": {
     "searchMessages": "İletilerde ara...",
     "noMessages": "Bu klasörde ileti yok",
+    "olderThanSyncPeriod": "Bu klasörde sunucuda senkronizasyon döneminizden daha eski {count} ileti var",
     "selectFolder": "İletileri görüntülemek için bir klasör seçin",
     "emptyTrash": "Çöp Kutusunu Boşalt",
     "emptySpam": "Spam'i Boşalt",
@@ -264,6 +265,11 @@
     "markAsUnread": "Okunmamış Olarak İşaretle",
     "markAllAsRead": "Tümünü Okundu Olarak İşaretle",
     "markAllAsUnread": "Tümünü Okunmamış Olarak İşaretle",
+    "markAllScopeTitleRead": "Tümü okundu olarak işaretlensin mi?",
+    "markAllScopeTitleUnread": "Tümü okunmamış olarak işaretlensin mi?",
+    "markAllScopeBody": "Bu klasördeki {count} ileti senkronizasyon döneminizden daha eski olduğundan gösterilmiyor. Bunlar sunucuda da işaretlensin mi?",
+    "markAllScopeAll": "Evet, tümü",
+    "markAllScopeSynced": "Hayır, yalnızca senkronize edilenler",
     "noFoldersAvailable": "Kullanılabilir klasör yok",
     "searchFolders": "Klasörlerde ara...",
     "account": "Hesap"

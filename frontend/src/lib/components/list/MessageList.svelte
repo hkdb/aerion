@@ -1640,7 +1640,7 @@
         </button>
       </div>
     {:else if !isUnifiedView && (!accountId || !folderId)}
-      <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
+      <div class="flex flex-col items-center justify-center h-full text-center px-6 text-muted-foreground">
         <Icon icon="mdi:email-outline" class="w-12 h-12 mb-2" />
         <p>{$_('messageList.selectFolder')}</p>
       </div>
@@ -1656,7 +1656,7 @@
       {:else if serverSearchMode}
         <!-- Server search results -->
         {#if serverSearchResults.length === 0}
-          <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
+          <div class="flex flex-col items-center justify-center h-full text-center px-6 text-muted-foreground">
             <Icon icon="mdi:magnify" class="w-12 h-12 mb-2" />
             <p>{$_('messageList.noResults', { values: { query: searchQuery } })}</p>
           </div>
@@ -1717,7 +1717,7 @@
           {/if}
         {/if}
       {:else if searchResults.length === 0}
-        <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
+        <div class="flex flex-col items-center justify-center h-full text-center px-6 text-muted-foreground">
           <Icon icon="mdi:magnify" class="w-12 h-12 mb-2" />
           <p>{$_('messageList.noResults', { values: { query: searchQuery } })}</p>
           {#if !indexComplete}
@@ -1794,7 +1794,7 @@
         {/if}
       {/if}
     {:else if conversations.length === 0 && filterMode}
-      <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
+      <div class="flex flex-col items-center justify-center h-full text-center px-6 text-muted-foreground">
         <Icon icon="mdi:filter-off-outline" class="w-12 h-12 mb-2" />
         <p>{$_('messageList.noFilteredMessages')}</p>
         <button
@@ -1806,11 +1806,11 @@
       </div>
     {:else if conversations.length === 0}
       {@const serverFolder = !isUnifiedView && accountId && folderId ? accountStore.getFolder(accountId, folderId) : null}
-      <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
+      <div class="flex flex-col items-center justify-center h-full text-center px-6 text-muted-foreground">
         <Icon icon="mdi:inbox-outline" class="w-12 h-12 mb-2" />
         {#if serverFolder && serverFolder.totalCount > 0}
           <!-- The server holds mail older than the sync period: say so instead of "no messages" (#458) -->
-          <p>{$_('messageList.olderThanSyncPeriod', { values: { count: serverFolder.totalCount } })}</p>
+          <p class="max-w-xs">{$_('messageList.olderThanSyncPeriod', { values: { count: serverFolder.totalCount } })}</p>
         {:else}
           <p>{$_('messageList.noMessages')}</p>
         {/if}

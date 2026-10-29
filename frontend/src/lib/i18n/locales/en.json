@@ -63,7 +63,7 @@
   "messageList": {
     "searchMessages": "Search messages...",
     "noMessages": "No messages in this folder",
-    "olderThanSyncPeriod": "{count} messages in this folder are older than your sync period",
+    "olderThanSyncPeriod": "This folder has {count} messages on the server that are older than your sync period",
     "selectFolder": "Select a folder to view messages",
     "emptyTrash": "Empty Trash",
     "emptySpam": "Empty Spam",

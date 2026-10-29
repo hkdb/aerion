@@ -63,6 +63,7 @@
   "messageList": {
     "searchMessages": "Pesquisar mensagens...",
     "noMessages": "Nenhuma mensagem nesta pasta",
+    "olderThanSyncPeriod": "Esta pasta tem {count} mensagens no servidor mais antigas que o seu período de sincronização",
     "selectFolder": "Selecione uma pasta para ver as mensagens",
     "emptyTrash": "Esvaziar lixeira",
     "emptySpam": "Esvaziar spam",
@@ -264,6 +265,11 @@
     "markAsUnread": "Marcar como não lida",
     "markAllAsRead": "Marcar todas como lidas",
     "markAllAsUnread": "Marcar todas como não lidas",
+    "markAllScopeTitleRead": "Marcar todas como lidas?",
+    "markAllScopeTitleUnread": "Marcar todas como não lidas?",
+    "markAllScopeBody": "{count} mensagens nesta pasta são mais antigas que o seu período de sincronização e não são exibidas. Marcar essas também no servidor?",
+    "markAllScopeAll": "Sim, todas",
+    "markAllScopeSynced": "Não, só as sincronizadas",
     "noFoldersAvailable": "Nenhuma pasta disponível",
     "searchFolders": "Pesquisar pastas...",
     "account": "Conta"

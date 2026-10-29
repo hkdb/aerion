@@ -63,6 +63,7 @@
   "messageList": {
     "searchMessages": "Tìm kiếm thư...",
     "noMessages": "Không có thư trong thư mục này",
+    "olderThanSyncPeriod": "Thư mục này có {count} thư trên máy chủ cũ hơn khoảng thời gian đồng bộ của bạn",
     "selectFolder": "Chọn thư mục để xem thư",
     "emptyTrash": "Xóa sạch thùng rác",
     "emptySpam": "Xóa sạch thư rác",
@@ -264,6 +265,11 @@
     "markAsUnread": "Đánh dấu chưa đọc",
     "markAllAsRead": "Đánh dấu tất cả đã đọc",
     "markAllAsUnread": "Đánh dấu tất cả chưa đọc",
+    "markAllScopeTitleRead": "Đánh dấu tất cả đã đọc?",
+    "markAllScopeTitleUnread": "Đánh dấu tất cả chưa đọc?",
+    "markAllScopeBody": "{count} thư trong thư mục này cũ hơn khoảng thời gian đồng bộ của bạn và không được hiển thị. Đánh dấu cả những thư đó trên máy chủ?",
+    "markAllScopeAll": "Có, tất cả",
+    "markAllScopeSynced": "Không, chỉ thư đã đồng bộ",
     "noFoldersAvailable": "Không có thư mục nào",
     "searchFolders": "Tìm kiếm thư mục...",
     "account": "Tài khoản"

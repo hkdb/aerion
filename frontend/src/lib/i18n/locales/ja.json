@@ -63,6 +63,7 @@
   "messageList": {
     "searchMessages": "メッセージを検索...",
     "noMessages": "このフォルダにメッセージはありません",
+    "olderThanSyncPeriod": "このフォルダにはサーバー上に同期期間より古いメッセージが {count} 件あります",
     "selectFolder": "メッセージを表示するにはフォルダを選択してください",
     "emptyTrash": "ゴミ箱を空にする",
     "emptySpam": "迷惑メールを空にする",
@@ -264,6 +265,11 @@
     "markAsUnread": "未読にする",
     "markAllAsRead": "すべて既読にする",
     "markAllAsUnread": "すべて未読にする",
+    "markAllScopeTitleRead": "すべて既読にしますか？",
+    "markAllScopeTitleUnread": "すべて未読にしますか？",
+    "markAllScopeBody": "このフォルダの {count} 件のメッセージは同期期間より古いため表示されていません。これらもサーバー上で変更しますか？",
+    "markAllScopeAll": "はい、すべて",
+    "markAllScopeSynced": "いいえ、同期済みのみ",
     "noFoldersAvailable": "利用可能なフォルダがありません",
     "searchFolders": "フォルダを検索...",
     "account": "アカウント"
