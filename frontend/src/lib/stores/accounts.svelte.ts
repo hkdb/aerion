@@ -214,6 +214,26 @@ class AccountStore {
   }
 
   /**
+   * Find a folder node (with its server-side counts) by account and folder id.
+   */
+  getFolder(accountId: string, folderId: string): folder.Folder | null {
+    const acc = this.accounts.find((a) => a.account.id === accountId)
+    if (!acc) return null
+    return this.findFolderNode(acc.folders, folderId)
+  }
+
+  private findFolderNode(trees: folder.FolderTree[], folderId: string): folder.Folder | null {
+    for (const tree of trees) {
+      if (tree.folder && tree.folder.id === folderId) return tree.folder
+      if (tree.children) {
+        const found = this.findFolderNode(tree.children, folderId)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
+  /**
    * Check if any folder in the tree matches the given folder IDs
    */
   private findFolderInTree(trees: folder.FolderTree[], folderIds: string[]): boolean {

@@ -8,11 +8,13 @@
   import {
     MarkAllFolderMessagesAsRead,
     MarkAllFolderMessagesAsUnread,
-    Undo,
+    MarkWholeFolder,
+    GetMarkAllCoverage,
   } from '../../../../wailsjs/go/app/App'
   import { toasts } from '$lib/stores/toast'
   import type { Snippet } from 'svelte'
   import { _ } from '$lib/i18n'
+  import MarkAllScopeDialog from './MarkAllScopeDialog.svelte'
 
   interface Props {
     folderId: string
@@ -24,36 +26,71 @@
     children,
   }: Props = $props()
 
-  async function handleUndo() {
+  // Whole-folder scope prompt (#458): shown only when the server holds mail
+  // beyond the sync period that the local-only action would not reach.
+  let scopeOpen = $state(false)
+  let scopeSeen = $state(true)
+  let scopeCount = $state(0)
+
+  // Read-flag changes are not on the undo stack (#243), so no Undo action on
+  // these toasts — it used to undo whatever unrelated action was on top.
+  async function runLocal(seen: boolean) {
     try {
-      const description = await Undo()
-      toasts.success($_('toast.undone', { values: { description } }))
+      if (seen) {
+        await MarkAllFolderMessagesAsRead(folderId)
+      }
+      if (!seen) {
+        await MarkAllFolderMessagesAsUnread(folderId)
+      }
+      toasts.success(seen ? $_('toast.markedAllAsRead') : $_('toast.markedAllAsUnread'))
     } catch (err) {
-      console.error('Undo failed:', err)
-      toasts.error($_('toast.undoFailed'))
+      console.error('Mark all failed:', err)
+      toasts.error(seen ? $_('toast.failedToMarkAllAsRead') : $_('toast.failedToMarkAllAsUnread'))
     }
   }
 
-  async function handleMarkAllRead() {
+  async function runWhole(seen: boolean) {
     try {
-      await MarkAllFolderMessagesAsRead(folderId)
-      toasts.success($_('toast.markedAllAsRead'), [{ label: $_('common.undo'), onClick: handleUndo }])
+      await MarkWholeFolder(folderId, seen)
+      toasts.success(seen ? $_('toast.markedAllAsRead') : $_('toast.markedAllAsUnread'))
     } catch (err) {
-      console.error('Mark all as read failed:', err)
-      toasts.error($_('toast.failedToMarkAllAsRead'))
+      console.error('Mark whole folder failed:', err)
+      toasts.error(seen ? $_('toast.failedToMarkAllAsRead') : $_('toast.failedToMarkAllAsUnread'))
     }
   }
 
-  async function handleMarkAllUnread() {
+  async function startMarkAll(seen: boolean) {
+    let extra = 0
     try {
-      await MarkAllFolderMessagesAsUnread(folderId)
-      toasts.success($_('toast.markedAllAsUnread'), [{ label: $_('common.undo'), onClick: handleUndo }])
+      extra = await GetMarkAllCoverage(folderId, seen)
     } catch (err) {
-      console.error('Mark all as unread failed:', err)
-      toasts.error($_('toast.failedToMarkAllAsUnread'))
+      console.error('Mark all coverage check failed:', err)
     }
+    if (extra <= 0) {
+      await runLocal(seen)
+      return
+    }
+    scopeSeen = seen
+    scopeCount = extra
+    scopeOpen = true
+  }
+
+  function handleMarkAllRead() {
+    void startMarkAll(true)
+  }
+
+  function handleMarkAllUnread() {
+    void startMarkAll(false)
   }
 </script>
+
+<MarkAllScopeDialog
+  bind:open={scopeOpen}
+  seen={scopeSeen}
+  count={scopeCount}
+  onAll={() => runWhole(scopeSeen)}
+  onSynced={() => runLocal(scopeSeen)}
+/>
 
 <ContextMenuPrimitive.Root>
   <ContextMenuPrimitive.Trigger>

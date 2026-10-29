@@ -3,6 +3,7 @@ package imap
 import (
 	"errors"
 	"fmt"
+	"github.com/emersion/go-imap/v2"
 	"testing"
 	"time"
 )
@@ -162,5 +163,18 @@ func TestDefaultConfig_NoIDByDefault(t *testing.T) {
 	cfg := DefaultConfig()
 	if cfg.SendID || cfg.ClientName != "" || cfg.ClientVersion != "" || cfg.ClientVendor != "" {
 		t.Fatalf("DefaultConfig must not identify to servers: %+v", cfg)
+	}
+}
+
+func TestAllUIDs_IsStarRange(t *testing.T) {
+	if got := allUIDs().String(); got != "1:*" {
+		t.Fatalf("allUIDs() = %q, want 1:*", got)
+	}
+}
+
+func TestSetFlagsOnAllMessages_RequiresConnection(t *testing.T) {
+	c := NewClient(ClientConfig{})
+	if err := c.SetFlagsOnAllMessages([]imap.Flag{imap.FlagSeen}, true); err == nil {
+		t.Fatal("SetFlagsOnAllMessages on a disconnected client returned nil error")
 	}
 }

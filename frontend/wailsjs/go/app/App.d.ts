@@ -297,6 +297,8 @@ export function GetLinkedAccountsForContactSync():Promise<Array<app.LinkedAccoun
 
 export function GetMailtoMode():Promise<string>;
 
+export function GetMarkAllCoverage(arg1:string,arg2:boolean):Promise<number>;
+
 export function GetMarkAsReadDelay():Promise<number>;
 
 export function GetMessage(arg1:string):Promise<message.Message>;
@@ -466,6 +468,8 @@ export function MarkAsRead(arg1:Array<string>):Promise<void>;
 export function MarkAsSpam(arg1:Array<string>):Promise<boolean>;
 
 export function MarkAsUnread(arg1:Array<string>):Promise<void>;
+
+export function MarkWholeFolder(arg1:string,arg2:boolean):Promise<void>;
 
 export function MoveLocalMessages(arg1:Array<string>,arg2:string):Promise<void>;
 

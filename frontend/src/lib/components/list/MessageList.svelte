@@ -1805,9 +1805,15 @@
         </button>
       </div>
     {:else if conversations.length === 0}
+      {@const serverFolder = !isUnifiedView && accountId && folderId ? accountStore.getFolder(accountId, folderId) : null}
       <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
         <Icon icon="mdi:inbox-outline" class="w-12 h-12 mb-2" />
-        <p>{$_('messageList.noMessages')}</p>
+        {#if serverFolder && serverFolder.totalCount > 0}
+          <!-- The server holds mail older than the sync period: say so instead of "no messages" (#458) -->
+          <p>{$_('messageList.olderThanSyncPeriod', { values: { count: serverFolder.totalCount } })}</p>
+        {:else}
+          <p>{$_('messageList.noMessages')}</p>
+        {/if}
         <button
           class="mt-2 text-sm text-primary hover:underline"
           onclick={syncFolder}

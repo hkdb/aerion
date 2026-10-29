@@ -558,6 +558,10 @@ export function GetMailtoMode() {
   return window['go']['app']['App']['GetMailtoMode']();
 }
 
+export function GetMarkAllCoverage(arg1, arg2) {
+  return window['go']['app']['App']['GetMarkAllCoverage'](arg1, arg2);
+}
+
 export function GetMarkAsReadDelay() {
   return window['go']['app']['App']['GetMarkAsReadDelay']();
 }
@@ -896,6 +900,10 @@ export function MarkAsSpam(arg1) {
 
 export function MarkAsUnread(arg1) {
   return window['go']['app']['App']['MarkAsUnread'](arg1);
+}
+
+export function MarkWholeFolder(arg1, arg2) {
+  return window['go']['app']['App']['MarkWholeFolder'](arg1, arg2);
 }
 
 export function MoveLocalMessages(arg1, arg2) {

@@ -1060,6 +1060,36 @@ func (c *Client) RemoveMessageFlags(uids []imap.UID, flags []imap.Flag) error {
 	return nil
 }
 
+// allUIDs is the UID set covering every message in the selected mailbox
+// ("1:*"; go-imap encodes "*" as 0).
+func allUIDs() imap.UIDSet {
+	return imap.UIDSet{imap.UIDRange{Start: 1, Stop: 0}}
+}
+
+// SetFlagsOnAllMessages adds (add=true) or removes flags on every message in
+// the selected mailbox with a single UID STORE 1:* — the server-side half of
+// "mark all as read/unread", which also reaches mail outside the local sync
+// window. The mailbox must already be selected and non-empty (some servers
+// reject 1:* on an empty mailbox; callers check STATUS first).
+func (c *Client) SetFlagsOnAllMessages(flags []imap.Flag, add bool) error {
+	if c.client == nil {
+		return fmt.Errorf("not connected")
+	}
+	op := imap.StoreFlagsDel
+	if add {
+		op = imap.StoreFlagsAdd
+	}
+	storeFlags := imap.StoreFlags{Op: op, Flags: flags, Silent: true}
+	if err := c.client.Store(allUIDs(), &storeFlags, nil).Close(); err != nil {
+		return fmt.Errorf("failed to store flags on all messages: %w", err)
+	}
+	c.log.Debug().
+		Strs("flags", flagsToStrings(flags)).
+		Bool("add", add).
+		Msg("Stored flags on all messages (1:*)")
+	return nil
+}
+
 // CopyMessages copies messages to destination mailbox by UID
 // The source mailbox must already be selected before calling this method
 // Returns the new UIDs in the destination mailbox (if server supports UIDPLUS)

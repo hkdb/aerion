@@ -96,6 +96,105 @@ func (a *App) MarkAllFolderMessagesAsUnread(folderID string) error {
 	return a.MarkAsUnread(ids)
 }
 
+// GetMarkAllCoverage reports how many messages a whole-folder mark as read
+// (seen=true) or unread (seen=false) would reach beyond the local sync
+// window: the folder's server-side counts (STATUS, whole mailbox) minus the
+// rows Aerion holds locally. Zero means the local-only action already covers
+// everything; the UI asks before going server-wide otherwise (#458).
+func (a *App) GetMarkAllCoverage(folderID string, seen bool) (int, error) {
+	f, err := a.folderStore.Get(folderID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get folder: %w", err)
+	}
+	if f == nil {
+		return 0, fmt.Errorf("folder not found: %s", folderID)
+	}
+
+	var server, local int
+	switch seen {
+	case true:
+		server = f.UnreadCount
+		local, err = a.messageStore.CountUnreadByFolder(folderID)
+	default:
+		server = f.TotalCount - f.UnreadCount
+		local, err = a.messageStore.CountReadByFolder(folderID)
+	}
+	if err != nil {
+		return 0, err
+	}
+	if extra := server - local; extra > 0 {
+		return extra, nil
+	}
+	return 0, nil
+}
+
+// MarkWholeFolder marks every message in the folder read (seen=true) or
+// unread (seen=false) on the server, not just the rows inside the sync
+// window. Local rows flip first so the list updates at once; then one
+// UID STORE 1:* on the server; then the folder's counts are refreshed from
+// STATUS so the sidebar badge reflects the server (#458).
+func (a *App) MarkWholeFolder(folderID string, seen bool) error {
+	log := logging.WithComponent("app")
+
+	var localErr error
+	switch seen {
+	case true:
+		localErr = a.MarkAllFolderMessagesAsRead(folderID)
+	default:
+		localErr = a.MarkAllFolderMessagesAsUnread(folderID)
+	}
+	if localErr != nil {
+		return localErr
+	}
+
+	f, err := a.folderStore.Get(folderID)
+	if err != nil {
+		return fmt.Errorf("failed to get folder: %w", err)
+	}
+	if f == nil {
+		return fmt.Errorf("folder not found: %s", folderID)
+	}
+
+	var status *imap.Mailbox
+	err = a.withIMAPRetry(f.AccountID, func(conn *imap.Client) error {
+		if _, selErr := conn.SelectMailbox(a.ctx, f.Path); selErr != nil {
+			return selErr
+		}
+		before, stErr := conn.GetMailboxStatus(a.ctx, f.Path)
+		if stErr != nil {
+			return stErr
+		}
+		if before.Messages > 0 {
+			if flagErr := conn.SetFlagsOnAllMessages([]goImap.Flag{goImap.FlagSeen}, seen); flagErr != nil {
+				return flagErr
+			}
+		}
+		after, stErr := conn.GetMailboxStatus(a.ctx, f.Path)
+		if stErr != nil {
+			return stErr
+		}
+		status = after
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to mark folder on server: %w", err)
+	}
+
+	f.UnreadCount = int(status.Unseen)
+	f.TotalCount = int(status.Messages)
+	if err := a.folderStore.Update(f); err != nil {
+		log.Warn().Err(err).Str("folderID", folderID).Msg("Failed to update folder counts after whole-folder mark")
+	}
+	a.emitFolderCounts(map[string]int{folderID: f.UnreadCount})
+
+	log.Info().
+		Str("folder", f.Path).
+		Bool("seen", seen).
+		Int("unread", f.UnreadCount).
+		Msg("Marked whole folder on server")
+	return nil
+}
+
 // MarkAsUnread marks messages as unread
 func (a *App) MarkAsUnread(messageIDs []string) error {
 	return a.setReadStatus(messageIDs, false)

@@ -63,6 +63,7 @@
   "messageList": {
     "searchMessages": "Search messages...",
     "noMessages": "No messages in this folder",
+    "olderThanSyncPeriod": "{count} messages in this folder are older than your sync period",
     "selectFolder": "Select a folder to view messages",
     "emptyTrash": "Empty Trash",
     "emptySpam": "Empty Spam",
@@ -264,6 +265,11 @@
     "markAsUnread": "Mark as Unread",
     "markAllAsRead": "Mark All as Read",
     "markAllAsUnread": "Mark All as Unread",
+    "markAllScopeTitleRead": "Mark all as read?",
+    "markAllScopeTitleUnread": "Mark all as unread?",
+    "markAllScopeBody": "{count} messages in this folder are older than your sync period and are not shown. Also mark those on the server?",
+    "markAllScopeAll": "Yes, all",
+    "markAllScopeSynced": "No, only synced",
     "noFoldersAvailable": "No folders available",
     "searchFolders": "Search folders...",
     "account": "Account"

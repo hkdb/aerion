@@ -287,6 +287,16 @@ func (s *Store) CountUnreadByFolder(folderID string) (int, error) {
 	return count, nil
 }
 
+// CountReadByFolder returns the read message count for a folder
+func (s *Store) CountReadByFolder(folderID string) (int, error) {
+	var count int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM messages WHERE folder_id = ? AND is_read = 1", folderID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count read messages: %w", err)
+	}
+	return count, nil
+}
+
 // GetUnreadMessageIDsByFolder returns the IDs of all unread messages in a folder
 func (s *Store) GetUnreadMessageIDsByFolder(folderID string) ([]string, error) {
 	rows, err := s.db.Query("SELECT id FROM messages WHERE folder_id = ? AND is_read = 0", folderID)
