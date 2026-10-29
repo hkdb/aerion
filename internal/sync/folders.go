@@ -333,6 +333,16 @@ func (e *Engine) persistAutoDetectedMappings(accountID string) {
 		}
 	}
 
+	// Gmail has no \Archive folder: archiving there is "remove the Inbox
+	// label", which over IMAP is a move to All Mail. Default the Archive
+	// mapping to All Mail when nothing is set, so Archive works out of the
+	// box; the user can still override it in account settings (#464).
+	if acc.IMAPHost == "imap.gmail.com" && results[4] == "" && results[5] != "" {
+		results[4] = results[5]
+		updated = true
+		e.log.Info().Str("account", accountID).Str("allMail", results[5]).Msg("Gmail: defaulting Archive mapping to All Mail")
+	}
+
 	if !updated {
 		return
 	}
