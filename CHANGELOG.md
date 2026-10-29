@@ -9,6 +9,7 @@
 - Fixed login by sending IMAP ID to servers that require it - [#457](https://github.com/hkdb/aerion/issues/457)
 - "Mark all as read/unread" on a folder can now include mail older than the sync period on the server (asks when there is any) - [#458](https://github.com/hkdb/aerion/issues/458)
 - Empty folders now say when there are messages older than the sync period
+- Fixed the reading pane showing a blank "(No subject)" conversation after deleting a message - [#260](https://github.com/hkdb/aerion/issues/260)
 - Fixed mouse-dead UI after the first-run dialogs - [#448](https://github.com/hkdb/aerion/issues/448)
 - Fixed sync stalling on an empty-subject message from servers that send a malformed ENVELOPE - [#463](https://github.com/hkdb/aerion/issues/463)
 - Fixed merged duplicate messages staying unread and leaving copies behind on delete/move (actions now apply to every copy in the folder)
