@@ -13,6 +13,9 @@
 - Gmail accounts archive to All Mail by default - [#464](https://github.com/hkdb/aerion/issues/464)
 - Fixed shutdown/reboot when Aerion running in the background (SIGTERM now quits) - [#460](https://github.com/hkdb/aerion/issues/460)
 - Fixed attachment save failing when the Downloads folder has been moved or does not exist - [#474](https://github.com/hkdb/aerion/issues/474)
+- HTML signatures and pasted HTML keep their inline styles, link colours, image sizes, fonts and web-font links in the composer - [#110](https://github.com/hkdb/aerion/issues/110)
+- Fixed the signature editor showing blank after switching from HTML back to visual mode
+- Fixed extra blank space under images in the composer and signature editor
 - Fixed the reading pane showing a blank "(No subject)" conversation after deleting a message - [#260](https://github.com/hkdb/aerion/issues/260)
 - Fixed mouse-dead UI after the first-run dialogs - [#448](https://github.com/hkdb/aerion/issues/448)
 - Fixed sync stalling on an empty-subject message from servers that send a malformed ENVELOPE - [#463](https://github.com/hkdb/aerion/issues/463)

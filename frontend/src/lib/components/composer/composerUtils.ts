@@ -48,6 +48,10 @@ export function htmlToPlainText(html: string): string {
   const temp = document.createElement('div')
   temp.innerHTML = html
 
+  // CSS / stylesheet links / scripts carried in the HTML (web-font <style>
+  // blocks from signatures) must not leak into the text alternative.
+  temp.querySelectorAll('style, link, script').forEach(el => el.remove())
+
   // Replace <br> and block elements with newlines
   const blockElements = temp.querySelectorAll('p, div, br, h1, h2, h3, h4, h5, h6, li')
   blockElements.forEach(el => {

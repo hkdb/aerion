@@ -664,7 +664,7 @@
     "displayNameRequired": "Display name is required",
     "useSignature": "Use signature",
     "htmlSignature": "HTML Signature",
-    "signatureHelp": "You can paste HTML content or add images via URL or file upload",
+    "signatureHelp": "You can paste HTML content or add images via URL or file upload. Inline styles, fonts and web-font links are kept as-is; a web-font link is loaded whenever you compose.",
     "plainTextSignature": "Plain Text Signature (optional)",
     "generateFromHtml": "Generate from HTML",
     "plainTextHelp": "Used when sending plain text emails",

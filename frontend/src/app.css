@@ -217,6 +217,11 @@ mark {
 .composer-editor img {
   max-width: 100%;
   height: auto;
+  /* Tailwind preflight makes <img> display:block; recipients' clients render
+     it inline on the baseline, so match that or a br after an image opens an
+     extra blank line in the editor only. */
+  display: inline;
+  vertical-align: baseline;
 }
 
 /* Signature editor uses same base styles */
@@ -239,6 +244,8 @@ mark {
 .signature-editor img {
   max-width: 100%;
   height: auto;
+  display: inline;
+  vertical-align: baseline;
 }
 
 /* Responsive layout overlays */
