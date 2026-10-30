@@ -349,6 +349,11 @@ type App struct {
 
 	// Window hidden state (background mode)
 	windowHidden bool
+
+	// Paths the user chose in a save dialog this session; the post-save
+	// toast's Open file / Open folder actions may open them (#474).
+	recentSaveMu    goSync.Mutex
+	recentSavePaths map[string]struct{}
 }
 
 // NewApp creates a new App application struct
