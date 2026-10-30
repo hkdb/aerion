@@ -1,6 +1,6 @@
 # CHANGELOG
 
-**v0.3.6 - 10-02-2026**
+**v0.3.6 - 11-02-2026**
 ---
 
 - Added Brazilian Portuguese (pt-BR) translation - @sasnascimento
