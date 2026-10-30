@@ -502,6 +502,9 @@ var shuttingDown bool
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 
+	// Quit cleanly on SIGTERM/SIGINT/SIGHUP even in background mode (#460).
+	a.watchTerminationSignals()
+
 	// Set single-instance onShow callback immediately — must happen before any
 	// potentially-blocking D-Bus calls (theme monitor, sleep/wake, network)
 	// that could delay the rest of Startup.
