@@ -59,17 +59,15 @@
       </div>
 
       <div class="space-y-4 max-h-[60vh] overflow-y-auto text-sm">
-        <p>🚀 Welcome to Aerion v0.3.5!</p>
+        <p>🚀 Welcome to Aerion v0.3.6!</p>
 
-        <p>v0.3.5 is a temp hotfix for a launch crash caused by WebKitGTK v2.54 recently rolled out in various runtimes. For those of you who didn't get a chance to see what's new in v0.3.4, here are the highlights of the release:</p>
+        <p>v0.3.6 is mostly a maintenance release. Here are the highlights of the release:</p>
 
         <ul class="list-disc pl-6 space-y-1">
-          <li>⚗️ The message list's optional unread accent now has two new options: dot and glowing dot</li>
-          <li>✏️ Added Reply-To field to composer</li>
-          <li>✏️ Default CC, BCC, and Reply-To can now be set in Settings --> Composer</li>
-          <li>📖 Added English (UK) and Dutch spellcheck</li>
-          <li>🪟 Aerion now remembers your last window size which survives quit and relaunch</li>
-          <li>📩 Improved handling of rapid individual message deletes</li>
+          <li>⚗️ Scheduled Sync reworked</li>
+          <li>📖 Translations added for Portuguese (BR), Japanese, and Turkish</li>
+          <li>✅ Added Turkish spellcheck</li>
+          <li>✏️ Signature edit and render improvements</li>
           <li>🐛 Bug fixes and other improvements</li>
         </ul>
 
