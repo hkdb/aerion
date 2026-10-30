@@ -6,6 +6,7 @@
 - Added Brazilian Portuguese (pt-BR) translation - @sasnascimento
 - Added Japanse(ja) translation - @theluckystrike
 - Added Turkish (tr) translation - @omertahaoztop
+- Sync rework - [docs/SYNC_REWORK.md](docs/SYNC_REWORK.md)
 - Improved debug/logging
 - Fixed login by sending IMAP ID to servers that require it - [#457](https://github.com/hkdb/aerion/issues/457)
 - "Mark all as read/unread" on a folder can now include mail older than the sync period on the server (asks when there is any) - [#458](https://github.com/hkdb/aerion/issues/458)
@@ -20,7 +21,7 @@
 - Fixed mouse-dead UI after the first-run dialogs - [#448](https://github.com/hkdb/aerion/issues/448)
 - Fixed sync stalling on an empty-subject message from servers that send a malformed ENVELOPE - [#463](https://github.com/hkdb/aerion/issues/463)
 - Fixed merged duplicate messages staying unread and leaving copies behind on delete/move (actions now apply to every copy in the folder)
-- Sync rework - [docs/SYNC_REWORK.md](docs/SYNC_REWORK.md)
+- Calendar: changing an event's start now moves the end to keep the duration - [#466](https://github.com/hkdb/aerion/issues/466)
 
 
 **v0.3.5 - 09-21-2026**
