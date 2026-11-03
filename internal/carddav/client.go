@@ -148,7 +148,7 @@ func discoverAddressbooks(baseURL, username string, httpClient webdav.HTTPClient
 	// The direct-URL attempt's error is the most user-relevant one — later
 	// fallback rungs can fail for unrelated reasons and would mask it (#363).
 	directErr := err
-	log.Debug().Err(err).Msg("Direct URL discovery failed, trying .well-known")
+	log.Info().Err(err).Msg("Direct URL discovery failed, trying .well-known")
 
 	// Method 2: Try .well-known/carddav
 	wellKnownURL := fmt.Sprintf("%s://%s/.well-known/carddav", parsedURL.Scheme, parsedURL.Host)
@@ -156,7 +156,7 @@ func discoverAddressbooks(baseURL, username string, httpClient webdav.HTTPClient
 	if err == nil && len(addressbooks) > 0 {
 		return addressbooks, nil
 	}
-	log.Debug().Err(err).Msg(".well-known discovery failed, trying common paths")
+	log.Info().Err(err).Msg(".well-known discovery failed, trying common paths")
 
 	// Method 3: Try common CardDAV paths
 	commonPaths := []string{
@@ -207,7 +207,7 @@ func tryDiscoverFromURL(ctx context.Context, httpClient webdav.HTTPClient, urlSt
 		principal = rawPrincipal
 	}
 
-	log.Debug().Str("principal", principal).Msg("Found principal")
+	log.Info().Str("principal", principal).Msg("Found principal")
 
 	// Find addressbook home set
 	homeSet, err := client.FindAddressBookHomeSet(ctx, principal)
@@ -216,7 +216,7 @@ func tryDiscoverFromURL(ctx context.Context, httpClient webdav.HTTPClient, urlSt
 		return nil, err
 	}
 
-	log.Debug().Str("homeSet", homeSet).Msg("Found addressbook home set")
+	log.Info().Str("homeSet", homeSet).Msg("Found addressbook home set")
 
 	// List addressbooks in the home set
 	return tryListAddressbooksAt(ctx, httpClient, resolveURL(urlStr, homeSet), log)
@@ -235,7 +235,7 @@ func tryListAddressbooksAt(ctx context.Context, httpClient webdav.HTTPClient, ur
 		return nil, fmt.Errorf("invalid URL: %w", err)
 	}
 
-	log.Debug().Str("url", urlStr).Str("path", parsedURL.Path).Msg("Listing addressbooks")
+	log.Info().Str("url", urlStr).Str("path", parsedURL.Path).Msg("Listing addressbooks")
 
 	addressbooks, err := client.FindAddressBooks(ctx, parsedURL.Path)
 	if err != nil {
@@ -832,7 +832,7 @@ func (c *Client) FetchContactsEnumerate(addressbookPath string) ([]*ParsedRecord
 
 	// Last resort: a server that rejects REPORTs entirely — fetch each vCard
 	// with a plain GET.
-	c.log.Debug().Err(err).Msg("Multiget rejected, fetching vCards individually via GET")
+	c.log.Info().Err(err).Msg("Multiget rejected, fetching vCards individually via GET")
 	records = make([]*ParsedRecord, 0, len(paths))
 	for _, p := range paths {
 		parsed, getErr := c.fetchVCardByGET(ctx, httpClient, p)

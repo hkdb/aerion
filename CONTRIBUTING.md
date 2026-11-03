@@ -71,7 +71,11 @@ Instead, use guard clause (w/ early returns) or switch statements.
 - Use meaningful variable and function names
 - Add comments for exported functions
 - Handle errors explicitly (no silent failures)
-- Use structured logging with zerolog
+- Use structured logging with zerolog, and pick the level by how often the line fires:
+  - `info` — one line per operation that records a decision or outcome (a sync finished, an IDLE connection was replaced, a token was refreshed)
+  - `debug` — anything per message, per IMAP command, per batch, per autosave, or on a timer
+  - `warn` / `error` — something went wrong but the app carries on
+- To see logs while developing: `AERION_LOG_LEVEL=info make dev` (or `debug`). Add `AERION_LOG_FILE=<path>` to also write them to a file (console format, 10 MB rollover to `<path>.1`). Built binaries take `--log-level` and `--log-file`. The default is `fatal`, so a plain `make dev` prints nothing.
 
 ```go
 // Good

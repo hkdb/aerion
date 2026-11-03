@@ -17,7 +17,7 @@ func (a *App) initThemeMonitor(ctx context.Context) {
 	a.themeMonitor = platform.NewThemeMonitor()
 
 	if err := a.themeMonitor.Start(ctx); err != nil {
-		log.Debug().Err(err).Msg("System theme monitor not available, frontend will use matchMedia fallback")
+		log.Info().Err(err).Msg("System theme monitor not available, frontend will use matchMedia fallback")
 		a.themeMonitor = nil
 		return
 	}

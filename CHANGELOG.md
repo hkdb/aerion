@@ -1,5 +1,34 @@
 # CHANGELOG
 
+**v0.3.6 - 11-03-2026**
+---
+
+- Added Brazilian Portuguese (pt-BR) translation - @sasnascimento
+- Added Japanse(ja) translation - @theluckystrike
+- Added Turkish (tr) translation - @omertahaoztop
+- Sync rework - [docs/SYNC_REWORK.md](docs/SYNC_REWORK.md)
+- Improved debug/logging
+- Fixed login by sending IMAP ID to servers that require it - [#457](https://github.com/hkdb/aerion/issues/457)
+- "Mark all as read/unread" on a folder can now include mail older than the sync period (asks when there is any) - [#458](https://github.com/hkdb/aerion/issues/458)
+- Empty folders now say when there are messages older than the sync period
+- Gmail accounts archive to All Mail by default - [#464](https://github.com/hkdb/aerion/issues/464)
+- Fixed shutdown/reboot when Aerion running in the background (SIGTERM now quits) - [#460](https://github.com/hkdb/aerion/issues/460)
+- Fixed attachment save failing when the Downloads folder has been moved or does not exist - [#474](https://github.com/hkdb/aerion/issues/474)
+- HTML signatures and pasted HTML keep their inline styles, link colours, image sizes, fonts and web-font links in the composer - [#110](https://github.com/hkdb/aerion/issues/110)
+- Fixed the signature editor showing blank after switching from HTML back to visual mode
+- Fixed extra blank space under images in the composer and signature editor
+- Fixed the reading pane showing a blank "(No subject)" conversation after deleting a message - [#260](https://github.com/hkdb/aerion/issues/260)
+- Fixed mouse-dead UI after the first-run dialogs - [#448](https://github.com/hkdb/aerion/issues/448)
+- Fixed sync stalling on an empty-subject message from servers that send a malformed ENVELOPE - [#463](https://github.com/hkdb/aerion/issues/463)
+- Fixed merged duplicate messages staying unread and leaving copies behind on delete/move (actions now apply to every copy in the folder)
+- Calendar: changing an event's start now moves the end to keep the duration - [#466](https://github.com/hkdb/aerion/issues/466)
+- Calendar: events with Windows time zone IDs (Outlook invites) now sync and expand correctly - [#467](https://github.com/hkdb/aerion/pull/467)
+- Fixed the message list not highlighting the message opened from a notification click
+- Add Account: Fixed Account Name and Username refilling after being cleared - [#451](https://github.com/hkdb/aerion/issues/451)
+- Confined auto-fill to Add Account
+- Add Account: Removed auto-capitalizing account name on auto-fill  
+
+
 **v0.3.5 - 09-21-2026**
 ---
 

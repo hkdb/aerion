@@ -477,6 +477,15 @@
       // Stale guard: user navigated away while we were fetching
       if (threadId !== tid) return
 
+      // A thread with no messages is gone (e.g. just deleted/moved; the
+      // backend returns an empty conversation, not null). Showing it renders
+      // a blank "(No subject)" pane — dismiss and let the list select the
+      // next row instead (#260).
+      if (!result?.messages?.length) {
+        dismissConversation(true)
+        return
+      }
+
       conversation = result
 
       // Auto-expand unread messages and the last message
@@ -749,7 +758,11 @@
   export async function refreshFlags() {
     if (!threadId || !folderId) return
     try {
-      conversation = await GetConversation(threadId, folderId)
+      const updated = await GetConversation(threadId, folderId)
+      // Best-effort flag refresh: never replace a shown thread with an empty
+      // one (the thread may have just been deleted/moved, #260).
+      if (!updated?.messages?.length) return
+      conversation = updated
     } catch {
       // Silent — flag refresh is best-effort
     }

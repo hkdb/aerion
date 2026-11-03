@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -36,6 +37,8 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		return ctx.Err()
 	}
 
+	syncStart := time.Now()
+
 	// Serialize with any other header/flag reconcile on this folder — the
 	// caller-side tracking maps don't see each other (see folderlock.go).
 	unlock, err := e.folderLocks.lock(ctx, folderID)
@@ -43,6 +46,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		return err
 	}
 	defer unlock()
+	lockWait := time.Since(syncStart)
 
 	// Get folder from store
 	f, err := e.folderStore.Get(folderID)
@@ -142,7 +146,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 
 	// Check context before fetching UIDs
 	if ctx.Err() != nil {
-		e.log.Debug().Msg("Header sync cancelled before fetching UIDs")
+		e.log.Info().Msg("Header sync cancelled before fetching UIDs")
 		return ctx.Err()
 	}
 
@@ -150,6 +154,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 	e.emitProgress(accountID, folderID, 0, 0, "messages")
 
 	// Fetch UIDs from server (filtered by date if syncPeriodDays > 0)
+	remoteFetchStart := time.Now()
 	var remoteUIDs []uint32
 	if syncPeriodDays > 0 {
 		remoteUIDs, err = e.fetchUIDsSince(ctx, conn.Client().RawClient(), sinceDate)
@@ -165,6 +170,8 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		Str("folder", f.Path).
 		Int("localCount", len(localUIDs)).
 		Int("remoteCount", len(remoteUIDs)).
+		Dur("remoteUIDFetch", time.Since(remoteFetchStart)).
+		Dur("lockWait", lockWait).
 		Msg("UID comparison")
 
 	// SAFEGUARD: If remote returns empty but we have local messages, something is wrong
@@ -258,6 +265,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 	// advance below. Stays true on success; flipped to false if the only
 	// available flag-sync path failed. See nextModSeq in condstore.go.
 	flagSyncOK := true
+	flagSyncStart := time.Now()
 	if len(existingUIDs) > 0 {
 		flagSyncOK = e.runFlagSync(
 			ctx,
@@ -290,7 +298,7 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		for i := 0; i < len(newUIDs); i += headerBatchSize {
 			// Check context at start of each batch
 			if ctx.Err() != nil {
-				e.log.Debug().Msg("Header sync cancelled")
+				e.log.Info().Msg("Header sync cancelled")
 				return ctx.Err()
 			}
 
@@ -313,8 +321,35 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 
 				// Check if this was a cancellation
 				if ctx.Err() != nil {
-					e.log.Debug().Msg("Header sync cancelled during batch fetch")
+					e.log.Info().Msg("Header sync cancelled during batch fetch")
 					return ctx.Err()
+				}
+
+				// A malformed ENVELOPE (e.g. Mailfence's empty subject, #209/#463)
+				// is fatal to the go-imap connection: the read loop closes the
+				// socket and fails every pending command. The client we just used
+				// is dead, so reconnect FIRST, then re-fetch the unsaved UIDs
+				// without ENVELOPE. Runs once per batch — never retried with
+				// ENVELOPE, and never looped if the recovery itself fails.
+				var envErr *envelopeDecodeError
+				if errors.As(err, &envErr) {
+					e.log.Warn().
+						Err(envErr.Err).
+						Int("missing", len(envErr.Missing)).
+						Str("folder", f.Path).
+						Msg("Malformed ENVELOPE killed the connection — reconnecting to recover headers without ENVELOPE")
+
+					conn, err = e.replaceHeaderConnection(ctx, conn, accountID, f.Path)
+					if err != nil {
+						return err
+					}
+
+					recovered, recErr := e.recoverFailedHeaderBatch(ctx, conn.Client().RawClient(), accountID, folderID, envErr.Missing)
+					if recErr != nil {
+						e.log.Warn().Err(recErr).Msg("Header recovery returned error")
+					}
+					e.finalizeSavedHeaders(accountID, recovered)
+					break
 				}
 
 				// Check if this is a connection error
@@ -330,28 +365,18 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 						return fmt.Errorf("header sync connection recovery failed after %d attempts", headerConnectionFailures)
 					}
 
-					e.log.Debug().
+					e.log.Info().
 						Err(err).
 						Int("attempt", headerConnectionFailures).
 						Int("batchRetry", batchRetries).
 						Msg("Connection error during header fetch, attempting recovery")
 
-					// Discard dead connection and get a new one
-					e.pool.Discard(conn)
-
-					conn, err = e.pool.GetConnection(ctx, accountID)
+					conn, err = e.replaceHeaderConnection(ctx, conn, accountID, f.Path)
 					if err != nil {
-						return fmt.Errorf("failed to get new connection during header sync: %w", err)
+						return err
 					}
 
-					// Re-select mailbox on new connection
-					_, err = conn.Client().SelectMailbox(ctx, f.Path)
-					if err != nil {
-						e.pool.Release(conn)
-						return fmt.Errorf("failed to select mailbox on new connection: %w", err)
-					}
-
-					e.log.Debug().Msg("Connection recovered for header sync")
+					e.log.Info().Msg("Connection recovered for header sync")
 					// Retry this batch with the new connection
 					continue
 				}
@@ -399,10 +424,19 @@ func (e *Engine) SyncMessages(ctx context.Context, accountID, folderID string, s
 		e.log.Warn().Err(err).Msg("Failed to update folder sync state")
 	}
 
+	// Per-sync cost profile. Trash reconciles that climb across a session are
+	// the per-delete amplification signature; lockWait growing means syncs
+	// are queueing behind each other on the folder lock.
 	e.log.Info().
 		Str("folder", f.Path).
 		Int("new", len(newUIDs)).
 		Int("deleted", len(deletedUIDs)).
+		Int("local", len(localUIDs)).
+		Int("remote", len(remoteUIDs)).
+		Bool("preferIncremental", preferIncremental).
+		Dur("lockWait", lockWait).
+		Dur("flagSync", time.Since(flagSyncStart)).
+		Dur("elapsed", time.Since(syncStart)).
 		Msg("Message sync complete (headers)")
 
 	return nil
@@ -847,33 +881,20 @@ func (e *Engine) fetchMessageHeaders(ctx context.Context, client *imapclient.Cli
 		fetchedCount++
 	}
 
+	var envErr *envelopeDecodeError
 	if err := fetchCmd.Close(); err != nil {
 		e.log.Warn().Err(err).
 			Int("fetched", fetchedCount).
 			Int("requested", len(uids)).
 			Msg("Header fetch close error, continuing with saved messages")
 
-		// Recovery path for malformed-envelope servers (e.g., Mailfence emitting a bare
-		// space where "" or NIL should be for an empty subject — see issue #209). Only
-		// triggers on this specific parse error signature; everything else falls through
-		// to the existing "log + continue with partial results" behavior.
-		if strings.Contains(err.Error(), `expected string, got " "`) && fetchedCount < len(uids) {
-			savedUIDs := make(map[uint32]bool, len(savedMessages))
-			for _, m := range savedMessages {
-				savedUIDs[m.UID] = true
-			}
-			missing := make([]uint32, 0, len(uids)-fetchedCount)
-			for _, u := range uids {
-				if !savedUIDs[u] {
-					missing = append(missing, u)
-				}
-			}
-			recovered, recErr := e.recoverFailedHeaderBatch(ctx, client, accountID, folderID, missing)
-			if recErr != nil {
-				e.log.Warn().Err(recErr).Msg("Header recovery returned error")
-			}
-			savedMessages = append(savedMessages, recovered...)
-			fetchedCount += len(recovered)
+		// Malformed-envelope servers (Mailfence emits a bare space where "" or
+		// NIL should be for an empty subject — #209/#463). Any envelope decode
+		// error has already closed this client (go-imap treats decode errors as
+		// fatal), so recovery can't run here: report the unsaved UIDs to the
+		// caller, which reconnects and re-fetches them without ENVELOPE.
+		if isEnvelopeDecodeError(err) {
+			envErr = &envelopeDecodeError{Err: err, Missing: missingUIDs(uids, savedMessages)}
 		}
 	}
 
@@ -882,8 +903,56 @@ func (e *Engine) fetchMessageHeaders(ctx context.Context, client *imapclient.Cli
 		Int("requested", len(uids)).
 		Msg("Header fetch complete")
 
-	// Compute thread IDs after saving and reconcile related messages
-	for _, m := range savedMessages {
+	e.finalizeSavedHeaders(accountID, savedMessages)
+
+	if envErr != nil {
+		return envErr
+	}
+	return nil
+}
+
+// envelopeDecodeError reports that the server sent a malformed ENVELOPE in a
+// header FETCH. go-imap treats any decode error as fatal to the connection, so
+// the caller must obtain a fresh connection before recovering Missing (the UIDs
+// of the batch that were never saved).
+type envelopeDecodeError struct {
+	Err     error
+	Missing []uint32
+}
+
+func (e *envelopeDecodeError) Error() string { return e.Err.Error() }
+func (e *envelopeDecodeError) Unwrap() error { return e.Err }
+
+// isEnvelopeDecodeError matches go-imap's "in envelope: ..." wrapping of any
+// ENVELOPE parse failure (imapclient/fetch.go readEnvelope).
+func isEnvelopeDecodeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "in envelope:")
+}
+
+// missingUIDs returns the requested UIDs that have no saved message, in request order.
+func missingUIDs(requested []uint32, saved []*message.Message) []uint32 {
+	savedSet := make(map[uint32]bool, len(saved))
+	for _, m := range saved {
+		savedSet[m.UID] = true
+	}
+	missing := make([]uint32, 0, len(requested))
+	for _, u := range requested {
+		if savedSet[u] {
+			continue
+		}
+		missing = append(missing, u)
+	}
+	return missing
+}
+
+// finalizeSavedHeaders computes thread IDs for freshly saved headers and
+// reconciles them with related messages (replies may have synced before their
+// originals). Shared by the primary header fetch and the no-ENVELOPE recovery.
+func (e *Engine) finalizeSavedHeaders(accountID string, saved []*message.Message) {
+	for _, m := range saved {
 		threadID := e.computeThreadID(accountID, m)
 		if threadID != "" && threadID != m.ThreadID {
 			m.ThreadID = threadID
@@ -892,65 +961,25 @@ func (e *Engine) fetchMessageHeaders(ctx context.Context, client *imapclient.Cli
 			}
 		}
 
-		// Reconcile threads: link this message with related messages
-		// This handles cases where replies were synced before the original message
 		if err := e.messageStore.ReconcileThreadsForNewMessage(accountID, m.ID, m.MessageID, m.ThreadID, m.InReplyTo); err != nil {
 			e.log.Warn().Err(err).Str("messageId", m.ID).Msg("Failed to reconcile threads")
 		}
 	}
-
-	return nil
 }
 
-/*
-// parseMessageHeaderBuffer parses an IMAP FetchMessageBuffer containing only headers.
-//
-// UNUSED: This function is not called anywhere. Header parsing is done inline in
-// fetchMessageHeaders using streaming (Next() loop) instead of FetchMessageBuffer.
-func (e *Engine) parseMessageHeaderBuffer(accountID, folderID string, buf *imapclient.FetchMessageBuffer) (*message.Message, error) {
-	m := &message.Message{
-		AccountID:   accountID,
-		FolderID:    folderID,
-		UID:         uint32(buf.UID),
-		ReceivedAt:  time.Now().UTC(),
-		BodyFetched: false, // Headers only, no body yet
+// replaceHeaderConnection discards a dead pooled connection, acquires a fresh
+// one for the account and re-selects the mailbox so header fetching can resume.
+func (e *Engine) replaceHeaderConnection(ctx context.Context, old *imapPkg.PooledConnection, accountID, path string) (*imapPkg.PooledConnection, error) {
+	e.pool.Discard(old)
+
+	conn, err := e.pool.GetConnection(ctx, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get new connection during header sync: %w", err)
 	}
 
-	// Parse envelope
-	applyEnvelopeToMessage(m, buf.Envelope)
-
-	// Extract References and read receipt header from headers
-	var references []string
-	for _, section := range buf.BodySection {
-		if len(section.Bytes) > 0 {
-			references = e.extractReferences(section.Bytes)
-			m.ReadReceiptTo = e.extractDispositionNotificationTo(section.Bytes)
-
-			// Check for attachments from Content-Type header
-			// This is a heuristic - we'll confirm when fetching body
-			headerStr := string(section.Bytes)
-			if strings.Contains(strings.ToLower(headerStr), "multipart/mixed") ||
-				strings.Contains(strings.ToLower(headerStr), "application/") {
-				m.HasAttachments = true
-			}
-			break
-		}
+	if _, err := conn.Client().SelectMailbox(ctx, path); err != nil {
+		e.pool.Release(conn)
+		return nil, fmt.Errorf("failed to select mailbox on new connection: %w", err)
 	}
-
-	// Store references as JSON array
-	if len(references) > 0 {
-		refsJSON, _ := json.Marshal(references)
-		m.References = string(refsJSON)
-	}
-
-	// Parse flags
-	applyFlagsToMessage(m, buf.Flags)
-
-	// Size
-	m.Size = int(buf.RFC822Size)
-
-	// No snippet yet - will be generated when body is fetched
-
-	return m, nil
+	return conn, nil
 }
-*/

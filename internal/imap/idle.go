@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/emersion/go-sasl"
 	"github.com/hkdb/aerion/internal/logging"
@@ -131,7 +132,7 @@ func (ic *IdleConnection) Stop() {
 	if doneCh != nil {
 		select {
 		case <-doneCh:
-			ic.log.Debug().Msg("IDLE connection stopped gracefully")
+			ic.log.Info().Msg("IDLE connection stopped gracefully")
 		case <-time.After(timeout):
 			ic.log.Warn().Msg("IDLE connection shutdown timed out, forcing close")
 			ic.mu.Lock()
@@ -176,7 +177,7 @@ func (ic *IdleConnection) run(ctx context.Context) {
 		// Stop if offline — processNetworkEvents will restart IDLE
 		// when connectivity is restored, avoiding wasteful retries
 		if ic.isConnected != nil && !ic.isConnected() {
-			ic.log.Debug().Msg("Offline, stopping IDLE (will restart when online)")
+			ic.log.Info().Msg("Offline, stopping IDLE (will restart when online)")
 			return
 		}
 
@@ -367,6 +368,18 @@ func (ic *IdleConnection) ensureConnected(ctx context.Context) error {
 		return fmt.Errorf("failed to receive greeting: %w", err)
 	}
 
+	// Servers known to demand an IMAP ID before LOGIN (learned flag, #457).
+	// Same minimal payload as Client.sendID; never sent otherwise.
+	if creds.SendID && client.Caps().Has(imap.CapID) {
+		if _, err := client.ID(&imap.IDData{
+			Name:    creds.ClientName,
+			Version: creds.ClientVersion,
+			Vendor:  creds.ClientVendor,
+		}).Wait(); err != nil {
+			ic.log.Warn().Err(err).Msg("IDLE: IMAP ID command failed")
+		}
+	}
+
 	// Login
 	authType := creds.AuthType
 	if authType == "" {
@@ -520,7 +533,7 @@ func (m *IdleManager) Stop() {
 
 	m.mu.Lock()
 	for accountID, conn := range m.connections {
-		m.log.Debug().Str("account", accountID).Msg("Stopping IDLE connection")
+		m.log.Info().Str("account", accountID).Msg("Stopping IDLE connection")
 		conn.Stop()
 	}
 	m.connections = make(map[string]*IdleConnection)
@@ -546,11 +559,11 @@ func (m *IdleManager) StartAccount(accountID, accountName string) {
 		running := conn.running
 		conn.mu.Unlock()
 		if running {
-			m.log.Debug().Str("account", accountName).Msg("IDLE already running for account")
+			m.log.Info().Str("account", accountName).Msg("IDLE already running for account")
 			return
 		}
 		// Goroutine exited (e.g., max reconnect attempts reached) — remove stale entry
-		m.log.Debug().Str("account", accountName).Msg("Replacing dead IDLE connection")
+		m.log.Info().Str("account", accountName).Msg("Replacing dead IDLE connection")
 		delete(m.connections, accountID)
 	}
 

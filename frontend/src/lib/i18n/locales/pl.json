@@ -63,6 +63,7 @@
   "messageList": {
     "searchMessages": "Szukaj wiadomości...",
     "noMessages": "Brak wiadomości w tym folderze",
+    "olderThanSyncPeriod": "Ten folder zawiera {count} wiadomości na serwerze starszych niż okres synchronizacji",
     "selectFolder": "Wybierz folder aby zobaczyć wiadomości",
     "emptyTrash": "Opróżnij kosz",
     "emptySpam": "Opróżnij spam",
@@ -264,6 +265,11 @@
     "markAsUnread": "Oznacz jako nieprzeczytane",
     "markAllAsRead": "Oznacz wszystko jako przeczytane",
     "markAllAsUnread": "Oznacz wszystko jako nieprzeczytane",
+    "markAllScopeTitleRead": "Oznaczyć wszystko jako przeczytane?",
+    "markAllScopeTitleUnread": "Oznaczyć wszystko jako nieprzeczytane?",
+    "markAllScopeBody": "{count} wiadomości w tym folderze jest starszych niż okres synchronizacji i nie są wyświetlane. Oznaczyć je również na serwerze?",
+    "markAllScopeAll": "Tak, wszystkie",
+    "markAllScopeSynced": "Nie, tylko zsynchronizowane",
     "noFoldersAvailable": "Brak dostępnych folderów",
     "searchFolders": "Szukaj folderów...",
     "account": "Konto"

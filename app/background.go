@@ -243,7 +243,7 @@ func (a *App) handleIdleNewMail(event imap.MailEvent) {
 	a.syncMu.Lock()
 	if _, exists := a.syncContexts[syncKey]; exists {
 		a.syncMu.Unlock()
-		log.Debug().Str("syncKey", syncKey).Msg("Skipping IDLE sync - sync already in progress")
+		log.Info().Str("syncKey", syncKey).Msg("Skipping IDLE sync - sync already in progress")
 		return
 	}
 	a.syncMu.Unlock()
@@ -276,7 +276,7 @@ func (a *App) handleIdleNewMail(event imap.MailEvent) {
 		// Double-check no sync started while we were processing
 		if _, exists := a.syncContexts[syncKey]; exists {
 			a.syncMu.Unlock()
-			log.Debug().Str("syncKey", syncKey).Msg("Skipping IDLE body fetch - sync started during processing")
+			log.Info().Str("syncKey", syncKey).Msg("Skipping IDLE body fetch - sync started during processing")
 			return
 		}
 		ctx, cancel := context.WithCancel(a.ctx)
@@ -324,7 +324,7 @@ func (a *App) handleIdleNewMail(event imap.MailEvent) {
 			if bodyErr != nil {
 				if syncCtx.Err() != nil {
 					// Cancelled - not an error, emit synced
-					log.Debug().Str("folder", fID).Msg("IDLE body fetch cancelled")
+					log.Info().Str("folder", fID).Msg("IDLE body fetch cancelled")
 					folderSynced = true
 					wailsRuntime.EventsEmit(a.ctx, "folder:synced", map[string]interface{}{
 						"accountId": event.AccountID,
@@ -469,7 +469,7 @@ func (a *App) reconcileInboxFlags(accountID string, attempt int) {
 	a.syncMu.Unlock()
 	if busy {
 		if attempt >= idleFlagBusyMaxRetries {
-			log.Debug().Str("syncKey", syncKey).Msg("IDLE flag re-sync still busy after retry - deferring to scheduled sync")
+			log.Info().Str("syncKey", syncKey).Msg("IDLE flag re-sync still busy after retry - deferring to scheduled sync")
 			return
 		}
 		log.Debug().Str("syncKey", syncKey).Int("attempt", attempt).Msg("IDLE flag re-sync busy - retrying shortly")
@@ -479,7 +479,7 @@ func (a *App) reconcileInboxFlags(accountID string, attempt int) {
 		return
 	}
 
-	log.Debug().Str("accountID", accountID).Msg("Flags changed via IDLE, reconciling inbox flags (fast path)")
+	log.Info().Str("accountID", accountID).Msg("Flags changed via IDLE, reconciling inbox flags (fast path)")
 	ctx, cancel := context.WithTimeout(a.ctx, 2*time.Minute)
 	defer cancel()
 	syncErr := a.syncEngine.SyncFolderFlags(ctx, accountID, folderID)
@@ -528,11 +528,11 @@ func (a *App) handleIdleExpunge(accountID string) {
 	_, busy := a.syncContexts[syncKey]
 	a.syncMu.Unlock()
 	if busy {
-		log.Debug().Str("syncKey", syncKey).Msg("Skipping IDLE expunge reconcile - sync already in progress")
+		log.Info().Str("syncKey", syncKey).Msg("Skipping IDLE expunge reconcile - sync already in progress")
 		return
 	}
 
-	log.Debug().Str("accountID", accountID).Msg("Messages expunged via IDLE, reconciling inbox deletions (lightweight)")
+	log.Info().Str("accountID", accountID).Msg("Messages expunged via IDLE, reconciling inbox deletions (lightweight)")
 	_, syncErr := a.syncScheduler.SyncAccountInboxBlocking(accountID)
 
 	// Always emit folder:synced: the sync emits progress that drives the sidebar
@@ -868,7 +868,7 @@ func (a *App) syncAfterWake() {
 	a.syncMu.Lock()
 	if a.wakeSyncing {
 		a.syncMu.Unlock()
-		log.Debug().Msg("syncAfterWake already in progress, skipping")
+		log.Info().Msg("syncAfterWake already in progress, skipping")
 		return
 	}
 	a.wakeSyncing = true

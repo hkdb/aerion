@@ -282,3 +282,43 @@ func TestUpsert(t *testing.T) {
 		t.Errorf("got %d folders, want 1", len(folders))
 	}
 }
+
+func TestAdjustCounts(t *testing.T) {
+	db := openTestDB(t)
+	createTestAccount(t, db, "acc1")
+	store := NewStore(db)
+
+	f := &Folder{AccountID: "acc1", Name: "INBOX", Path: "INBOX", Type: TypeInbox, TotalCount: 7739, UnreadCount: 7739}
+	if err := store.Create(f); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := store.AdjustCounts(f.ID, 0, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TotalCount != 7739 || got.UnreadCount != 7738 {
+		t.Fatalf("after -1 unread: total=%d unread=%d", got.TotalCount, got.UnreadCount)
+	}
+
+	got, err = store.AdjustCounts(f.ID, -2, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TotalCount != 7737 || got.UnreadCount != 7741 {
+		t.Fatalf("after -2 total / +3 unread: total=%d unread=%d", got.TotalCount, got.UnreadCount)
+	}
+
+	// Clamp at zero
+	got, err = store.AdjustCounts(f.ID, -100000, -100000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TotalCount != 0 || got.UnreadCount != 0 {
+		t.Fatalf("clamp: total=%d unread=%d, want 0/0", got.TotalCount, got.UnreadCount)
+	}
+
+	if _, err := store.AdjustCounts("missing", 1, 1); err == nil {
+		t.Fatal("AdjustCounts on an unknown folder returned nil error")
+	}
+}

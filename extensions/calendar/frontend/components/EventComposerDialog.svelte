@@ -25,6 +25,7 @@
   import { calendarSources } from '$extensions/calendar/frontend/stores/calendarSources.svelte'
   import { calendarSettings } from '$extensions/calendar/frontend/stores/calendarSettings.svelte'
   import { fromZonedTime, toZonedTime } from 'date-fns-tz'
+  import { untrack } from 'svelte'
   // @ts-ignore - wailsjs bindings
   import { Calendar_CreateEvent, Calendar_UpdateEvent } from '$wailsjs/go/app/App.js'
   import AttendeesSection from './AttendeesSection.svelte'
@@ -64,6 +65,9 @@
   let startTime = $state('')
   let endDate = $state('')
   let endTime = $state('')
+  // Start the end was last aligned to (unix); shiftEndWithStart keeps the
+  // event's duration when the user moves the start (#466).
+  let lastStartUnix = $state(0)
   let location = $state('')
   let description = $state('')
   // descriptionHTML carries the rich-text body; description holds its plaintext
@@ -277,6 +281,9 @@
     startTime = formatHM(startInTz)
     endDate = formatYMD(endInTz)
     endTime = formatHM(endInTz)
+    // untrack: initForm runs inside the open-effect, and a tracked read of
+    // the fields here would make every keystroke in them re-run the seed.
+    lastStartUnix = untrack(() => buildUnix(startDate, startTime, isAllDay))
     isAllDay = false
   }
 
@@ -352,6 +359,9 @@
     startTime = formatHM(startInTz)
     endDate = formatYMD(endInTz)
     endTime = formatHM(endInTz)
+    // untrack: initForm runs inside the open-effect, and a tracked read of
+    // the fields here would make every keystroke in them re-run the seed.
+    lastStartUnix = untrack(() => buildUnix(startDate, startTime, isAllDay))
     parseRRule(ev.rruleText || '')
     transparency = ev.transparency || 'busy'
     visibility = ev.visibility || 'public'
@@ -408,6 +418,9 @@
     startTime = formatHM(refInTz)
     endDate = formatYMD(endRef)
     endTime = formatHM(endRef)
+    // untrack: initForm runs inside the open-effect, and a tracked read of
+    // the fields here would make every keystroke in them re-run the seed.
+    lastStartUnix = untrack(() => buildUnix(startDate, startTime, isAllDay))
     recurrenceFreq = ''
     recurrenceEnd = 'never'
     recurrenceUntilDate = ''
@@ -473,6 +486,35 @@
     const wall = new Date(y, (m || 1) - 1, d || 1, hh, mm, 0, 0)
     const utc = fromZonedTime(wall, calendarSettings.effectiveTimezone)
     return Math.floor(utc.getTime() / 1000)
+  }
+
+  // shiftEndWithStart moves the end so the event keeps its duration when the
+  // start changes (#466): end = newStart + (oldEnd - lastStart). All-day
+  // durations are whole days (both ends are local midnight), timed ones are
+  // seconds through the tz conversion so DST is handled. An end that was
+  // already before the start is left alone rather than propagated.
+  function shiftEndWithStart() {
+    if (!startDate) return
+    // A half-typed time reports '' and would read as 00:00; wait for a
+    // complete value and keep lastStartUnix so the eventual shift is
+    // measured from the original start.
+    if (!isAllDay && !startTime) return
+    const newStart = buildUnix(startDate, startTime, isAllDay)
+    if (isNaN(newStart)) return
+    if (lastStartUnix === 0 || !endDate) {
+      lastStartUnix = newStart
+      return
+    }
+    const oldEnd = buildUnix(endDate, endTime || startTime, isAllDay)
+    const duration = oldEnd - lastStartUnix
+    if (isNaN(duration) || duration < 0) {
+      lastStartUnix = newStart
+      return
+    }
+    const newEnd = toZonedTime(new Date((newStart + duration) * 1000), calendarSettings.effectiveTimezone)
+    endDate = formatYMD(newEnd)
+    if (!isAllDay) endTime = formatHM(newEnd)
+    lastStartUnix = newStart
   }
 
   // nextDayYMD bumps a YYYY-MM-DD string by one calendar day, with Date
@@ -693,12 +735,15 @@
       </label>
 
       <div class="grid grid-cols-2 gap-2">
-        <div>
+        <!-- input bubbles from the controls on every committed segment / spin /
+             picker change, so the end follows live; the wrappers run the
+             duration-preserving shift (#466) -->
+        <div oninput={shiftEndWithStart}>
           <Label for="cal-composer-startdate">{$_('calendar.composer.startDateLabel')}</Label>
           <Input id="cal-composer-startdate" type="date" bind:value={startDate} disabled={submitting} />
         </div>
         {#if !isAllDay}
-          <div>
+          <div oninput={shiftEndWithStart}>
             <Label for="cal-composer-starttime">{$_('calendar.composer.startTimeLabel')}</Label>
             <Input id="cal-composer-starttime" type="time" bind:value={startTime} disabled={submitting} />
           </div>

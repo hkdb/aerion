@@ -438,6 +438,19 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 	}
 	defer unlock()
 
+	// Bound concurrent body fetches per account so they can't hold every pool
+	// slot (see bodyFetchConcurrency). Taken after the folder lock so a fetch
+	// queued here already owns its folder.
+	gateWait := time.Now()
+	release, err := e.bodyGate.acquire(ctx, accountID)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if waited := time.Since(gateWait); waited > time.Second {
+		e.log.Debug().Str("account", accountID).Str("folderID", folderID).Dur("waited", waited).Msg("Body fetch waited for account slot")
+	}
+
 	// Get folder to get path
 	f, err := e.folderStore.Get(folderID)
 	if err != nil {
@@ -479,7 +492,7 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 	}
 
 	if totalWithoutBody == 0 {
-		e.log.Debug().Msg("All messages have bodies, nothing to fetch")
+		e.log.Info().Msg("All messages have bodies, nothing to fetch")
 		// Emit 1/1 so frontend shows 100% complete for bodies phase
 		e.emitProgress(accountID, folderID, 1, 1, "bodies")
 		e.pool.Release(conn)
@@ -588,7 +601,7 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 
 		// Check context before starting new batch
 		if ctx.Err() != nil {
-			e.log.Debug().Msg("Body fetch cancelled")
+			e.log.Info().Msg("Body fetch cancelled")
 			e.pool.Release(conn)
 			return ctx.Err()
 		}
@@ -608,7 +621,7 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 			Msg("Queried candidates for next batch")
 
 		if len(candidates) == 0 {
-			e.log.Debug().Msg("No more candidates, body sync complete")
+			e.log.Info().Msg("No more candidates, body sync complete")
 			break // All done
 		}
 
@@ -705,7 +718,7 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 					return fmt.Errorf("connection recovery failed after %d attempts", connectionFailures)
 				}
 
-				e.log.Debug().
+				e.log.Info().
 					Err(fetchErr).
 					Int("attempt", connectionFailures).
 					Msg("Connection error during batch fetch, attempting recovery")
@@ -725,7 +738,7 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 					return fmt.Errorf("failed to select mailbox on new connection: %w", err)
 				}
 
-				e.log.Debug().Msg("Connection recovered successfully, retrying batch")
+				e.log.Info().Msg("Connection recovered successfully, retrying batch")
 				continue // Retry same batch
 			}
 
@@ -984,4 +997,3 @@ func (e *Engine) buildMessageFromStreamedData(accountID, folderID string, uid im
 
 	return m
 }
-

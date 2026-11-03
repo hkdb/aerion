@@ -54,6 +54,20 @@ func (a *App) withIMAPRetry(accountID string, op func(conn *imap.Client) error) 
 // ============================================================================
 
 // MarkAsRead marks messages as read
+// expandToFolderCopies widens an action's target ids to every same-folder row
+// sharing a Message-ID with them (server duplicate deliveries). The viewer shows
+// those copies as one merged message, so the user's action must cover all of
+// them. On lookup failure the action proceeds on the original ids.
+func (a *App) expandToFolderCopies(messageIDs []string) []string {
+	expanded, err := a.messageStore.ExpandToFolderCopies(messageIDs)
+	if err != nil {
+		log := logging.WithComponent("app")
+		log.Warn().Err(err).Msg("Failed to expand action to duplicate copies")
+		return messageIDs
+	}
+	return expanded
+}
+
 func (a *App) MarkAsRead(messageIDs []string) error {
 	return a.setReadStatus(messageIDs, true)
 }
@@ -82,6 +96,105 @@ func (a *App) MarkAllFolderMessagesAsUnread(folderID string) error {
 	return a.MarkAsUnread(ids)
 }
 
+// GetMarkAllCoverage reports how many messages a whole-folder mark as read
+// (seen=true) or unread (seen=false) would reach beyond the local sync
+// window: the folder's server-side counts (STATUS, whole mailbox) minus the
+// rows Aerion holds locally. Zero means the local-only action already covers
+// everything; the UI asks before going server-wide otherwise (#458).
+func (a *App) GetMarkAllCoverage(folderID string, seen bool) (int, error) {
+	f, err := a.folderStore.Get(folderID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get folder: %w", err)
+	}
+	if f == nil {
+		return 0, fmt.Errorf("folder not found: %s", folderID)
+	}
+
+	var server, local int
+	switch seen {
+	case true:
+		server = f.UnreadCount
+		local, err = a.messageStore.CountUnreadByFolder(folderID)
+	default:
+		server = f.TotalCount - f.UnreadCount
+		local, err = a.messageStore.CountReadByFolder(folderID)
+	}
+	if err != nil {
+		return 0, err
+	}
+	if extra := server - local; extra > 0 {
+		return extra, nil
+	}
+	return 0, nil
+}
+
+// MarkWholeFolder marks every message in the folder read (seen=true) or
+// unread (seen=false) on the server, not just the rows inside the sync
+// window. Local rows flip first so the list updates at once; then one
+// UID STORE 1:* on the server; then the folder's counts are refreshed from
+// STATUS so the sidebar badge reflects the server (#458).
+func (a *App) MarkWholeFolder(folderID string, seen bool) error {
+	log := logging.WithComponent("app")
+
+	var localErr error
+	switch seen {
+	case true:
+		localErr = a.MarkAllFolderMessagesAsRead(folderID)
+	default:
+		localErr = a.MarkAllFolderMessagesAsUnread(folderID)
+	}
+	if localErr != nil {
+		return localErr
+	}
+
+	f, err := a.folderStore.Get(folderID)
+	if err != nil {
+		return fmt.Errorf("failed to get folder: %w", err)
+	}
+	if f == nil {
+		return fmt.Errorf("folder not found: %s", folderID)
+	}
+
+	var status *imap.Mailbox
+	err = a.withIMAPRetry(f.AccountID, func(conn *imap.Client) error {
+		if _, selErr := conn.SelectMailbox(a.ctx, f.Path); selErr != nil {
+			return selErr
+		}
+		before, stErr := conn.GetMailboxStatus(a.ctx, f.Path)
+		if stErr != nil {
+			return stErr
+		}
+		if before.Messages > 0 {
+			if flagErr := conn.SetFlagsOnAllMessages([]goImap.Flag{goImap.FlagSeen}, seen); flagErr != nil {
+				return flagErr
+			}
+		}
+		after, stErr := conn.GetMailboxStatus(a.ctx, f.Path)
+		if stErr != nil {
+			return stErr
+		}
+		status = after
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to mark folder on server: %w", err)
+	}
+
+	f.UnreadCount = int(status.Unseen)
+	f.TotalCount = int(status.Messages)
+	if err := a.folderStore.Update(f); err != nil {
+		log.Warn().Err(err).Str("folderID", folderID).Msg("Failed to update folder counts after whole-folder mark")
+	}
+	a.emitFolderCounts(map[string]int{folderID: f.UnreadCount})
+
+	log.Info().
+		Str("folder", f.Path).
+		Bool("seen", seen).
+		Int("unread", f.UnreadCount).
+		Msg("Marked whole folder on server")
+	return nil
+}
+
 // MarkAsUnread marks messages as unread
 func (a *App) MarkAsUnread(messageIDs []string) error {
 	return a.setReadStatus(messageIDs, false)
@@ -93,6 +206,7 @@ func (a *App) setReadStatus(messageIDs []string, isRead bool) error {
 	if len(messageIDs) == 0 {
 		return nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	// Get messages to find their UIDs and folders
 	messages, err := a.messageStore.GetByIDs(messageIDs)
@@ -121,30 +235,15 @@ func (a *App) setReadStatus(messageIDs []string, isRead bool) error {
 		"isRead":     isRead,
 	})
 
-	// Update folder unread counts in background to avoid blocking other DB operations
+	// Update folder unread counts in background to avoid blocking other DB
+	// operations. Deltas, not a recount — see folder_counts.go.
 	go func() {
 		defer recoverPanic("app.actions", "update folder counts")
 		folderCounts := make(map[string]int)
-		for folderID := range byFolder {
-			unreadCount, err := a.messageStore.CountUnreadByFolder(folderID)
-			if err != nil {
-				log.Error().Err(err).Str("folderID", folderID).Msg("Failed to count unread messages")
-				continue
-			}
-			folderObj, err := a.folderStore.Get(folderID)
-			if err != nil || folderObj == nil {
-				log.Error().Err(err).Str("folderID", folderID).Msg("Failed to get folder")
-				continue
-			}
-			if err := a.folderStore.UpdateCounts(folderID, folderObj.TotalCount, unreadCount); err != nil {
-				log.Error().Err(err).Str("folderID", folderID).Msg("Failed to update folder counts")
-				continue
-			}
-			folderCounts[folderID] = unreadCount
+		for folderID, msgs := range byFolder {
+			a.adjustFolderCounts(folderCounts, folderID, 0, readFlipDelta(msgs, isRead))
 		}
-		if len(folderCounts) > 0 {
-			wailsRuntime.EventsEmit(a.ctx, "folders:countsChanged", folderCounts)
-		}
+		a.emitFolderCounts(folderCounts)
 	}()
 
 	// Sync to IMAP in background with retry
@@ -292,6 +391,7 @@ func (a *App) MoveToFolder(messageIDs []string, destFolderID string) error {
 	if len(messageIDs) == 0 {
 		return nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	// Cross-account selections (Unified Inbox or any mixed-account multi-
 	// select) route to a partition helper that recurses through this
@@ -356,53 +456,16 @@ func (a *App) MoveToFolder(messageIDs []string, destFolderID string) error {
 		"destFolderId": destFolderID,
 	})
 
-	// Update folder unread counts for source and destination folders
+	// Update folder counts for source and destination folders. Deltas from
+	// the pre-move message objects, not a recount — see folder_counts.go.
 	go func() {
 		defer recoverPanic("app.actions", "update folder counts after move")
 		folderCounts := make(map[string]int)
-
-		// Update source folders
 		for folderID, msgs := range byFolder {
-			unreadCount, err := a.messageStore.CountUnreadByFolder(folderID)
-			if err != nil {
-				log.Error().Err(err).Str("folderID", folderID).Msg("Failed to count unread messages")
-				continue
-			}
-			folderObj, err := a.folderStore.Get(folderID)
-			if err != nil || folderObj == nil {
-				log.Error().Err(err).Str("folderID", folderID).Msg("Failed to get folder")
-				continue
-			}
-			newTotalCount := folderObj.TotalCount - len(msgs)
-			if newTotalCount < 0 {
-				newTotalCount = 0
-			}
-			if err := a.folderStore.UpdateCounts(folderID, newTotalCount, unreadCount); err != nil {
-				log.Error().Err(err).Str("folderID", folderID).Msg("Failed to update folder counts")
-				continue
-			}
-			folderCounts[folderID] = unreadCount
+			a.adjustFolderCounts(folderCounts, folderID, -len(msgs), -unreadIn(msgs))
 		}
-
-		// Update destination folder
-		unreadCount, err := a.messageStore.CountUnreadByFolder(destFolderID)
-		if err != nil {
-			log.Error().Err(err).Str("folderID", destFolderID).Msg("Failed to count unread messages for destination")
-		} else {
-			destFolderObj, err := a.folderStore.Get(destFolderID)
-			if err == nil && destFolderObj != nil {
-				newTotalCount := destFolderObj.TotalCount + len(messageIDs)
-				if err := a.folderStore.UpdateCounts(destFolderID, newTotalCount, unreadCount); err != nil {
-					log.Error().Err(err).Str("folderID", destFolderID).Msg("Failed to update destination folder counts")
-				} else {
-					folderCounts[destFolderID] = unreadCount
-				}
-			}
-		}
-
-		if len(folderCounts) > 0 {
-			wailsRuntime.EventsEmit(a.ctx, "folders:countsChanged", folderCounts)
-		}
+		a.adjustFolderCounts(folderCounts, destFolderID, len(messages), unreadIn(messages))
+		a.emitFolderCounts(folderCounts)
 	}()
 
 	// Sync to IMAP in background (COPY + DELETE), then sync destination to get correct UIDs.
@@ -773,6 +836,7 @@ func (a *App) Archive(messageIDs []string) error {
 	if len(messageIDs) == 0 {
 		return nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	// Cross-account selections (Unified Inbox) route to a partition
 	// helper that recurses through this same function with uniform
@@ -806,6 +870,7 @@ func (a *App) Trash(messageIDs []string) (bool, error) {
 	if len(messageIDs) == 0 {
 		return false, nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	// Cross-account selections (Unified Inbox) route to a partition
 	// helper that recurses through this same function with uniform
@@ -932,33 +997,14 @@ func (a *App) gmailRemoveLabel(messages []*message.Message) error {
 
 	wailsRuntime.EventsEmit(a.ctx, "messages:deleted", ids)
 
-	// Update folder counts
+	// Update folder counts (deltas — see folder_counts.go)
 	go func() {
 		defer recoverPanic("app.actions", "update folder counts after label removal")
 		folderCounts := make(map[string]int)
 		for folderID, msgs := range byFolder {
-			unreadCount, countErr := a.messageStore.CountUnreadByFolder(folderID)
-			if countErr != nil {
-				log.Error().Err(countErr).Str("folderID", folderID).Msg("Failed to count unread messages")
-				continue
-			}
-			folderObj, getErr := a.folderStore.Get(folderID)
-			if getErr != nil || folderObj == nil {
-				continue
-			}
-			newTotalCount := folderObj.TotalCount - len(msgs)
-			if newTotalCount < 0 {
-				newTotalCount = 0
-			}
-			if updateErr := a.folderStore.UpdateCounts(folderID, newTotalCount, unreadCount); updateErr != nil {
-				log.Error().Err(updateErr).Str("folderID", folderID).Msg("Failed to update folder counts")
-				continue
-			}
-			folderCounts[folderID] = unreadCount
+			a.adjustFolderCounts(folderCounts, folderID, -len(msgs), -unreadIn(msgs))
 		}
-		if len(folderCounts) > 0 {
-			wailsRuntime.EventsEmit(a.ctx, "folders:countsChanged", folderCounts)
-		}
+		a.emitFolderCounts(folderCounts)
 	}()
 
 	// IMAP: DELETE from source folders (no COPY — just remove the label)
@@ -1017,6 +1063,7 @@ func (a *App) MarkAsSpam(messageIDs []string) (bool, error) {
 	if len(messageIDs) == 0 {
 		return false, nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	// Cross-account selections (Unified Inbox) route to a partition
 	// helper that recurses through this same function with uniform
@@ -1054,6 +1101,7 @@ func (a *App) MarkAsNotSpam(messageIDs []string) error {
 	if len(messageIDs) == 0 {
 		return nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	// Cross-account selections (Unified Inbox) route to a partition
 	// helper that recurses through this same function with uniform
@@ -1103,6 +1151,7 @@ func (a *App) DeletePermanently(messageIDs []string) error {
 	if len(messageIDs) == 0 {
 		return nil
 	}
+	messageIDs = a.expandToFolderCopies(messageIDs)
 
 	messages, err := a.messageStore.GetByIDs(messageIDs)
 	if err != nil {
@@ -1129,34 +1178,14 @@ func (a *App) DeletePermanently(messageIDs []string) error {
 
 	wailsRuntime.EventsEmit(a.ctx, "messages:deleted", messageIDs)
 
-	// Update folder unread counts
+	// Update folder counts (deltas — see folder_counts.go)
 	go func() {
 		defer recoverPanic("app.actions", "update folder counts after delete")
 		folderCounts := make(map[string]int)
 		for folderID, msgs := range byFolder {
-			unreadCount, err := a.messageStore.CountUnreadByFolder(folderID)
-			if err != nil {
-				log.Error().Err(err).Str("folderID", folderID).Msg("Failed to count unread messages")
-				continue
-			}
-			folderObj, err := a.folderStore.Get(folderID)
-			if err != nil || folderObj == nil {
-				log.Error().Err(err).Str("folderID", folderID).Msg("Failed to get folder")
-				continue
-			}
-			newTotalCount := folderObj.TotalCount - len(msgs)
-			if newTotalCount < 0 {
-				newTotalCount = 0
-			}
-			if err := a.folderStore.UpdateCounts(folderID, newTotalCount, unreadCount); err != nil {
-				log.Error().Err(err).Str("folderID", folderID).Msg("Failed to update folder counts")
-				continue
-			}
-			folderCounts[folderID] = unreadCount
+			a.adjustFolderCounts(folderCounts, folderID, -len(msgs), -unreadIn(msgs))
 		}
-		if len(folderCounts) > 0 {
-			wailsRuntime.EventsEmit(a.ctx, "folders:countsChanged", folderCounts)
-		}
+		a.emitFolderCounts(folderCounts)
 	}()
 
 	// Delete from IMAP in background

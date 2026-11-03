@@ -66,6 +66,11 @@
   let loading = $state(false)
   let error = $state<string | null>(null)
   let selectedThreadId = $state<string | null>(null)
+  // A selection requested from outside (notification click) while the list
+  // may still be loading its folder. Applied when the load lands, and it
+  // takes precedence over the auto-select-first and session-restore writers,
+  // which otherwise overwrite it (regression since the session restore).
+  let pendingSelectThreadId: string | null = null
   let lastLoadedFolderId = $state<string | null>(null) // Track folder changes
   let loadGeneration = $state(0) // Invalidates stale async results when folder changes mid-load (#200)
 
@@ -372,7 +377,9 @@
       // Restore the selection (keyboard-nav anchor) so j/k continue from
       // where the user left off instead of the auto-selected first row —
       // only if the thread still exists in the reloaded window.
+      // An external selection (notification click) wins over the restore.
       if (
+        !pendingSelectThreadId &&
         remembered.selectedThreadId &&
         conversations.some((c) => c.threadId === remembered.selectedThreadId)
       ) {
@@ -488,7 +495,12 @@
         return
       }
 
-      if (folderChanged || !selectedThreadId) {
+      if (pendingSelectThreadId && conversations.some(c => c.threadId === pendingSelectThreadId)) {
+        selectedThreadId = pendingSelectThreadId
+        pendingSelectThreadId = null
+        scrollToIndex(conversations.findIndex(c => c.threadId === selectedThreadId))
+      }
+      if (!pendingSelectThreadId && (folderChanged || !selectedThreadId)) {
         selectedThreadId = conversations[0].threadId
       }
       totalCount = count
@@ -1111,13 +1123,18 @@
     }
   }
 
-  // Select a specific thread by ID (exposed for notification clicks)
+  // Select a specific thread by ID (exposed for notification clicks). If the
+  // thread is not in the list yet (folder still loading), the request is kept
+  // and applied when the load completes.
   export function selectThread(threadId: string) {
-    selectedThreadId = threadId
     const index = activeList.findIndex(c => c.threadId === threadId)
-    if (index >= 0) {
-      scrollToIndex(index)
+    if (index < 0 || loading) {
+      pendingSelectThreadId = threadId
+      return
     }
+    pendingSelectThreadId = null
+    selectedThreadId = threadId
+    scrollToIndex(index)
   }
 
   // Toggle search focus (exposed for keyboard navigation via Ctrl+S)
@@ -1640,7 +1657,7 @@
         </button>
       </div>
     {:else if !isUnifiedView && (!accountId || !folderId)}
-      <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
+      <div class="flex flex-col items-center justify-center h-full text-center px-6 text-muted-foreground">
         <Icon icon="mdi:email-outline" class="w-12 h-12 mb-2" />
         <p>{$_('messageList.selectFolder')}</p>
       </div>
@@ -1656,7 +1673,7 @@
       {:else if serverSearchMode}
         <!-- Server search results -->
         {#if serverSearchResults.length === 0}
-          <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
+          <div class="flex flex-col items-center justify-center h-full text-center px-6 text-muted-foreground">
             <Icon icon="mdi:magnify" class="w-12 h-12 mb-2" />
             <p>{$_('messageList.noResults', { values: { query: searchQuery } })}</p>
           </div>
@@ -1717,7 +1734,7 @@
           {/if}
         {/if}
       {:else if searchResults.length === 0}
-        <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
+        <div class="flex flex-col items-center justify-center h-full text-center px-6 text-muted-foreground">
           <Icon icon="mdi:magnify" class="w-12 h-12 mb-2" />
           <p>{$_('messageList.noResults', { values: { query: searchQuery } })}</p>
           {#if !indexComplete}
@@ -1794,7 +1811,7 @@
         {/if}
       {/if}
     {:else if conversations.length === 0 && filterMode}
-      <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
+      <div class="flex flex-col items-center justify-center h-full text-center px-6 text-muted-foreground">
         <Icon icon="mdi:filter-off-outline" class="w-12 h-12 mb-2" />
         <p>{$_('messageList.noFilteredMessages')}</p>
         <button
@@ -1805,9 +1822,15 @@
         </button>
       </div>
     {:else if conversations.length === 0}
-      <div class="flex flex-col items-center justify-center h-full text-muted-foreground">
+      {@const serverFolder = !isUnifiedView && accountId && folderId ? accountStore.getFolder(accountId, folderId) : null}
+      <div class="flex flex-col items-center justify-center h-full text-center px-6 text-muted-foreground">
         <Icon icon="mdi:inbox-outline" class="w-12 h-12 mb-2" />
-        <p>{$_('messageList.noMessages')}</p>
+        {#if serverFolder && serverFolder.totalCount > 0}
+          <!-- The server holds mail older than the sync period: say so instead of "no messages" (#458) -->
+          <p class="max-w-xs">{$_('messageList.olderThanSyncPeriod', { values: { count: serverFolder.totalCount } })}</p>
+        {:else}
+          <p>{$_('messageList.noMessages')}</p>
+        {/if}
         <button
           class="mt-2 text-sm text-primary hover:underline"
           onclick={syncFolder}

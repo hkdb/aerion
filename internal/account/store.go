@@ -41,6 +41,19 @@ func boolToInt(b bool) int {
 	return 0
 }
 
+// SetIMAPRequireID records whether the account's server demands an IMAP ID
+// command before LOGIN (learned from an "Unsafe Login" rejection, #457).
+func (s *Store) SetIMAPRequireID(id string, required bool) error {
+	res, err := s.db.Exec("UPDATE accounts SET imap_require_id = ? WHERE id = ?", boolToInt(required), id)
+	if err != nil {
+		return fmt.Errorf("failed to set imap_require_id: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrAccountNotFound
+	}
+	return nil
+}
+
 // getNextColor returns the next color in the rotation based on account count
 func (s *Store) getNextColor() string {
 	var count int
@@ -176,14 +189,14 @@ func (s *Store) Create(config *AccountConfig) (*Account, error) {
 func (s *Store) Get(id string) (*Account, error) {
 	account := &Account{}
 	var sentPath, draftsPath, trashPath, spamPath, archivePath, allMailPath, starredPath, sharedMailboxParentID sql.NullString
-	var syncAllFolders, syncFoldersEnabled, noOutgoingServer int
+	var syncAllFolders, syncFoldersEnabled, noOutgoingServer, imapRequireID int
 	err := s.db.QueryRow(`
 		SELECT id, name, email, shared_mailbox_parent_id,
 			imap_host, imap_port, imap_security, imap_auth_mechanism,
 			smtp_host, smtp_port, smtp_security, smtp_auth_mechanism,
 			no_outgoing_server, smtp_username, reply_forward_identity_id,
 			auth_type, username,
-			enabled, order_index, color, sync_period_days, sync_interval, sync_all_folders, sync_folders_enabled,
+			enabled, order_index, color, sync_period_days, sync_interval, sync_all_folders, sync_folders_enabled, imap_require_id,
 			read_receipt_request_policy,
 			sent_folder_path, drafts_folder_path, trash_folder_path,
 			spam_folder_path, archive_folder_path, all_mail_folder_path,
@@ -196,7 +209,7 @@ func (s *Store) Get(id string) (*Account, error) {
 		&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity, &account.SMTPAuthMechanism,
 		&noOutgoingServer, &account.SMTPUsername, &account.ReplyForwardIdentityID,
 		&account.AuthType, &account.Username,
-		&account.Enabled, &account.OrderIndex, &account.Color, &account.SyncPeriodDays, &account.SyncInterval, &syncAllFolders, &syncFoldersEnabled,
+		&account.Enabled, &account.OrderIndex, &account.Color, &account.SyncPeriodDays, &account.SyncInterval, &syncAllFolders, &syncFoldersEnabled, &imapRequireID,
 		&account.ReadReceiptRequestPolicy,
 		&sentPath, &draftsPath, &trashPath,
 		&spamPath, &archivePath, &allMailPath,
@@ -211,6 +224,7 @@ func (s *Store) Get(id string) (*Account, error) {
 	}
 	account.SyncAllFolders = syncAllFolders == 1
 	account.SyncFoldersEnabled = syncFoldersEnabled == 1
+	account.IMAPRequireID = imapRequireID == 1
 	account.NoOutgoingServer = noOutgoingServer == 1
 	account.SharedMailboxParentID = sharedMailboxParentID.String
 	// Map nullable strings to account fields
@@ -232,7 +246,7 @@ func (s *Store) List() ([]*Account, error) {
 			smtp_host, smtp_port, smtp_security, smtp_auth_mechanism,
 			no_outgoing_server, smtp_username, reply_forward_identity_id,
 			auth_type, username,
-			enabled, order_index, color, sync_period_days, sync_interval, sync_all_folders, sync_folders_enabled,
+			enabled, order_index, color, sync_period_days, sync_interval, sync_all_folders, sync_folders_enabled, imap_require_id,
 			read_receipt_request_policy,
 			sent_folder_path, drafts_folder_path, trash_folder_path,
 			spam_folder_path, archive_folder_path, all_mail_folder_path,
@@ -249,14 +263,14 @@ func (s *Store) List() ([]*Account, error) {
 	for rows.Next() {
 		account := &Account{}
 		var sentPath, draftsPath, trashPath, spamPath, archivePath, allMailPath, starredPath, sharedMailboxParentID sql.NullString
-		var syncAllFolders, syncFoldersEnabled, noOutgoingServer int
+		var syncAllFolders, syncFoldersEnabled, noOutgoingServer, imapRequireID int
 		err := rows.Scan(
 			&account.ID, &account.Name, &account.Email, &sharedMailboxParentID,
 			&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity, &account.IMAPAuthMechanism,
 			&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity, &account.SMTPAuthMechanism,
 			&noOutgoingServer, &account.SMTPUsername, &account.ReplyForwardIdentityID,
 			&account.AuthType, &account.Username,
-			&account.Enabled, &account.OrderIndex, &account.Color, &account.SyncPeriodDays, &account.SyncInterval, &syncAllFolders, &syncFoldersEnabled,
+			&account.Enabled, &account.OrderIndex, &account.Color, &account.SyncPeriodDays, &account.SyncInterval, &syncAllFolders, &syncFoldersEnabled, &imapRequireID,
 			&account.ReadReceiptRequestPolicy,
 			&sentPath, &draftsPath, &trashPath,
 			&spamPath, &archivePath, &allMailPath,
@@ -269,6 +283,7 @@ func (s *Store) List() ([]*Account, error) {
 		// Map nullable strings and booleans to account fields
 		account.SyncAllFolders = syncAllFolders == 1
 		account.SyncFoldersEnabled = syncFoldersEnabled == 1
+		account.IMAPRequireID = imapRequireID == 1
 		account.NoOutgoingServer = noOutgoingServer == 1
 		account.SharedMailboxParentID = sharedMailboxParentID.String
 		account.SentFolderPath = sentPath.String
@@ -292,7 +307,7 @@ func (s *Store) ListBySharedMailboxParent(parentID string) ([]*Account, error) {
 			smtp_host, smtp_port, smtp_security, smtp_auth_mechanism,
 			no_outgoing_server, smtp_username, reply_forward_identity_id,
 			auth_type, username,
-			enabled, order_index, color, sync_period_days, sync_interval, sync_all_folders, sync_folders_enabled,
+			enabled, order_index, color, sync_period_days, sync_interval, sync_all_folders, sync_folders_enabled, imap_require_id,
 			read_receipt_request_policy,
 			sent_folder_path, drafts_folder_path, trash_folder_path,
 			spam_folder_path, archive_folder_path, all_mail_folder_path,
@@ -309,14 +324,14 @@ func (s *Store) ListBySharedMailboxParent(parentID string) ([]*Account, error) {
 	for rows.Next() {
 		account := &Account{}
 		var sentPath, draftsPath, trashPath, spamPath, archivePath, allMailPath, starredPath, sharedMailboxParentID sql.NullString
-		var syncAllFolders, syncFoldersEnabled, noOutgoingServer int
+		var syncAllFolders, syncFoldersEnabled, noOutgoingServer, imapRequireID int
 		err := rows.Scan(
 			&account.ID, &account.Name, &account.Email, &sharedMailboxParentID,
 			&account.IMAPHost, &account.IMAPPort, &account.IMAPSecurity, &account.IMAPAuthMechanism,
 			&account.SMTPHost, &account.SMTPPort, &account.SMTPSecurity, &account.SMTPAuthMechanism,
 			&noOutgoingServer, &account.SMTPUsername, &account.ReplyForwardIdentityID,
 			&account.AuthType, &account.Username,
-			&account.Enabled, &account.OrderIndex, &account.Color, &account.SyncPeriodDays, &account.SyncInterval, &syncAllFolders, &syncFoldersEnabled,
+			&account.Enabled, &account.OrderIndex, &account.Color, &account.SyncPeriodDays, &account.SyncInterval, &syncAllFolders, &syncFoldersEnabled, &imapRequireID,
 			&account.ReadReceiptRequestPolicy,
 			&sentPath, &draftsPath, &trashPath,
 			&spamPath, &archivePath, &allMailPath,
@@ -328,6 +343,7 @@ func (s *Store) ListBySharedMailboxParent(parentID string) ([]*Account, error) {
 		}
 		account.SyncAllFolders = syncAllFolders == 1
 		account.SyncFoldersEnabled = syncFoldersEnabled == 1
+		account.IMAPRequireID = imapRequireID == 1
 		account.NoOutgoingServer = noOutgoingServer == 1
 		account.SharedMailboxParentID = sharedMailboxParentID.String
 		account.SentFolderPath = sentPath.String

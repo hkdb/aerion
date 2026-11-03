@@ -897,6 +897,19 @@ Special thanks to translation contributors for making Aerion more accessible:
 <table align="left">
   <tr>
     <td align="center" width="180">
+      <a href="https://github.com/theluckystrike">
+        <img src="https://github.com/theluckystrike.png" width="80"><br>
+        <sub><b>theluckystrike</b></sub>
+      </a><br>
+      <sub>Japanese (ja)</sub><br>
+      <sub>&nbsp;</sub>
+    </td>
+  </tr>
+</table>
+
+<table align="left">
+  <tr>
+    <td align="center" width="180">
       <a href="https://github.com/dexblasnoot">
         <img src="https://github.com/dexblasnoot.png" width="80"><br>
         <sub><b>dexblasnoot</b></sub>
@@ -915,6 +928,32 @@ Special thanks to translation contributors for making Aerion more accessible:
         <sub><b>aquilapl</b></sub>
       </a><br>
       <sub>Polski (pl)</sub><br>
+      <sub>&nbsp;</sub>
+    </td>
+  </tr>
+</table>
+
+<table align="left">
+  <tr>
+    <td align="center" width="180">
+      <a href="https://github.com/sasnascimento">
+        <img src="https://github.com/sasnascimento.png" width="80"><br>
+        <sub><b>sasnascimento</b></sub>
+      </a><br>
+      <sub>Português (pt-BR)</sub><br>
+      <sub>&nbsp;</sub>
+    </td>
+  </tr>
+</table>
+
+<table align="left">
+  <tr>
+    <td align="center" width="180">
+      <a href="https://github.com/omertahaoztop">
+        <img src="https://github.com/omertahaoztop.png" width="80"><br>
+        <sub><b>omertahaoztop</b></sub>
+      </a><br>
+      <sub>Türkçe (tr)</sub><br>
       <sub>&nbsp;</sub>
     </td>
   </tr>

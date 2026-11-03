@@ -168,12 +168,9 @@ func (a *App) SaveAttachmentAs(attachmentID string) (string, error) {
 
 	log.Debug().Str("filename", att.Filename).Str("messageID", att.MessageID).Msg("Found attachment metadata")
 
-	// Get user's home directory for default save location
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		homeDir = ""
-	}
-	defaultDir := filepath.Join(homeDir, "Downloads")
+	// Downloads if it exists, else home (#474: a missing default directory
+	// makes Wails refuse to open the dialog at all)
+	defaultDir := platform.DefaultSaveDir()
 
 	// In Flatpak, use portal save dialog (Wails GTK dialog doesn't route through portal)
 	if platform.IsFlatpak() {
@@ -186,6 +183,7 @@ func (a *App) SaveAttachmentAs(attachmentID string) (string, error) {
 			log.Debug().Msg("User cancelled save dialog")
 			return "", nil
 		}
+		a.rememberSavePath(savePath)
 		return a.DownloadAttachment(attachmentID, savePath)
 	}
 
@@ -207,6 +205,7 @@ func (a *App) SaveAttachmentAs(attachmentID string) (string, error) {
 		log.Debug().Msg("User cancelled save dialog")
 		return "", nil
 	}
+	a.rememberSavePath(savePath)
 
 	// Download and save to the selected path
 	resultPath, err := a.DownloadAttachment(attachmentID, savePath)
@@ -262,13 +261,24 @@ func (a *App) validateOpenPath(path string) error {
 		return fmt.Errorf("failed to get home directory: %w", err)
 	}
 
+	// Anything the user explicitly chose in a save dialog this session is
+	// fair to open from the post-save toast (#474: a relocated Downloads or
+	// any other folder the user picked).
+	if a.isRecentSavePath(absPath) {
+		return nil
+	}
+
 	allowedRoots := []string{
 		a.paths.AttachmentsPath(),
 		filepath.Join(homeDir, "Downloads"),
+		platform.DownloadsDir(),
 		a.paths.Data,
 	}
 
 	for _, root := range allowedRoots {
+		if root == "" {
+			continue
+		}
 		cleanRoot := filepath.Clean(root) + string(filepath.Separator)
 		if strings.HasPrefix(absPath, cleanRoot) || absPath == filepath.Clean(root) {
 			return nil
@@ -329,12 +339,9 @@ func (a *App) SaveAllAttachments(messageID string) (string, error) {
 		return "", fmt.Errorf("no attachments found for message")
 	}
 
-	// Get user's home directory for default save location
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		homeDir = ""
-	}
-	defaultDir := filepath.Join(homeDir, "Downloads")
+	// Downloads if it exists, else home (#474: a missing default directory
+	// makes Wails refuse to open the dialog at all)
+	defaultDir := platform.DefaultSaveDir()
 
 	// Bulk-saving in a Flatpak sandbox needs writable home access — the
 	// SaveFiles portal's per-file grants are unreliable across backends
@@ -363,6 +370,7 @@ func (a *App) SaveAllAttachments(messageID string) (string, error) {
 	if saveDir == "" {
 		return "", nil
 	}
+	a.rememberSavePath(saveDir)
 
 	// Get the message to find folder and UID
 	msg, err := a.messageStore.Get(messageID)
@@ -523,11 +531,7 @@ func (a *App) SaveEncryptedAttachmentAs(messageID, filename string) (string, err
 	log := logging.WithComponent("app")
 	log.Debug().Str("messageID", messageID).Str("filename", filename).Msg("SaveEncryptedAttachmentAs called")
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		homeDir = ""
-	}
-	defaultDir := filepath.Join(homeDir, "Downloads")
+	defaultDir := platform.DefaultSaveDir()
 
 	// In Flatpak, use portal save dialog (Wails GTK dialog doesn't route through portal)
 	if platform.IsFlatpak() {
@@ -538,6 +542,7 @@ func (a *App) SaveEncryptedAttachmentAs(messageID, filename string) (string, err
 		if savePath == "" {
 			return "", nil
 		}
+		a.rememberSavePath(savePath)
 		return a.DownloadEncryptedAttachment(messageID, filename, savePath)
 	}
 
@@ -553,6 +558,7 @@ func (a *App) SaveEncryptedAttachmentAs(messageID, filename string) (string, err
 	if savePath == "" {
 		return "", nil
 	}
+	a.rememberSavePath(savePath)
 
 	return a.DownloadEncryptedAttachment(messageID, filename, savePath)
 }
@@ -597,11 +603,7 @@ func (a *App) SaveAllEncryptedAttachments(messageID string) (string, error) {
 		return "", fmt.Errorf("no attachments found in encrypted message")
 	}
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		homeDir = ""
-	}
-	defaultDir := filepath.Join(homeDir, "Downloads")
+	defaultDir := platform.DefaultSaveDir()
 
 	// Same home-access gate as SaveAllAttachments (#384)
 	if platform.IsFlatpak() && !platform.FlatpakHasWritableHome() {
@@ -625,6 +627,7 @@ func (a *App) SaveAllEncryptedAttachments(messageID string) (string, error) {
 	if saveDir == "" {
 		return "", nil
 	}
+	a.rememberSavePath(saveDir)
 
 	downloader := email.NewAttachmentDownloader(a.paths.AttachmentsPath())
 	savedCount := 0
@@ -664,6 +667,9 @@ func (a *App) saveAllAttachmentsViaPortal(messageID string, attachments []*messa
 	}
 	if len(savePaths) == 0 {
 		return "", nil
+	}
+	for _, p := range savePaths {
+		a.rememberSavePath(p)
 	}
 
 	// Get the message to find folder and UID
@@ -723,6 +729,9 @@ func (a *App) saveAllEncryptedAttachmentsViaPortal(attachments []*message.Attach
 	if len(savePaths) == 0 {
 		return "", nil
 	}
+	for _, p := range savePaths {
+		a.rememberSavePath(p)
+	}
 
 	downloader := email.NewAttachmentDownloader(a.paths.AttachmentsPath())
 	savedCount := 0
@@ -748,4 +757,35 @@ func (a *App) saveAllEncryptedAttachmentsViaPortal(attachments []*message.Attach
 
 	log.Info().Int("count", savedCount).Msg("Saved all encrypted attachments via portal")
 	return filepath.Dir(savePaths[0]), nil
+}
+
+// rememberSavePath records a path the user chose in a save dialog so the
+// post-save toast's Open file / Open folder actions may open it (#474).
+func (a *App) rememberSavePath(p string) {
+	if p == "" {
+		return
+	}
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return
+	}
+	a.recentSaveMu.Lock()
+	defer a.recentSaveMu.Unlock()
+	if a.recentSavePaths == nil {
+		a.recentSavePaths = make(map[string]struct{})
+	}
+	a.recentSavePaths[filepath.Clean(abs)] = struct{}{}
+}
+
+// isRecentSavePath reports whether absPath is a remembered save path or lies
+// under a remembered save directory.
+func (a *App) isRecentSavePath(absPath string) bool {
+	a.recentSaveMu.Lock()
+	defer a.recentSaveMu.Unlock()
+	for p := range a.recentSavePaths {
+		if absPath == p || strings.HasPrefix(absPath, p+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }

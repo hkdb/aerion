@@ -2,6 +2,8 @@ package imap
 
 import (
 	"errors"
+	"fmt"
+	"github.com/emersion/go-imap/v2"
 	"testing"
 	"time"
 )
@@ -97,11 +99,11 @@ func TestDefaultConfig(t *testing.T) {
 func TestDefaultPoolConfig(t *testing.T) {
 	cfg := DefaultPoolConfig()
 
-	if cfg.MaxConnections != 3 {
-		t.Errorf("DefaultPoolConfig().MaxConnections = %d, want 3", cfg.MaxConnections)
+	if cfg.MaxConnections != 4 {
+		t.Errorf("DefaultPoolConfig().MaxConnections = %d, want 4", cfg.MaxConnections)
 	}
-	if cfg.IdleTimeout != 5*time.Minute {
-		t.Errorf("DefaultPoolConfig().IdleTimeout = %v, want %v", cfg.IdleTimeout, 5*time.Minute)
+	if cfg.IdleTimeout != 15*time.Minute {
+		t.Errorf("DefaultPoolConfig().IdleTimeout = %v, want %v", cfg.IdleTimeout, 15*time.Minute)
 	}
 	if cfg.ConnectTimeout != 30*time.Second {
 		t.Errorf("DefaultPoolConfig().ConnectTimeout = %v, want %v", cfg.ConnectTimeout, 30*time.Second)
@@ -125,5 +127,54 @@ func TestDefaultIdleConfig(t *testing.T) {
 	}
 	if cfg.MaxReconnectAttempts != 10 {
 		t.Errorf("DefaultIdleConfig().MaxReconnectAttempts = %d, want 10", cfg.MaxReconnectAttempts)
+	}
+}
+
+func TestIsUnsafeLoginError(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil", nil, false},
+		{"coremail text", errors.New("authentication failed: Unsafe Login. Please contact kefu@188.com for help"), true},
+		{"lowercase", errors.New("NO unsafe login"), true},
+		{"wrapped", fmt.Errorf("login: %w", errors.New("Unsafe Login")), true},
+		{"other NO", errors.New("authentication failed: [AUTHENTICATIONFAILED] Invalid credentials"), false},
+	}
+	for _, tc := range cases {
+		if got := isUnsafeLoginError(tc.err); got != tc.want {
+			t.Errorf("%s: isUnsafeLoginError = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestSendID_RequiresConnection(t *testing.T) {
+	c := NewClient(ClientConfig{SendID: true, ClientName: "Aerion"})
+	if err := c.sendID(); err == nil {
+		t.Fatal("sendID on a disconnected client returned nil error")
+	}
+	if c.IDRequired() {
+		t.Fatal("IDRequired must be false before any login")
+	}
+}
+
+func TestDefaultConfig_NoIDByDefault(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.SendID || cfg.ClientName != "" || cfg.ClientVersion != "" || cfg.ClientVendor != "" {
+		t.Fatalf("DefaultConfig must not identify to servers: %+v", cfg)
+	}
+}
+
+func TestAllUIDs_IsStarRange(t *testing.T) {
+	if got := allUIDs().String(); got != "1:*" {
+		t.Fatalf("allUIDs() = %q, want 1:*", got)
+	}
+}
+
+func TestSetFlagsOnAllMessages_RequiresConnection(t *testing.T) {
+	c := NewClient(ClientConfig{})
+	if err := c.SetFlagsOnAllMessages([]imap.Flag{imap.FlagSeen}, true); err == nil {
+		t.Fatal("SetFlagsOnAllMessages on a disconnected client returned nil error")
 	}
 }

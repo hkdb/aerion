@@ -49,6 +49,7 @@
   // @ts-ignore - wailsjs runtime
   import { WindowShow, WindowHide, EventsOn } from '../wailsjs/runtime/runtime'
   import { _ } from '$lib/i18n'
+  import { logger } from '$lib/logger' // TEMP: keypress-gate audit — remove in the fix commit
 
   // Component refs for keyboard navigation. Plain `let` (not $state) is
   // intentional: svelte-check warns "Changing its value will not correctly
@@ -313,10 +314,9 @@
       selectedConversationAccountId = data.accountId
       selectedConversationFolderId = data.folderId
 
-      // Highlight the thread in the message list (with small delay to ensure list has loaded)
-      setTimeout(() => {
-        messageListRef?.selectThread(data.threadId)
-      }, 100)
+      // Highlight the thread in the message list. The list keeps the request
+      // pending until its folder load lands, so no timing assumption here.
+      messageListRef?.selectThread(data.threadId)
 
       // Persist state
       saveUIState({
@@ -864,6 +864,20 @@
     const inInput = isInputElement(e.target)
     const focusedPane = getFocusedPane()
     const hasConversation = selectedThreadId !== null
+
+    // TEMP: keypress-gate audit — remove in the fix commit. Names which gate
+    // swallowed a silent first `d`/`j`/`k` after a long session. Logged at
+    // error so `--log-level error --log-file <path>` captures only these
+    // lines plus genuine failures over a multi-day session.
+    if (e.key === 'j' || e.key === 'k' || e.key === 'd' || e.key === 'Delete' || e.key === 'Backspace') {
+      const checkedCount = messageListRef?.getSelectedMessageIds().length ?? -1
+      logger.error(
+        `keygate key=${e.key} pane=${focusedPane} inInput=${inInput} target=${(e.target as HTMLElement)?.tagName ?? 'none'}` +
+        ` menu=${!!document.querySelector('[role="menu"]')} guard=${isDialogGuardActive()} composer=${showComposer}` +
+        ` ext=${getActiveExtension() ?? 'mail'} appThread=${selectedThreadId ?? 'null'} listThread=${messageListRef?.getSelectedThreadId() ?? 'null'}` +
+        ` focusedIds=${checkedCount} viewerFocus=${viewerRef?.hasFocusedMessage() ?? 'n/a'}`
+      )
+    }
 
     // Don't intercept keyboard events when a context menu or dropdown is open
     // (bits-ui portals mount [role="menu"] only while open)

@@ -48,6 +48,7 @@ func ParseCalendarObject(rawICS string) (*ParsedObject, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ical decode: %w", err)
 	}
+	normalizeTZIDs(cal.Component)
 
 	events := cal.Events()
 	if len(events) == 0 {

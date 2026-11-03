@@ -185,9 +185,10 @@ func TestMigrationV32_LocalRecordIDsRewrittenToUUIDs(t *testing.T) {
 		}
 	}
 	// Drop v37's SMTP-receive-only / SMTP-creds columns + v38's
-	// reply_forward_identity_id + v41's smtp_auth_mechanism on accounts so
-	// the re-application's ADD COLUMNs don't collide.
-	for _, col := range []string{"no_outgoing_server", "smtp_username", "encrypted_smtp_password", "reply_forward_identity_id", "oauth_stable_id", "imap_auth_mechanism", "smtp_auth_mechanism"} {
+	// reply_forward_identity_id + v41's smtp_auth_mechanism + v44's
+	// imap_require_id on accounts so the re-application's ADD COLUMNs
+	// don't collide.
+	for _, col := range []string{"no_outgoing_server", "smtp_username", "encrypted_smtp_password", "reply_forward_identity_id", "oauth_stable_id", "imap_auth_mechanism", "smtp_auth_mechanism", "imap_require_id"} {
 		if _, err := db.Exec(`ALTER TABLE accounts DROP COLUMN ` + col); err != nil {
 			t.Fatalf("drop accounts.%s for re-migrate: %v", col, err)
 		}
@@ -343,7 +344,7 @@ func TestMigrationV33_CleansExistingOrphans(t *testing.T) {
 		}
 	}
 	// Same for v37 + v38 + v40 + v41 + v42's accounts columns.
-	for _, col := range []string{"no_outgoing_server", "smtp_username", "encrypted_smtp_password", "reply_forward_identity_id", "oauth_stable_id", "imap_auth_mechanism", "smtp_auth_mechanism"} {
+	for _, col := range []string{"no_outgoing_server", "smtp_username", "encrypted_smtp_password", "reply_forward_identity_id", "oauth_stable_id", "imap_auth_mechanism", "smtp_auth_mechanism", "imap_require_id"} {
 		if _, err := db.Exec(`ALTER TABLE accounts DROP COLUMN ` + col); err != nil {
 			t.Fatalf("drop accounts.%s for re-migrate: %v", col, err)
 		}

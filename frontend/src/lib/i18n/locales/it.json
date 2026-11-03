@@ -63,6 +63,7 @@
   "messageList": {
     "searchMessages": "Cerca messaggi...",
     "noMessages": "Nessun messaggio in questa cartella",
+    "olderThanSyncPeriod": "Questa cartella contiene {count} messaggi sul server più vecchi del periodo di sincronizzazione",
     "selectFolder": "Seleziona una cartella per visualizzare i messaggi",
     "emptyTrash": "Svuota cestino",
     "emptySpam": "Svuota spam",
@@ -264,6 +265,11 @@
     "markAsUnread": "Segna come NON letta",
     "markAllAsRead": "Segna tutte come lette",
     "markAllAsUnread": "Segna tutte come NON lette",
+    "markAllScopeTitleRead": "Segnare tutte come lette?",
+    "markAllScopeTitleUnread": "Segnare tutte come non lette?",
+    "markAllScopeBody": "{count} messaggi in questa cartella sono più vecchi del periodo di sincronizzazione e non sono mostrati. Segnarli anche sul server?",
+    "markAllScopeAll": "Sì, tutti",
+    "markAllScopeSynced": "No, solo quelli sincronizzati",
     "noFoldersAvailable": "Cartelle non disponibili",
     "searchFolders": "Cerca cartelle...",
     "account": "Account"

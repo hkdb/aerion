@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import Icon from '@iconify/svelte'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
@@ -125,7 +126,11 @@
   let displayName = $state('')
   let color = $state('')
   let email = $state('')
-  let prevEmail = $state('')
+  // Values this form filled in itself; a field still equal to its marker is
+  // "ours" and may be overwritten or cleared as the email changes, a field
+  // the user typed is never touched (#451).
+  let prevAutoName = ''
+  let prevAutoUsername = ''
   let username = $state('')
   let password = $state('')
   let imapHost = $state('')
@@ -480,13 +485,30 @@
 
   // Auto-detect provider and auto-fill fields when email changes
   $effect(() => {
-    if (!email) return
+    // Auto-fill and provider detection are for new accounts only. Editing an
+    // existing account's email must never swap its servers, security or auth
+    // method (selectProvider does all of that) or its name.
+    if (editAccount) return
 
-    // Auto-fill username with full email
-    if (!username || username === prevEmail) {
-      username = email
+    // Email deleted: take back what the form filled in, leave typed values.
+    // Without this the auto-filled fields track the shrinking email and keep
+    // its first character once it is empty.
+    if (!email) {
+      untrack(() => {
+        if (username && username === prevAutoUsername) username = ''
+        if (name && name === prevAutoName) name = ''
+      })
+      prevAutoUsername = ''
+      prevAutoName = ''
+      return
     }
-    prevEmail = email
+
+    // Auto-fill username with full email. Read the fields untracked so that
+    // clearing one does not re-run this effect and fill it straight back in.
+    if (untrack(() => !username || username === prevAutoUsername)) {
+      username = email
+      prevAutoUsername = email
+    }
 
     // Try to detect provider
     const detected = detectProvider(email)
@@ -494,12 +516,12 @@
       selectProvider(detected)
     }
 
-    // Auto-fill name from email if empty
-    if (!name) {
-      const localPart = email.split('@')[0]
-      if (localPart) {
-        name = localPart.charAt(0).toUpperCase() + localPart.slice(1)
-      }
+    // Auto-fill name from the email's local part as typed, unless the user
+    // has typed their own (capitalising it turned great.bear into Great.bear)
+    const localPart = email.split('@')[0]
+    if (localPart && untrack(() => !name || name === prevAutoName)) {
+      name = localPart
+      prevAutoName = name
     }
   })
 

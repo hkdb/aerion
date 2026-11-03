@@ -3,7 +3,8 @@
 
 // @ts-ignore - wailsjs path
 import { GetMessageListDensity, GetMessageListSortOrder, GetThemeMode, GetShowTitleBar, GetRunBackground, GetStartHidden, GetAutostart, GetLanguage, GetComposerMode, GetMailtoMode, GetComposerFormat, GetNativeTitleBar, GetAlwaysLoadImages, GetDarkMailContent, GetDarkComposerBody, GetAccentBarUnread, GetAccentUnreadStyle, GetShowMessageListCircles, GetShowMessageListProfilePics, GetAlwaysShowMessageCheckbox, GetShowViewerCircles, GetSpellcheckEnabled, GetSpellcheckLanguages, GetSpellcheckCustomWords } from '../../../wailsjs/go/app/App'
-import { setLocale as setI18nLocale } from '$lib/i18n'
+import { setLocale as setI18nLocale, locale as i18nLocale } from '$lib/i18n'
+import { get } from 'svelte/store'
 import { loadDateFnsLocale, getDateFnsLocale } from '$lib/i18n/dateFnsLocale'
 import type { Locale } from 'date-fns'
 
@@ -146,7 +147,7 @@ export function getShowViewerCircles(): boolean {
 }
 
 export function getCurrentDateFnsLocale(): Locale | undefined {
-  return getDateFnsLocale(language || 'en')
+  return getDateFnsLocale(get(i18nLocale) || language || 'en')
 }
 
 // Setter functions to update the state

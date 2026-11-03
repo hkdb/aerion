@@ -338,9 +338,6 @@ type App struct {
 	// Desktop notifications with click handling
 	notifier notification.Notifier
 
-	// DebugMode function reference (injected from main)
-	debugMode func() bool
-
 	// UseDirectDBus forces direct D-Bus notifications instead of portal (Linux only)
 	useDirectDBus bool
 
@@ -352,12 +349,16 @@ type App struct {
 
 	// Window hidden state (background mode)
 	windowHidden bool
+
+	// Paths the user chose in a save dialog this session; the post-save
+	// toast's Open file / Open folder actions may open them (#474).
+	recentSaveMu    goSync.Mutex
+	recentSavePaths map[string]struct{}
 }
 
 // NewApp creates a new App application struct
-func NewApp(debugModeFn func() bool, useDirectDBus bool) *App {
+func NewApp(useDirectDBus bool) *App {
 	return &App{
-		debugMode:     debugModeFn,
 		useDirectDBus: useDirectDBus,
 	}
 }
@@ -410,9 +411,10 @@ func StartupDialogInfoFor(err error) StartupDialogInfo {
 }
 
 // Preflight performs the early-startup steps that must succeed BEFORE the
-// Wails window is shown: logging init, platform paths, directory creation,
-// database open + migration, credential store init, and OAuth override
-// wiring. Returns an error on any failure; main.go is responsible for
+// Wails window is shown: platform paths, directory creation, database open
+// + migration, credential store init, and OAuth override wiring. Logging is
+// already initialised by main.go (from --log-level / --log-file) by the
+// time this runs. Returns an error on any failure; main.go is responsible for
 // surfacing the failure to the user (via StartupDialogInfoFor + a native
 // dialog) and exiting before wails.Run is called.
 //
@@ -422,14 +424,6 @@ func StartupDialogInfoFor(err error) StartupDialogInfo {
 // appears. Preflight runs in main.go before wails.Run so the user only
 // ever sees the error dialog.
 func (a *App) Preflight() error {
-	logLevel := "fatal"
-	if a.debugMode != nil && a.debugMode() {
-		logLevel = "debug"
-	}
-	_ = logging.Init(logging.Config{
-		Level:   logLevel,
-		Console: true,
-	})
 	log := logging.WithComponent("app")
 
 	paths, err := platform.GetPaths()
@@ -513,6 +507,9 @@ var shuttingDown bool
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 
+	// Quit cleanly on SIGTERM/SIGINT/SIGHUP even in background mode (#460).
+	a.watchTerminationSignals()
+
 	// Set single-instance onShow callback immediately — must happen before any
 	// potentially-blocking D-Bus calls (theme monitor, sleep/wake, network)
 	// that could delay the rest of Startup.
@@ -585,6 +582,17 @@ func (a *App) Startup(ctx context.Context) {
 	// Initialize IMAP connection pool
 	poolConfig := imap.DefaultPoolConfig()
 	a.imapPool = imap.NewPool(poolConfig, a.getIMAPCredentials)
+	// Learn-once: a server that rejected LOGIN until an IMAP ID was sent
+	// (Coremail/NetEase, #457) marks the account so later connections
+	// identify up front instead of failing once per login.
+	a.imapPool.SetIDRequiredCallback(func(accountID string) {
+		log := logging.WithComponent("app")
+		if err := a.accountStore.SetIMAPRequireID(accountID, true); err != nil {
+			log.Warn().Err(err).Str("accountID", accountID).Msg("Failed to record IMAP ID requirement")
+			return
+		}
+		log.Info().Str("accountID", accountID).Msg("Account marked as requiring IMAP ID before login")
+	})
 
 	// Initialize shared draft operations (used by both App and ComposerApp)
 	a.draftOps = draftOps{
@@ -617,6 +625,13 @@ func (a *App) Startup(ctx context.Context) {
 			"total":     progress.Total,
 			"phase":     progress.Phase,
 		})
+	})
+
+	// Folder-list sync pushes changed unread counts for folders that are not
+	// message-synced (those emit their own counts from SyncFolder); without
+	// this a scheduled pass never refreshes their sidebar badges.
+	a.syncEngine.SetFolderCountsCallback(func(_ string, counts map[string]int) {
+		wailsRuntime.EventsEmit(ctx, "folders:countsChanged", counts)
 	})
 
 	// Start connection pool cleanup routine
@@ -1103,7 +1118,7 @@ func (a *App) getValidContactSourceOAuthToken(sourceID string) (string, error) {
 
 	// Check if token expires within 5 minutes
 	if tokens.IsExpiringSoon(5 * time.Minute) {
-		log.Debug().
+		log.Info().
 			Str("source_id", sourceID).
 			Time("expires_at", tokens.ExpiresAt).
 			Msg("Contact source OAuth token expiring soon, refreshing")

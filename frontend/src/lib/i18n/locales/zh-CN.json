@@ -63,6 +63,7 @@
   "messageList": {
     "searchMessages": "搜索邮件...",
     "noMessages": "此文件夹中没有邮件",
+    "olderThanSyncPeriod": "此文件夹中有 {count} 封早于同步时段设置的邮件在服务器上",
     "selectFolder": "选择文件夹以查看邮件",
     "emptyTrash": "清空回收站",
     "emptySpam": "清空垃圾邮件",
@@ -264,6 +265,11 @@
     "markAsUnread": "标记为未读",
     "markAllAsRead": "全部标记为已读",
     "markAllAsUnread": "全部标记为未读",
+    "markAllScopeTitleRead": "全部标记为已读？",
+    "markAllScopeTitleUnread": "全部标记为未读？",
+    "markAllScopeBody": "此文件夹中有 {count} 封早于同步时段设置的邮件在服务器上，未在此显示。是否也在服务器上标记这些邮件？",
+    "markAllScopeAll": "是，全部",
+    "markAllScopeSynced": "否，仅已同步的",
     "noFoldersAvailable": "没有可用的文件夹",
     "searchFolders": "搜索文件夹...",
     "account": "账号"

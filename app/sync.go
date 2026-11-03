@@ -11,6 +11,7 @@ import (
 	"github.com/hkdb/aerion/internal/certificate"
 	"github.com/hkdb/aerion/internal/folder"
 	"github.com/hkdb/aerion/internal/logging"
+	"github.com/hkdb/aerion/internal/sync"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -32,7 +33,7 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 	if lastReq, exists := a.syncLastRequest[syncKey]; exists {
 		if time.Since(lastReq) < time.Duration(debounceMs)*time.Millisecond {
 			a.syncMu.Unlock()
-			log.Debug().Str("account", accountID).Str("folder", folderID).Msg("SyncFolder debounced, skipping")
+			log.Info().Str("account", accountID).Str("folder", folderID).Msg("SyncFolder debounced, skipping")
 			return nil // Silently ignore
 		}
 	}
@@ -40,7 +41,7 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 
 	// Cancel existing sync for this specific folder if any
 	if cancel, exists := a.syncContexts[syncKey]; exists {
-		log.Debug().Str("account", accountID).Str("folder", folderID).Msg("Cancelling existing sync for restart")
+		log.Info().Str("account", accountID).Str("folder", folderID).Msg("Cancelling existing sync for restart")
 		cancel()
 		// Small delay to let goroutines clean up
 		a.syncMu.Unlock()
@@ -56,6 +57,24 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 
 	// NOTE: Don't cleanup syncContexts here - body sync runs in goroutine
 	// and needs the context to remain cancellable. Cleanup happens in the goroutine.
+	//
+	// ...except on the early returns below (account lookup failure, cancelled
+	// expunge wait, sync errors), which never reach that goroutine. Without this
+	// the entry leaks and every IDLE handler sees "sync already in progress" for
+	// the folder until restart. Identity-checked like the goroutine's cleanup so
+	// a newer sync's entry is never removed.
+	handedOff := false
+	defer func() {
+		if handedOff {
+			return
+		}
+		cancel()
+		a.syncMu.Lock()
+		if cur, exists := a.syncContexts[syncKey]; exists && fmt.Sprintf("%p", cur) == fmt.Sprintf("%p", cancel) {
+			delete(a.syncContexts, syncKey)
+		}
+		a.syncMu.Unlock()
+	}()
 
 	// Get account to determine sync period
 	acc, err := a.accountStore.Get(accountID)
@@ -90,7 +109,7 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 	if err != nil {
 		// Check if this was a cancellation
 		if ctx.Err() != nil {
-			log.Debug().Str("account", accountID).Str("folder", folderID).Msg("Sync cancelled")
+			log.Info().Str("account", accountID).Str("folder", folderID).Msg("Sync cancelled")
 			return ctx.Err()
 		}
 		// Check for certificate error - emit special event for TOFU dialog
@@ -119,6 +138,15 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 		log.Warn().Err(checkpointErr).Msg("WAL checkpoint after SyncFolder failed")
 	}
 
+	// Registry size trend: a key that never disappears is a leaked entry.
+	a.syncMu.Lock()
+	activeKeys := make([]string, 0, len(a.syncContexts))
+	for key := range a.syncContexts {
+		activeKeys = append(activeKeys, key)
+	}
+	a.syncMu.Unlock()
+	log.Info().Int("activeSyncContexts", len(activeKeys)).Strs("keys", activeKeys).Msg("Sync context registry")
+
 	// Emit folder count change event so frontend updates sidebar
 	if folderObj, folderErr := a.folderStore.Get(folderID); folderErr == nil && folderObj != nil {
 		log.Debug().
@@ -132,6 +160,7 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 
 	// Start background body fetching (emits progress events for "bodies" phase)
 	// Pass ctx so body fetch can also be cancelled
+	handedOff = true
 	go func(syncCtx context.Context, syncDays int, cancelFn context.CancelFunc, key string) {
 		// Cleanup sync context when goroutine completes
 		defer func() {
@@ -160,7 +189,7 @@ func (a *App) SyncFolder(accountID, folderID string) error {
 		if bodyErr != nil {
 			if syncCtx.Err() != nil {
 				// Cancelled - not an error, still emit synced so spinner stops
-				log.Debug().Str("folder", folderID).Msg("Background body fetch cancelled")
+				log.Info().Str("folder", folderID).Msg("Background body fetch cancelled")
 				wailsRuntime.EventsEmit(a.ctx, "folder:synced", map[string]interface{}{
 					"accountId": accountID,
 					"folderId":  folderID,
@@ -226,8 +255,16 @@ func (a *App) SyncAccountComplete(accountID string) error {
 		return fmt.Errorf("sync cancelled")
 	}
 
-	// 1. Sync folder list first (required for message sync)
-	if err := a.SyncFolders(accountID); err != nil {
+	// 1. Sync folder list first (required for message sync). Step 3 syncs
+	// messages for every folder in the account's sync set and writes their
+	// counts from SELECT/STATUS, so the folder stage skips STATUS for those.
+	// The set is re-read after the folder sync so server-new folders are
+	// included (they were STATUS'd here, not skipped).
+	var skipStatus map[string]bool
+	if preSync, err := a.getSyncFolders(accountID); err == nil {
+		skipStatus = sync.FolderPathSet(preSync)
+	}
+	if err := a.syncFoldersSkipStatus(accountID, skipStatus); err != nil {
 		return fmt.Errorf("folder sync failed: %w", err)
 	}
 

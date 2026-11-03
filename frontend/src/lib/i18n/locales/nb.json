@@ -63,6 +63,7 @@
   "messageList": {
     "searchMessages": "Søk i meldinger…",
     "noMessages": "Ingen meldinger i denne mappen",
+    "olderThanSyncPeriod": "Denne mappen har {count} meldinger på serveren som er eldre enn synkroniseringsperioden din",
     "selectFolder": "Velg en mappe for å se meldinger",
     "emptyTrash": "Tøm papirkurven",
     "emptySpam": "Tøm søppelpost",
@@ -264,6 +265,11 @@
     "markAsUnread": "Merk som ulest",
     "markAllAsRead": "Merk alle som lest",
     "markAllAsUnread": "Merk alle som ulest",
+    "markAllScopeTitleRead": "Merke alle som lest?",
+    "markAllScopeTitleUnread": "Merke alle som ulest?",
+    "markAllScopeBody": "{count} meldinger i denne mappen er eldre enn synkroniseringsperioden din og vises ikke. Vil du også merke dem på serveren?",
+    "markAllScopeAll": "Ja, alle",
+    "markAllScopeSynced": "Nei, bare synkroniserte",
     "noFoldersAvailable": "Ingen mapper tilgjengelige",
     "searchFolders": "Søk i mapper…",
     "account": "Konto"

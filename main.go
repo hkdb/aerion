@@ -11,9 +11,11 @@ import (
 	"strings"
 
 	"github.com/hkdb/aerion/app"
-	"github.com/hkdb/aerion/internal/platform"
 	"github.com/hkdb/aerion/internal/appstate"
+	"github.com/hkdb/aerion/internal/logging"
+	"github.com/hkdb/aerion/internal/platform"
 	"github.com/hkdb/aerion/internal/settings"
+	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -25,7 +27,9 @@ var assets embed.FS
 
 // Command-line flags
 var (
-	debugMode   = flag.Bool("debug", false, "Enable debug logging")
+	debugMode   = flag.Bool("debug", false, "Enable debug logging (same as --log-level debug)")
+	logLevel    = flag.String("log-level", "", "Log level: fatal, error, warn, info, debug (default fatal; env AERION_LOG_LEVEL)")
+	logFile     = flag.String("log-file", "", "Also write logs to this file, 10 MB rollover to <file>.1 (env AERION_LOG_FILE)")
 	composeMode = flag.Bool("compose", false, "Run in composer mode (detached window)")
 	accountID   = flag.String("account", "", "Account ID for composer")
 	ipcAddress  = flag.String("ipc-address", "", "IPC server address to connect to")
@@ -43,6 +47,34 @@ func DebugMode() bool {
 	return *debugMode || os.Getenv("AERION_DEBUG") == "1"
 }
 
+// resolveLogConfig turns the logging flags/env vars into a logging.Config.
+// Precedence: --debug / AERION_DEBUG=1 force debug; otherwise --log-level,
+// then AERION_LOG_LEVEL, then fatal. File: --log-file, then AERION_LOG_FILE.
+// An unknown level name is a usage error: fail fast rather than silently
+// logging at the wrong level for a week-long capture.
+func resolveLogConfig() logging.Config {
+	level := *logLevel
+	if level == "" {
+		level = os.Getenv("AERION_LOG_LEVEL")
+	}
+	if level == "" {
+		level = "fatal"
+	}
+	if DebugMode() {
+		level = "debug"
+	}
+	if _, err := zerolog.ParseLevel(level); err != nil {
+		fmt.Fprintf(os.Stderr, "aerion: invalid --log-level %q (want fatal, error, warn, info or debug)\n", level)
+		os.Exit(2)
+	}
+
+	file := *logFile
+	if file == "" {
+		file = os.Getenv("AERION_LOG_FILE")
+	}
+	return logging.Config{Level: level, Console: true, File: file}
+}
+
 func main() {
 	platform.MonitorGBMErrors()
 	flag.Parse()
@@ -52,9 +84,18 @@ func main() {
 		return
 	}
 
-	// On Windows, GUI apps have no console. Allocate one for debug output.
-	if DebugMode() {
+	// Logging is initialised here, once, for both the main window and
+	// --compose mode (this runs before the composeMode branch).
+	logCfg := resolveLogConfig()
+
+	// On Windows, GUI apps have no console. Allocate one whenever any
+	// console logging was requested (anything below fatal).
+	if logCfg.Level != "fatal" {
 		platform.AttachConsole()
+	}
+	if err := logging.Init(logCfg); err != nil {
+		// A bad --log-file must not block startup; stderr logging still works.
+		fmt.Fprintf(os.Stderr, "aerion: logging init failed: %v\n", err)
 	}
 
 	// Check for mailto: URL in non-flag arguments
@@ -119,7 +160,7 @@ func runMainMode(mailtoData *app.MailtoData, rawMailtoArg string) {
 	}
 
 	// Create an instance of the app structure
-	application := app.NewApp(DebugMode, *dbusNotify)
+	application := app.NewApp(*dbusNotify)
 	application.SingleInstanceLock = lock
 
 	// Store mailto data if provided (will be used after startup)
@@ -138,7 +179,7 @@ func runMainMode(mailtoData *app.MailtoData, rawMailtoArg string) {
 	// Create a dummy ComposerApp for binding generation only.
 	// Wails generates JS/TS bindings at build time based on bound structs.
 	// We need ComposerApp bindings for the detached composer window.
-	dummyComposerApp := app.NewComposerApp(app.ComposerConfig{}, DebugMode)
+	dummyComposerApp := app.NewComposerApp(app.ComposerConfig{})
 
 	// Create application with options
 	err = wails.Run(&options.App{
@@ -209,7 +250,7 @@ func runComposerMode() {
 	}
 
 	// Create composer app
-	composerApp := app.NewComposerApp(config, DebugMode)
+	composerApp := app.NewComposerApp(config)
 
 	// Determine window title based on mode
 	title := "New Message"

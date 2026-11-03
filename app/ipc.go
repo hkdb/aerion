@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/hkdb/aerion/internal/folder"
 	"github.com/hkdb/aerion/internal/ipc"
@@ -129,7 +131,7 @@ func (a *App) handleComposerMessageSent(payload ipc.MessageSentPayload) {
 func (a *App) handleComposerDraftSaved(payload ipc.DraftSavedPayload) {
 	log := logging.WithComponent("app.ipc")
 
-	log.Debug().
+	log.Info().
 		Str("accountID", payload.AccountID).
 		Str("draftID", payload.DraftID).
 		Msg("Composer saved draft notification")
@@ -162,7 +164,7 @@ func (a *App) handleComposerDraftSaved(payload ipc.DraftSavedPayload) {
 func (a *App) handleComposerDraftDeleted(payload ipc.DraftDeletedPayload) {
 	log := logging.WithComponent("app.ipc")
 
-	log.Debug().
+	log.Info().
 		Str("accountID", payload.AccountID).
 		Msg("Composer deleted draft notification")
 
@@ -226,6 +228,16 @@ func (a *App) OpenComposerWindow(accountID, mode, messageID, draftID, mailtoURL 
 		args = append(args, "--mailto", mailtoURL)
 	}
 
+	// Forward the parent's logging options so a capture session covers the
+	// composer too. The composer gets its own file: two processes rotating
+	// one file would race.
+	if lvl := logging.LevelName(); lvl != "" {
+		args = append(args, "--log-level", lvl)
+	}
+	if f := logging.FilePath(); f != "" {
+		args = append(args, "--log-file", composerLogPath(f))
+	}
+
 	log.Info().
 		Str("execPath", execPath).
 		Strs("args", args).
@@ -287,4 +299,11 @@ func (a *App) GetConnectedComposers() int {
 		return 0
 	}
 	return len(a.ipcServer.Clients())
+}
+
+// composerLogPath derives the detached composer's log file from the main
+// log file: aerion.log → aerion.composer.log (no extension → aerion.composer).
+func composerLogPath(mainPath string) string {
+	ext := filepath.Ext(mainPath)
+	return strings.TrimSuffix(mainPath, ext) + ".composer" + ext
 }

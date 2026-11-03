@@ -63,6 +63,7 @@
   "messageList": {
     "searchMessages": "Hledat zprávy...",
     "noMessages": "V této složce nejsou žádné zprávy",
+    "olderThanSyncPeriod": "Tato složka obsahuje {count} zpráv na serveru, které jsou starší než vaše období synchronizace",
     "selectFolder": "Vyberte složku pro zobrazení zpráv",
     "emptyTrash": "Vyprázdnit koš",
     "emptySpam": "Vyprázdnit spam",
@@ -264,6 +265,11 @@
     "markAsUnread": "Označit jako nepřečtené",
     "markAllAsRead": "Označit vše jako přečtené",
     "markAllAsUnread": "Označit vše jako nepřečtené",
+    "markAllScopeTitleRead": "Označit vše jako přečtené?",
+    "markAllScopeTitleUnread": "Označit vše jako nepřečtené?",
+    "markAllScopeBody": "{count} zpráv v této složce je starších než vaše období synchronizace a nezobrazují se. Označit je také na serveru?",
+    "markAllScopeAll": "Ano, všechny",
+    "markAllScopeSynced": "Ne, jen synchronizované",
     "noFoldersAvailable": "Žádné dostupné složky",
     "searchFolders": "Hledat složky...",
     "account": "Účet"

@@ -103,6 +103,11 @@ type Account struct {
 	SyncAllFolders     bool `json:"syncAllFolders"`     // Sync all folders instead of just subscribed ones
 	SyncFoldersEnabled bool `json:"syncFoldersEnabled"` // User opted into folder sync management
 
+	// IMAPRequireID is learned, not configured: set once a server has rejected
+	// LOGIN with "Unsafe Login" until an IMAP ID command was sent (#457).
+	// Internal only — not part of AccountConfig, not exposed to the frontend.
+	IMAPRequireID bool `json:"-"`
+
 	// Read receipt settings
 	// Controls whether to request read receipts when sending emails
 	// Values: "never" (default), "ask", "always"

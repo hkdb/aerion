@@ -13,6 +13,7 @@
   // @ts-ignore - wailsjs path
   import { OpenURL } from '../../../wailsjs/go/app/App.js'
   import { _ } from '$lib/i18n'
+  import { dialogGuardOpen, dialogGuardClose } from '$lib/stores/dialogGuard'
 
   interface Props {
     open: boolean
@@ -20,6 +21,15 @@
   }
 
   let { open = $bindable(false), onAcknowledge }: Props = $props()
+
+  // Hold the dialog guard while open so global shortcuts (Ctrl+, etc.) don't
+  // fire behind this modal. Effect cleanup releases it on close and on
+  // unmount-while-open (same pattern as ConfirmDialog).
+  $effect(() => {
+    if (!open) return
+    dialogGuardOpen()
+    return () => dialogGuardClose()
+  })
 
   const CHANGELOG_URL = 'https://github.com/hkdb/aerion/blob/main/CHANGELOG.md'
 
@@ -37,6 +47,7 @@
       class="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
     />
     <DialogPrimitive.Content
+      preventScroll={false}
       class={cn(
         'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-6 border bg-background p-8 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg'
       )}
@@ -48,17 +59,15 @@
       </div>
 
       <div class="space-y-4 max-h-[60vh] overflow-y-auto text-sm">
-        <p>🚀 Welcome to Aerion v0.3.5!</p>
+        <p>🚀 Welcome to Aerion v0.3.6!</p>
 
-        <p>v0.3.5 is a temp hotfix for a launch crash caused by WebKitGTK v2.54 recently rolled out in various runtimes. For those of you who didn't get a chance to see what's new in v0.3.4, here are the highlights of the release:</p>
+        <p>v0.3.6 is mostly a maintenance release. Here are the highlights of the release:</p>
 
         <ul class="list-disc pl-6 space-y-1">
-          <li>⚗️ The message list's optional unread accent now has two new options: dot and glowing dot</li>
-          <li>✏️ Added Reply-To field to composer</li>
-          <li>✏️ Default CC, BCC, and Reply-To can now be set in Settings --> Composer</li>
-          <li>📖 Added English (UK) and Dutch spellcheck</li>
-          <li>🪟 Aerion now remembers your last window size which survives quit and relaunch</li>
-          <li>📩 Improved handling of rapid individual message deletes</li>
+          <li>⚗️ Scheduled Sync reworked</li>
+          <li>📖 Translations added for Portuguese (BR), Japanese, and Turkish</li>
+          <li>✅ Added Turkish spellcheck</li>
+          <li>✏️ Signature edit and render improvements</li>
           <li>🐛 Bug fixes and other improvements</li>
         </ul>
 

@@ -27,7 +27,12 @@
 <DialogPrimitive.Portal>
   <DialogOverlay />
   <div class="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+    <!-- preventScroll={false}: body scroll-lock disabled app-wide. The layout is
+         fixed-height (body never scrolls) and the overlay already blocks the
+         background; the lock's body-style snapshot leaks pointer-events:none
+         across chained dialogs (first-run Terms → What's New, #448). -->
     <DialogPrimitive.Content
+      preventScroll={false}
       onCloseAutoFocus={handleCloseAutoFocus}
       onInteractOutside={onInteractOutside}
       class={cn(

@@ -69,7 +69,7 @@ func OpenStore(dataDir, name string, migrations []Migration) (*Store, error) {
 		return nil, fmt.Errorf("extensions: migrate %s: %w", name, err)
 	}
 
-	s.log.Debug().Str("path", path).Int("migrations", len(migrations)).Msg("Extension store opened")
+	s.log.Info().Str("path", path).Int("migrations", len(migrations)).Msg("Extension store opened")
 	return s, nil
 }
 

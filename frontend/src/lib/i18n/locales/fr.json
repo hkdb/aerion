@@ -63,6 +63,7 @@
   "messageList": {
     "searchMessages": "Rechercher des messages...",
     "noMessages": "Aucun message dans ce dossier",
+    "olderThanSyncPeriod": "Ce dossier contient {count} messages sur le serveur antérieurs à votre période de synchronisation",
     "selectFolder": "Sélectionnez un dossier pour voir les messages",
     "emptyTrash": "Vider la corbeille",
     "emptySpam": "Vider le spam",
@@ -264,6 +265,11 @@
     "markAsUnread": "Marquer comme non lu",
     "markAllAsRead": "Tout marquer comme lu",
     "markAllAsUnread": "Tout marquer comme non lu",
+    "markAllScopeTitleRead": "Tout marquer comme lu ?",
+    "markAllScopeTitleUnread": "Tout marquer comme non lu ?",
+    "markAllScopeBody": "{count} messages dans ce dossier sont antérieurs à votre période de synchronisation et ne sont pas affichés. Les marquer aussi sur le serveur ?",
+    "markAllScopeAll": "Oui, tous",
+    "markAllScopeSynced": "Non, seulement les synchronisés",
     "noFoldersAvailable": "Aucun dossier disponible",
     "searchFolders": "Rechercher des dossiers...",
     "account": "Compte"

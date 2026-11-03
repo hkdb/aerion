@@ -63,6 +63,7 @@
   "messageList": {
     "searchMessages": "搜尋郵件...",
     "noMessages": "此資料夾中沒有郵件",
+    "olderThanSyncPeriod": "此資料夾中有 {count} 封早於同步期間設定的郵件在伺服器上",
     "selectFolder": "選擇資料夾以檢視郵件",
     "emptyTrash": "清空垃圾桶",
     "emptySpam": "清空垃圾郵件",
@@ -264,6 +265,11 @@
     "markAsUnread": "標記為未讀",
     "markAllAsRead": "全部標記為已讀",
     "markAllAsUnread": "全部標記為未讀",
+    "markAllScopeTitleRead": "全部標記為已讀？",
+    "markAllScopeTitleUnread": "全部標記為未讀？",
+    "markAllScopeBody": "此資料夾中有 {count} 封早於同步期間設定的郵件在伺服器上，未在此顯示。是否也在伺服器上標記這些郵件？",
+    "markAllScopeAll": "是，全部",
+    "markAllScopeSynced": "否，僅已同步的",
     "noFoldersAvailable": "沒有可用的資料夾",
     "searchFolders": "搜尋資料夾...",
     "account": "帳號"

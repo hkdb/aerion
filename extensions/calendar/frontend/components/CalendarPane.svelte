@@ -34,6 +34,13 @@
   // @ts-ignore - wailsjs bindings
   import { EventsOn } from '$wailsjs/runtime/runtime.js'
 
+  // Wails listeners captured for cleanup — this pane is conditionally
+  // rendered per rail switch, so uncaptured EventsOn would stack a duplicate
+  // handler every visit (N toasts per conflict after N switches).
+  let unsubWriteConflict: (() => void) | undefined
+  let unsubWriteQueued: (() => void) | undefined
+  let unsubExtensionOpen: (() => void) | undefined
+
   // Subscribe to `calendar:sync-complete` once, on mount.
   //
   // Also drains any pending deep link the host stashed before mounting
@@ -51,10 +58,10 @@
     // network-online / wake / sync tick. When it hits a 412 conflict, it
     // drops the pending row and publishes `calendar:write-conflict` —
     // surface a toast so the user knows to re-edit.
-    EventsOn('calendar:write-conflict', () => {
+    unsubWriteConflict = EventsOn('calendar:write-conflict', () => {
       toasts.error($_('calendar.write.conflict'))
     })
-    EventsOn('calendar:write-queued', () => {
+    unsubWriteQueued = EventsOn('calendar:write-queued', () => {
       toasts.info($_('calendar.write.queued'))
     })
 
@@ -66,7 +73,7 @@
     // we're already the active rail tab, setActiveExtension('calendar')
     // is a no-op and onMount won't re-run. Listen for the host's
     // extension-open event here so we still navigate to the new event.
-    EventsOn('extension:open', (data: { extensionId: string; path: string }) => {
+    unsubExtensionOpen = EventsOn('extension:open', (data: { extensionId: string; path: string }) => {
       if (data.extensionId !== 'calendar') return
       // Drain the buffer so a future remount doesn't replay this path.
       consumePendingDeepLink('calendar')
@@ -133,6 +140,9 @@
     calendarView.setViewKind('agenda')
   })
   onDestroy(() => {
+    if (unsubWriteConflict) unsubWriteConflict()
+    if (unsubWriteQueued) unsubWriteQueued()
+    if (unsubExtensionOpen) unsubExtensionOpen()
     unregToday()
     unregPrev()
     unregNext()

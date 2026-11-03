@@ -54,8 +54,8 @@ type PoolConfig struct {
 // DefaultPoolConfig returns sensible defaults for the pool
 func DefaultPoolConfig() PoolConfig {
 	return PoolConfig{
-		MaxConnections: 3,
-		IdleTimeout:    5 * time.Minute,
+		MaxConnections: 4,                // up to 3 body fetches + header/STATUS work; IDLE holds a 5th outside the pool. Provider limits (Gmail ~15, Dovecot default 10) are shared across every client on the account
+		IdleTimeout:    15 * time.Minute, // longer than a typical scheduler interval so passes reuse logins
 		ConnectTimeout: 30 * time.Second,
 		WaiterTimeout:  2 * time.Minute, // Don't wait forever for a connection
 	}
@@ -69,13 +69,6 @@ type PooledConnection struct {
 	lastUsed  time.Time
 	inUse     bool
 	mu        sync.Mutex
-}
-
-// IsHealthy checks if the connection is still usable (acquires lock)
-func (pc *PooledConnection) IsHealthy() bool {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-	return pc.isHealthyLocked()
 }
 
 // isHealthyLocked checks health without acquiring lock (caller must hold lock).
@@ -99,11 +92,32 @@ type Pool struct {
 	config      PoolConfig
 	connections map[string][]*PooledConnection // accountID -> connections
 	waiters     map[string][]chan *PooledConnection
-	mu          sync.Mutex
-	log         zerolog.Logger
+	// pending counts connections being created per account. Reserved under
+	// mu BEFORE the (unlocked) connect so concurrent acquisitions can't all
+	// pass the size check and overshoot MaxConnections.
+	pending map[string]int
+	// createGate bounds connection creation per account to createConcurrency
+	// logins in flight. Gmail rate-shapes a burst of simultaneous logins from
+	// one client: five inside ~2 s cost the last one a 25 s login and a 19 s
+	// first command, while the first four answered in ~1 s. Generic providers
+	// never objected, so the gate is wide enough not to serialize them.
+	createGate map[string]chan struct{}
+	mu         sync.Mutex
+	log        zerolog.Logger
 
 	// Credentials provider function
 	getCredentials func(accountID string) (*ClientConfig, error)
+
+	// idRequiredCallback is invoked once a login for the account only
+	// succeeded after an IMAP ID command (Client.IDRequired); the app
+	// persists the flag so later credentials carry SendID.
+	idRequiredCallback func(accountID string)
+}
+
+// SetIDRequiredCallback registers the function called when an account is
+// found to require an IMAP ID command before login (#457).
+func (p *Pool) SetIDRequiredCallback(cb func(accountID string)) {
+	p.idRequiredCallback = cb
 }
 
 // NewPool creates a new connection pool
@@ -112,41 +126,159 @@ func NewPool(config PoolConfig, getCredentials func(accountID string) (*ClientCo
 		config:         config,
 		connections:    make(map[string][]*PooledConnection),
 		waiters:        make(map[string][]chan *PooledConnection),
+		pending:        make(map[string]int),
+		createGate:     make(map[string]chan struct{}),
 		log:            logging.WithComponent("imap-pool"),
 		getCredentials: getCredentials,
 	}
 }
 
+// healthProbeFreshWindow: a connection released this recently just passed the
+// release-time NOOP probe, so probing it again adds nothing but a server round
+// trip taken under the global pool lock (Gmail: 0.5–2.5 s each, which
+// serialized a 44-folder STATUS pass into ~66 s). Kept short so a localhost
+// bridge that drops idle connections quickly (Proton) can't hand us a dead one
+// for long; the burst cases this exists for reuse connections within
+// milliseconds. Older idle connections are still probed under the lock so a
+// stuck one blocks the rest, as intended. This only holds because Release
+// DISCARDS unhealthy connections — a dead one must never sit in the pool with
+// a fresh lastUsed.
+const healthProbeFreshWindow = 10 * time.Second
+
+// probeIfStaleLocked reports whether an idle connection is usable. Connections
+// released within healthProbeFreshWindow are trusted without a NOOP; anything
+// older is probed. Caller holds p.mu and conn.mu.
+func (p *Pool) probeIfStaleLocked(conn *PooledConnection, accountID string) bool {
+	// A connection with no client is dead regardless of how fresh it looks.
+	if conn.client == nil || conn.client.client == nil {
+		return false
+	}
+	if time.Since(conn.lastUsed) < healthProbeFreshWindow {
+		return true
+	}
+	healthStart := time.Now()
+	healthy := conn.isHealthyLocked()
+	if d := time.Since(healthStart); d > 2*time.Second {
+		p.log.Warn().
+			Str("account", accountID).
+			Dur("healthCheck", d).
+			Msg("Slow NOOP health check while holding pool lock")
+	}
+	return healthy
+}
+
+// MaxConnections returns the per-account connection cap.
+func (p *Pool) MaxConnections() int {
+	return p.config.MaxConnections
+}
+
+// reserveSlotLocked claims a creation slot for the account if live plus
+// in-flight connections are below the cap. Caller holds p.mu.
+func (p *Pool) reserveSlotLocked(accountID string) bool {
+	if len(p.connections[accountID])+p.pending[accountID] >= p.config.MaxConnections {
+		return false
+	}
+	p.pending[accountID]++
+	return true
+}
+
+// unreserveSlot releases a creation slot claimed by reserveSlotLocked.
+func (p *Pool) unreserveSlot(accountID string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.pending[accountID] <= 1 {
+		delete(p.pending, accountID)
+		return
+	}
+	p.pending[accountID]--
+}
+
+// createConcurrency is how many logins may be in flight per account at once.
+// Observed Gmail behaviour (2026-10-27): four logins within ~2 s were fine,
+// the fifth was slow-walked. The folder stage pipelines STATUS over two
+// connections (one of them the reused LIST connection), so a cold pass needs
+// at most two fresh logins at once; two keeps a clear margin under the limit.
+const createConcurrency = 2
+
+// gateForLocked returns the account's creation gate (buffered
+// createConcurrency), creating it on first use. Caller holds p.mu.
+func (p *Pool) gateForLocked(accountID string) chan struct{} {
+	gate, ok := p.createGate[accountID]
+	if ok {
+		return gate
+	}
+	gate = make(chan struct{}, createConcurrency)
+	p.createGate[accountID] = gate
+	return gate
+}
+
 // GetConnection gets or creates a connection for an account
 func (p *Pool) GetConnection(ctx context.Context, accountID string) (*PooledConnection, error) {
+	acquireStart := time.Now()
 	p.mu.Lock()
 
 	// Try to find an available connection
 	if conns, ok := p.connections[accountID]; ok {
 		for _, conn := range conns {
 			conn.mu.Lock()
-			if !conn.inUse && conn.isHealthyLocked() {
-				conn.inUse = true
-				conn.lastUsed = time.Now()
+			if conn.inUse {
 				conn.mu.Unlock()
-				p.mu.Unlock()
-
-				p.log.Debug().
-					Str("account", accountID).
-					Msg("Reusing existing connection")
-				return conn, nil
+				continue
 			}
+			// The NOOP health probe runs while p.mu is held — a half-dead socket
+			// stalls every acquisition in the app until its read deadline. Time
+			// it so that stall is visible in the log instead of inferred.
+			healthy := p.probeIfStaleLocked(conn, accountID)
+			if !healthy {
+				conn.mu.Unlock()
+				continue
+			}
+			conn.inUse = true
+			conn.lastUsed = time.Now()
 			conn.mu.Unlock()
+			poolSize := len(conns)
+			p.mu.Unlock()
+
+			p.log.Debug().
+				Str("account", accountID).
+				Dur("acquire", time.Since(acquireStart)).
+				Int("poolSize", poolSize).
+				Msg("Reusing existing connection")
+			return conn, nil
 		}
 	}
 
-	// Count current connections for this account
-	currentCount := len(p.connections[accountID])
+	// Count current connections for this account (live + being created)
+	currentCount := len(p.connections[accountID]) + p.pending[accountID]
 
-	// Can we create a new one?
-	if currentCount < p.config.MaxConnections {
+	// Can we create a new one? The slot is reserved under the lock so the
+	// pool never overshoots MaxConnections, then the login itself is bounded
+	// per account by the creation gate.
+	if p.reserveSlotLocked(accountID) {
+		gate := p.gateForLocked(accountID)
 		p.mu.Unlock()
-		return p.createConnection(ctx, accountID)
+		defer p.unreserveSlot(accountID)
+
+		select {
+		case gate <- struct{}{}:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		conn, err := p.createConnection(ctx, accountID)
+		<-gate
+		if err != nil {
+			return nil, err
+		}
+
+		p.mu.Lock()
+		poolSize := len(p.connections[accountID])
+		p.mu.Unlock()
+		p.log.Debug().
+			Str("account", accountID).
+			Dur("acquire", time.Since(acquireStart)).
+			Int("poolSize", poolSize).
+			Msg("Created new connection")
+		return conn, nil
 	}
 
 	// At limit - must wait
@@ -167,6 +299,10 @@ func (p *Pool) GetConnection(ctx context.Context, accountID string) (*PooledConn
 			// Channel was closed by CloseAccount/CloseAll — pool is being cleared
 			return nil, fmt.Errorf("connection pool closed")
 		}
+		p.log.Debug().
+			Str("account", accountID).
+			Dur("acquire", time.Since(acquireStart)).
+			Msg("Acquired connection from waiter queue")
 		return conn, nil
 	case <-ctx.Done():
 		// Remove ourselves from waiters
@@ -244,6 +380,9 @@ func (p *Pool) createConnectionWithRetry(ctx context.Context, accountID string, 
 			return
 		}
 		p.log.Debug().Str("account", accountID).Msg("IMAP login successful")
+		if client.IDRequired() && p.idRequiredCallback != nil {
+			p.idRequiredCallback(accountID)
+		}
 		done <- nil
 	}()
 
@@ -299,23 +438,32 @@ func (p *Pool) Release(conn *PooledConnection) {
 
 	conn.mu.Lock()
 	conn.inUse = false
-	conn.lastUsed = time.Now()
 	healthy := conn.isHealthyLocked()
+	if healthy {
+		conn.lastUsed = time.Now()
+	}
 	conn.mu.Unlock()
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	// Verify the connection is still tracked by the pool and healthy before
-	// handing it to a waiter. After CloseAll (sleep), dead connections from
-	// deferred Release calls must not be given to waiters.
+	// An unhealthy connection must LEAVE the pool, not merely be withheld from
+	// waiters: GetConnection trusts recently-used connections without a probe,
+	// so a dead one left in the list with a fresh lastUsed would be handed out
+	// again on the next acquisition (the Proton Bridge zombie loop — one closed
+	// socket failing every STATUS/SELECT for an account). Discard force-closes
+	// and removes it.
 	if !healthy {
 		p.log.Debug().
 			Str("account", conn.accountID).
 			Msg("Released connection is unhealthy, discarding")
+		p.Discard(conn)
 		return
 	}
 
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Verify the connection is still tracked by the pool before handing it to
+	// a waiter. After CloseAll (sleep), connections from deferred Release
+	// calls must not be given to waiters.
 	inPool := false
 	if conns, ok := p.connections[conn.accountID]; ok {
 		for _, c := range conns {
@@ -383,7 +531,7 @@ func (p *Pool) Discard(conn *PooledConnection) {
 		}
 	}
 
-	p.log.Debug().
+	p.log.Info().
 		Str("account", conn.accountID).
 		Msg("Discarded dead connection from pool")
 }
@@ -476,7 +624,7 @@ func (p *Pool) CleanupIdle() {
 	}
 
 	if cleaned > 0 {
-		p.log.Debug().
+		p.log.Info().
 			Int("cleaned", cleaned).
 			Msg("Cleaned up idle connections")
 	}
@@ -497,39 +645,6 @@ func (p *Pool) StartCleanupRoutine(ctx context.Context) {
 			}
 		}
 	}()
-}
-
-// Stats returns pool statistics
-type PoolStats struct {
-	TotalConnections  int
-	ActiveConnections int
-	IdleConnections   int
-	AccountCount      int
-}
-
-// GetStats returns current pool statistics
-func (p *Pool) GetStats() PoolStats {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	stats := PoolStats{
-		AccountCount: len(p.connections),
-	}
-
-	for _, conns := range p.connections {
-		for _, conn := range conns {
-			stats.TotalConnections++
-			conn.mu.Lock()
-			if conn.inUse {
-				stats.ActiveConnections++
-			} else {
-				stats.IdleConnections++
-			}
-			conn.mu.Unlock()
-		}
-	}
-
-	return stats
 }
 
 // Client returns the underlying IMAP client from a pooled connection

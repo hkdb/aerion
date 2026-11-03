@@ -92,7 +92,7 @@ func (s *Syncer) SyncSource(sourceID string) error {
 	}
 
 	if !source.Enabled {
-		s.log.Debug().Str("sourceID", sourceID).Msg("Source is disabled, skipping sync")
+		s.log.Info().Str("sourceID", sourceID).Msg("Source is disabled, skipping sync")
 		return nil
 	}
 
@@ -355,7 +355,7 @@ func (s *Syncer) storeOAuthContactsDelta(ab *Addressbook, result *contact.SyncRe
 // syncAddressbook syncs a single addressbook
 // Uses incremental sync (sync-collection) if a sync token exists, otherwise does a full sync
 func (s *Syncer) syncAddressbook(client *Client, ab *Addressbook) error {
-	s.log.Debug().Str("addressbook", ab.Name).Str("path", ab.Path).Str("syncToken", ab.SyncToken).Msg("Syncing addressbook")
+	s.log.Info().Str("addressbook", ab.Name).Str("path", ab.Path).Str("syncToken", ab.SyncToken).Msg("Syncing addressbook")
 
 	// Try incremental sync if we have a sync token
 	if ab.SyncToken != "" {
@@ -496,7 +496,7 @@ func (s *Syncer) syncAddressbookFull(client *Client, ab *Addressbook) error {
 	result, err := client.SyncAddressbook(ab.Path, "")
 	if err != nil {
 		// If sync-collection is not supported, fall back to query all
-		s.log.Debug().Err(err).Msg("Sync-collection not supported, using query all")
+		s.log.Info().Err(err).Msg("Sync-collection not supported, using query all")
 		return s.syncAddressbookLegacy(client, ab)
 	}
 
@@ -535,14 +535,14 @@ func (s *Syncer) syncAddressbookLegacy(client *Client, ab *Addressbook) error {
 	if err != nil {
 		// Minimal servers (Mailfence, #366) reject addressbook-query REPORTs
 		// too — fall back to plain PROPFIND enumeration + multiget/GET.
-		s.log.Debug().Err(err).Msg("Addressbook-query not supported, using PROPFIND enumeration")
+		s.log.Info().Err(err).Msg("Addressbook-query not supported, using PROPFIND enumeration")
 		parsedContacts, err = client.FetchContactsEnumerate(ab.Path)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to fetch contacts: %w", err)
 	}
 
-	s.log.Debug().Int("count", len(parsedContacts)).Str("addressbook", ab.Name).Msg("Fetched contacts")
+	s.log.Info().Int("count", len(parsedContacts)).Str("addressbook", ab.Name).Msg("Fetched contacts")
 
 	// Delete all existing contacts and re-add
 	deleteErr := retryDBOperation(func() error {

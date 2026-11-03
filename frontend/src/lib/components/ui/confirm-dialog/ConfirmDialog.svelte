@@ -33,17 +33,14 @@
   // The guard is what makes App.svelte's global key handler step out of the
   // way — without it, mail's Enter/Space dispatcher calls e.preventDefault()
   // on dialog buttons (they're not inside a `[data-pane="..."]` ancestor) and
-  // the user can't activate Confirm/Cancel via keyboard.
-  let guarded = false
+  // the user can't activate Confirm/Cancel via keyboard. The effect cleanup
+  // releases the guard on close AND on unmount-while-open (a row destroyed
+  // by a reload mid-confirm) — a leaked guard swallows every shortcut until
+  // restart.
   $effect(() => {
-    if (open && !guarded) {
-      dialogGuardOpen()
-      guarded = true
-    }
-    if (!open && guarded) {
-      dialogGuardClose()
-      guarded = false
-    }
+    if (!open) return
+    dialogGuardOpen()
+    return () => dialogGuardClose()
   })
 
   function handleOpenChange(isOpen: boolean) {

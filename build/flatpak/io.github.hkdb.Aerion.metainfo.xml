@@ -5,12 +5,15 @@
   <project_license>Apache-2.0</project_license>
   <name>Aerion</name>
   <summary>Lightweight open-source email client for Linux</summary>
+  <summary xml:lang="ja">軽量なオープンソースのLinux向けメールクライアント</summary>
   <summary xml:lang="cs">Nenáročný open-source e-mailový klient pro Linux</summary>
   <summary xml:lang="de">Schlanker Open-Source-E-Mail-Client für Linux</summary>
   <summary xml:lang="fr">Client e-mail open-source léger pour Linux</summary>
   <summary xml:lang="it">Leggero client di posta elettronica open-source per Linux</summary>
   <summary xml:lang="nb">Lettvekt e-postklient for Linux med åpen kildekode</summary>
   <summary xml:lang="pl">Lekki klienta poczty e-mail open-source dla Linuksa</summary>
+  <summary xml:lang="pt-BR">Cliente de e-mail leve e de código aberto para Linux</summary>
+  <summary xml:lang="tr">Linux için hafif, açık kaynaklı e-posta istemcisi</summary>
   <summary xml:lang="vi">Ứng dụng email nhẹ mã nguồn mở dành cho Linux</summary>
   <summary xml:lang="zh-CN">一款现代化，轻量级的开源 Linux 电子邮件客户端应用程序</summary>
   <summary xml:lang="zh-HK">一款現代化，輕量級的開源 Linux 電子郵件客戶端應用程式</summary>
@@ -20,6 +23,7 @@
       Aerion is a modern, lightweight email client inspired by Geary, focused on
       resource efficiency and a clean user experience.
     </p>
+    <p xml:lang="ja">Aerionは、Gearyにインスピレーションを得た、リソース効率とクリーンなユーザー体験を重視したモダンで軽量なメールクライアントです。</p>
     <p xml:lang="cs">
       Aerion je moderní, nenáročný e-mailový klient inspirovaný aplikací Geary, zaměřený na
       efektivní využití systémových prostředků a čistý uživatelský zážitek.
@@ -44,6 +48,14 @@
       Aerion to nowoczesny, lekki klient poczty e-mail zainspirowany programem Geary, stawiający na
       wydajne wykorzystanie zasobów oraz przejrzysty interfejs użytkownika.
     </p>
+    <p xml:lang="pt-BR">
+      Aerion é um cliente de e-mail moderno e leve, inspirado no Geary, com foco em
+      eficiência no uso de recursos e uma experiência de uso limpa.
+    </p>
+    <p xml:lang="tr">
+      Aerion, Geary'den esinlenen; kaynak verimliliğine ve temiz bir kullanıcı deneyimine odaklanan
+      modern ve hafif bir e-posta istemcisidir.
+    </p>
     <p xml:lang="vi">
       Aerion là ứng dụng email hiện đại và nhẹ, được lấy cảm hứng từ Geary, tập trung vào
       hiệu quả sử dụng tài nguyên và trải nghiệm người dùng gọn gàng.
@@ -59,12 +71,15 @@
     </p>
 
     <p>Features:</p>
+    <p xml:lang="ja">機能:</p>
     <p xml:lang="cs">Funkce:</p>
     <p xml:lang="de">Funktionen:</p>
     <p xml:lang="fr">Fonctionnalités :</p>
     <p xml:lang="it">Funzionalità:</p>
     <p xml:lang="nb">Funksjoner:</p>
     <p xml:lang="pl">Funkcje:</p>
+    <p xml:lang="pt-BR">Recursos:</p>
+    <p xml:lang="tr">Özellikler:</p>
     <p xml:lang="vi">Tính năng:</p>
     <p xml:lang="zh-CN">功能特色：</p>
     <p xml:lang="zh-HK">功能特色：</p>
@@ -72,156 +87,195 @@
 
     <ul>
       <li>Multiple email accounts with unified inbox</li>
+      <li xml:lang="ja">単一の統合受信箱によるマルチアカウント対応</li>
       <li xml:lang="cs">Více e-mailových účtů se sjednocenou schránkou</li>
       <li xml:lang="de">Mehrere E-Mail-Konten mit einem gemeinsamen Posteingang</li>
       <li xml:lang="fr">Plusieurs comptes e-mail avec une boîte de réception unifiée</li>
       <li xml:lang="it">Account multipli con un'unica casella di posta elettronica unificata</li>
       <li xml:lang="nb">Bruk flere e-postkontoer med en felles innboks</li>
       <li xml:lang="pl">Obsługa wielu kont pocztowych ze zbiorczą skrzynką odbiorczą</li>
+      <li xml:lang="pt-BR">Várias contas de e-mail com caixa de entrada unificada</li>
+      <li xml:lang="tr">Birleşik gelen kutusuyla birden çok e-posta hesabı</li>
       <li xml:lang="vi">Nhiều tài khoản email với hộp thư đến hợp nhất</li>
       <li xml:lang="zh-CN">多账号支持与统一收件箱</li>
       <li xml:lang="zh-HK">多帳戶支援與統一收件箱</li>
       <li xml:lang="zh-TW">多帳號支援與統一收件匣</li>
 
       <li>Support for Gmail, Outlook, and generic IMAP/SMTP</li>
+      <li xml:lang="ja">Gmail、Outlook、一般的なIMAP/SMTPサービスに対応</li>
       <li xml:lang="cs">Podpora Gmailu, Outlooku a obecného IMAP/SMTP</li>
       <li xml:lang="de">Unterstützung für Gmail, Outlook und generisches IMAP/SMTP</li>
       <li xml:lang="fr">Prise en charge de Gmail, Outlook et IMAP/SMTP générique</li>
       <li xml:lang="it">Supporta Gmail, Outlook e servizi IMAP/SMTP generici</li>
       <li xml:lang="nb">Støtte for Gmail, Outlook og øvrige tjenester via IMAP/SMTP</li>
       <li xml:lang="pl">Wsparcie dla Gmaila, Outlooka oraz standardowych protokołów IMAP/SMTP</li>
+      <li xml:lang="pt-BR">Suporte a Gmail, Outlook e IMAP/SMTP genérico</li>
+      <li xml:lang="tr">Gmail, Outlook ve genel IMAP/SMTP desteği</li>
       <li xml:lang="vi">Hỗ trợ Gmail, Outlook và IMAP/SMTP thông thường</li>
       <li xml:lang="zh-CN">支持 Gmail、Outlook 及通用 IMAP/SMTP</li>
       <li xml:lang="zh-HK">支援 Gmail、Outlook 及通用 IMAP/SMTP</li>
       <li xml:lang="zh-TW">支援 Gmail、Outlook 及通用 IMAP/SMTP</li>
 
       <li>Conversation threading</li>
+      <li xml:lang="ja">スレッド表示によるメッセージ管理</li>
       <li xml:lang="cs">Zobrazení konverzačních vláken</li>
       <li xml:lang="de">Konversationsansicht (Threading)</li>
       <li xml:lang="fr">Affichage des messages par fil de discussion</li>
       <li xml:lang="it">Visualizzazione dei messaggi in discussioni</li>
       <li xml:lang="nb">Vise samtaler som tråder</li>
       <li xml:lang="pl">Grupowanie wiadomości w wątki konwersacji</li>
+      <li xml:lang="pt-BR">Mensagens agrupadas em conversas</li>
+      <li xml:lang="tr">Konu dizisi (thread) görünümü</li>
       <li xml:lang="vi">Xem email theo chuỗi hội thoại</li>
       <li xml:lang="zh-CN">会话线程视图</li>
       <li xml:lang="zh-HK">對話串檢視</li>
       <li xml:lang="zh-TW">對話串檢視</li>
 
       <li>Rich text WYSIWYG composer with TipTap editor</li>
+      <li xml:lang="ja">リッチテキストとTipTap対応のWYSIWYGエディター</li>
       <li xml:lang="cs">Vizuální (WYSIWYG) editor formátovaného textu využívající TipTap</li>
       <li xml:lang="de">WYSIWYG-Editor für Rich-Text mit TipTap-Unterstützung</li>
       <li xml:lang="fr">Éditeur de message WYSIWYG en texte enrichi avec TipTap</li>
       <li xml:lang="it">Editor WYSIWYG con formato Rich Text e supporto TipTap</li>
       <li xml:lang="nb">Enkel WYSIWYG-skriving med rik tekst med TipTap</li>
       <li xml:lang="pl">Edytor tekstu sformatowanego WYSIWYG oparty na edytorze TipTap</li>
+      <li xml:lang="pt-BR">Editor WYSIWYG de texto formatado com TipTap</li>
+      <li xml:lang="tr">TipTap düzenleyicili zengin metin (WYSIWYG) ileti oluşturucu</li>
       <li xml:lang="vi">Trình soạn thảo trực quan văn bản phong phú với trình chỉnh sửa TipTap</li>
       <li xml:lang="zh-CN">使用 TipTap 编辑器的所见即所得撰写界面</li>
       <li xml:lang="zh-HK">使用 TipTap 編輯器的所見即所得撰寫界面</li>
       <li xml:lang="zh-TW">使用 TipTap 編輯器的所見即所得撰寫介面</li>
 
       <li>Contact sync (CardDAV, Google, Microsoft) for auto-completion</li>
+      <li xml:lang="ja">連絡先の同期(CardDAV、Google、Microsoft)自動入力機能付き</li>
       <li xml:lang="cs">Synchronizace kontaktů (CardDAV, Google, Microsoft) pro automatické doplňování</li>
       <li xml:lang="de">Kontaktsynchronisation (CardDAV, Google, Microsoft) für automatische Vervollständigung</li>
       <li xml:lang="fr">Synchronisation des contacts (CardDAV, Google, Microsoft) pour l'auto-complétion</li>
       <li xml:lang="it">Sincronizzazione dei contatti (CardDAV, Google, Microsoft) tramite compilazione automatica</li>
       <li xml:lang="nb">Synkronisere kontakter via CardDAV, Google eller Microsoft for automatisk fullføring</li>
       <li xml:lang="pl">Synchronizacja kontaktów (CardDAV, Google, Microsoft) z automatycznym podpowiadaniem adresów</li>
+      <li xml:lang="pt-BR">Sincronização de contatos (CardDAV, Google, Microsoft) para preenchimento automático</li>
+      <li xml:lang="tr">Otomatik tamamlama için kişi senkronizasyonu (CardDAV, Google, Microsoft)</li>
       <li xml:lang="vi">Đồng bộ danh bạ (CardDAV, Google, Microsoft) để tự động gợi ý danh bạ</li>
       <li xml:lang="zh-CN">联系人同步（CardDAV、Google、Microsoft）与自动补全</li>
       <li xml:lang="zh-HK">聯絡人同步（CardDAV、Google、Microsoft）與自動完成</li>
       <li xml:lang="zh-TW">聯絡人同步（CardDAV、Google、Microsoft）與自動完成</li>
 
       <li>Dark mode and multiple color themes</li>
+      <li xml:lang="ja">ダークモードと複数のカラーテーマ</li>
       <li xml:lang="cs">Tmavý režim a několik barevných motivů</li>
       <li xml:lang="de">Dunkelmodus und verschiedene Farbedesigns</li>
       <li xml:lang="fr">Mode sombre et thèmes de couleurs multiples</li>
       <li xml:lang="it">Modalità scura e molteplici temi colorati</li>
       <li xml:lang="nb">Mørk modus og flere fargelagte temaer</li>
       <li xml:lang="pl">Tryb ciemny oraz różnorodne motywy kolorystyczne</li>
+      <li xml:lang="pt-BR">Modo escuro e vários temas de cores</li>
+      <li xml:lang="tr">Koyu tema ve birden çok renk teması</li>
       <li xml:lang="vi">Chế độ tối và nhiều giao diện màu sắc</li>
       <li xml:lang="zh-CN">深色模式与多种颜色主题</li>
       <li xml:lang="zh-HK">深色模式與多種色彩主題</li>
       <li xml:lang="zh-TW">深色模式與多種色彩主題</li>
 
       <li>Keyboard-friendly navigation with vim-style shortcuts</li>
+      <li xml:lang="ja">Vimスタイルのショートカットによる高速なキーボード操作</li>
       <li xml:lang="cs">Ovládání z klávesnice se zkratkami ve stylu Vim</li>
       <li xml:lang="de">Tastaturfreundliche Navigation mit Tastenkürzeln im Vim-Stil</li>
       <li xml:lang="fr">Navigation au clavier avec raccourcis de style Vim</li>
       <li xml:lang="it">Navigazione rapida tramite tastiera con scorciatoie nello stile Vim</li>
       <li xml:lang="nb">Tastaturvennlig navigasjon med Vim-aktige snarveier</li>
       <li xml:lang="pl">Wygodna nawigacja klawiszowa ze skrótami w stylu Vima</li>
+      <li xml:lang="pt-BR">Navegação por teclado com atalhos no estilo Vim</li>
+      <li xml:lang="tr">Vim tarzı kısayollarla klavyeye uygun gezinme</li>
       <li xml:lang="vi">Điều hướng thân thiện với bàn phím với phím tắt theo phong cách Vim</li>
       <li xml:lang="zh-CN">支持 Vim 风格快捷键的键盘导航</li>
       <li xml:lang="zh-HK">支援 Vim 風格快捷鍵的鍵盤導航</li>
       <li xml:lang="zh-TW">支援 Vim 風格快捷鍵的鍵盤導航</li>
 
       <li>Detachable composer window</li>
+      <li xml:lang="ja">分離可能なメッセージ作成ウィンドウ</li>
       <li xml:lang="cs">Oddělitelné okno pro psaní zprávy</li>
       <li xml:lang="de">Abdockbares Fenster zum Verfassen von E-Mails</li>
       <li xml:lang="fr">Fenêtre de rédaction détachable</li>
       <li xml:lang="it">Finestra di scrittura dei messaggi separabile</li>
       <li xml:lang="nb">Avtagbart vindu for skriving</li>
       <li xml:lang="pl">Możliwość odłączenia okna tworzenia wiadomości</li>
+      <li xml:lang="pt-BR">Janela de composição destacável</li>
+      <li xml:lang="tr">Ayrılabilir ileti oluşturma penceresi</li>
       <li xml:lang="vi">Cửa sổ soạn thảo có thể tách rời</li>
       <li xml:lang="zh-CN">可分离的撰写窗口</li>
       <li xml:lang="zh-HK">可分離的撰寫視窗</li>
       <li xml:lang="zh-TW">可分離的撰寫視窗</li>
 
       <li>Basic tracking element removal from emails</li>
+      <li xml:lang="ja">メールからの基本的なトラッキング要素の除去</li>
       <li xml:lang="cs">Základní odstraňování sledovacích prvků z e-mailů</li>
       <li xml:lang="de">Grundlegende Entfernung von Tracking-Elementen aus E-Mails</li>
       <li xml:lang="fr">Suppression basique des éléments de suivi des e-mails</li>
       <li xml:lang="it">Rimozione basica degli elementi di tracciamento dalle email</li>
       <li xml:lang="nb">Fjerning av enkle sporingselementer fra e-poster</li>
       <li xml:lang="pl">Podstawowa ochrona przed elementami śledzącymi w wiadomościach</li>
+      <li xml:lang="pt-BR">Remoção básica de elementos de rastreamento dos e-mails</li>
+      <li xml:lang="tr">E-postalardan temel izleme öğelerini kaldırma</li>
       <li xml:lang="vi">Loại bỏ cơ bản các thành phần theo dõi khỏi email</li>
       <li xml:lang="zh-CN">基本的邮件追踪元素移除</li>
       <li xml:lang="zh-HK">基本的郵件追蹤元素移除</li>
       <li xml:lang="zh-TW">基本的郵件追蹤元素移除</li>
 
       <li>PGP and S/MIME support</li>
+      <li xml:lang="ja">PGPおよびS/MIME対応</li>
       <li xml:lang="cs">Podpora PGP a S/MIME</li>
       <li xml:lang="de">Unterstützung für PGP und S/MIME</li>
       <li xml:lang="fr">Prise en charge de PGP et S/MIME</li>
       <li xml:lang="it">Supporto per PGP e S/MIME</li>
       <li xml:lang="nb">Støtte for PGP og S/MIME</li>
       <li xml:lang="pl">Obsługa PGP oraz S/MIME</li>
+      <li xml:lang="pt-BR">Suporte a PGP e S/MIME</li>
+      <li xml:lang="tr">PGP ve S/MIME desteği</li>
       <li xml:lang="vi">Hỗ trợ PGP và S/MIME</li>
       <li xml:lang="zh-CN">PGP 与 S/MIME 支持</li>
       <li xml:lang="zh-HK">PGP 與 S/MIME 支援</li>
       <li xml:lang="zh-TW">PGP 與 S/MIME 支援</li>
 
       <li>Contacts extension (ALPHA)</li>
+      <li xml:lang="ja">連絡先拡張機能(ALPHA)</li>
       <li xml:lang="cs">Rozšíření Kontakty (ALPHA)</li>
       <li xml:lang="de">Kontakte-Erweiterung (ALPHA)</li>
       <li xml:lang="fr">Extension Contacts (ALPHA)</li>
       <li xml:lang="it">Estensione Contatti (ALPHA)</li>
       <li xml:lang="nb">Kontakter-utvidelse (ALPHA)</li>
       <li xml:lang="pl">Wtyczka kontaktów (ALPHA)</li>
+      <li xml:lang="pt-BR">Extensão de Contatos (ALPHA)</li>
+      <li xml:lang="tr">Kişiler uzantısı (ALFA)</li>
       <li xml:lang="vi">Tiện ích Danh bạ (ALPHA)</li>
       <li xml:lang="zh-CN">联系人扩展（ALPHA）</li>
       <li xml:lang="zh-HK">聯絡人擴充功能（ALPHA）</li>
       <li xml:lang="zh-TW">聯絡人擴充功能（ALPHA）</li>
 
       <li>Calendar extension (ALPHA)</li>
+      <li xml:lang="ja">カレンダー拡張機能(ALPHA)</li>
       <li xml:lang="cs">Rozšíření Kalendář (ALPHA)</li>
       <li xml:lang="de">Kalender-Erweiterung (ALPHA)</li>
       <li xml:lang="fr">Extension Calendrier (ALPHA)</li>
       <li xml:lang="it">Estensione Calendario (ALPHA)</li>
       <li xml:lang="nb">Kalender-utvidelse (ALPHA)</li>
       <li xml:lang="pl">Wtyczka kalendarza (ALPHA)</li>
+      <li xml:lang="pt-BR">Extensão de Agenda (ALPHA)</li>
+      <li xml:lang="tr">Takvim uzantısı (ALFA)</li>
       <li xml:lang="vi">Tiện ích Lịch (ALPHA)</li>
       <li xml:lang="zh-CN">日历扩展（ALPHA）</li>
       <li xml:lang="zh-HK">日曆擴充功能（ALPHA）</li>
       <li xml:lang="zh-TW">日曆擴充功能（ALPHA）</li>
 
       <li>Custom OAuth support for generic IMAP, SMTP, CardDAV, and CalDAV</li>
+      <li xml:lang="ja">汎用IMAP、SMTP、CardDAV、CalDAV向けのカスタムOAuth対応</li>
       <li xml:lang="cs">Podpora vlastního OAuth pro obecný IMAP, SMTP, CardDAV a CalDAV</li>
       <li xml:lang="de">Unterstützung für benutzerdefiniertes OAuth für generisches IMAP, SMTP, CardDAV und CalDAV</li>
       <li xml:lang="fr">Prise en charge d'OAuth personnalisé pour IMAP, SMTP, CardDAV et CalDAV génériques</li>
       <li xml:lang="it">Supporto per OAuth personalizzato per IMAP, SMTP, CardDAV e CalDAV generici</li>
       <li xml:lang="nb">Støtte for tilpasset OAuth for generisk IMAP, SMTP, CardDAV og CalDAV</li>
       <li xml:lang="pl">Obsługa własnych dostawców OAuth dla standardowych IMAP, SMTP, CardDAV i CalDAV</li>
+      <li xml:lang="pt-BR">Suporte a OAuth personalizado para IMAP, SMTP, CardDAV e CalDAV genéricos</li>
+      <li xml:lang="tr">Genel IMAP, SMTP, CardDAV ve CalDAV için özel OAuth desteği</li>
       <li xml:lang="vi">Hỗ trợ OAuth tùy chỉnh cho IMAP, SMTP, CardDAV và CalDAV thông thường</li>
       <li xml:lang="zh-CN">为通用 IMAP、SMTP、CardDAV 和 CalDAV 提供自定义 OAuth 支持</li>
       <li xml:lang="zh-HK">為通用 IMAP、SMTP、CardDAV 和 CalDAV 提供自訂 OAuth 支援</li>
@@ -235,12 +289,15 @@
     <screenshot type="default">
       <image>https://raw.githubusercontent.com/hkdb/aerion/main/docs/ss.png</image>
       <caption>Aerion main window showing inbox</caption>
+      <caption xml:lang="ja">Aerionのメインウィンドウ。受信箱が表示されています</caption>
       <caption xml:lang="cs">Hlavní okno aplikace Aerion zobrazující schránku</caption>
       <caption xml:lang="de">Das Hauptfenster von Aerion mit dem Posteingang</caption>
       <caption xml:lang="fr">Fenêtre principale d'Aerion affichant la boîte de réception</caption>
       <caption xml:lang="it">Finestra principale di Aerion mostrante la casella di posta</caption>
       <caption xml:lang="nb">Aerion-vindu som viser innboks</caption>
       <caption xml:lang="pl">Główne okno programu Aerion przedstawiające skrzynkę odbiorczą</caption>
+      <caption xml:lang="pt-BR">Janela principal do Aerion mostrando a caixa de entrada</caption>
+      <caption xml:lang="tr">Gelen kutusunu gösteren Aerion ana penceresi</caption>
       <caption xml:lang="vi">Cửa sổ chính của Aerion hiển thị hộp thư đến</caption>
       <caption xml:lang="zh-CN">Aerion 主窗口显示收件箱</caption>
       <caption xml:lang="zh-HK">Aerion 主視窗顯示收件箱</caption>
@@ -265,7 +322,9 @@
 
   <keywords>
     <keyword>email</keyword>
+    <keyword xml:lang="ja">メール</keyword>
     <keyword>mail</keyword>
+    <keyword xml:lang="ja">メールクライアント</keyword>
     <keyword>imap</keyword>
     <keyword>smtp</keyword>
     <keyword>gmail</keyword>
@@ -293,6 +352,13 @@
     <keyword xml:lang="pl">poczta</keyword>
     <keyword xml:lang="pl">wiadomości</keyword>
 
+    <keyword xml:lang="pt-BR">e-mail</keyword>
+    <keyword xml:lang="pt-BR">correio eletrônico</keyword>
+    <keyword xml:lang="pt-BR">mensagens</keyword>
+    <keyword xml:lang="tr">e-posta</keyword>
+    <keyword xml:lang="tr">posta</keyword>
+    <keyword xml:lang="tr">ileti</keyword>
+
     <keyword xml:lang="vi">thư điện tử</keyword>
     <keyword xml:lang="vi">hộp thư</keyword>
 
@@ -309,6 +375,36 @@
   </provides>
 
   <releases>
+    <release version="0.3.6" date="2026-11-03">
+      <description>
+        <ul>
+          <li>Added Brazilian Portuguese (pt-BR) translation - @sasnascimento</li>
+          <li>Added Japanse(ja) translation - @theluckystrike</li>
+          <li>Added Turkish (tr) translation - @omertahaoztop</li>
+          <li>Sync rework - (See docs/SYNC_REWORK.md on Github for destails)</li>
+          <li>Improved debug/logging</li>
+          <li>Fixed login by sending IMAP ID to servers that require it - #457</li>
+          <li>"Mark all as read/unread" on a folder can now include mail older than the sync period (asks when there is any) - #458</li>
+          <li>Empty folders now say when there are messages older than the sync period</li>
+          <li>Gmail accounts archive to All Mail by default - #464</li>
+          <li>Fixed shutdown/reboot when Aerion running in the background (SIGTERM now quits) - #460</li>
+          <li>Fixed attachment save failing when the Downloads folder has been moved or does not exist - #474</li>
+          <li>HTML signatures and pasted HTML keep their inline styles, link colours, image sizes, fonts and web-font links in the composer - #110</li>
+          <li>Fixed the signature editor showing blank after switching from HTML back to visual mode</li>
+          <li>Fixed extra blank space under images in the composer and signature editor</li>
+          <li>Fixed the reading pane showing a blank "(No subject)" conversation after deleting a message - #260</li>
+          <li>Fixed mouse-dead UI after the first-run dialogs - #448</li>
+          <li>Fixed sync stalling on an empty-subject message from servers that send a malformed ENVELOPE - #463</li>
+          <li>Fixed merged duplicate messages staying unread and leaving copies behind on delete/move (actions now apply to every copy in the folder)</li>
+          <li>Calendar: changing an event's start now moves the end to keep the duration - #466</li>
+          <li>Calendar: events with Windows time zone IDs (Outlook invites) now sync and expand correctly - #467</li>
+          <li>Fixed the message list not highlighting the message opened from a notification click</li>
+          <li>Add Account: Fixed Account Name and Username refilling after being cleared - #451</li>
+          <li>Confined auto-fill to Add Account</li>
+          <li>Add Account: Removed auto-capitalizing account name on auto-fill</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.5" date="2026-09-21">
       <description>
         <ul>
@@ -541,7 +637,6 @@
     </release>
     <release version="0.1.39" date="2026-04-27">
       <description>
-        
         <p>As of 2026-04-26, Aerion is CASA Tier 2 certified and verified by Google so oAuth2 signin will no longer be blocked.</p>
 
         <p>v0.1.39 is a major milestone that includes some remaining originally planned basic features and a substantial amount of bug fixes/refinements focused on making existing features much more reliable/stable. It will serve as a solid foundation for us to continue the further development of this mail client.</p>

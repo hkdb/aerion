@@ -79,6 +79,14 @@ type ClientConfig struct {
 
 	// TLS config (optional, used for certificate TOFU verification)
 	TLSConfig *tls.Config
+
+	// SendID makes Connect send an RFC 2971 ID command right after the
+	// greeting. Only set for accounts whose server has already rejected
+	// LOGIN with "Unsafe Login" (Coremail/NetEase, #457) — see sendID.
+	SendID        bool
+	ClientName    string
+	ClientVersion string
+	ClientVendor  string
 }
 
 // DefaultConfig returns a ClientConfig with sensible defaults
@@ -98,6 +106,10 @@ type Client struct {
 	client *imapclient.Client
 	caps   imap.CapSet
 	log    zerolog.Logger
+
+	// idRequired is set when Login only succeeded after sending an IMAP ID
+	// in response to an "Unsafe Login" rejection; the pool persists it.
+	idRequired bool
 }
 
 // NewClient creates a new IMAP client but does not connect
@@ -204,6 +216,13 @@ func (c *Client) Connect() error {
 		Strs("caps", capsToStrings(c.caps)).
 		Msg("Server capabilities")
 
+	// Identify only to servers already known to demand it (learned flag);
+	// a failure here must not abort the connection — Login reports the
+	// real outcome.
+	if c.config.SendID {
+		_ = c.sendID()
+	}
+
 	c.log.Info().
 		Str("host", c.config.Host).
 		Dur("readTimeout", c.config.ReadTimeout).
@@ -238,12 +257,23 @@ func (c *Client) Login() error {
 		Str("authType", string(authType)).
 		Msg("Logging in")
 
-	var err error
-	switch authType {
-	case AuthTypeOAuth2:
-		err = c.loginOAuth2()
-	default:
-		err = c.loginPassword()
+	err := c.authenticate(authType)
+
+	// Coremail-based servers (163.com, 126.com, …) reject LOGIN until the
+	// client has identified itself with an IMAP ID command. Privacy rule:
+	// Aerion never sends ID unprompted, so the first login on such a server
+	// fails once, we identify, retry, and remember (IDRequired → the pool
+	// persists the account flag so later connections send ID up front).
+	if err != nil && !c.config.SendID && isUnsafeLoginError(err) && c.caps.Has(imap.CapID) {
+		c.log.Info().
+			Str("host", c.config.Host).
+			Msg("Server requires IMAP ID before login (Unsafe Login); identifying and retrying once")
+		if idErr := c.sendID(); idErr == nil {
+			err = c.authenticate(authType)
+			if err == nil {
+				c.idRequired = true
+			}
+		}
 	}
 
 	if err != nil {
@@ -258,6 +288,55 @@ func (c *Client) Login() error {
 		Msg("Logged in successfully")
 
 	return nil
+}
+
+// authenticate runs the auth flow for the configured type.
+func (c *Client) authenticate(authType AuthType) error {
+	switch authType {
+	case AuthTypeOAuth2:
+		return c.loginOAuth2()
+	default:
+		return c.loginPassword()
+	}
+}
+
+// sendID sends an RFC 2971 ID command carrying only name, version and
+// vendor. No OS, hostname or support contact: the principle is to tell a
+// server only what it requires, and only servers that have proven they
+// require it get this at all (ClientConfig.SendID / the retry in Login).
+// Do not "improve" this into send-when-advertised.
+func (c *Client) sendID() error {
+	if c.client == nil {
+		return fmt.Errorf("not connected")
+	}
+	if !c.caps.Has(imap.CapID) {
+		return nil
+	}
+	if _, err := c.client.ID(&imap.IDData{
+		Name:    c.config.ClientName,
+		Version: c.config.ClientVersion,
+		Vendor:  c.config.ClientVendor,
+	}).Wait(); err != nil {
+		c.log.Warn().Err(err).Str("host", c.config.Host).Msg("IMAP ID command failed")
+		return err
+	}
+	c.log.Debug().Str("host", c.config.Host).Msg("Sent IMAP ID")
+	return nil
+}
+
+// isUnsafeLoginError reports the Coremail/NetEase rejection of a LOGIN that
+// was not preceded by an ID command ("Unsafe Login. Please contact …").
+func isUnsafeLoginError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "unsafe login")
+}
+
+// IDRequired reports whether this connection's login only succeeded after
+// identifying with an IMAP ID command (so the account should be flagged).
+func (c *Client) IDRequired() bool {
+	return c.idRequired
 }
 
 // loginPassword authenticates using password (LOGIN or SASL PLAIN). A
@@ -348,7 +427,7 @@ func (c *Client) ForceClose() error {
 		return nil
 	}
 
-	c.log.Debug().Msg("Force-closing IMAP connection")
+	c.log.Info().Msg("Force-closing IMAP connection")
 
 	// Send LOGOUT without waiting for the BYE response.
 	// On live connections the server receives it and frees the slot.
@@ -685,68 +764,112 @@ func (c *Client) SelectMailbox(ctx context.Context, name string) (*Mailbox, erro
 	}
 }
 
-// GetMailboxStatus returns the status of a mailbox without selecting it.
-// Uses a goroutine to allow context cancellation since Wait() blocks indefinitely.
-func (c *Client) GetMailboxStatus(ctx context.Context, name string) (*Mailbox, error) {
-	if c.client == nil {
-		return nil, fmt.Errorf("not connected")
-	}
-
+// statusOptions is the STATUS item set every folder-stage and message-stage
+// STATUS asks for; HIGHESTMODSEQ only when the server advertises CONDSTORE.
+func (c *Client) statusOptions() *imap.StatusOptions {
 	options := &imap.StatusOptions{
 		NumMessages: true,
 		UIDNext:     true,
 		UIDValidity: true,
 		NumUnseen:   true,
 	}
-
-	// Add HIGHESTMODSEQ if server supports CONDSTORE
 	if c.SupportsCondStore() {
 		options.HighestModSeq = true
 	}
+	return options
+}
 
-	// Run Wait() in a goroutine to allow context cancellation
-	type statusResult struct {
-		data *imap.StatusData
-		err  error
+// mailboxFromStatus converts a STATUS reply into a Mailbox with the counts
+// populated. Optional items the server omitted stay zero.
+func mailboxFromStatus(name string, data *imap.StatusData) *Mailbox {
+	mb := &Mailbox{Name: name}
+	if data == nil {
+		return mb
 	}
-	resultCh := make(chan statusResult, 1)
+	if data.UIDValidity != 0 {
+		mb.UIDValidity = data.UIDValidity
+	}
+	if data.UIDNext != 0 {
+		mb.UIDNext = uint32(data.UIDNext)
+	}
+	if data.NumMessages != nil {
+		mb.Messages = *data.NumMessages
+	}
+	if data.NumUnseen != nil {
+		mb.Unseen = *data.NumUnseen
+	}
+	if data.HighestModSeq != 0 {
+		mb.HighestModSeq = data.HighestModSeq
+	}
+	return mb
+}
+
+// GetMailboxStatus fetches STATUS for one mailbox.
+func (c *Client) GetMailboxStatus(ctx context.Context, name string) (*Mailbox, error) {
+	statuses, errs := c.GetMailboxStatuses(ctx, []string{name})
+	if errs[0] != nil {
+		return nil, errs[0]
+	}
+	return statuses[0], nil
+}
+
+// GetMailboxStatuses pipelines STATUS for several mailboxes on this one
+// connection: every command is sent before the first reply is awaited, so a
+// batch costs one round trip plus the server's per-mailbox work instead of a
+// round trip each. go-imap routes untagged STATUS replies to the pending
+// command by mailbox name, so distinct names are unambiguous (RFC 9051 §5.5).
+// Results are positional; a nil error means the matching Mailbox is set. A
+// decode error on any reply closes the connection and fails every reply still
+// pending, so callers should retry failures on a fresh connection.
+func (c *Client) GetMailboxStatuses(ctx context.Context, names []string) ([]*Mailbox, []error) {
+	statuses := make([]*Mailbox, len(names))
+	errs := make([]error, len(names))
+	if len(names) == 0 {
+		return statuses, errs
+	}
+	if c.client == nil {
+		for i := range errs {
+			errs[i] = fmt.Errorf("not connected")
+		}
+		return statuses, errs
+	}
+
+	options := c.statusOptions()
+
+	type batchResult struct {
+		statuses []*Mailbox
+		errs     []error
+	}
+	resultCh := make(chan batchResult, 1)
 	go func() {
-		data, err := c.client.Status(name, options).Wait()
-		resultCh <- statusResult{data, err}
+		// Status returns once the command is on the wire; collect them all,
+		// then wait in order.
+		cmds := make([]*imapclient.StatusCommand, len(names))
+		for i, name := range names {
+			cmds[i] = c.client.Status(name, options)
+		}
+		st := make([]*Mailbox, len(names))
+		er := make([]error, len(names))
+		for i, cmd := range cmds {
+			data, err := cmd.Wait()
+			if err != nil {
+				er[i] = fmt.Errorf("failed to get mailbox status: %w", err)
+				continue
+			}
+			st[i] = mailboxFromStatus(names[i], data)
+		}
+		resultCh <- batchResult{st, er}
 	}()
 
-	// Wait for either result or context cancellation
 	select {
 	case <-ctx.Done():
-		c.log.Debug().Str("mailbox", name).Msg("Status cancelled by context")
-		return nil, ctx.Err()
+		c.log.Debug().Int("mailboxes", len(names)).Msg("Status cancelled by context")
+		for i := range errs {
+			errs[i] = ctx.Err()
+		}
+		return statuses, errs
 	case result := <-resultCh:
-		if result.err != nil {
-			return nil, fmt.Errorf("failed to get mailbox status: %w", result.err)
-		}
-
-		mb := &Mailbox{
-			Name: name,
-		}
-
-		// Handle pointer fields
-		if result.data.UIDValidity != 0 {
-			mb.UIDValidity = result.data.UIDValidity
-		}
-		if result.data.UIDNext != 0 {
-			mb.UIDNext = uint32(result.data.UIDNext)
-		}
-		if result.data.NumMessages != nil {
-			mb.Messages = *result.data.NumMessages
-		}
-		if result.data.NumUnseen != nil {
-			mb.Unseen = *result.data.NumUnseen
-		}
-		if result.data.HighestModSeq != 0 {
-			mb.HighestModSeq = result.data.HighestModSeq
-		}
-
-		return mb, nil
+		return result.statuses, result.errs
 	}
 }
 
@@ -934,6 +1057,36 @@ func (c *Client) RemoveMessageFlags(uids []imap.UID, flags []imap.Flag) error {
 		Int("count", len(uids)).
 		Msg("Flags removed successfully")
 
+	return nil
+}
+
+// allUIDs is the UID set covering every message in the selected mailbox
+// ("1:*"; go-imap encodes "*" as 0).
+func allUIDs() imap.UIDSet {
+	return imap.UIDSet{imap.UIDRange{Start: 1, Stop: 0}}
+}
+
+// SetFlagsOnAllMessages adds (add=true) or removes flags on every message in
+// the selected mailbox with a single UID STORE 1:* — the server-side half of
+// "mark all as read/unread", which also reaches mail outside the local sync
+// window. The mailbox must already be selected and non-empty (some servers
+// reject 1:* on an empty mailbox; callers check STATUS first).
+func (c *Client) SetFlagsOnAllMessages(flags []imap.Flag, add bool) error {
+	if c.client == nil {
+		return fmt.Errorf("not connected")
+	}
+	op := imap.StoreFlagsDel
+	if add {
+		op = imap.StoreFlagsAdd
+	}
+	storeFlags := imap.StoreFlags{Op: op, Flags: flags, Silent: true}
+	if err := c.client.Store(allUIDs(), &storeFlags, nil).Close(); err != nil {
+		return fmt.Errorf("failed to store flags on all messages: %w", err)
+	}
+	c.log.Debug().
+		Strs("flags", flagsToStrings(flags)).
+		Bool("add", add).
+		Msg("Stored flags on all messages (1:*)")
 	return nil
 }
 

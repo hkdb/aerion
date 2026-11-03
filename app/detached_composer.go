@@ -54,9 +54,6 @@ type ComposerApp struct {
 	ctx    context.Context
 	config ComposerConfig
 
-	// Debug mode function reference (injected from main)
-	debugMode func() bool
-
 	// IPC client for communication with main window
 	ipcClient ipc.Client
 	ipcToken  string
@@ -111,10 +108,9 @@ type ComposerApp struct {
 }
 
 // NewComposerApp creates a new ComposerApp with the given configuration.
-func NewComposerApp(config ComposerConfig, debugModeFn func() bool) *ComposerApp {
+func NewComposerApp(config ComposerConfig) *ComposerApp {
 	return &ComposerApp{
-		config:    config,
-		debugMode: debugModeFn,
+		config: config,
 	}
 }
 
@@ -122,15 +118,8 @@ func NewComposerApp(config ComposerConfig, debugModeFn func() bool) *ComposerApp
 func (c *ComposerApp) Startup(ctx context.Context) {
 	c.ctx = ctx
 
-	// Initialize logging - fatal only unless --debug flag is used
-	logLevel := "fatal"
-	if c.debugMode != nil && c.debugMode() {
-		logLevel = "debug"
-	}
-	_ = logging.Init(logging.Config{
-		Level:   logLevel,
-		Console: true,
-	})
+	// Logging was initialised by main.go from the --log-level / --log-file
+	// flags the parent process forwarded when it spawned us.
 	log := logging.WithComponent("composer")
 
 	log.Info().

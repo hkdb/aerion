@@ -1,7 +1,7 @@
 /**
  * TipTap editor configuration for the email composer
  */
-import { Editor, Extension } from '@tiptap/core'
+import { Editor, Extension, Node } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
@@ -106,10 +106,22 @@ function textPosToDocPos(doc: any, textPos: number): number {
   return docPos
 }
 
-const ComposerImage = Image.extend({
+export const ComposerImage = Image.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      // Explicit dimensions survive the round-trip (#110: signature icons
+      // rendered at natural size because width/height were dropped).
+      width: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('width') || element.style.width || null,
+        renderHTML: (attributes: Record<string, string>) => (attributes.width ? { width: attributes.width } : {}),
+      },
+      height: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('height') || element.style.height || null,
+        renderHTML: (attributes: Record<string, string>) => (attributes.height ? { height: attributes.height } : {}),
+      },
       'data-original-src': {
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute('data-original-src'),
@@ -125,10 +137,11 @@ const ComposerImage = Image.extend({
 /**
  * Extended Table extensions to preserve inline style attributes
  */
-const ExtendedTable = Table.extend({
+export const ExtendedTable = Table.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      ...passthroughAttributes(['cellpadding', 'cellspacing', 'border', 'width', 'align']),
       style: {
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute('style'),
@@ -141,10 +154,11 @@ const ExtendedTable = Table.extend({
   },
 })
 
-const ExtendedTableCell = TableCell.extend({
+export const ExtendedTableCell = TableCell.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      ...passthroughAttributes(['width', 'align', 'valign']),
       style: {
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute('style'),
@@ -157,10 +171,11 @@ const ExtendedTableCell = TableCell.extend({
   },
 })
 
-const ExtendedTableHeader = TableHeader.extend({
+export const ExtendedTableHeader = TableHeader.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      ...passthroughAttributes(['width', 'align', 'valign']),
       style: {
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute('style'),
@@ -169,6 +184,197 @@ const ExtendedTableHeader = TableHeader.extend({
           return { style: attributes.style }
         },
       },
+    }
+  },
+})
+
+/**
+ * Attribute specs that copy plain HTML attributes through unchanged.
+ */
+function passthroughAttributes(names: string[]): Record<string, object> {
+  const attrs: Record<string, object> = {}
+  for (const name of names) {
+    attrs[name] = {
+      default: null,
+      parseHTML: (element: HTMLElement) => element.getAttribute(name),
+      renderHTML: (attributes: Record<string, string>) => (attributes[name] ? { [name]: attributes[name] } : {}),
+    }
+  }
+  return attrs
+}
+
+/**
+ * Drop the CSS declarations that have dedicated TipTap attributes (color,
+ * font-size, font-family, text-align) from a raw style string, so a toolbar
+ * change never fights a stale copy of the same declaration.
+ */
+export function stripDeclarations(style: string | null, names: string[]): string | null {
+  if (!style) return null
+  const kept = style
+    .split(';')
+    .map(d => d.trim())
+    .filter(d => d && !names.includes(d.split(':')[0].trim().toLowerCase()))
+  return kept.length ? kept.join('; ') : null
+}
+
+const DEDICATED_STYLE_PROPS = ['color', 'font-size', 'font-family', 'text-align']
+
+/**
+ * PreserveStyles keeps the inline `style` attribute on every node and mark
+ * TipTap models, so signatures and pasted HTML survive the compose round-trip
+ * (#110: divider borders, margins, white-space, link colours were all lost).
+ * Declarations with their own TipTap attribute are stripped on parse; TipTap
+ * merges the remaining string with those attributes' own style output.
+ */
+export const PreserveStyles = Extension.create({
+  name: 'preserveStyles',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['paragraph', 'heading', 'blockquote', 'listItem', 'bulletList', 'orderedList', 'horizontalRule', 'tableRow', 'textStyle', 'link', 'image'],
+        attributes: {
+          style: {
+            default: null,
+            parseHTML: (element: HTMLElement) => stripDeclarations(element.getAttribute('style'), DEDICATED_STYLE_PROPS),
+            renderHTML: (attributes: Record<string, string>) => (attributes.style ? { style: attributes.style } : {}),
+          },
+        },
+      },
+    ]
+  },
+})
+
+/**
+ * FontFamily keeps `font-family` from inline styles and legacy <font face>.
+ */
+export const FontFamily = Extension.create({
+  name: 'fontFamilyPreserve',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['textStyle'],
+        attributes: {
+          fontFamily: {
+            default: null,
+            parseHTML: (element: HTMLElement) => {
+              const styleFont = element.style.fontFamily
+              if (styleFont) return styleFont
+              if (element.tagName === 'FONT') return element.getAttribute('face')
+              return null
+            },
+            renderHTML: (attributes: Record<string, string>) => (attributes.fontFamily ? { style: `font-family: ${attributes.fontFamily}` } : {}),
+          },
+        },
+      },
+    ]
+  },
+})
+
+/**
+ * Link that keeps target/rel (style comes from PreserveStyles).
+ */
+export const ExtendedLink = Link.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      ...passthroughAttributes(['target', 'rel']),
+    }
+  },
+})
+
+/**
+ * StyledDiv models a <div style="..."> as a block container. Unstyled divs
+ * keep collapsing into paragraphs as before, so quoted HTML mail only
+ * changes where a div actually carries presentation (#110).
+ */
+export const StyledDiv = Node.create({
+  name: 'styledDiv',
+  group: 'block',
+  content: 'block+',
+  defining: true,
+  addAttributes() {
+    return {
+      style: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('style'),
+        renderHTML: (attributes: Record<string, string>) => (attributes.style ? { style: attributes.style } : {}),
+      },
+    }
+  },
+  parseHTML() {
+    return [{ tag: 'div[style]' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['div', HTMLAttributes, 0]
+  },
+})
+
+/**
+ * RawStyle carries a <style> block (e.g. @font-face / @import for web fonts)
+ * through the document verbatim. ProseMirror ignores <style> unless a rule
+ * claims it; this one does. The editor view wraps it so the (invisible)
+ * element has a sane host, while serialization emits the bare <style>.
+ */
+export const RawStyle = Node.create({
+  name: 'rawStyle',
+  group: 'block',
+  atom: true,
+  selectable: false,
+  draggable: false,
+  addAttributes() {
+    return { css: { default: '' } }
+  },
+  parseHTML() {
+    return [{ tag: 'style', getAttrs: (element) => ({ css: (element as HTMLElement).textContent || '' }) }]
+  },
+  renderHTML({ node }) {
+    const el = document.createElement('style')
+    el.textContent = node.attrs.css
+    return el
+  },
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement('div')
+      dom.className = 'composer-raw-style'
+      dom.contentEditable = 'false'
+      const style = document.createElement('style')
+      style.textContent = node.attrs.css
+      dom.appendChild(style)
+      return { dom }
+    }
+  },
+})
+
+/**
+ * StylesheetLink carries a <link rel="stylesheet"> (web-font stylesheet)
+ * through the document verbatim; the composer view loads it so the font
+ * shows while writing.
+ */
+export const StylesheetLink = Node.create({
+  name: 'stylesheetLink',
+  group: 'block',
+  atom: true,
+  selectable: false,
+  draggable: false,
+  addAttributes() {
+    return { href: { default: null } }
+  },
+  parseHTML() {
+    return [{ tag: 'link[rel="stylesheet"]', getAttrs: (element) => ({ href: (element as HTMLElement).getAttribute('href') }) }]
+  },
+  renderHTML({ node }) {
+    return ['link', { rel: 'stylesheet', href: node.attrs.href }]
+  },
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement('div')
+      dom.className = 'composer-stylesheet-link'
+      dom.contentEditable = 'false'
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = node.attrs.href
+      dom.appendChild(link)
+      return { dom }
     }
   },
 })
@@ -201,6 +407,11 @@ export function createComposerEditor(
       ExtendedTextStyle,
       ExtendedColor,
       FontSize,
+      FontFamily,
+      PreserveStyles,
+      StyledDiv,
+      RawStyle,
+      StylesheetLink,
       TextAlign.configure({
         types: ['paragraph'],
       }),
@@ -210,7 +421,7 @@ export function createComposerEditor(
       TableRow,
       ExtendedTableCell,
       ExtendedTableHeader,
-      Link.configure({
+      ExtendedLink.configure({
         openOnClick: false,
       }),
       ComposerImage.configure({

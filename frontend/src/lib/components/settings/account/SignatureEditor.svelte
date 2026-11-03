@@ -3,112 +3,28 @@
   import Icon from '@iconify/svelte'
   import { Editor, Extension } from '@tiptap/core'
   import StarterKit from '@tiptap/starter-kit'
-  import Link from '@tiptap/extension-link'
   import Underline from '@tiptap/extension-underline'
   import Placeholder from '@tiptap/extension-placeholder'
-  import Image from '@tiptap/extension-image'
-  import TextStyle from '@tiptap/extension-text-style'
-  import Color from '@tiptap/extension-color'
   import TextAlign from '@tiptap/extension-text-align'
-  import Table from '@tiptap/extension-table'
   import TableRow from '@tiptap/extension-table-row'
-  import TableCell from '@tiptap/extension-table-cell'
-  import TableHeader from '@tiptap/extension-table-header'
   import FontSize from 'tiptap-extension-font-size'
   import { _ } from '$lib/i18n'
-
-  // Extended TextStyle to also handle legacy <font> tags
-  const ExtendedTextStyle = TextStyle.extend({
-    parseHTML() {
-      return [
-        { tag: 'span' },
-        { tag: 'font' },  // Handle legacy <font> tags
-      ]
-    },
-  })
-
-  // Extended Color to handle legacy <font color="..."> tags
-  const ExtendedColor = Color.extend({
-    addGlobalAttributes() {
-      return [
-        {
-          types: this.options.types,
-          attributes: {
-            color: {
-              default: null,
-              parseHTML: (element: HTMLElement) => {
-                // Check for inline style color first
-                const styleColor = element.style.color?.replace(/['"]+/g, '')
-                if (styleColor) return styleColor
-                // Check for legacy <font color="..."> attribute
-                if (element.tagName === 'FONT') {
-                  return element.getAttribute('color')
-                }
-                return null
-              },
-              renderHTML: (attributes: Record<string, string>) => {
-                if (!attributes.color) {
-                  return {}
-                }
-                return {
-                  style: `color: ${attributes.color}`,
-                }
-              },
-            },
-          },
-        },
-      ]
-    },
-  })
-
-  // Extended Table extensions to preserve inline style attributes
-  const ExtendedTable = Table.extend({
-    addAttributes() {
-      return {
-        ...this.parent?.(),
-        style: {
-          default: null,
-          parseHTML: (element: HTMLElement) => element.getAttribute('style'),
-          renderHTML: (attributes: Record<string, string>) => {
-            if (!attributes.style) return {}
-            return { style: attributes.style }
-          },
-        },
-      }
-    },
-  })
-
-  const ExtendedTableCell = TableCell.extend({
-    addAttributes() {
-      return {
-        ...this.parent?.(),
-        style: {
-          default: null,
-          parseHTML: (element: HTMLElement) => element.getAttribute('style'),
-          renderHTML: (attributes: Record<string, string>) => {
-            if (!attributes.style) return {}
-            return { style: attributes.style }
-          },
-        },
-      }
-    },
-  })
-
-  const ExtendedTableHeader = TableHeader.extend({
-    addAttributes() {
-      return {
-        ...this.parent?.(),
-        style: {
-          default: null,
-          parseHTML: (element: HTMLElement) => element.getAttribute('style'),
-          renderHTML: (attributes: Record<string, string>) => {
-            if (!attributes.style) return {}
-            return { style: attributes.style }
-          },
-        },
-      }
-    },
-  })
+  // Shared with the composer so the signature round-trips with the same
+  // fidelity in both editors (#110).
+  import {
+    ExtendedTextStyle,
+    ExtendedColor,
+    ExtendedTable,
+    ExtendedTableCell,
+    ExtendedTableHeader,
+    ExtendedLink,
+    ComposerImage,
+    PreserveStyles,
+    FontFamily,
+    StyledDiv,
+    RawStyle,
+    StylesheetLink,
+  } from '$lib/components/composer/composerEditor'
 
   // Custom extension to make Enter insert <br> instead of new paragraph
   // Optimized with direct ProseMirror transaction for better performance
@@ -240,6 +156,11 @@
         ExtendedTextStyle,  // Required for Color extension (extended for better paste support)
         ExtendedColor,      // Text color support (extended for font tags and inline styles)
         FontSize,           // Font size support
+        FontFamily,         // font-family / <font face> preservation
+        PreserveStyles,     // inline style preservation on every node/mark
+        StyledDiv,          // styled div containers
+        RawStyle,           // embedded CSS blocks (web fonts)
+        StylesheetLink,     // stylesheet links (web fonts)
         TextAlign.configure({
           types: ['paragraph'],  // Apply to paragraphs
         }),
@@ -253,13 +174,13 @@
         TableRow,
         ExtendedTableCell,
         ExtendedTableHeader,
-        Link.configure({
+        ExtendedLink.configure({
           openOnClick: false,
           HTMLAttributes: {
             class: 'text-primary underline',
           },
         }),
-        Image.configure({
+        ComposerImage.configure({
           inline: true,
           allowBase64: true,
           HTMLAttributes: {
@@ -759,9 +680,12 @@
       oninput={handleRawHtmlInput}
       spellcheck="false"
     ></textarea>
-  {:else}
-    <div bind:this={editorElement} class="min-h-[100px]"></div>
   {/if}
+  <!-- Always mounted: the TipTap editor is created once and renders into this
+       element, so it must only be hidden in raw mode, never unmounted (a
+       re-mounted div would be empty while the editor still drew into the
+       detached one). -->
+  <div bind:this={editorElement} class="min-h-[100px]" class:hidden={rawHtmlMode}></div>
 </div>
 
 <style>
