@@ -22,6 +22,7 @@
 - Fixed sync stalling on an empty-subject message from servers that send a malformed ENVELOPE - [#463](https://github.com/hkdb/aerion/issues/463)
 - Fixed merged duplicate messages staying unread and leaving copies behind on delete/move (actions now apply to every copy in the folder)
 - Calendar: changing an event's start now moves the end to keep the duration - [#466](https://github.com/hkdb/aerion/issues/466)
+- Fixed the message list not highlighting the message opened from a notification click
 
 
 **v0.3.5 - 09-21-2026**

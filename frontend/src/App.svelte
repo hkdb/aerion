@@ -314,10 +314,9 @@
       selectedConversationAccountId = data.accountId
       selectedConversationFolderId = data.folderId
 
-      // Highlight the thread in the message list (with small delay to ensure list has loaded)
-      setTimeout(() => {
-        messageListRef?.selectThread(data.threadId)
-      }, 100)
+      // Highlight the thread in the message list. The list keeps the request
+      // pending until its folder load lands, so no timing assumption here.
+      messageListRef?.selectThread(data.threadId)
 
       // Persist state
       saveUIState({

@@ -66,6 +66,11 @@
   let loading = $state(false)
   let error = $state<string | null>(null)
   let selectedThreadId = $state<string | null>(null)
+  // A selection requested from outside (notification click) while the list
+  // may still be loading its folder. Applied when the load lands, and it
+  // takes precedence over the auto-select-first and session-restore writers,
+  // which otherwise overwrite it (regression since the session restore).
+  let pendingSelectThreadId: string | null = null
   let lastLoadedFolderId = $state<string | null>(null) // Track folder changes
   let loadGeneration = $state(0) // Invalidates stale async results when folder changes mid-load (#200)
 
@@ -372,7 +377,9 @@
       // Restore the selection (keyboard-nav anchor) so j/k continue from
       // where the user left off instead of the auto-selected first row —
       // only if the thread still exists in the reloaded window.
+      // An external selection (notification click) wins over the restore.
       if (
+        !pendingSelectThreadId &&
         remembered.selectedThreadId &&
         conversations.some((c) => c.threadId === remembered.selectedThreadId)
       ) {
@@ -488,7 +495,12 @@
         return
       }
 
-      if (folderChanged || !selectedThreadId) {
+      if (pendingSelectThreadId && conversations.some(c => c.threadId === pendingSelectThreadId)) {
+        selectedThreadId = pendingSelectThreadId
+        pendingSelectThreadId = null
+        scrollToIndex(conversations.findIndex(c => c.threadId === selectedThreadId))
+      }
+      if (!pendingSelectThreadId && (folderChanged || !selectedThreadId)) {
         selectedThreadId = conversations[0].threadId
       }
       totalCount = count
@@ -1111,13 +1123,18 @@
     }
   }
 
-  // Select a specific thread by ID (exposed for notification clicks)
+  // Select a specific thread by ID (exposed for notification clicks). If the
+  // thread is not in the list yet (folder still loading), the request is kept
+  // and applied when the load completes.
   export function selectThread(threadId: string) {
-    selectedThreadId = threadId
     const index = activeList.findIndex(c => c.threadId === threadId)
-    if (index >= 0) {
-      scrollToIndex(index)
+    if (index < 0 || loading) {
+      pendingSelectThreadId = threadId
+      return
     }
+    pendingSelectThreadId = null
+    selectedThreadId = threadId
+    scrollToIndex(index)
   }
 
   // Toggle search focus (exposed for keyboard navigation via Ctrl+S)
