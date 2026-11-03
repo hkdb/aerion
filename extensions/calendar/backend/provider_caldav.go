@@ -32,6 +32,7 @@ type caldavProvider struct {
 	secrets coreapi.Secrets
 	events  coreapi.EventBus
 	auth    coreapi.Auth
+	log     coreapi.Logger // optional; nil = silent
 }
 
 const (
@@ -111,7 +112,12 @@ func (p caldavProvider) SyncCalendar(ctx context.Context, src Source, cal Calend
 		}
 		parsed, perr := ParseCalendarObject(e.rawICS)
 		if perr != nil {
-			continue // skip a malformed event, keep the rest
+			// Skip a malformed object, keep the rest — but say so: an Outlook
+			// invite with a Windows TZID vanished here silently for months.
+			if p.log != nil {
+				p.log.Warn(fmt.Sprintf("calendar sync: skipping unparseable object %s: %v", e.href, perr))
+			}
+			continue
 		}
 		server[parsed.Master.UID] = serverEntry{
 			etag:   e.etag,

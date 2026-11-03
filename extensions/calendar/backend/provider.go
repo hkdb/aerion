@@ -212,7 +212,7 @@ type ProviderDeps struct {
 func ProviderForSource(src Source, deps ProviderDeps) Provider {
 	switch src.Type {
 	case SourceTypeCalDAV:
-		return caldavProvider{store: deps.Store, secrets: deps.Secrets, events: deps.Events, auth: deps.Auth}
+		return caldavProvider{store: deps.Store, secrets: deps.Secrets, events: deps.Events, auth: deps.Auth, log: deps.Log}
 	case SourceTypeGoogle:
 		return googleProvider{store: deps.Store, auth: deps.Auth}
 	case SourceTypeMicrosoft:
