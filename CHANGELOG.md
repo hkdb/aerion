@@ -1,6 +1,6 @@
 # CHANGELOG
 
-**v0.3.6 - 11-02-2026**
+**v0.3.6 - 11-03-2026**
 ---
 
 - Added Brazilian Portuguese (pt-BR) translation - @sasnascimento
@@ -9,7 +9,7 @@
 - Sync rework - [docs/SYNC_REWORK.md](docs/SYNC_REWORK.md)
 - Improved debug/logging
 - Fixed login by sending IMAP ID to servers that require it - [#457](https://github.com/hkdb/aerion/issues/457)
-- "Mark all as read/unread" on a folder can now include mail older than the sync period on the server (asks when there is any) - [#458](https://github.com/hkdb/aerion/issues/458)
+- "Mark all as read/unread" on a folder can now include mail older than the sync period (asks when there is any) - [#458](https://github.com/hkdb/aerion/issues/458)
 - Empty folders now say when there are messages older than the sync period
 - Gmail accounts archive to All Mail by default - [#464](https://github.com/hkdb/aerion/issues/464)
 - Fixed shutdown/reboot when Aerion running in the background (SIGTERM now quits) - [#460](https://github.com/hkdb/aerion/issues/460)
@@ -26,7 +26,7 @@
 - Fixed the message list not highlighting the message opened from a notification click
 - Add Account: Fixed Account Name and Username refilling after being cleared - [#451](https://github.com/hkdb/aerion/issues/451)
 - Confined auto-fill to Add Account
-- Add Account: Removed auto-capitalizing account name on auto-fill.  
+- Add Account: Removed auto-capitalizing account name on auto-fill  
 
 
 **v0.3.5 - 09-21-2026**

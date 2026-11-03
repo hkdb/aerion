@@ -375,10 +375,33 @@
   </provides>
 
   <releases>
-    <release version="0.3.6" date="2026-10-02">
+    <release version="0.3.6" date="2026-11-03">
       <description>
         <ul>
-          <li></li>
+          <li>Added Brazilian Portuguese (pt-BR) translation - @sasnascimento</li>
+          <li>Added Japanse(ja) translation - @theluckystrike</li>
+          <li>Added Turkish (tr) translation - @omertahaoztop</li>
+          <li>Sync rework - (See docs/SYNC_REWORK.md on Github for destails)</li>
+          <li>Improved debug/logging</li>
+          <li>Fixed login by sending IMAP ID to servers that require it - #457</li>
+          <li>"Mark all as read/unread" on a folder can now include mail older than the sync period (asks when there is any) - #458</li>
+          <li>Empty folders now say when there are messages older than the sync period</li>
+          <li>Gmail accounts archive to All Mail by default - #464</li>
+          <li>Fixed shutdown/reboot when Aerion running in the background (SIGTERM now quits) - #460</li>
+          <li>Fixed attachment save failing when the Downloads folder has been moved or does not exist - #474</li>
+          <li>HTML signatures and pasted HTML keep their inline styles, link colours, image sizes, fonts and web-font links in the composer - #110</li>
+          <li>Fixed the signature editor showing blank after switching from HTML back to visual mode</li>
+          <li>Fixed extra blank space under images in the composer and signature editor</li>
+          <li>Fixed the reading pane showing a blank "(No subject)" conversation after deleting a message - #260</li>
+          <li>Fixed mouse-dead UI after the first-run dialogs - #448</li>
+          <li>Fixed sync stalling on an empty-subject message from servers that send a malformed ENVELOPE - #463</li>
+          <li>Fixed merged duplicate messages staying unread and leaving copies behind on delete/move (actions now apply to every copy in the folder)</li>
+          <li>Calendar: changing an event's start now moves the end to keep the duration - #466</li>
+          <li>Calendar: events with Windows time zone IDs (Outlook invites) now sync and expand correctly - #467</li>
+          <li>Fixed the message list not highlighting the message opened from a notification click</li>
+          <li>Add Account: Fixed Account Name and Username refilling after being cleared - #451</li>
+          <li>Confined auto-fill to Add Account</li>
+          <li>Add Account: Removed auto-capitalizing account name on auto-fill</li>
         </ul>
       </description>
     </release>
@@ -614,7 +637,6 @@
     </release>
     <release version="0.1.39" date="2026-04-27">
       <description>
-        
         <p>As of 2026-04-26, Aerion is CASA Tier 2 certified and verified by Google so oAuth2 signin will no longer be blocked.</p>
 
         <p>v0.1.39 is a major milestone that includes some remaining originally planned basic features and a substantial amount of bug fixes/refinements focused on making existing features much more reliable/stable. It will serve as a solid foundation for us to continue the further development of this mail client.</p>
