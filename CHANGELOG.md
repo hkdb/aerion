@@ -23,6 +23,9 @@
 - Fixed merged duplicate messages staying unread and leaving copies behind on delete/move (actions now apply to every copy in the folder)
 - Calendar: changing an event's start now moves the end to keep the duration - [#466](https://github.com/hkdb/aerion/issues/466)
 - Fixed the message list not highlighting the message opened from a notification click
+- Add Account: Fixed Account Name and Username refilling after being cleared - [#451](https://github.com/hkdb/aerion/issues/451)
+- Confined auto-fill to Add Account
+- Add Account: Removed auto-capitalizing account name on auto-fill.  
 
 
 **v0.3.5 - 09-21-2026**
