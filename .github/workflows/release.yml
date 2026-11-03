@@ -50,7 +50,9 @@ jobs:
           node-version: '24'
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        # Pin to the library version in go.mod. @latest broke the release when
+        # Wails 2.17.1 started requiring Go 1.26 while the runner has 1.25.
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
 
       - name: Install Linux dependencies
         if: matrix.platform == 'linux'
