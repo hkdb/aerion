@@ -132,6 +132,7 @@ func (e *Engine) recoverFailedHeaderBatch(ctx context.Context, client *imapclien
 				m.References = string(refsJSON)
 			}
 			m.ReadReceiptTo = e.extractDispositionNotificationTo(headerBytes)
+			m.ListUnsubscribe, m.ListUnsubscribePost = e.extractListUnsubscribe(headerBytes)
 		}
 
 		if err := e.messageStore.Upsert(m); err != nil {

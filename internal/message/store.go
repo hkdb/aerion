@@ -590,8 +590,9 @@ func (s *Store) Create(m *Message) error {
 			subject, from_name, from_email, to_list, cc_list, bcc_list, reply_to, date,
 			snippet, is_read, is_starred, is_answered, is_forwarded, is_draft, is_deleted,
 			size, has_attachments, body_text, body_html, body_fetched,
-			read_receipt_to, read_receipt_handled, received_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			read_receipt_to, read_receipt_handled, received_at,
+			list_unsubscribe, list_unsubscribe_post
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err := s.db.Exec(query,
@@ -605,6 +606,8 @@ func (s *Store) Create(m *Message) error {
 		nullString(m.BodyText), nullString(m.BodyHTML), m.BodyFetched,
 		nullString(m.ReadReceiptTo), m.ReadReceiptHandled,
 		m.ReceivedAt,
+		// Written as '' (not NULL) when absent: NULL means "never extracted"
+		m.ListUnsubscribe, m.ListUnsubscribePost,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create message: %w", err)
@@ -630,8 +633,9 @@ func (s *Store) Upsert(m *Message) error {
 			subject, from_name, from_email, to_list, cc_list, bcc_list, reply_to, date,
 			snippet, is_read, is_starred, is_answered, is_forwarded, is_draft, is_deleted,
 			size, has_attachments, body_text, body_html, body_fetched,
-			read_receipt_to, read_receipt_handled, received_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			read_receipt_to, read_receipt_handled, received_at,
+			list_unsubscribe, list_unsubscribe_post
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(folder_id, uid) DO UPDATE SET
 			id=excluded.id, account_id=excluded.account_id,
 			message_id=excluded.message_id, in_reply_to=excluded.in_reply_to,
@@ -646,7 +650,8 @@ func (s *Store) Upsert(m *Message) error {
 			body_text=excluded.body_text, body_html=excluded.body_html,
 			body_fetched=excluded.body_fetched,
 			read_receipt_to=excluded.read_receipt_to, read_receipt_handled=excluded.read_receipt_handled,
-			received_at=excluded.received_at
+			received_at=excluded.received_at,
+			list_unsubscribe=excluded.list_unsubscribe, list_unsubscribe_post=excluded.list_unsubscribe_post
 	`
 
 	_, err := s.db.Exec(query,
@@ -660,6 +665,8 @@ func (s *Store) Upsert(m *Message) error {
 		nullString(m.BodyText), nullString(m.BodyHTML), m.BodyFetched,
 		nullString(m.ReadReceiptTo), m.ReadReceiptHandled,
 		m.ReceivedAt,
+		// Written as '' (not NULL) when absent: NULL means "never extracted"
+		m.ListUnsubscribe, m.ListUnsubscribePost,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to upsert message: %w", err)
@@ -787,6 +794,36 @@ func (s *Store) MarkReadReceiptHandled(id string) error {
 	_, err := s.db.Exec("UPDATE messages SET read_receipt_handled = 1 WHERE id = ?", id)
 	if err != nil {
 		return fmt.Errorf("failed to mark read receipt handled: %w", err)
+	}
+	return nil
+}
+
+// GetListUnsubscribe returns the stored List-Unsubscribe and
+// List-Unsubscribe-Post header values for a message. known is false when the
+// headers were never extracted (rows synced before migration 45).
+func (s *Store) GetListUnsubscribe(id string) (header, post string, known bool, err error) {
+	var h, p sql.NullString
+	err = s.db.QueryRow(
+		"SELECT list_unsubscribe, list_unsubscribe_post FROM messages WHERE id = ?", id,
+	).Scan(&h, &p)
+	if err == sql.ErrNoRows {
+		return "", "", false, fmt.Errorf("message not found: %s", id)
+	}
+	if err != nil {
+		return "", "", false, fmt.Errorf("failed to get list-unsubscribe headers: %w", err)
+	}
+	return h.String, p.String, h.Valid, nil
+}
+
+// SetListUnsubscribe stores the List-Unsubscribe and List-Unsubscribe-Post
+// header values for a message. Empty strings mark the headers as checked-absent.
+func (s *Store) SetListUnsubscribe(id, header, post string) error {
+	_, err := s.db.Exec(
+		"UPDATE messages SET list_unsubscribe = ?, list_unsubscribe_post = ? WHERE id = ?",
+		header, post, id,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to set list-unsubscribe headers: %w", err)
 	}
 	return nil
 }

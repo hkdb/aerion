@@ -760,6 +760,20 @@ export namespace app {
 		    return a;
 		}
 	}
+	export class UnsubscribeResult {
+	    method: string;
+	    target: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UnsubscribeResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.method = source["method"];
+	        this.target = source["target"];
+	    }
+	}
 
 }
 
@@ -2768,6 +2782,29 @@ export namespace sync {
 		    }
 		    return a;
 		}
+	}
+
+}
+
+export namespace unsubscribe {
+	
+	export class Info {
+	    available: boolean;
+	    method: string;
+	    target: string;
+	    fromBody: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Info(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.method = source["method"];
+	        this.target = source["target"];
+	        this.fromBody = source["fromBody"];
+	    }
 	}
 
 }

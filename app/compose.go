@@ -465,11 +465,13 @@ func (ops *composeOps) sendMessage(ctx context.Context, accountID string, msg sm
 	}
 
 	// Add recipients to local contacts (best-effort; send already succeeded)
-	for _, to := range msg.To {
-		_ = ops.contactStore.AddOrUpdate(to.Address, to.Name)
-	}
-	for _, cc := range msg.Cc {
-		_ = ops.contactStore.AddOrUpdate(cc.Address, cc.Name)
+	if !msg.SkipContacts {
+		for _, to := range msg.To {
+			_ = ops.contactStore.AddOrUpdate(to.Address, to.Name)
+		}
+		for _, cc := range msg.Cc {
+			_ = ops.contactStore.AddOrUpdate(cc.Address, cc.Name)
+		}
 	}
 
 	// Delete draft if one was provided (send already succeeded — log errors, don't fail)

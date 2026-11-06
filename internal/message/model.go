@@ -55,6 +55,11 @@ type Message struct {
 	ReadReceiptTo      string `json:"readReceiptTo,omitempty"` // Email requesting receipt (from Disposition-Notification-To header)
 	ReadReceiptHandled bool   `json:"readReceiptHandled"`      // Whether user has responded (sent or ignored)
 
+	// Mailing-list unsubscribe headers (RFC 2369 / RFC 8058). Server-internal:
+	// the frontend uses App.GetUnsubscribeInfo instead.
+	ListUnsubscribe     string `json:"-"`
+	ListUnsubscribePost string `json:"-"`
+
 	// S/MIME status (empty = not S/MIME)
 	SMIMEStatus        string `json:"smimeStatus,omitempty"`
 	SMIMESignerEmail   string `json:"smimeSignerEmail,omitempty"`

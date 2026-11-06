@@ -861,6 +861,7 @@ func (e *Engine) fetchMessageHeaders(ctx context.Context, client *imapclient.Cli
 		if len(headerBytes) > 0 {
 			references = e.extractReferences(headerBytes)
 			m.ReadReceiptTo = e.extractDispositionNotificationTo(headerBytes)
+			m.ListUnsubscribe, m.ListUnsubscribePost = e.extractListUnsubscribe(headerBytes)
 		}
 
 		// Store references as JSON array

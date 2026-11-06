@@ -16,6 +16,7 @@ import {settings} from '../models';
 import {pgp} from '../models';
 import {smime} from '../models';
 import {appstate} from '../models';
+import {unsubscribe} from '../models';
 import {sync} from '../models';
 import {draft} from '../models';
 
@@ -391,6 +392,8 @@ export function GetUnifiedInboxCount(arg1:string):Promise<number>;
 
 export function GetUnifiedInboxUnreadCount():Promise<number>;
 
+export function GetUnsubscribeInfo(arg1:string):Promise<unsubscribe.Info>;
+
 export function HasPGPKey(arg1:string):Promise<boolean>;
 
 export function HasSMIMECertificate(arg1:string):Promise<boolean>;
@@ -680,6 +683,8 @@ export function Trash(arg1:Array<string>):Promise<boolean>;
 export function Undo():Promise<string>;
 
 export function Unstar(arg1:Array<string>):Promise<void>;
+
+export function Unsubscribe(arg1:string):Promise<app.UnsubscribeResult>;
 
 export function UnsubscribeFolder(arg1:string,arg2:string):Promise<void>;
 

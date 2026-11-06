@@ -746,6 +746,10 @@ export function GetUnifiedInboxUnreadCount() {
   return window['go']['app']['App']['GetUnifiedInboxUnreadCount']();
 }
 
+export function GetUnsubscribeInfo(arg1) {
+  return window['go']['app']['App']['GetUnsubscribeInfo'](arg1);
+}
+
 export function HasPGPKey(arg1) {
   return window['go']['app']['App']['HasPGPKey'](arg1);
 }
@@ -1324,6 +1328,10 @@ export function Undo() {
 
 export function Unstar(arg1) {
   return window['go']['app']['App']['Unstar'](arg1);
+}
+
+export function Unsubscribe(arg1) {
+  return window['go']['app']['App']['Unsubscribe'](arg1);
 }
 
 export function UnsubscribeFolder(arg1, arg2) {
