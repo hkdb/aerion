@@ -30,6 +30,10 @@ export function GetComposeMode() {
   return window['go']['app']['ComposerApp']['GetComposeMode']();
 }
 
+export function GetCustomCSS() {
+  return window['go']['app']['ComposerApp']['GetCustomCSS']();
+}
+
 export function GetDarkComposerBody() {
   return window['go']['app']['ComposerApp']['GetDarkComposerBody']();
 }

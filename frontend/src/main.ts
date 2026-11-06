@@ -1,9 +1,10 @@
 import './app.css'
 import { initI18n } from './lib/i18n'
 import App from './App.svelte'
+import { initCustomCSS } from './lib/customCss'
 import { mount } from 'svelte'
 // @ts-ignore - wailsjs path
-import { IsReady } from '../wailsjs/go/app/App'
+import { GetCustomCSS, IsReady } from '../wailsjs/go/app/App'
 // @ts-ignore - wailsjs path
 import { EventsOn, WindowShow } from '../wailsjs/runtime/runtime'
 
@@ -17,6 +18,7 @@ async function bootstrap(): Promise<void> {
   WindowShow()
   await initI18n()
   await waitForBackendReady()
+  await initCustomCSS(GetCustomCSS)
   mount(App, { target: document.getElementById('app')! })
 }
 

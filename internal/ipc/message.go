@@ -26,8 +26,11 @@ const (
 
 // Message type constants for Main -> Composer (broadcast) communication
 const (
-	// TypeThemeChanged indicates the system theme changed
+	// TypeThemeChanged indicates the selected application theme changed
 	TypeThemeChanged = "theme_changed"
+
+	// TypeCustomCSSChanged indicates the user stylesheet changed
+	TypeCustomCSSChanged = "custom_css_changed"
 
 	// TypeShutdown indicates the main app is closing
 	TypeShutdown = "shutdown"
@@ -75,7 +78,12 @@ type ComposerClosedPayload struct {
 
 // ThemeChangedPayload is the payload for TypeThemeChanged messages.
 type ThemeChangedPayload struct {
-	Theme string `json:"theme"` // "light", "dark", or "system"
+	Theme string `json:"theme"`
+}
+
+// CustomCSSChangedPayload is the payload for TypeCustomCSSChanged messages.
+type CustomCSSChangedPayload struct {
+	CSS string `json:"css"`
 }
 
 // ShutdownPayload is the payload for TypeShutdown messages.

@@ -3,10 +3,42 @@ package app
 import (
 	"context"
 
+	"github.com/hkdb/aerion/internal/customcss"
 	"github.com/hkdb/aerion/internal/logging"
 	"github.com/hkdb/aerion/internal/platform"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+// initCustomCSSWatcher watches the user stylesheet and propagates effective
+// content changes to the main frontend and detached composer processes.
+func (a *App) initCustomCSSWatcher(ctx context.Context) {
+	log := logging.WithComponent("app.theme.custom-css")
+	watcher, err := customcss.NewWatcher(a.paths.Config)
+	if err != nil {
+		log.Warn().Err(err).Msg("Custom CSS watcher not available")
+		return
+	}
+
+	log.Debug().Str("path", customcss.Path(a.paths.Config)).Msg("Custom CSS watcher initialized")
+	go watcher.Run(ctx, func(css string) {
+		if css == "" {
+			log.Debug().Msg("Custom CSS cleared")
+		} else {
+			log.Debug().Int("bytes", len(css)).Msg("Custom CSS reloaded")
+		}
+		wailsRuntime.EventsEmit(a.ctx, "theme:custom-css-changed", css)
+		if err := a.broadcastCustomCSSChange(css); err != nil {
+			log.Warn().Err(err).Msg("Failed to broadcast custom CSS change")
+		}
+	}, func(err error) {
+		log.Warn().Err(err).Msg("Custom CSS reload failed")
+	})
+}
+
+// GetCustomCSS returns the optional user stylesheet from Aerion's configuration directory.
+func (a *App) GetCustomCSS() (string, error) {
+	return customcss.Load(customcss.Path(a.paths.Config))
+}
 
 // initThemeMonitor initializes the system theme monitor for portal-based theme detection.
 // On Linux, this uses the XDG Settings Portal. On other platforms, it's a no-op

@@ -45,6 +45,22 @@ func TestNewMessageWithPayload(t *testing.T) {
 	}
 }
 
+func TestCustomCSSChangedPayload(t *testing.T) {
+	want := ":root { --primary: red; }"
+	msg, err := NewMessage(TypeCustomCSSChanged, CustomCSSChangedPayload{CSS: want})
+	if err != nil {
+		t.Fatalf("NewMessage failed: %v", err)
+	}
+
+	var payload CustomCSSChangedPayload
+	if err := msg.ParsePayload(&payload); err != nil {
+		t.Fatalf("ParsePayload failed: %v", err)
+	}
+	if payload.CSS != want {
+		t.Fatalf("parsed CSS = %q, want %q", payload.CSS, want)
+	}
+}
+
 func TestNewReply(t *testing.T) {
 	original, err := NewMessage(TypePing, nil)
 	if err != nil {

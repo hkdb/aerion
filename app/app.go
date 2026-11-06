@@ -757,6 +757,10 @@ func (a *App) Startup(ctx context.Context) {
 	// Initialize IPC for multi-window support
 	a.initIPC(ctx)
 
+	// Watch the optional user stylesheet after IPC is available so changes can
+	// be forwarded to detached composer processes as well as the main frontend.
+	a.initCustomCSSWatcher(ctx)
+
 	// Initialize network connectivity monitor (event-driven, zero polling).
 	// Must be initialized before background sync so scheduler and IDLE
 	// can use it to skip operations when offline.
