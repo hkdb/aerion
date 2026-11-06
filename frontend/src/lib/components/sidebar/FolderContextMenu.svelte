@@ -10,21 +10,48 @@
     MarkAllFolderMessagesAsUnread,
     MarkWholeFolder,
     GetMarkAllCoverage,
+    EmptyTrash,
   } from '../../../../wailsjs/go/app/App'
   import { toasts } from '$lib/stores/toast'
   import type { Snippet } from 'svelte'
   import { _ } from '$lib/i18n'
   import MarkAllScopeDialog from './MarkAllScopeDialog.svelte'
+  import { ConfirmDialog } from '$lib/components/ui/confirm-dialog'
 
   interface Props {
     folderId: string
+    /** Account owning the folder (needed for "Empty trash") */
+    accountId?: string
+    /** Folder type; "Empty trash" is offered only for 'trash' */
+    folderType?: string
+    /** Called after the trash was emptied (e.g. to reload the message list) */
+    onEmptied?: () => void
     children?: Snippet
   }
 
   let {
     folderId,
+    accountId,
+    folderType,
+    onEmptied,
     children,
   }: Props = $props()
+
+  // Empty-trash confirmation, same flow as the button in the message list
+  let showEmptyTrashConfirm = $state(false)
+
+  async function handleEmptyTrash() {
+    if (!accountId) return
+    try {
+      await EmptyTrash(accountId, folderId)
+      toasts.success($_('toast.trashEmptied'))
+      onEmptied?.()
+    } catch (err) {
+      console.error('Empty trash failed:', err)
+      toasts.error($_('toast.failedToEmptyTrash'))
+    }
+    showEmptyTrashConfirm = false
+  }
 
   // Whole-folder scope prompt (#458): shown only when the server holds mail
   // beyond the sync period that the local-only action would not reach.
@@ -84,6 +111,16 @@
   }
 </script>
 
+<ConfirmDialog
+  bind:open={showEmptyTrashConfirm}
+  title={$_('dialog.emptyTrash')}
+  description={$_('dialog.emptyTrashDescription')}
+  confirmLabel={$_('dialog.confirmEmptyTrash')}
+  variant="destructive"
+  onConfirm={handleEmptyTrash}
+  onCancel={() => { showEmptyTrashConfirm = false }}
+/>
+
 <MarkAllScopeDialog
   bind:open={scopeOpen}
   seen={scopeSeen}
@@ -108,5 +145,11 @@
       <Icon icon="mdi:email-outline" class="mr-2 h-4 w-4" />
       {$_('contextMenu.markAllAsUnread')}
     </ContextMenuItem>
+    {#if folderType === 'trash' && accountId}
+      <ContextMenuItem onSelect={() => { showEmptyTrashConfirm = true }}>
+        <Icon icon="mdi:delete-sweep-outline" class="mr-2 h-4 w-4" />
+        {$_('messageList.emptyTrash')}
+      </ContextMenuItem>
+    {/if}
   </ContextMenuContent>
 </ContextMenuPrimitive.Root>
