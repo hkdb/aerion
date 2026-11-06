@@ -8,12 +8,12 @@
   import Icon from '@iconify/svelte'
   import { _ } from 'svelte-i18n'
   import { isPaneFlashing, type FocusablePane } from '$lib/stores/keyboard.svelte'
-  // Self-managed responsive (mobile + tablet) behavior — read the layout
-  // store directly so consumers (extension panes) never forward responsive
-  // props. At medium (≤1024px) and narrow (≤767px) the detail pane renders
-  // as an overlay AND a back-arrow button is injected at the start of the
-  // header (calls hideViewer to return to the list). Matches mail's
-  // ConversationViewer pattern at App.svelte:1488 1-for-1.
+  // Self-managed responsive behavior — read the layout store directly so
+  // consumers (extension panes) never forward responsive props. In medium
+  // and narrow modes, the detail pane renders as an overlay AND a back-arrow
+  // button is injected at the start of the header (calls hideViewer to return
+  // to the list). Matches mail's ConversationViewer pattern at App.svelte:1488
+  // 1-for-1.
   import { isResponsive, getResponsiveView, hideViewer } from '$lib/stores/layout.svelte'
 
   interface Props {
@@ -53,14 +53,13 @@
     Header rendering rules — matched 1-for-1 with mail's ConversationViewer
     pattern at App.svelte:1488 (showBackButton={isResponsive()}):
 
-      - Full (>1024px): render header bar ONLY when the consumer provided a
+      - Full mode: render the header bar ONLY when the consumer provided a
         `header` snippet AND we're not in the empty state. No back button.
-      - Responsive (medium ≤1024px OR narrow ≤767px): render header bar
-        UNCONDITIONALLY so the back button is always visible. Both medium and
-        narrow render the detail pane as an overlay (per responsive-viewer-
-        overlay CSS) — both need the back affordance. Using `narrow` only
-        would strand users at medium breakpoints (laptop tablet windows) with
-        a visible overlay and no back button.
+      - Responsive modes (medium and narrow): render the header bar
+        UNCONDITIONALLY so the back button is always visible. Both modes
+        render the detail pane as an overlay (per responsive-viewer-overlay
+        CSS) and need the back affordance. Using `narrow` only would strand
+        users in medium mode with a visible overlay and no back button.
   -->
   {#if overlay || (!empty && header)}
     <header class="flex items-center gap-3 px-4 py-3 border-b border-border">
