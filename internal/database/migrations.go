@@ -1357,4 +1357,16 @@ var migrations = []Migration{
 			ALTER TABLE accounts ADD COLUMN imap_require_id INTEGER NOT NULL DEFAULT 0;
 		`,
 	},
+	{
+		Version: 45,
+		SQL: `
+			-- Mailing-list unsubscribe support: raw List-Unsubscribe (RFC 2369)
+			-- and List-Unsubscribe-Post (RFC 8058) header values. Sync writes ''
+			-- when the header is absent, so NULL means "never extracted" (rows
+			-- synced before this migration); those are backfilled on demand from
+			-- IMAP the first time the message is opened.
+			ALTER TABLE messages ADD COLUMN list_unsubscribe TEXT;
+			ALTER TABLE messages ADD COLUMN list_unsubscribe_post TEXT;
+		`,
+	},
 }

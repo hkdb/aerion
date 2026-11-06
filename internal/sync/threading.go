@@ -75,3 +75,15 @@ func (e *Engine) extractDispositionNotificationTo(raw []byte) string {
 	// e.g., "John Doe <john@example.com>" or just "john@example.com"
 	return strings.TrimSpace(dntHeader)
 }
+
+// extractListUnsubscribe extracts the List-Unsubscribe (RFC 2369) and
+// List-Unsubscribe-Post (RFC 8058) headers. Both are returned as raw,
+// unfolded values; empty when absent.
+func (e *Engine) extractListUnsubscribe(raw []byte) (header, post string) {
+	entity, err := gomessage.Read(bytes.NewReader(raw))
+	if err != nil {
+		return "", ""
+	}
+	return strings.TrimSpace(entity.Header.Get("List-Unsubscribe")),
+		strings.TrimSpace(entity.Header.Get("List-Unsubscribe-Post"))
+}

@@ -11,6 +11,7 @@
   import { message as messageModels } from '../../../../wailsjs/go/models'
   import AttachmentList from './AttachmentList.svelte'
   import EmailBody from './EmailBody.svelte'
+  import UnsubscribeButton from './UnsubscribeButton.svelte'
   import { toasts } from '$lib/stores/toast'
   import { setFocusedPane, isInputElement, isComposerOpen } from '$lib/stores/keyboard.svelte'
   import { ConfirmDialog } from '$lib/components/ui/confirm-dialog'
@@ -1514,6 +1515,11 @@
                       <!-- Unread indicator -->
                       {#if !msg.isRead}
                         <span class="w-2 h-2 rounded-full bg-primary flex-shrink-0"></span>
+                      {/if}
+
+                      <!-- Unsubscribe (List-Unsubscribe header or body link) -->
+                      {#if isExpanded && !isDraftsFolder}
+                        <UnsubscribeButton messageId={msg.id} onArchive={isTrashFolder ? undefined : handleArchive} />
                       {/if}
                     </div>
 

@@ -871,6 +871,23 @@ func (e *Engine) FetchBodiesInBackground(ctx context.Context, accountID, folderI
 // FetchRawMessage fetches the raw RFC822 content of a message from the IMAP server.
 // Uses streaming fetch to avoid blocking on .Collect().
 func (e *Engine) FetchRawMessage(ctx context.Context, accountID, folderID string, uid uint32) ([]byte, error) {
+	return e.fetchBodySection(ctx, accountID, folderID, uid, imap.PartSpecifierNone)
+}
+
+// FetchMessageHeaders fetches only the RFC822 header block of a message
+// (BODY.PEEK[HEADER]). Used to backfill header-derived fields on demand.
+func (e *Engine) FetchMessageHeaders(ctx context.Context, accountID, folderID string, uid uint32) ([]byte, error) {
+	return e.fetchBodySection(ctx, accountID, folderID, uid, imap.PartSpecifierHeader)
+}
+
+// ExtractListUnsubscribe returns the List-Unsubscribe and List-Unsubscribe-Post
+// header values from raw message (or header-only) bytes.
+func (e *Engine) ExtractListUnsubscribe(raw []byte) (header, post string) {
+	return e.extractListUnsubscribe(raw)
+}
+
+// fetchBodySection fetches a single BODY.PEEK[<specifier>] section of a message.
+func (e *Engine) fetchBodySection(ctx context.Context, accountID, folderID string, uid uint32, specifier imap.PartSpecifier) ([]byte, error) {
 	// Get folder path
 	f, err := e.folderStore.Get(folderID)
 	if err != nil {
@@ -900,7 +917,7 @@ func (e *Engine) FetchRawMessage(ctx context.Context, accountID, folderID string
 	fetchOptions := &imap.FetchOptions{
 		BodySection: []*imap.FetchItemBodySection{
 			{
-				Specifier: imap.PartSpecifierNone,
+				Specifier: specifier,
 				Peek:      true,
 			},
 		},
@@ -965,6 +982,7 @@ func (e *Engine) buildMessageFromStreamedData(accountID, folderID string, uid im
 	if len(rawBytes) > 0 {
 		references = e.extractReferences(rawBytes)
 		m.ReadReceiptTo = e.extractDispositionNotificationTo(rawBytes)
+		m.ListUnsubscribe, m.ListUnsubscribePost = e.extractListUnsubscribe(rawBytes)
 	}
 
 	// Store references as JSON array
