@@ -4,6 +4,7 @@ package smtp
 import (
 	"bytes"
 	"fmt"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -91,13 +92,23 @@ func BuildMDN(originalMsg *message.Message, fromName, fromEmail string, disposit
 	return buf.Bytes(), nil
 }
 
-// domainFromEmail extracts the domain part from an email address
+// domainFromEmail extracts the domain part from an email address.
+// It accepts plain addresses ("user@example.com") as well as formatted ones
+// ("Name <user@example.com>") and falls back to "localhost.localdomain" when
+// no usable domain is found, so the result is always safe to use in a
+// Message-ID right-hand side.
 func domainFromEmail(email string) string {
-	parts := strings.Split(email, "@")
-	if len(parts) == 2 {
-		return parts[1]
+	addr := strings.TrimSpace(email)
+	if parsed, err := mail.ParseAddress(addr); err == nil {
+		addr = parsed.Address
 	}
-	return "localhost"
+	if i := strings.LastIndex(addr, "@"); i >= 0 {
+		domain := strings.Trim(strings.TrimSpace(addr[i+1:]), "<>")
+		if domain != "" && !strings.ContainsAny(domain, " \t<>@") {
+			return strings.ToLower(domain)
+		}
+	}
+	return "localhost.localdomain"
 }
 
 // extractEmailAddress extracts just the email address from a potentially formatted address

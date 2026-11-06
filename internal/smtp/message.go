@@ -106,8 +106,9 @@ func (m *ComposeMessage) AllRecipients() []string {
 func (m *ComposeMessage) ToRFC822() ([]byte, error) {
 	var buf bytes.Buffer
 
-	// Generate Message-ID
-	messageID := fmt.Sprintf("<%s@aerion>", uuid.New().String())
+	// Generate Message-ID using a fully qualified domain derived from the
+	// sender's address (RFC 5322 id-right), e.g. <uuid@example.com>
+	messageID := fmt.Sprintf("<%s@%s>", uuid.New().String(), domainFromEmail(m.From.Address))
 
 	// Write headers
 	writeHeader(&buf, "From", m.From.String())

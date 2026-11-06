@@ -1,6 +1,7 @@
 package smtp
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -134,6 +135,38 @@ func TestToRFC822_Basic(t *testing.T) {
 	for _, check := range checks {
 		if !strings.Contains(output, check.contains) {
 			t.Errorf("expected RFC822 output to contain %s (%q), but it was missing", check.label, check.contains)
+		}
+	}
+}
+
+func TestToRFC822MessageIDUsesSenderDomain(t *testing.T) {
+	m := &ComposeMessage{
+		From:     Address{Name: "Test", Address: "user@Example.com"},
+		To:       []Address{{Address: "to@example.org"}},
+		Subject:  "hi",
+		TextBody: "body",
+	}
+	raw, err := m.ToRFC822()
+	if err != nil {
+		t.Fatal(err)
+	}
+	re := regexp.MustCompile(`(?m)^Message-ID: <[0-9a-f-]{36}@example\.com>\r?$`)
+	if !re.Match(raw) {
+		t.Errorf("Message-ID does not use sender domain:\n%s", raw)
+	}
+}
+
+func TestDomainFromEmail(t *testing.T) {
+	cases := map[string]string{
+		"user@example.com":        "example.com",
+		"Name <user@Example.com>": "example.com",
+		"":                        "localhost.localdomain",
+		"nodomain":                "localhost.localdomain",
+		"user@":                   "localhost.localdomain",
+	}
+	for in, want := range cases {
+		if got := domainFromEmail(in); got != want {
+			t.Errorf("domainFromEmail(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
