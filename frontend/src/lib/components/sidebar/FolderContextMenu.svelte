@@ -10,21 +10,65 @@
     MarkAllFolderMessagesAsUnread,
     MarkWholeFolder,
     GetMarkAllCoverage,
+    EmptyTrash,
+    EmptySpam,
   } from '../../../../wailsjs/go/app/App'
   import { toasts } from '$lib/stores/toast'
   import type { Snippet } from 'svelte'
   import { _ } from '$lib/i18n'
   import MarkAllScopeDialog from './MarkAllScopeDialog.svelte'
+  import { ConfirmDialog } from '$lib/components/ui/confirm-dialog'
 
   interface Props {
     folderId: string
+    /** Account owning the folder (needed for "Empty trash/spam") */
+    accountId?: string
+    /** Folder type; "Empty trash"/"Empty spam" are offered only for 'trash'/'spam' */
+    folderType?: string
+    /** Called after the trash/spam folder was emptied (e.g. to reload the message list) */
+    onEmptied?: () => void
     children?: Snippet
   }
 
   let {
     folderId,
+    accountId,
+    folderType,
+    onEmptied,
     children,
   }: Props = $props()
+
+  // Empty-trash confirmation, same flow as the button in the message list
+  let showEmptyTrashConfirm = $state(false)
+
+  async function handleEmptyTrash() {
+    if (!accountId) return
+    try {
+      await EmptyTrash(accountId, folderId)
+      toasts.success($_('toast.trashEmptied'))
+      onEmptied?.()
+    } catch (err) {
+      console.error('Empty trash failed:', err)
+      toasts.error($_('toast.failedToEmptyTrash'))
+    }
+    showEmptyTrashConfirm = false
+  }
+
+  // Empty-spam confirmation, same flow as the button in the message list
+  let showEmptySpamConfirm = $state(false)
+
+  async function handleEmptySpam() {
+    if (!accountId) return
+    try {
+      await EmptySpam(accountId, folderId)
+      toasts.success($_('toast.spamEmptied'))
+      onEmptied?.()
+    } catch (err) {
+      console.error('Empty spam failed:', err)
+      toasts.error($_('toast.failedToEmptySpam'))
+    }
+    showEmptySpamConfirm = false
+  }
 
   // Whole-folder scope prompt (#458): shown only when the server holds mail
   // beyond the sync period that the local-only action would not reach.
@@ -84,6 +128,26 @@
   }
 </script>
 
+<ConfirmDialog
+  bind:open={showEmptyTrashConfirm}
+  title={$_('dialog.emptyTrash')}
+  description={$_('dialog.emptyTrashDescription')}
+  confirmLabel={$_('dialog.confirmEmptyTrash')}
+  variant="destructive"
+  onConfirm={handleEmptyTrash}
+  onCancel={() => { showEmptyTrashConfirm = false }}
+/>
+
+<ConfirmDialog
+  bind:open={showEmptySpamConfirm}
+  title={$_('dialog.emptySpam')}
+  description={$_('dialog.emptySpamDescription')}
+  confirmLabel={$_('dialog.confirmEmptySpam')}
+  variant="destructive"
+  onConfirm={handleEmptySpam}
+  onCancel={() => { showEmptySpamConfirm = false }}
+/>
+
 <MarkAllScopeDialog
   bind:open={scopeOpen}
   seen={scopeSeen}
@@ -108,5 +172,17 @@
       <Icon icon="mdi:email-outline" class="mr-2 h-4 w-4" />
       {$_('contextMenu.markAllAsUnread')}
     </ContextMenuItem>
+    {#if folderType === 'trash' && accountId}
+      <ContextMenuItem onSelect={() => { showEmptyTrashConfirm = true }}>
+        <Icon icon="mdi:delete-sweep-outline" class="mr-2 h-4 w-4" />
+        {$_('messageList.emptyTrash')}
+      </ContextMenuItem>
+    {/if}
+    {#if folderType === 'spam' && accountId}
+      <ContextMenuItem onSelect={() => { showEmptySpamConfirm = true }}>
+        <Icon icon="mdi:delete-sweep-outline" class="mr-2 h-4 w-4" />
+        {$_('messageList.emptySpam')}
+      </ContextMenuItem>
+    {/if}
   </ContextMenuContent>
 </ContextMenuPrimitive.Root>
