@@ -11,6 +11,7 @@
     MarkWholeFolder,
     GetMarkAllCoverage,
     EmptyTrash,
+    EmptySpam,
   } from '../../../../wailsjs/go/app/App'
   import { toasts } from '$lib/stores/toast'
   import type { Snippet } from 'svelte'
@@ -20,11 +21,11 @@
 
   interface Props {
     folderId: string
-    /** Account owning the folder (needed for "Empty trash") */
+    /** Account owning the folder (needed for "Empty trash/spam") */
     accountId?: string
-    /** Folder type; "Empty trash" is offered only for 'trash' */
+    /** Folder type; "Empty trash"/"Empty spam" are offered only for 'trash'/'spam' */
     folderType?: string
-    /** Called after the trash was emptied (e.g. to reload the message list) */
+    /** Called after the trash/spam folder was emptied (e.g. to reload the message list) */
     onEmptied?: () => void
     children?: Snippet
   }
@@ -51,6 +52,22 @@
       toasts.error($_('toast.failedToEmptyTrash'))
     }
     showEmptyTrashConfirm = false
+  }
+
+  // Empty-spam confirmation, same flow as the button in the message list
+  let showEmptySpamConfirm = $state(false)
+
+  async function handleEmptySpam() {
+    if (!accountId) return
+    try {
+      await EmptySpam(accountId, folderId)
+      toasts.success($_('toast.spamEmptied'))
+      onEmptied?.()
+    } catch (err) {
+      console.error('Empty spam failed:', err)
+      toasts.error($_('toast.failedToEmptySpam'))
+    }
+    showEmptySpamConfirm = false
   }
 
   // Whole-folder scope prompt (#458): shown only when the server holds mail
@@ -121,6 +138,16 @@
   onCancel={() => { showEmptyTrashConfirm = false }}
 />
 
+<ConfirmDialog
+  bind:open={showEmptySpamConfirm}
+  title={$_('dialog.emptySpam')}
+  description={$_('dialog.emptySpamDescription')}
+  confirmLabel={$_('dialog.confirmEmptySpam')}
+  variant="destructive"
+  onConfirm={handleEmptySpam}
+  onCancel={() => { showEmptySpamConfirm = false }}
+/>
+
 <MarkAllScopeDialog
   bind:open={scopeOpen}
   seen={scopeSeen}
@@ -149,6 +176,12 @@
       <ContextMenuItem onSelect={() => { showEmptyTrashConfirm = true }}>
         <Icon icon="mdi:delete-sweep-outline" class="mr-2 h-4 w-4" />
         {$_('messageList.emptyTrash')}
+      </ContextMenuItem>
+    {/if}
+    {#if folderType === 'spam' && accountId}
+      <ContextMenuItem onSelect={() => { showEmptySpamConfirm = true }}>
+        <Icon icon="mdi:delete-sweep-outline" class="mr-2 h-4 w-4" />
+        {$_('messageList.emptySpam')}
       </ContextMenuItem>
     {/if}
   </ContextMenuContent>
