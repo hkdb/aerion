@@ -8,6 +8,7 @@
   <summary xml:lang="ja">軽量なオープンソースのLinux向けメールクライアント</summary>
   <summary xml:lang="cs">Nenáročný open-source e-mailový klient pro Linux</summary>
   <summary xml:lang="de">Schlanker Open-Source-E-Mail-Client für Linux</summary>
+  <summary xml:lang="es">Cliente de correo ligero y de código abierto para Linux</summary>
   <summary xml:lang="fr">Client e-mail open-source léger pour Linux</summary>
   <summary xml:lang="it">Leggero client di posta elettronica open-source per Linux</summary>
   <summary xml:lang="nb">Lettvekt e-postklient for Linux med åpen kildekode</summary>
@@ -31,6 +32,10 @@
     <p xml:lang="de">
       Aerion ist ein moderner, schlanker E-Mail-Client, inspiriert von Geary, mit Fokus auf
       Ressourceneffizienz und eine übersichtliche Benutzeroberfläche.
+    </p>
+    <p xml:lang="es">
+      Aerion es un cliente de correo moderno y ligero inspirado en Geary, centrado en
+      la eficiencia de recursos y en una experiencia de uso limpia.
     </p>
     <p xml:lang="fr">
       Aerion est un client e-mail moderne et léger inspiré par Geary, axé sur 
@@ -74,6 +79,7 @@
     <p xml:lang="ja">機能:</p>
     <p xml:lang="cs">Funkce:</p>
     <p xml:lang="de">Funktionen:</p>
+    <p xml:lang="es">Funciones:</p>
     <p xml:lang="fr">Fonctionnalités :</p>
     <p xml:lang="it">Funzionalità:</p>
     <p xml:lang="nb">Funksjoner:</p>
@@ -90,6 +96,7 @@
       <li xml:lang="ja">単一の統合受信箱によるマルチアカウント対応</li>
       <li xml:lang="cs">Více e-mailových účtů se sjednocenou schránkou</li>
       <li xml:lang="de">Mehrere E-Mail-Konten mit einem gemeinsamen Posteingang</li>
+      <li xml:lang="es">Varias cuentas de correo con bandeja de entrada unificada</li>
       <li xml:lang="fr">Plusieurs comptes e-mail avec une boîte de réception unifiée</li>
       <li xml:lang="it">Account multipli con un'unica casella di posta elettronica unificata</li>
       <li xml:lang="nb">Bruk flere e-postkontoer med en felles innboks</li>
@@ -105,6 +112,7 @@
       <li xml:lang="ja">Gmail、Outlook、一般的なIMAP/SMTPサービスに対応</li>
       <li xml:lang="cs">Podpora Gmailu, Outlooku a obecného IMAP/SMTP</li>
       <li xml:lang="de">Unterstützung für Gmail, Outlook und generisches IMAP/SMTP</li>
+      <li xml:lang="es">Compatibilidad con Gmail, Outlook e IMAP/SMTP genérico</li>
       <li xml:lang="fr">Prise en charge de Gmail, Outlook et IMAP/SMTP générique</li>
       <li xml:lang="it">Supporta Gmail, Outlook e servizi IMAP/SMTP generici</li>
       <li xml:lang="nb">Støtte for Gmail, Outlook og øvrige tjenester via IMAP/SMTP</li>
@@ -120,6 +128,7 @@
       <li xml:lang="ja">スレッド表示によるメッセージ管理</li>
       <li xml:lang="cs">Zobrazení konverzačních vláken</li>
       <li xml:lang="de">Konversationsansicht (Threading)</li>
+      <li xml:lang="es">Vista de mensajes por conversación</li>
       <li xml:lang="fr">Affichage des messages par fil de discussion</li>
       <li xml:lang="it">Visualizzazione dei messaggi in discussioni</li>
       <li xml:lang="nb">Vise samtaler som tråder</li>
@@ -135,6 +144,7 @@
       <li xml:lang="ja">リッチテキストとTipTap対応のWYSIWYGエディター</li>
       <li xml:lang="cs">Vizuální (WYSIWYG) editor formátovaného textu využívající TipTap</li>
       <li xml:lang="de">WYSIWYG-Editor für Rich-Text mit TipTap-Unterstützung</li>
+      <li xml:lang="es">Editor de texto enriquecido WYSIWYG con TipTap</li>
       <li xml:lang="fr">Éditeur de message WYSIWYG en texte enrichi avec TipTap</li>
       <li xml:lang="it">Editor WYSIWYG con formato Rich Text e supporto TipTap</li>
       <li xml:lang="nb">Enkel WYSIWYG-skriving med rik tekst med TipTap</li>
@@ -150,6 +160,7 @@
       <li xml:lang="ja">連絡先の同期(CardDAV、Google、Microsoft)自動入力機能付き</li>
       <li xml:lang="cs">Synchronizace kontaktů (CardDAV, Google, Microsoft) pro automatické doplňování</li>
       <li xml:lang="de">Kontaktsynchronisation (CardDAV, Google, Microsoft) für automatische Vervollständigung</li>
+      <li xml:lang="es">Sincronización de contactos (CardDAV, Google, Microsoft) para el autocompletado</li>
       <li xml:lang="fr">Synchronisation des contacts (CardDAV, Google, Microsoft) pour l'auto-complétion</li>
       <li xml:lang="it">Sincronizzazione dei contatti (CardDAV, Google, Microsoft) tramite compilazione automatica</li>
       <li xml:lang="nb">Synkronisere kontakter via CardDAV, Google eller Microsoft for automatisk fullføring</li>
@@ -165,6 +176,7 @@
       <li xml:lang="ja">ダークモードと複数のカラーテーマ</li>
       <li xml:lang="cs">Tmavý režim a několik barevných motivů</li>
       <li xml:lang="de">Dunkelmodus und verschiedene Farbedesigns</li>
+      <li xml:lang="es">Modo oscuro y varios temas de color</li>
       <li xml:lang="fr">Mode sombre et thèmes de couleurs multiples</li>
       <li xml:lang="it">Modalità scura e molteplici temi colorati</li>
       <li xml:lang="nb">Mørk modus og flere fargelagte temaer</li>
@@ -180,6 +192,7 @@
       <li xml:lang="ja">Vimスタイルのショートカットによる高速なキーボード操作</li>
       <li xml:lang="cs">Ovládání z klávesnice se zkratkami ve stylu Vim</li>
       <li xml:lang="de">Tastaturfreundliche Navigation mit Tastenkürzeln im Vim-Stil</li>
+      <li xml:lang="es">Navegación por teclado con atajos al estilo de Vim</li>
       <li xml:lang="fr">Navigation au clavier avec raccourcis de style Vim</li>
       <li xml:lang="it">Navigazione rapida tramite tastiera con scorciatoie nello stile Vim</li>
       <li xml:lang="nb">Tastaturvennlig navigasjon med Vim-aktige snarveier</li>
@@ -195,6 +208,7 @@
       <li xml:lang="ja">分離可能なメッセージ作成ウィンドウ</li>
       <li xml:lang="cs">Oddělitelné okno pro psaní zprávy</li>
       <li xml:lang="de">Abdockbares Fenster zum Verfassen von E-Mails</li>
+      <li xml:lang="es">Ventana de redacción separable</li>
       <li xml:lang="fr">Fenêtre de rédaction détachable</li>
       <li xml:lang="it">Finestra di scrittura dei messaggi separabile</li>
       <li xml:lang="nb">Avtagbart vindu for skriving</li>
@@ -210,6 +224,7 @@
       <li xml:lang="ja">メールからの基本的なトラッキング要素の除去</li>
       <li xml:lang="cs">Základní odstraňování sledovacích prvků z e-mailů</li>
       <li xml:lang="de">Grundlegende Entfernung von Tracking-Elementen aus E-Mails</li>
+      <li xml:lang="es">Eliminación básica de rastreadores en los correos</li>
       <li xml:lang="fr">Suppression basique des éléments de suivi des e-mails</li>
       <li xml:lang="it">Rimozione basica degli elementi di tracciamento dalle email</li>
       <li xml:lang="nb">Fjerning av enkle sporingselementer fra e-poster</li>
@@ -225,6 +240,7 @@
       <li xml:lang="ja">PGPおよびS/MIME対応</li>
       <li xml:lang="cs">Podpora PGP a S/MIME</li>
       <li xml:lang="de">Unterstützung für PGP und S/MIME</li>
+      <li xml:lang="es">Compatibilidad con PGP y S/MIME</li>
       <li xml:lang="fr">Prise en charge de PGP et S/MIME</li>
       <li xml:lang="it">Supporto per PGP e S/MIME</li>
       <li xml:lang="nb">Støtte for PGP og S/MIME</li>
@@ -240,6 +256,7 @@
       <li xml:lang="ja">連絡先拡張機能(ALPHA)</li>
       <li xml:lang="cs">Rozšíření Kontakty (ALPHA)</li>
       <li xml:lang="de">Kontakte-Erweiterung (ALPHA)</li>
+      <li xml:lang="es">Extensión de Contactos (ALFA)</li>
       <li xml:lang="fr">Extension Contacts (ALPHA)</li>
       <li xml:lang="it">Estensione Contatti (ALPHA)</li>
       <li xml:lang="nb">Kontakter-utvidelse (ALPHA)</li>
@@ -255,6 +272,7 @@
       <li xml:lang="ja">カレンダー拡張機能(ALPHA)</li>
       <li xml:lang="cs">Rozšíření Kalendář (ALPHA)</li>
       <li xml:lang="de">Kalender-Erweiterung (ALPHA)</li>
+      <li xml:lang="es">Extensión de Calendario (ALFA)</li>
       <li xml:lang="fr">Extension Calendrier (ALPHA)</li>
       <li xml:lang="it">Estensione Calendario (ALPHA)</li>
       <li xml:lang="nb">Kalender-utvidelse (ALPHA)</li>
@@ -270,6 +288,7 @@
       <li xml:lang="ja">汎用IMAP、SMTP、CardDAV、CalDAV向けのカスタムOAuth対応</li>
       <li xml:lang="cs">Podpora vlastního OAuth pro obecný IMAP, SMTP, CardDAV a CalDAV</li>
       <li xml:lang="de">Unterstützung für benutzerdefiniertes OAuth für generisches IMAP, SMTP, CardDAV und CalDAV</li>
+      <li xml:lang="es">Compatibilidad con OAuth personalizado para IMAP, SMTP, CardDAV y CalDAV genéricos</li>
       <li xml:lang="fr">Prise en charge d'OAuth personnalisé pour IMAP, SMTP, CardDAV et CalDAV génériques</li>
       <li xml:lang="it">Supporto per OAuth personalizzato per IMAP, SMTP, CardDAV e CalDAV generici</li>
       <li xml:lang="nb">Støtte for tilpasset OAuth for generisk IMAP, SMTP, CardDAV og CalDAV</li>
@@ -292,6 +311,7 @@
       <caption xml:lang="ja">Aerionのメインウィンドウ。受信箱が表示されています</caption>
       <caption xml:lang="cs">Hlavní okno aplikace Aerion zobrazující schránku</caption>
       <caption xml:lang="de">Das Hauptfenster von Aerion mit dem Posteingang</caption>
+      <caption xml:lang="es">Ventana principal de Aerion con la bandeja de entrada</caption>
       <caption xml:lang="fr">Fenêtre principale d'Aerion affichant la boîte de réception</caption>
       <caption xml:lang="it">Finestra principale di Aerion mostrante la casella di posta</caption>
       <caption xml:lang="nb">Aerion-vindu som viser innboks</caption>
@@ -337,6 +357,10 @@
     <keyword xml:lang="de">E-Mail</keyword>
     <keyword xml:lang="de">Post</keyword>
     <keyword xml:lang="de">Nachrichten</keyword>
+
+    <keyword xml:lang="es">correo</keyword>
+    <keyword xml:lang="es">correo electrónico</keyword>
+    <keyword xml:lang="es">mensajes</keyword>
     
     <keyword xml:lang="fr">e-mail</keyword>
     <keyword xml:lang="fr">courriel</keyword>

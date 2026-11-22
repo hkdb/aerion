@@ -7,6 +7,7 @@ import { loadDateFnsLocale } from './dateFnsLocale'
 register('en', () => import('./locales/en.json'))
 register('cs', () => import('./locales/cs.json'))
 register('de', () => import('./locales/de.json'))
+register('es', () => import('./locales/es.json'))
 register('fr', () => import('./locales/fr.json'))
 register('it', () => import('./locales/it.json'))
 register('ja', () => import('./locales/ja.json'))
@@ -34,6 +35,7 @@ export const supportedLocales = [
   { code: 'en', name: 'English' },
   { code: 'cs', name: 'Čeština' },
   { code: 'de', name: 'Deutsch' },
+  { code: 'es', name: 'Español' },
   { code: 'fr', name: 'Français' },
   { code: 'it', name: 'Italiano' },
   { code: 'ja', name: '日本語' },
